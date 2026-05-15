@@ -121,9 +121,11 @@ td:nth-child(2){min-width:55px}
     </div>
   </div>
   <div class="divider"></div>
-  <div class="fg"><label>Start Date</label><input type="date" id="f-start"></div>
-  <div class="fg"><label>End Date</label><input type="date" id="f-end"></div>
-  <button class="btn-apply" id="btn-apply" onclick="applyDates()">Apply Dates</button>
+  <div class="fg"><label>Month</label>
+    <select id="f-month">
+      <option value="">All Time</option>
+    </select>
+  </div>
   <button class="btn-reset" onclick="resetAll()">Reset</button>
   <div class="sync-info">
     <span id="sync-ts"></span>
@@ -236,7 +238,9 @@ async function load(s='', e='') {
       }));
       isLive = true;
       document.getElementById('mode-badge').innerHTML = '<span class="mode-badge mode-live">⚡ Live · Metabase</span>';
-      document.getElementById('data-info').textContent = allData.length.toLocaleString('en-IN') + ' bikes · ' + (s||'start') + ' → ' + (e||'today') + ' · live from Metabase';
+      const monthSel = document.getElementById('f-month');
+      const monthLabel = monthSel.options[monthSel.selectedIndex]?.text || (s + ' → ' + e);
+      document.getElementById('data-info').textContent = allData.length.toLocaleString('en-IN') + ' bikes · ' + monthLabel + ' · live from Metabase';
     } else {
       // No dates → Supabase (fast)
       const res = await fetch(SB_URL + '/rest/v1/fleet_km_data?select=*&order=current_odometer.desc', { headers: SB_HDR });
@@ -264,7 +268,7 @@ async function load(s='', e='') {
   }
 }
 
-function applyDates() { load(document.getElementById('f-start').value, document.getElementById('f-end').value); }
+function applyDates() { applyMonth(); }
 
 async function triggerSync() {
   const btn = document.getElementById('sync-btn');
@@ -309,7 +313,7 @@ function filterDetail() {
   pg=1; renderDetail();
 }
 function resetAll() {
-  ['f-city','f-hub','f-model','f-start','f-end'].forEach(id=>document.getElementById(id).value='');
+  ['f-city','f-hub','f-model','f-month'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('bike-search').value='';
   document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.type-btn[data-type="total"]').classList.add('active');
@@ -458,6 +462,7 @@ function exportCSV(){
   a.download='fleet_km_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
 }
 
+populateMonths();
 load();
 </script>
 </body>
