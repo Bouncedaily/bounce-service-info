@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RMC Dashboard · Bounce Daily</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--sidebar:#1a2035;--card:#ffffff;
+  --border:#e5e9f0;--border2:#d0d8e8;
+  --blue:#2563eb;--blue2:#1d4ed8;--blue-light:#eff6ff;
+  --red:#dc2626;--green:#16a34a;--amber:#d97706;--purple:#7c3aed;--teal:#0891b2;
+  --text:#0f172a;--text2:#475569;--muted:#94a3b8;
+  --sb-text:#94a3b8;--sb-text2:#e2e8f0;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --sw:210px;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex}
+
+/* SIDEBAR */
+.sidebar{width:var(--sw);flex-shrink:0;background:var(--sidebar);display:flex;flex-direction:column;height:100vh}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sb-logo{width:30px;height:30px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.sb-logo svg{width:16px;height:16px;fill:#fff}
+.sb-name{font-size:13px;font-weight:700;color:#fff;line-height:1.2}
+.sb-sub{font-size:10px;color:var(--sb-text)}
+.sb-sec{padding:18px 14px 6px;font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 14px;margin:1px 8px;border-radius:6px;font-size:12.5px;color:var(--sb-text);cursor:pointer;transition:all .15s;text-decoration:none}
+.sb-item:hover{background:rgba(255,255,255,.07);color:var(--sb-text2)}
+.sb-item.active{background:rgba(37,99,235,.2);color:#93c5fd;font-weight:500}
+.sb-icon{font-size:14px;width:16px;text-align:center}
+.sb-spacer{flex:1}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:var(--muted);font-family:var(--mono)}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:inline-block;margin-right:5px;vertical-align:middle}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* TOPBAR */
+.topbar{flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 22px;height:52px;background:#fff;border-bottom:1px solid var(--border)}
+.pg-title{font-size:15px;font-weight:600;color:var(--text)}
+.pg-sub{font-size:11px;color:var(--text2)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tb-pill{font-size:11px;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:20px;padding:3px 12px;font-family:var(--mono)}
+.tb-pill.live{border-color:rgba(22,163,74,.3);color:var(--green);background:#f0fdf4}
+
+/* FILTERS */
+.filters{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:8px 22px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.fl{display:flex;align-items:center;gap:5px}
+.fl-l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap;font-weight:600}
+select,input[type=date]{background:#fff;border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:5px 10px;font-size:11.5px;font-family:var(--font);outline:none;transition:border-color .15s,box-shadow .15s;cursor:pointer}
+select{padding-right:22px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2394a3b8' d='M5 6L0 0h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+select:focus,input[type=date]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.fsep{width:1px;height:20px;background:var(--border)}
+.clear-btn{background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .15s}
+.clear-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.content::-webkit-scrollbar{width:4px}.content::-webkit-scrollbar-track{background:var(--bg)}.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sh{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sh::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;transition:box-shadow .15s,transform .15s}
+.kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);transform:translateY(-1px)}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.kpi-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600}
+.kpi-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.kpi-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);margin-bottom:3px}
+.kpi-sub{font-size:10px;color:var(--muted)}
+.kpi-bar{height:3px;border-radius:2px;margin-top:10px}
+
+/* CHARTS */
+.g3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.cbox{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:box-shadow .15s}
+.cbox:hover{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+.ct{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600;margin-bottom:14px}
+
+/* TABLE */
+.tbl-box{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+.tbl-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#fafbfd}
+.thl{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600}
+.tw{overflow-x:auto;max-height:260px;overflow-y:auto}
+.tw::-webkit-scrollbar{width:3px;height:3px}.tw::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 14px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);background:#fafbfd;position:sticky;top:0;white-space:nowrap;font-weight:600}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#f8faff}
+tbody td{padding:8px 14px;white-space:nowrap;color:var(--text)}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:500}
+.t-r{background:#fef2f2;color:var(--red)}.t-b{background:#eff6ff;color:var(--blue)}.t-g{background:#f0fdf4;color:var(--green)}
+.t-a{background:#fffbeb;color:var(--amber)}.t-p{background:#faf5ff;color:var(--purple)}
+.bw{display:flex;align-items:center;gap:8px}
+.bb{width:60px;height:4px;background:var(--border);border-radius:2px;flex-shrink:0}
+.bf{height:4px;border-radius:2px;background:var(--blue)}
+.loading{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:11px;padding:32px;font-family:var(--mono)}
+.spin{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+    <div><div class="sb-name">Bounce Daily</div><div class="sb-sub">RMC Ops</div></div>
+  </div>
+  <div class="sb-sec">Analytics</div>
+  <a class="sb-item active" href="dashboard.html"><span class="sb-icon">📊</span>RMC Dashboard</a>
+  <div class="sb-spacer"></div>
+  <div class="sb-foot">
+    <div><span class="sb-dot"></span><span id="sync-lbl">Loading...</span></div>
+    <div style="margin-top:3px;color:#475569">v1 · Internal</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div><div class="pg-title">RMC Cost Dashboard</div><div class="pg-sub">Repair & Maintenance Cost Analysis</div></div>
+    <div class="tb-right">
+      <span class="tb-pill" id="row-badge">—</span>
+      <span class="tb-pill live" id="date-badge">Jan 1 – May 13</span>
+    </div>
+  </div>
+
+  <!-- FILTERS — auto-apply on change -->
+  <div class="filters">
+    <div class="fl"><span class="fl-l">From</span><input type="date" id="f-start" value="2026-01-01"/></div>
+    <div class="fl"><span class="fl-l">To</span><input type="date" id="f-end" value="2026-05-13"/></div>
+    <div class="fsep"></div>
+    <div class="fl"><span class="fl-l">City</span>
+      <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select>
+    </div>
+    <div class="fl"><span class="fl-l">Model</span>
+      <select id="f-model"><option value="">All Models</option><option>e1+x</option><option>e1+xPRO</option><option>LowSpeed</option></select>
+    </div>
+    <div class="fl"><span class="fl-l">Submission</span>
+      <select id="f-sub"><option value="">All</option><option>Recovery</option><option>Running Repair</option><option>Rider Submission</option><option>Bike Exchange</option></select>
+    </div>
+    <div class="fl"><span class="fl-l">Commodity</span>
+      <select id="f-com"><option value="">All</option><option>Paid MISC</option><option>Wear &amp; Tear</option><option>Accidental Repair</option><option>Warranty</option></select>
+    </div>
+    <div class="fl"><span class="fl-l">Type</span>
+      <select id="f-line"><option value="">All</option><option value="Part">Part</option><option value="Labour">Labour</option></select>
+    </div>
+    <button class="clear-btn" onclick="clearF()">✕ Clear</button>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div>
+      <div class="sh">Cost Overview</div>
+      <div class="kpi-grid" id="kpis"><div class="loading" style="grid-column:1/-1"><div class="spin"></div>Loading...</div></div>
+    </div>
+
+    <!-- Trends -->
+    <div>
+      <div class="sh">Trends & Mix</div>
+      <div class="g3">
+        <div class="cbox"><div class="ct">Daily Cost + Avg/JC</div><canvas id="dailyChart" height="130"></canvas></div>
+        <div class="cbox"><div class="ct">By Submission Type</div><canvas id="subChart" height="130"></canvas></div>
+        <div class="cbox"><div class="ct">By Commodity</div><canvas id="comChart" height="130"></canvas></div>
+      </div>
+    </div>
+
+    <!-- City + Hub -->
+    <div>
+      <div class="sh">City & Hub</div>
+      <div class="g2">
+        <div class="cbox"><div class="ct">Avg Cost / JC by City</div><canvas id="cityChart" height="110"></canvas></div>
+        <div class="cbox"><div class="ct">Top 10 Hubs by Cost</div><canvas id="hubChart" height="110"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Hub table -->
+    <div>
+      <div class="sh">Hub Detail</div>
+      <div class="tbl-box">
+        <div class="tbl-hdr"><span class="thl">Hub-wise RMC Breakdown</span><span id="hub-count" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span></div>
+        <div class="tw" id="hub-tbl"><div class="loading"><div class="spin"></div>Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- Model split -->
+    <div>
+      <div class="sh">Model Split</div>
+      <div class="g2">
+        <div class="cbox" style="padding:12px"><div class="ct" style="margin-bottom:8px">Total Cost by Model</div><canvas id="modelChart" height="60"></canvas></div>
+        <div class="cbox" style="padding:12px"><div class="ct" style="margin-bottom:8px">Avg Cost / JC by Model</div><canvas id="modelAvgChart" height="60"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Top parts -->
+    <div>
+      <div class="sh">Top Parts (Pareto)</div>
+      <div class="tbl-box">
+        <div class="tbl-hdr"><span class="thl">Top 20 Parts by Cost</span><span id="parts-total" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span></div>
+        <div class="tw" id="parts-tbl"><div class="loading"><div class="spin"></div>Loading...</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SB   = "https://fuslpeyhpmofzijrotkb.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs";
+const HDR  = {apikey:ANON,Authorization:`Bearer ${ANON}`};
+const CH   = {};
+const PAL  = ["#2563eb","#16a34a","#d97706","#7c3aed","#0891b2","#dc2626","#0d9488","#9333ea","#ea580c","#ca8a04"];
+let debounceTimer = null;
+
+const fmt = n => {
+  if(!n||isNaN(n)) return "—";
+  if(n>=10000000) return `₹${(n/10000000).toFixed(2)}Cr`;
+  if(n>=100000)   return `₹${(n/100000).toFixed(2)}L`;
+  if(n>=1000)     return `₹${(n/1000).toFixed(1)}K`;
+  return `₹${Math.round(n)}`;
+};
+const grp = (arr,k) => arr.reduce((a,r)=>{const v=r[k]||"Unknown";(a[v]=a[v]||[]).push(r);return a;},{});
+const sm  = (arr,k) => arr.reduce((s,r)=>s+(parseFloat(r[k])||0),0);
+const ujc = arr => arr.reduce((s,r)=>s+(parseInt(r.unique_jcs)||0),0);
+const sjp = arr => arr.reduce((s,r)=>s+(parseInt(r.jcs_with_parts)||0),0);
+
+function mk(id,type,data,opts={}){
+  if(CH[id]) CH[id].destroy();
+  const ctx = document.getElementById(id); if(!ctx) return;
+  CH[id] = new Chart(ctx,{type,data,options:{
+    responsive:true, maintainAspectRatio:true,
+    plugins:{legend:{labels:{color:"#64748b",font:{size:9},boxWidth:10}}},
+    scales: type!=="pie"&&type!=="doughnut" ? {
+      x:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
+      y:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
+    } : undefined,
+    ...opts
+  }});
+}
+
+// Auto-apply on filter change
+function onFilterChange(){
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(load, 400);
+}
+
+// Dates: trigger on change (after calendar selection)
+// Dropdowns: trigger on change
+['f-start','f-end','f-city','f-model','f-sub','f-com','f-line'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', onFilterChange);
+});
+
+function clearF(){
+  document.getElementById("f-start").value = "2026-01-01";
+  document.getElementById("f-end").value   = "2026-05-13";
+  ["f-city","f-model","f-sub","f-com","f-line"].forEach(id=>document.getElementById(id).value="");
+  load();
+}
+
+async function fetchAll(){
+  const body = {
+    p_start: document.getElementById("f-start").value || "2026-01-01",
+    p_end:   document.getElementById("f-end").value   || "2026-05-13",
+    p_city:  document.getElementById("f-city").value  || null,
+    p_sub:   document.getElementById("f-sub").value   || null,
+    p_com:   document.getElementById("f-com").value   || null,
+    p_line:  document.getElementById("f-line").value  || null,
+    p_model: document.getElementById("f-model").value || null,
+  };
+  const r = await fetch(`${SB}/rest/v1/rpc/get_dashboard_data`,{
+    method:"POST", headers:{...HDR,"Content-Type":"application/json"}, body:JSON.stringify(body)
+  });
+  if(!r.ok){ console.error("RPC error",r.status,await r.text()); return null; }
+  return r.json();
+}
+
+async function load(){
+  document.getElementById("kpis").innerHTML = `<div class="loading" style="grid-column:1/-1"><div class="spin"></div>Loading...</div>`;
+  document.getElementById("sync-lbl").textContent = "Loading...";
+
+  const result = await fetchAll();
+  // Handle both {summary:[], parts:[]} and direct array responses
+  let data, partsData;
+  if(!result){ 
+    document.getElementById("kpis").innerHTML = `<div class="loading" style="grid-column:1/-1;color:var(--red)">⚠️ Error loading data</div>`;
+    document.getElementById("sync-lbl").textContent = "Error";
+    return;
+  }
+  if(Array.isArray(result)){
+    // Direct array (shouldn't happen but safety net)
+    data = result; partsData = [];
+  } else if(result.summary) {
+    data = result.summary; partsData = result.parts || [];
+  } else {
+    console.error("Unexpected response:", JSON.stringify(result).slice(0,200));
+    document.getElementById("kpis").innerHTML = `<div class="loading" style="grid-column:1/-1;color:var(--red)">⚠️ Unexpected response format</div>`;
+    document.getElementById("sync-lbl").textContent = "Error";
+    return;
+  }
+
+  const parts  = data.filter(r=>r.line_type==="Part");
+  const labour = data.filter(r=>r.line_type==="Labour");
+  const tc  = sm(data,"total_cost"), pc = sm(data,"part_cost"), lc = sm(data,"labour_cost");
+  const jcs = ujc(data), avg = jcs>0?tc/jcs:0, pjc = sjp(data), att = jcs>0?pjc/jcs*100:0;
+
+  const s = document.getElementById("f-start").value;
+  const e = document.getElementById("f-end").value;
+  document.getElementById("row-badge").textContent  = `${jcs.toLocaleString()} JCs`;
+  document.getElementById("date-badge").textContent = `${s} → ${e}`;
+  document.getElementById("sync-lbl").textContent   = `Synced · ${new Date().toLocaleTimeString()}`;
+
+  // KPIs
+  const KPIS = [
+    {l:"Total Cost",    v:fmt(tc),              s:"Part + Labour",      icon:"💰", bg:"#eff6ff", ic:"#2563eb"},
+    {l:"Part Cost",     v:fmt(pc),              s:pc>0?(pc/tc*100).toFixed(1)+"% of total":"—", icon:"🔩", bg:"#f0fdf4", ic:"#16a34a"},
+    {l:"Labour Cost",   v:fmt(lc),              s:lc>0?(lc/tc*100).toFixed(1)+"% of total":"—", icon:"🔧", bg:"#faf5ff", ic:"#7c3aed"},
+    {l:"Unique JCs",    v:jcs.toLocaleString(), s:"Job cards",          icon:"📋", bg:"#fffbeb", ic:"#d97706"},
+    {l:"Avg / JC",      v:`₹${Math.round(avg)}`,s:"All line items",    icon:"📈", bg:"#fffbeb", ic:"#d97706"},
+    {l:"Part Attach",   v:`${att.toFixed(1)}%`, s:`${pjc} JCs w/ parts`,icon:"🎯",bg:"#f0fdf4", ic:"#16a34a"},
+  ];
+  document.getElementById("kpis").innerHTML = KPIS.map(k=>`
+    <div class="kpi">
+      <div class="kpi-top">
+        <div class="kpi-lbl">${k.l}</div>
+        <div class="kpi-icon" style="background:${k.bg}">${k.icon}</div>
+      </div>
+      <div class="kpi-val">${k.v}</div>
+      <div class="kpi-sub">${k.s}</div>
+      <div class="kpi-bar" style="background:linear-gradient(90deg,${k.ic}22,${k.ic}44)"></div>
+    </div>`).join("");
+
+  // Daily trend
+  const bD = {};
+  data.forEach(r=>{const d=r.date||"";if(d)(bD[d]=bD[d]||[]).push(r);});
+  const dates = Object.keys(bD).sort();
+  mk("dailyChart","bar",{
+    labels: dates.map(d=>d.slice(5)),
+    datasets:[
+      {type:"bar",  label:"Cost (₹)",  data:dates.map(d=>sm(bD[d],"total_cost")), backgroundColor:"rgba(37,99,235,.15)", borderColor:"#2563eb", borderWidth:1.5, yAxisID:"y"},
+      {type:"line", label:"Avg/JC (₹)",data:dates.map(d=>{const r=bD[d];const j=ujc(r);return j>0?sm(r,"total_cost")/j:0;}), borderColor:"#d97706", borderWidth:2, pointRadius:2, tension:.4, yAxisID:"y1", pointBackgroundColor:"#d97706"}
+    ]
+  },{scales:{y:{position:"left",ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},y1:{position:"right",ticks:{color:"#94a3b8",font:{size:9}},grid:{drawOnChartArea:false}}}});
+
+  // Submission donut
+  const bS = grp(data,"submission_type"), sK = Object.keys(bS);
+  mk("subChart","doughnut",{labels:sK,datasets:[{data:sK.map(k=>sm(bS[k],"total_cost")),backgroundColor:PAL,borderColor:"#fff",borderWidth:2}]},{plugins:{legend:{position:"bottom",labels:{color:"#64748b",font:{size:9},boxWidth:10}}}});
+
+  // Commodity donut
+  const bC = grp(data,"commodity"), cK = Object.keys(bC);
+  mk("comChart","doughnut",{labels:cK,datasets:[{data:cK.map(k=>sm(bC[k],"total_cost")),backgroundColor:["#2563eb","#16a34a","#d97706","#7c3aed"],borderColor:"#fff",borderWidth:2}]},{plugins:{legend:{position:"bottom",labels:{color:"#64748b",font:{size:9},boxWidth:10}}}});
+
+  // City avg cost
+  const bCity = grp(data,"city"), cities = Object.keys(bCity);
+  mk("cityChart","bar",{labels:cities,datasets:[{label:"Avg/JC",data:cities.map(c=>{const r=bCity[c];const j=ujc(r);return j>0?sm(r,"total_cost")/j:0;}),backgroundColor:["#dc2626","#2563eb","#16a34a"],borderRadius:5,borderSkipped:false}]},{indexAxis:"y",plugins:{legend:{display:false}}});
+
+  // Hub chart
+  const bH = grp(data,"hub_name");
+  const hubs = Object.keys(bH).sort((a,b)=>{
+    const avgA = ujc(bH[a])>0 ? sm(bH[a],"total_cost")/ujc(bH[a]) : 0;
+    const avgB = ujc(bH[b])>0 ? sm(bH[b],"total_cost")/ujc(bH[b]) : 0;
+    return avgB - avgA;
+  }).slice(0,10);
+  mk("hubChart","bar",{labels:hubs,datasets:[{label:"Cost",data:hubs.map(h=>sm(bH[h],"total_cost")),backgroundColor:PAL,borderRadius:5,borderSkipped:false}]},{indexAxis:"y",plugins:{legend:{display:false}}});
+
+  // Hub table
+  const allH = Object.keys(bH).sort((a,b)=>{
+    const avgA = ujc(bH[a])>0 ? sm(bH[a],"total_cost")/ujc(bH[a]) : 0;
+    const avgB = ujc(bH[b])>0 ? sm(bH[b],"total_cost")/ujc(bH[b]) : 0;
+    return avgB - avgA;
+  });
+  document.getElementById("hub-count").textContent = `${allH.length} hubs`;
+  const maxC = Math.max(...allH.map(h=>sm(bH[h],"total_cost")));
+  document.getElementById("hub-tbl").innerHTML = `
+  <table><thead><tr><th>Hub</th><th>City</th><th>JCs</th><th>Total Cost</th><th>Part Cost</th><th>Labour Cost</th><th>Avg / JC ↓</th><th>Attach%</th></tr></thead>
+  <tbody>${allH.map(hub=>{
+    const r=bH[hub], c=r[0]?.city||"—", j=ujc(r), tc2=sm(r,"total_cost");
+    const pc2=sm(r,"part_cost"), lc2=sm(r,"labour_cost");
+    const av=j>0?tc2/j:0, at=j>0?sjp(r)/j*100:0;
+    const ct=c==="NCR"?"t-r":c==="Bangalore"?"t-b":"t-g";
+    const avC=av>700?"var(--red)":av>400?"var(--amber)":"var(--green)";
+    return`<tr>
+      <td><strong>${hub}</strong></td>
+      <td><span class="tag ${ct}">${c}</span></td>
+      <td style="font-family:var(--mono);color:var(--text2)">${j}</td>
+      <td><div class="bw"><span style="font-family:var(--mono)">${fmt(tc2)}</span><div class="bb"><div class="bf" style="width:${tc2/maxC*100}%"></div></div></div></td>
+      <td style="font-family:var(--mono);color:var(--blue)">${fmt(pc2)}</td>
+      <td style="font-family:var(--mono);color:var(--purple)">${fmt(lc2)}</td>
+      <td style="font-family:var(--mono);font-weight:600;color:${avC}">₹${Math.round(av)}</td>
+      <td style="font-family:var(--mono);color:var(--text2)">${at.toFixed(1)}%</td>
+    </tr>`;
+  }).join("")}</tbody></table>`;
+
+  // Model charts — use all data grouped by model
+  const bM = grp(data,"bike_model_name");
+  const models = Object.keys(bM).filter(m=>m&&m!=="null"&&m!=="undefined"&&m!=="Unknown");
+  if(models.length > 0){
+    mk("modelChart","doughnut",{
+      labels:models,
+      datasets:[{data:models.map(m=>sm(bM[m],"total_cost")),backgroundColor:["#2563eb","#dc2626","#16a34a","#d97706"],borderColor:"#fff",borderWidth:2}]
+    },{plugins:{legend:{position:"right",labels:{color:"#64748b",font:{size:9},boxWidth:10}}}});
+    mk("modelAvgChart","bar",{
+      labels:models,
+      datasets:[{label:"Avg/JC (₹)",data:models.map(m=>{const r=bM[m];const j=ujc(r);return j>0?sm(r,"total_cost")/j:0;}),backgroundColor:["#2563eb","#dc2626","#16a34a","#d97706"],borderRadius:5,borderSkipped:false}]
+    },{indexAxis:"y",plugins:{legend:{display:false}}});
+  }
+
+  // Parts table
+  const grand = partsData.reduce((s,r)=>s+(parseFloat(r.total_cost)||0),0);
+  document.getElementById("parts-total").textContent = `Part cost: ${fmt(grand)}`;
+  let cum=0;
+  document.getElementById("parts-tbl").innerHTML = `
+  <table><thead><tr><th>#</th><th>Part Name</th><th>Commodity</th><th>Qty</th><th>Total Cost</th><th>Avg/Unit</th><th>Share%</th><th>Cum%</th></tr></thead>
+  <tbody>${partsData.map((r,i)=>{
+    const share=(r.total_cost/grand*100).toFixed(1);
+    cum+=r.total_cost/grand*100;
+    const ct=r.commodity==="Accidental Repair"?"t-r":r.commodity==="Wear & Tear"?"t-g":r.commodity==="Warranty"?"t-a":"t-b";
+    const avg2=r.line_items>0?r.total_cost/r.line_items:0;
+    return`<tr>
+      <td style="color:var(--muted);font-family:var(--mono)">${i+1}</td>
+      <td><strong style="font-size:12px">${r.item_name}</strong></td>
+      <td><span class="tag ${ct}" style="font-size:9px">${r.commodity}</span></td>
+      <td style="font-family:var(--mono);color:var(--text2)">${r.line_items}</td>
+      <td style="font-family:var(--mono);color:var(--blue);font-weight:600">${fmt(parseFloat(r.total_cost))}</td>
+      <td style="font-family:var(--mono);color:var(--text2)">₹${Math.round(avg2)}</td>
+      <td style="font-family:var(--mono)">${share}%</td>
+      <td style="font-family:var(--mono);color:${cum<50?"var(--green)":cum<80?"var(--amber)":"var(--muted)"}">${cum.toFixed(1)}%</td>
+    </tr>`;
+  }).join("")}</tbody></table>`;
+}
+
+document.addEventListener("DOMContentLoaded", load);
+</script>
+</body>
+</html>
