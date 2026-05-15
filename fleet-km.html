@@ -6,465 +6,134 @@
 <title>Fleet KM Analysis — Bounce</title>
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3348;
-    --text: #e2e8f0;
-    --muted: #7c85a2;
-    --accent: #6c63ff;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --blue: #3b82f6;
-    --teal: #14b8a6;
+    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3348;
+    --text:#e2e8f0;--muted:#7c85a2;--accent:#6c63ff;
+    --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+    --rev-head:#166534;--cost-head:#1e3a8a;--excl-head:#5b21b6;--wt-head:#7f1d1d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans','Segoe UI',sans-serif;font-size:13px;min-height:100vh}
 
-    /* Column group colors */
-    --rev-bg: #0f2d1a;
-    --rev-head: #166534;
-    --cost-bg: #1a1a2e;
-    --cost-head: #1e3a8a;
-    --excl-bg: #1e1b2e;
-    --excl-head: #5b21b6;
-    --wt-bg: #1a0a0a;
-    --wt-head: #7f1d1d;
-  }
+  .topnav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:32px;height:52px;position:sticky;top:0;z-index:100}
+  .topnav .logo{font-weight:700;font-size:15px;color:var(--accent);letter-spacing:-.3px}
+  .topnav a{color:var(--muted);text-decoration:none;font-size:13px;transition:color .15s;padding:4px 0}
+  .topnav a:hover,.topnav a.active{color:var(--text);border-bottom:2px solid var(--accent)}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .filter-group{display:flex;flex-direction:column;gap:4px}
+  .filter-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .filter-group select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;min-width:130px;cursor:pointer}
+  .filter-group select:focus{outline:none;border-color:var(--accent)}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', 'Segoe UI', sans-serif;
-    font-size: 13px;
-    min-height: 100vh;
-  }
+  .type-btns{display:flex}
+  .type-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:6px 14px;font-size:12px;cursor:pointer;transition:all .15s}
+  .type-btn:first-child{border-radius:6px 0 0 6px}
+  .type-btn:last-child{border-radius:0 6px 6px 0}
+  .type-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .type-btn:hover:not(.active){background:var(--border);color:var(--text)}
 
-  /* ── TOP NAV ── */
-  .topnav {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    gap: 32px;
-    height: 52px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .topnav .logo {
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--accent);
-    letter-spacing: -0.3px;
-  }
-  .topnav a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 13px;
-    transition: color .15s;
-    padding: 4px 0;
-  }
-  .topnav a:hover, .topnav a.active { color: var(--text); border-bottom: 2px solid var(--accent); }
+  .btn-reset{background:transparent;color:var(--muted);border:1px solid var(--border);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s;align-self:flex-end}
+  .btn-reset:hover{color:var(--text);border-color:var(--text)}
 
-  /* ── FILTERS ── */
-  .filter-bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 24px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: flex-end;
-  }
-  .filter-group { display: flex; flex-direction: column; gap: 4px; }
-  .filter-group label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .filter-group select, .filter-group input[type=date] {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    min-width: 130px;
-    cursor: pointer;
-  }
-  .filter-group select:focus, .filter-group input[type=date]:focus {
-    outline: none; border-color: var(--accent);
-  }
+  .sync-info{margin-left:auto;align-self:center;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .sync-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;transition:all .15s}
+  .sync-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .sync-btn:disabled{opacity:.4;cursor:default}
 
-  .filter-type-group { display: flex; flex-direction: column; gap: 4px; }
-  .filter-type-group label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .type-btns { display: flex; gap: 0; }
-  .type-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 6px 14px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .type-btn:first-child { border-radius: 6px 0 0 6px; }
-  .type-btn:last-child { border-radius: 0 6px 6px 0; }
-  .type-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .type-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+  .main{padding:20px 24px}
+  .page-title{font-size:18px;font-weight:700;margin-bottom:4px}
+  .page-sub{color:var(--muted);font-size:12px;margin-bottom:20px}
 
-  .btn-apply {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 7px 18px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity .15s;
-    align-self: flex-end;
-  }
-  .btn-apply:hover { opacity: .85; }
-  .btn-reset {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 7px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all .15s;
-    align-self: flex-end;
-  }
-  .btn-reset:hover { color: var(--text); border-color: var(--text); }
+  .loading{display:flex;align-items:center;gap:12px;padding:40px;color:var(--muted);font-size:14px}
+  .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ── MAIN ── */
-  .main { padding: 20px 24px; }
+  .error-msg{background:#1f0505;border:1px solid var(--red);color:var(--red);padding:12px 16px;border-radius:8px;font-size:13px}
 
-  .page-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .page-sub {
-    color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 20px;
-  }
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .section-title{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+  .badge{background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:11px;padding:2px 8px;border-radius:20px}
 
-  /* ── LOADING ── */
-  .loading {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 40px;
-    color: var(--muted);
-    font-size: 14px;
-  }
-  .spinner {
-    width: 20px; height: 20px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-bottom:28px}
+  table{border-collapse:collapse;width:100%;white-space:nowrap}
 
-  .error-msg {
-    background: #1f0505;
-    border: 1px solid var(--red);
-    color: var(--red);
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-  }
+  .th-group{text-align:center;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .th-rev{background:var(--rev-head);color:#86efac}
+  .th-cost{background:var(--cost-head);color:#93c5fd}
+  .th-excl{background:var(--excl-head);color:#c4b5fd}
+  .th-wt{background:var(--wt-head);color:#fca5a5}
+  .th-base{background:var(--surface2);color:var(--muted)}
 
-  /* ── SECTION HEADER ── */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .section-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .badge {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 20px;
-  }
+  thead tr:nth-child(2) th{background:var(--surface2);color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px;border-bottom:2px solid var(--border);text-align:right}
+  thead tr:nth-child(2) th:first-child,thead tr:nth-child(2) th:nth-child(2){text-align:left}
 
-  /* ── MATRIX TABLE ── */
-  .table-wrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    margin-bottom: 28px;
-  }
+  tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+  tbody tr:hover{background:rgba(108,99,255,.05)}
+  tbody tr.total-row{background:var(--surface2);font-weight:700;border-top:2px solid var(--border)}
 
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    white-space: nowrap;
-  }
+  td{padding:7px 10px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums;font-size:12px}
+  td:first-child{text-align:left;font-weight:600;background:var(--surface);position:sticky;left:0;z-index:1;border-right:1px solid var(--border);min-width:90px}
+  td:nth-child(2){text-align:right;min-width:60px}
 
-  /* Group headers */
-  .th-group {
-    text-align: center;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .5px;
-    text-transform: uppercase;
-    padding: 7px 12px;
-    border-bottom: 1px solid rgba(255,255,255,.1);
-  }
-  .th-rev   { background: var(--rev-head);  color: #86efac; }
-  .th-cost  { background: var(--cost-head); color: #93c5fd; }
-  .th-excl  { background: var(--excl-head); color: #c4b5fd; }
-  .th-wt    { background: var(--wt-head);   color: #fca5a5; }
-  .th-base  { background: var(--surface2);  color: var(--muted); }
+  .z-rev{background:rgba(22,101,52,.15)}
+  .z-cost{background:rgba(30,58,138,.15)}
+  .z-excl{background:rgba(91,33,182,.12)}
+  .z-wt{background:rgba(127,29,29,.12)}
 
-  /* Column headers */
-  thead tr:nth-child(2) th {
-    background: var(--surface2);
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    padding: 6px 10px;
-    border-bottom: 2px solid var(--border);
-    text-align: right;
-  }
-  thead tr:nth-child(2) th:first-child,
-  thead tr:nth-child(2) th:nth-child(2) { text-align: left; }
+  .detail-table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+  .detail-table thead tr th{background:var(--surface2);color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:2px solid var(--border);text-align:right;white-space:nowrap}
+  .detail-table thead tr th:nth-child(-n+5){text-align:left}
+  .detail-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+  .detail-table tbody tr:hover{background:rgba(108,99,255,.06)}
+  .detail-table tbody td{padding:7px 10px;font-size:11.5px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .detail-table tbody td:nth-child(-n+5){text-align:left}
 
-  /* Body rows */
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background .1s;
-  }
-  tbody tr:hover { background: rgba(108,99,255,.05); }
-  tbody tr.total-row {
-    background: var(--surface2);
-    font-weight: 700;
-    border-top: 2px solid var(--border);
-  }
-  tbody tr.total-row td { color: var(--text); }
+  .status-pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+  .s-rfd{background:rgba(34,197,94,.15);color:#22c55e}
+  .s-oos{background:rgba(239,68,68,.15);color:#ef4444}
+  .s-active{background:rgba(59,130,246,.15);color:#60a5fa}
+  .s-other{background:rgba(124,133,162,.15);color:var(--muted)}
 
-  td {
-    padding: 7px 10px;
-    text-align: right;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-    font-size: 12px;
-  }
-  td:first-child {
-    text-align: left;
-    font-weight: 600;
-    color: var(--text);
-    background: var(--surface);
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    border-right: 1px solid var(--border);
-    min-width: 90px;
-  }
-  td:nth-child(2) { text-align: right; min-width: 60px; }
+  .pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:12px 0 4px;font-size:12px;color:var(--muted)}
+  .page-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;transition:all .15s}
+  .page-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .page-btn:disabled{opacity:.3;cursor:default}
 
-  /* Color zones */
-  .z-rev  { background: rgba(22,101,52,.15); }
-  .z-cost { background: rgba(30,58,138,.15); }
-  .z-excl { background: rgba(91,33,182,.12); }
-  .z-wt   { background: rgba(127,29,29,.12); }
-
-  /* ── HEAT MAP CELLS ── */
-  .heat-green { color: #22c55e; }
-  .heat-yellow { color: #f59e0b; }
-  .heat-red { color: #ef4444; }
-  .heat-muted { color: var(--muted); }
-
-  /* ── BIKE DETAIL TABLE ── */
-  .detail-table-wrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-  }
-  .detail-table thead tr th {
-    background: var(--surface2);
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    padding: 8px 10px;
-    border-bottom: 2px solid var(--border);
-    text-align: right;
-    white-space: nowrap;
-  }
-  .detail-table thead tr th:first-child,
-  .detail-table thead tr th:nth-child(2),
-  .detail-table thead tr th:nth-child(3),
-  .detail-table thead tr th:nth-child(4),
-  .detail-table thead tr th:nth-child(5) { text-align: left; }
-
-  .detail-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background .1s;
-  }
-  .detail-table tbody tr:hover { background: rgba(108,99,255,.06); }
-  .detail-table tbody td {
-    padding: 7px 10px;
-    font-size: 11.5px;
-    color: var(--text);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .detail-table tbody td:first-child,
-  .detail-table tbody td:nth-child(2),
-  .detail-table tbody td:nth-child(3),
-  .detail-table tbody td:nth-child(4),
-  .detail-table tbody td:nth-child(5) { text-align: left; }
-
-  .status-pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 10px;
-    font-weight: 600;
-  }
-  .s-rfd    { background: rgba(34,197,94,.15);  color: #22c55e; }
-  .s-oos    { background: rgba(239,68,68,.15);  color: #ef4444; }
-  .s-active { background: rgba(59,130,246,.15); color: #60a5fa; }
-  .s-other  { background: rgba(124,133,162,.15);color: var(--muted); }
-
-  /* Pagination */
-  .pagination {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 12px 0 4px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .page-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 4px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all .15s;
-  }
-  .page-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .page-btn:disabled { opacity: .3; cursor: default; }
-  .page-info { padding: 0 6px; }
-
-  /* Search */
-  .search-wrap { position: relative; }
-  .search-wrap input {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 10px 6px 32px;
-    border-radius: 6px;
-    font-size: 12px;
-    width: 200px;
-  }
-  .search-wrap input:focus { outline: none; border-color: var(--accent); }
-  .search-icon {
-    position: absolute;
-    left: 9px; top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  .section-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .export-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .export-btn:hover { color: var(--text); border-color: var(--text); }
-
-  /* ── RESPONSIVE ── */
-  @media (max-width: 768px) {
-    .filter-bar { padding: 10px 16px; }
-    .main { padding: 14px 16px; }
-  }
+  .section-controls{display:flex;align-items:center;gap:10px}
+  .search-wrap{position:relative}
+  .search-wrap input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px 6px 32px;border-radius:6px;font-size:12px;width:200px}
+  .search-wrap input:focus{outline:none;border-color:var(--accent)}
+  .search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
+  .export-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;transition:all .15s}
+  .export-btn:hover{color:var(--text);border-color:var(--text)}
 </style>
 </head>
 <body>
 
-<!-- NAV -->
 <nav class="topnav">
   <span class="logo">⚡ Bounce Ops</span>
   <a href="dashboard.html">RMC Dashboard</a>
   <a href="fleet-km.html" class="active">Fleet KM Analysis</a>
 </nav>
 
-<!-- FILTERS -->
 <div class="filter-bar">
   <div class="filter-group">
     <label>City</label>
-    <select id="f-city">
-      <option value="">All Cities</option>
-      <option>Bangalore</option>
-      <option>Hyderabad</option>
-      <option>NCR</option>
-    </select>
+    <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>Hyderabad</option><option>NCR</option></select>
   </div>
-
   <div class="filter-group">
     <label>Hub</label>
-    <select id="f-hub">
-      <option value="">All Hubs</option>
-    </select>
+    <select id="f-hub"><option value="">All Hubs</option></select>
   </div>
-
   <div class="filter-group">
     <label>Model</label>
-    <select id="f-model">
-      <option value="">All Models</option>
-      <option>e1+x</option>
-      <option>e1+xPRO</option>
-      <option>LowSpeed</option>
-    </select>
+    <select id="f-model"><option value="">All Models</option><option>e1+x</option><option>e1+xPRO</option><option>LowSpeed</option></select>
   </div>
-
   <div class="filter-group">
     <label>Status</label>
-    <select id="f-status">
-      <option value="">All Status</option>
-      <option value="RFD">RFD</option>
-      <option value="OOS">OOS</option>
-      <option value="Active_rental">Active Rental</option>
-    </select>
+    <select id="f-status"><option value="">All Status</option><option value="RFD">RFD</option><option value="OOS">OOS</option><option value="Active_rental">Active Rental</option></select>
   </div>
-
-  <div class="filter-type-group">
+  <div class="filter-group">
     <label>Cost Type</label>
     <div class="type-btns">
       <button class="type-btn active" data-type="total">Part + Labour</button>
@@ -472,29 +141,25 @@
       <button class="type-btn" data-type="labour">Labour Only</button>
     </div>
   </div>
-
   <button class="btn-reset" onclick="resetFilters()">Reset</button>
+  <div class="sync-info">
+    <span id="sync-ts">–</span>
+    <button class="sync-btn" id="sync-btn" onclick="triggerSync()">🔄 Sync Now</button>
+  </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
   <div class="page-title">Fleet KM Analysis</div>
-  <div class="page-sub" id="data-info">Loading data from Metabase…</div>
+  <div class="page-sub" id="data-info">Loading…</div>
 
-  <div id="loading" class="loading"><div class="spinner"></div> Fetching live fleet data…</div>
+  <div id="loading" class="loading"><div class="spinner"></div> Loading from Supabase…</div>
   <div id="error" class="error-msg" style="display:none"></div>
 
   <div id="content" style="display:none">
-
-    <!-- SUMMARY MATRIX -->
     <div class="section-header">
-      <div class="section-title">
-        📊 KM Cohort Summary
-        <span class="badge" id="matrix-badge">0 buckets</span>
-      </div>
+      <div class="section-title">📊 KM Cohort Summary <span class="badge" id="matrix-badge">–</span></div>
     </div>
-
-    <div class="table-wrap" id="matrix-wrap">
+    <div class="table-wrap">
       <table id="matrix-table">
         <thead>
           <tr>
@@ -505,46 +170,19 @@
             <th class="th-group th-wt"   colspan="5">Wear & Tear</th>
           </tr>
           <tr>
-            <!-- Base -->
-            <th>KM Bucket</th>
-            <th># Bikes</th>
-            <!-- Revenue -->
-            <th class="z-rev">Rental Rev</th>
-            <th class="z-rev">Total Rev</th>
-            <th class="z-rev">Rev/Life</th>
-            <th class="z-rev">Rev/Active</th>
-            <th class="z-rev">Util %</th>
-            <!-- Overall Cost -->
-            <th class="z-cost">Cost</th>
-            <th class="z-cost">Cost/KM</th>
-            <th class="z-cost">JC/Bike</th>
-            <th class="z-cost">Avg/Bike</th>
-            <th class="z-cost">Up%</th>
-            <th class="z-cost">Cost%Rev</th>
-            <!-- Excl. Warranty -->
-            <th class="z-excl">Cost</th>
-            <th class="z-excl">Cost/KM</th>
-            <th class="z-excl">JC/Bike</th>
-            <th class="z-excl">Avg/Bike</th>
-            <th class="z-excl">Cost%Rev</th>
-            <!-- Wear & Tear -->
-            <th class="z-wt">Cost</th>
-            <th class="z-wt">Cost/KM</th>
-            <th class="z-wt">JC/Bike</th>
-            <th class="z-wt">Avg/Bike</th>
-            <th class="z-wt">Cost%Rev</th>
+            <th>KM Bucket</th><th># Bikes</th>
+            <th class="z-rev">Rental Rev</th><th class="z-rev">Total Rev</th><th class="z-rev">Rev/Life</th><th class="z-rev">Rev/Active</th><th class="z-rev">Util%</th>
+            <th class="z-cost">Cost</th><th class="z-cost">Cost/KM</th><th class="z-cost">JC/Bike</th><th class="z-cost">Avg/Bike</th><th class="z-cost">Up%</th><th class="z-cost">Cost%Rev</th>
+            <th class="z-excl">Cost</th><th class="z-excl">Cost/KM</th><th class="z-excl">JC/Bike</th><th class="z-excl">Avg/Bike</th><th class="z-excl">Cost%Rev</th>
+            <th class="z-wt">Cost</th><th class="z-wt">Cost/KM</th><th class="z-wt">JC/Bike</th><th class="z-wt">Avg/Bike</th><th class="z-wt">Cost%Rev</th>
           </tr>
         </thead>
         <tbody id="matrix-body"></tbody>
       </table>
     </div>
 
-    <!-- BIKE DETAIL TABLE -->
     <div class="section-header" style="margin-top:8px">
-      <div class="section-title">
-        🏍️ Bike Level Detail
-        <span class="badge" id="detail-badge">0 bikes</span>
-      </div>
+      <div class="section-title">🏍️ Bike Level Detail <span class="badge" id="detail-badge">–</span></div>
       <div class="section-controls">
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
@@ -553,408 +191,271 @@
         <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
       </div>
     </div>
-
     <div class="detail-table-wrap">
       <table class="detail-table">
-        <thead>
-          <tr>
-            <th>Reg No.</th>
-            <th>City</th>
-            <th>Hub</th>
-            <th>Model</th>
-            <th>Status</th>
-            <th>KM Bucket</th>
-            <th>Curr ODO</th>
-            <th>Active Days</th>
-            <th>Util%</th>
-            <th>OOS%</th>
-            <th>Uptime%</th>
-            <th>Total Cost</th>
-            <th>Part Cost</th>
-            <th>Labour Cost</th>
-            <th>W&T Cost</th>
-            <th>Warranty Cost</th>
-            <th>Cost/KM</th>
-            <th>JC Count</th>
-            <th>Rental Rev</th>
-            <th>Total Rev</th>
-            <th>Cost%Rev</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>Reg No.</th><th>City</th><th>Hub</th><th>Model</th><th>Status</th>
+          <th>KM Bucket</th><th>Curr ODO</th><th>Active Days</th><th>Util%</th><th>OOS%</th><th>Uptime%</th>
+          <th>Total Cost</th><th>Part Cost</th><th>Labour Cost</th><th>W&T Cost</th><th>Warranty Cost</th>
+          <th>Cost/KM</th><th>JC Count</th><th>Rental Rev</th><th>Total Rev</th><th>Cost%Rev</th>
+        </tr></thead>
         <tbody id="detail-body"></tbody>
       </table>
     </div>
     <div class="pagination">
-      <span id="page-info" class="page-info"></span>
+      <span id="page-info"></span>
       <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← Prev</button>
       <button class="page-btn" id="btn-next" onclick="changePage(1)">Next →</button>
     </div>
-
-  </div><!-- /content -->
-</div><!-- /main -->
+  </div>
+</div>
 
 <script>
-// ─────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────
-const METABASE_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/metabase-proxy';
+const SUPABASE_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const SYNC_FN       = `${SUPABASE_URL}/functions/v1/sync-fleet-km`;
+
+const ODO_ORDER = ['Undeployed','0 - 5K','5K - 10K','10K - 15K','15K - 20K','20K - 25K','25K - 30K','30K - 35K','35K - 40K','40K+','No Data'];
 const ROWS_PER_PAGE = 50;
 
-let allData    = [];   // raw from Metabase
-let filtered   = [];   // after filter
-let detailData = [];   // after bike-search
-let costType   = 'total'; // part | labour | total
-let currentPage = 1;
+let allData=[], filtered=[], detailData=[], costType='total', currentPage=1;
 
-const ODO_ORDER = ['Undeployed','0 - 5K','5K - 10K','10K - 15K','15K - 20K',
-                   '20K - 25K','25K - 30K','30K - 35K','35K - 40K','40K+','No Data'];
-
-// ─────────────────────────────────────────────
-// FETCH
-// ─────────────────────────────────────────────
+// ── FETCH FROM SUPABASE ──
 async function fetchData() {
   try {
-    const res = await fetch(METABASE_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/fleet_km_data?select=*&order=current_odometer.desc`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    );
+    if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`);
     allData = await res.json();
-    if (!Array.isArray(allData)) throw new Error('Unexpected response format');
+    if (!Array.isArray(allData)) throw new Error('Bad response');
+
+    // Get last sync time
+    const syncRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/fleet_km_data?select=synced_at&order=synced_at.desc&limit=1`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    );
+    const syncData = await syncRes.json();
+    if (syncData?.[0]?.synced_at) {
+      const d = new Date(syncData[0].synced_at);
+      document.getElementById('sync-ts').textContent = `Last sync: ${d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}`;
+    }
+
     populateHubs();
     applyFilters();
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
+    document.getElementById('loading').style.display='none';
+    document.getElementById('content').style.display='block';
     document.getElementById('data-info').textContent =
-      `Live data · ${allData.length.toLocaleString()} bikes · Last fetched ${new Date().toLocaleTimeString('en-IN')}`;
+      `${allData.length.toLocaleString()} bikes · Supabase · refreshed every hour`;
   } catch(e) {
-    document.getElementById('loading').style.display = 'none';
-    const errEl = document.getElementById('error');
-    errEl.style.display = 'block';
-    errEl.textContent = `Failed to load data: ${e.message}`;
+    document.getElementById('loading').style.display='none';
+    const el=document.getElementById('error');
+    el.style.display='block';
+    el.textContent=`Failed to load: ${e.message}`;
   }
 }
 
-// ─────────────────────────────────────────────
-// POPULATE HUB DROPDOWN (city-aware)
-// ─────────────────────────────────────────────
-function populateHubs(cityFilter='') {
-  const sel = document.getElementById('f-hub');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">All Hubs</option>';
-  const hubs = [...new Set(
-    allData
-      .filter(r => !cityFilter || r.City === cityFilter)
-      .map(r => r['Hub Name'])
-      .filter(Boolean)
-  )].sort();
-  hubs.forEach(h => {
-    const o = document.createElement('option');
-    o.value = o.textContent = h;
-    if (h === current) o.selected = true;
-    sel.appendChild(o);
-  });
+// ── SYNC NOW ──
+async function triggerSync() {
+  const btn=document.getElementById('sync-btn');
+  btn.disabled=true; btn.textContent='⏳ Syncing…';
+  try {
+    const res=await fetch(SYNC_FN,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d=await res.json();
+    if(d.success){ btn.textContent='✅ Done!'; setTimeout(()=>{ btn.textContent='🔄 Sync Now'; btn.disabled=false; fetchData(); },1500); }
+    else throw new Error(d.error);
+  } catch(e){ btn.textContent='❌ Failed'; setTimeout(()=>{ btn.textContent='🔄 Sync Now'; btn.disabled=false; },2000); }
 }
 
-document.getElementById('f-city').addEventListener('change', function() {
-  populateHubs(this.value);
-  applyFilters();
-});
-['f-hub','f-model','f-status'].forEach(id =>
-  document.getElementById(id).addEventListener('change', applyFilters)
-);
+// ── HUBS ──
+function populateHubs(cityFilter='') {
+  const sel=document.getElementById('f-hub');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All Hubs</option>';
+  [...new Set(allData.filter(r=>!cityFilter||r.city===cityFilter).map(r=>r.hub_name).filter(Boolean))].sort()
+    .forEach(h=>{ const o=document.createElement('option'); o.value=o.textContent=h; if(h===cur)o.selected=true; sel.appendChild(o); });
+}
 
-// Type toggle
-document.querySelectorAll('.type-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    costType = this.dataset.type;
-    renderAll();
-  });
-});
+document.getElementById('f-city').addEventListener('change',function(){ populateHubs(this.value); applyFilters(); });
+['f-hub','f-model','f-status'].forEach(id=>document.getElementById(id).addEventListener('change',applyFilters));
+document.querySelectorAll('.type-btn').forEach(btn=>btn.addEventListener('click',function(){
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+  this.classList.add('active'); costType=this.dataset.type; renderAll();
+}));
 
-// ─────────────────────────────────────────────
-// APPLY FILTERS
-// ─────────────────────────────────────────────
+// ── FILTERS ──
 function applyFilters() {
-  const city   = document.getElementById('f-city').value;
-  const hub    = document.getElementById('f-hub').value;
-  const model  = document.getElementById('f-model').value;
-  const status = document.getElementById('f-status').value;
-
-  filtered = allData.filter(r => {
-    if (city   && r.City        !== city)   return false;
-    if (hub    && r['Hub Name'] !== hub)    return false;
-    if (model  && r['Model Name'] !== model) return false;
-    if (status && r.Status      !== status) return false;
+  const city=document.getElementById('f-city').value;
+  const hub=document.getElementById('f-hub').value;
+  const model=document.getElementById('f-model').value;
+  const status=document.getElementById('f-status').value;
+  filtered=allData.filter(r=>{
+    if(city   && r.city       !==city)   return false;
+    if(hub    && r.hub_name   !==hub)    return false;
+    if(model  && r.model_name !==model)  return false;
+    if(status && r.status     !==status) return false;
     return true;
   });
-
-  currentPage = 1;
-  filterDetail();
-  renderAll();
+  currentPage=1; filterDetail(); renderAll();
 }
 
-function filterDetail() {
-  const q = (document.getElementById('bike-search')?.value || '').toLowerCase();
-  detailData = filtered.filter(r =>
-    !q ||
-    (r.Reg_Number || '').toLowerCase().includes(q) ||
-    (r['Hub Name'] || '').toLowerCase().includes(q) ||
-    (r.City || '').toLowerCase().includes(q)
-  );
-  currentPage = 1;
-  renderDetail();
+function filterDetail(){
+  const q=(document.getElementById('bike-search')?.value||'').toLowerCase();
+  detailData=filtered.filter(r=>!q||(r.reg_number||'').toLowerCase().includes(q)||(r.hub_name||'').toLowerCase().includes(q)||(r.city||'').toLowerCase().includes(q));
+  currentPage=1; renderDetail();
 }
 
-function resetFilters() {
-  ['f-city','f-hub','f-model','f-status'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('bike-search').value = '';
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+function resetFilters(){
+  ['f-city','f-hub','f-model','f-status'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('bike-search').value='';
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.type-btn[data-type="total"]').classList.add('active');
-  costType = 'total';
-  populateHubs();
-  applyFilters();
+  costType='total'; populateHubs(); applyFilters();
 }
 
-// ─────────────────────────────────────────────
-// COST VALUE SELECTOR (based on type)
-// ─────────────────────────────────────────────
-function getCost(r) {
-  if (costType === 'part')   return +(r['Part Cost']   || 0);
-  if (costType === 'labour') return +(r['Labour Cost'] || 0);
-  return +(r['Total Service Cost'] || 0);
-}
-function getWTCost(r) {
-  if (costType === 'part')   return +(r['Wear and Tear Part Cost']   || 0);
-  if (costType === 'labour') return +(r['Wear and Tear Labour Cost'] || 0);
-  return +(r['Wear and Tear Cost'] || 0);
-}
-function getExclWarrantyCost(r) {
-  const total    = getCost(r);
-  let warr;
-  if (costType === 'part')   warr = +(r['Warranty Part Cost']   || 0);
-  else if (costType === 'labour') warr = +(r['Warranty Labour Cost'] || 0);
-  else warr = +(r['Warranty Cost'] || 0);
-  return Math.max(0, total - warr);
-}
+// ── COST SELECTORS ──
+function getCost(r){ if(costType==='part')return+(r.part_cost||0); if(costType==='labour')return+(r.labour_cost||0); return+(r.total_service_cost||0); }
+function getWTCost(r){ if(costType==='part')return+(r.wear_tear_part_cost||0); if(costType==='labour')return+(r.wear_tear_labour_cost||0); return+(r.wear_tear_cost||0); }
+function getExclWarr(r){ const t=getCost(r); let w; if(costType==='part')w=+(r.warranty_part_cost||0); else if(costType==='labour')w=+(r.warranty_labour_cost||0); else w=+(r.warranty_cost||0); return Math.max(0,t-w); }
 
-// ─────────────────────────────────────────────
-// FORMAT HELPERS
-// ─────────────────────────────────────────────
-const fmt = n => n == null ? '–' : n.toLocaleString('en-IN', {maximumFractionDigits:0});
-const fmtL = n => {
-  if (n == null || isNaN(n)) return '–';
-  if (n >= 1e7)  return '₹' + (n/1e7).toFixed(2) + 'Cr';
-  if (n >= 1e5)  return '₹' + (n/1e5).toFixed(1) + 'L';
-  if (n >= 1e3)  return '₹' + (n/1e3).toFixed(1) + 'K';
-  return '₹' + fmt(n);
-};
-const fmtKM = n => n == null || isNaN(n) ? '–' : '₹' + n.toFixed(2);
-const pct   = (a,b) => b ? (a/b*100).toFixed(1)+'%' : '–';
+// ── FORMAT ──
+const fmt=n=>n==null?'–':Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmtL=n=>{ if(n==null||isNaN(n))return'–'; n=Number(n); if(n>=1e7)return'₹'+(n/1e7).toFixed(2)+'Cr'; if(n>=1e5)return'₹'+(n/1e5).toFixed(1)+'L'; if(n>=1e3)return'₹'+(n/1e3).toFixed(1)+'K'; return'₹'+fmt(n); };
+const fmtKM=n=>n==null||isNaN(n)?'–':'₹'+Number(n).toFixed(2);
 
-function heatPct(val, reverse=false) {
-  if (val == null || val === '–') return '';
-  const v = parseFloat(val);
-  if (reverse) {
-    if (v >= 90) return 'heat-green';
-    if (v >= 70) return 'heat-yellow';
-    return 'heat-red';
-  }
-  if (v <= 5)  return 'heat-green';
-  if (v <= 15) return 'heat-yellow';
-  return 'heat-red';
-}
+// ── RENDER ALL ──
+function renderAll(){ renderMatrix(); renderDetail(); }
 
-// ─────────────────────────────────────────────
-// RENDER ALL
-// ─────────────────────────────────────────────
-function renderAll() {
-  renderMatrix();
-  renderDetail();
-}
+// ── MATRIX ──
+function renderMatrix(){
+  const groups={};
+  for(const r of filtered){ const b=r.odometer_bucket||'No Data'; if(!groups[b])groups[b]=[]; groups[b].push(r); }
+  const buckets=ODO_ORDER.filter(b=>groups[b]);
+  document.getElementById('matrix-badge').textContent=`${buckets.length} buckets`;
+  const tbody=document.getElementById('matrix-body');
+  tbody.innerHTML='';
 
-// ─────────────────────────────────────────────
-// MATRIX
-// ─────────────────────────────────────────────
-function renderMatrix() {
-  const groups = {};
-  for (const r of filtered) {
-    const bkt = r['Odometer Bucket'] || 'No Data';
-    if (!groups[bkt]) groups[bkt] = [];
-    groups[bkt].push(r);
-  }
+  const makeRow=(label,rows,isTotal=false)=>{
+    const n=rows.length;
+    const totalCost=rows.reduce((s,r)=>s+getCost(r),0);
+    const exclWarr=rows.reduce((s,r)=>s+getExclWarr(r),0);
+    const wtCost=rows.reduce((s,r)=>s+getWTCost(r),0);
+    const totalOdo=rows.reduce((s,r)=>s+(+(r.filtered_odometer||0)),0);
+    const totalRevRent=rows.reduce((s,r)=>s+(+(r.rental_revenue||0)),0);
+    const totalRevAll=rows.reduce((s,r)=>s+(+(r.total_revenue||0)),0);
+    const totalLife=rows.reduce((s,r)=>s+(+(r.total_life_days||0)),0);
+    const activeDays=rows.reduce((s,r)=>s+(+(r.active_days||0)),0);
+    const totalJC=rows.reduce((s,r)=>s+(+(r.repair_frequency||0)),0);
 
-  const buckets = ODO_ORDER.filter(b => groups[b]);
-  document.getElementById('matrix-badge').textContent = `${buckets.length} buckets`;
+    const utilPct=totalLife?(activeDays/totalLife*100).toFixed(1)+'%':'–';
+    const uptVals=rows.map(r=>parseFloat(r.uptime_pct||'0')).filter(v=>!isNaN(v));
+    const avgUpt=uptVals.length?(uptVals.reduce((a,b)=>a+b,0)/uptVals.length).toFixed(1)+'%':'–';
+    const revPerLife=totalLife?Math.round(totalRevAll/totalLife*30):null;
+    const revPerActive=activeDays?Math.round(totalRevAll/activeDays*30):null;
+    const costPctRev=totalRevAll?(totalCost/totalRevAll*100).toFixed(1)+'%':'–';
+    const exclPctRev=totalRevAll?(exclWarr/totalRevAll*100).toFixed(1)+'%':'–';
+    const wtPctRev=totalRevAll?(wtCost/totalRevAll*100).toFixed(1)+'%':'–';
+    const jcPerBike=n?totalJC/n:0;
+    const costPerKM=totalOdo?totalCost/totalOdo:null;
+    const exclPerKM=totalOdo?exclWarr/totalOdo:null;
+    const wtPerKM=totalOdo?wtCost/totalOdo:null;
 
-  const tbody = document.getElementById('matrix-body');
-  tbody.innerHTML = '';
-
-  const allRows = [...filtered];
-  const makeRow = (label, rows, isTotalRow=false) => {
-    const n = rows.length;
-    const totalCost    = rows.reduce((s,r) => s + getCost(r),         0);
-    const exclWarr     = rows.reduce((s,r) => s + getExclWarrantyCost(r), 0);
-    const wtCost       = rows.reduce((s,r) => s + getWTCost(r),        0);
-    const totalOdo     = rows.reduce((s,r) => s + (+(r['Filtered Odometer']||0)), 0);
-    const totalRevRent = rows.reduce((s,r) => s + (+(r['Rental Revenue']||0)),    0);
-    const totalRevAll  = rows.reduce((s,r) => s + (+(r['Total Revenue']||0)),     0);
-    const totalLife    = rows.reduce((s,r) => s + (+(r['Total Life of Bike (Days)']||0)), 0);
-    const activeDays   = rows.reduce((s,r) => s + (+(r['Active Days']||0)),       0);
-    const totalJC      = rows.reduce((s,r) => s + (+(r['Repair Frequency (JC Count)']||0)),0);
-
-    // Util% = active / life
-    const utilPct = totalLife ? (activeDays/totalLife*100).toFixed(1)+'%' : '–';
-
-    // OOS%
-    const oosVals = rows.map(r => parseFloat(r['OOS %']||'0')).filter(v=>!isNaN(v));
-    const avgOOS  = oosVals.length ? (oosVals.reduce((a,b)=>a+b,0)/oosVals.length).toFixed(1)+'%' : '–';
-
-    // Uptime%
-    const uptVals = rows.map(r => parseFloat(r['Uptime %']||'0')).filter(v=>!isNaN(v));
-    const avgUpt  = uptVals.length ? (uptVals.reduce((a,b)=>a+b,0)/uptVals.length).toFixed(1)+'%' : '–';
-
-    const revPerLife   = totalLife   ? totalRevAll/totalLife*30      : null; // per 30 days
-    const revPerActive = activeDays  ? totalRevAll/activeDays*30     : null;
-
-    const costPctRev   = totalRevAll ? (totalCost/totalRevAll*100).toFixed(1)+'%' : '–';
-    const exclPctRev   = totalRevAll ? (exclWarr /totalRevAll*100).toFixed(1)+'%' : '–';
-    const wtPctRev     = totalRevAll ? (wtCost   /totalRevAll*100).toFixed(1)+'%' : '–';
-
-    const avgCostBike  = n ? totalCost/n   : 0;
-    const exclAvgBike  = n ? exclWarr/n    : 0;
-    const wtAvgBike    = n ? wtCost/n      : 0;
-    const jcPerBike    = n ? totalJC/n     : 0;
-    const costPerKM    = totalOdo ? totalCost/totalOdo     : null;
-    const exclPerKM    = totalOdo ? exclWarr/totalOdo     : null;
-    const wtPerKM      = totalOdo ? wtCost/totalOdo       : null;
-
-    const tr = document.createElement('tr');
-    if (isTotalRow) tr.className = 'total-row';
-
-    tr.innerHTML = `
-      <td>${label}</td>
-      <td>${fmt(n)}</td>
-      <td class="z-rev">${fmtL(totalRevRent)}</td>
-      <td class="z-rev">${fmtL(totalRevAll)}</td>
-      <td class="z-rev">${revPerLife   ? '₹'+Math.round(revPerLife).toLocaleString('en-IN') : '–'}</td>
-      <td class="z-rev">${revPerActive ? '₹'+Math.round(revPerActive).toLocaleString('en-IN') : '–'}</td>
+    const tr=document.createElement('tr');
+    if(isTotal)tr.className='total-row';
+    tr.innerHTML=`
+      <td>${label}</td><td>${fmt(n)}</td>
+      <td class="z-rev">${fmtL(totalRevRent)}</td><td class="z-rev">${fmtL(totalRevAll)}</td>
+      <td class="z-rev">${revPerLife?'₹'+revPerLife.toLocaleString('en-IN'):'–'}</td>
+      <td class="z-rev">${revPerActive?'₹'+revPerActive.toLocaleString('en-IN'):'–'}</td>
       <td class="z-rev">${utilPct}</td>
       <td class="z-cost">${fmtL(totalCost)}</td>
-      <td class="z-cost">${costPerKM != null ? fmtKM(costPerKM) : '–'}</td>
+      <td class="z-cost">${costPerKM!=null?fmtKM(costPerKM):'–'}</td>
       <td class="z-cost">${jcPerBike.toFixed(2)}</td>
-      <td class="z-cost">₹${Math.round(avgCostBike).toLocaleString('en-IN')}</td>
-      <td class="z-cost">${avgUpt}</td>
-      <td class="z-cost">${costPctRev}</td>
+      <td class="z-cost">₹${Math.round(n?totalCost/n:0).toLocaleString('en-IN')}</td>
+      <td class="z-cost">${avgUpt}</td><td class="z-cost">${costPctRev}</td>
       <td class="z-excl">${fmtL(exclWarr)}</td>
-      <td class="z-excl">${exclPerKM != null ? fmtKM(exclPerKM) : '–'}</td>
+      <td class="z-excl">${exclPerKM!=null?fmtKM(exclPerKM):'–'}</td>
       <td class="z-excl">${jcPerBike.toFixed(2)}</td>
-      <td class="z-excl">₹${Math.round(exclAvgBike).toLocaleString('en-IN')}</td>
+      <td class="z-excl">₹${Math.round(n?exclWarr/n:0).toLocaleString('en-IN')}</td>
       <td class="z-excl">${exclPctRev}</td>
       <td class="z-wt">${fmtL(wtCost)}</td>
-      <td class="z-wt">${wtPerKM != null ? fmtKM(wtPerKM) : '–'}</td>
+      <td class="z-wt">${wtPerKM!=null?fmtKM(wtPerKM):'–'}</td>
       <td class="z-wt">${jcPerBike.toFixed(2)}</td>
-      <td class="z-wt">₹${Math.round(wtAvgBike).toLocaleString('en-IN')}</td>
+      <td class="z-wt">₹${Math.round(n?wtCost/n:0).toLocaleString('en-IN')}</td>
       <td class="z-wt">${wtPctRev}</td>
     `;
     tbody.appendChild(tr);
   };
 
-  buckets.forEach(b => makeRow(b, groups[b]));
-  if (allRows.length) makeRow('Overall', allRows, true);
+  buckets.forEach(b=>makeRow(b,groups[b]));
+  if(filtered.length)makeRow('Overall',filtered,true);
 }
 
-// ─────────────────────────────────────────────
-// DETAIL TABLE
-// ─────────────────────────────────────────────
-function renderDetail() {
-  const total = detailData.length;
-  const pages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
-  currentPage = Math.min(currentPage, pages);
+// ── DETAIL TABLE ──
+function renderDetail(){
+  const total=detailData.length;
+  const pages=Math.max(1,Math.ceil(total/ROWS_PER_PAGE));
+  currentPage=Math.min(currentPage,pages);
+  const start=(currentPage-1)*ROWS_PER_PAGE;
+  const slice=detailData.slice(start,start+ROWS_PER_PAGE);
 
-  const start = (currentPage-1)*ROWS_PER_PAGE;
-  const slice = detailData.slice(start, start+ROWS_PER_PAGE);
+  document.getElementById('detail-badge').textContent=`${total.toLocaleString()} bikes`;
+  document.getElementById('page-info').textContent=`Page ${currentPage} of ${pages}`;
+  document.getElementById('btn-prev').disabled=currentPage<=1;
+  document.getElementById('btn-next').disabled=currentPage>=pages;
 
-  document.getElementById('detail-badge').textContent = `${total.toLocaleString()} bikes`;
-  document.getElementById('page-info').textContent = `Page ${currentPage} of ${pages} (${total.toLocaleString()} bikes)`;
-  document.getElementById('btn-prev').disabled = currentPage <= 1;
-  document.getElementById('btn-next').disabled = currentPage >= pages;
-
-  const tbody = document.getElementById('detail-body');
-  tbody.innerHTML = '';
-
-  for (const r of slice) {
-    const cost    = getCost(r);
-    const rev     = +(r['Total Revenue']||0);
-    const costPct = rev ? (cost/rev*100).toFixed(1)+'%' : '–';
-
-    const statusClass = {
-      'RFD':          's-rfd',
-      'OOS':          's-oos',
-      'Active_rental':'s-active'
-    }[r.Status] || 's-other';
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.Reg_Number || '–'}</td>
-      <td>${r.City || '–'}</td>
-      <td>${r['Hub Name'] || '–'}</td>
-      <td>${r['Model Name'] || '–'}</td>
-      <td><span class="status-pill ${statusClass}">${r.Status || '–'}</span></td>
-      <td>${r['Odometer Bucket'] || '–'}</td>
-      <td>${fmt(r['Current Odometer'])}</td>
-      <td>${r['Active Days'] != null ? parseFloat(r['Active Days']).toFixed(1) : '–'}</td>
-      <td>${r['Utilization %'] || '–'}</td>
-      <td>${r['OOS %'] || '–'}</td>
-      <td>${r['Uptime %'] || '–'}</td>
+  const tbody=document.getElementById('detail-body');
+  tbody.innerHTML='';
+  for(const r of slice){
+    const cost=getCost(r);
+    const rev=+(r.total_revenue||0);
+    const costPct=rev?(cost/rev*100).toFixed(1)+'%':'–';
+    const sc={RFD:'s-rfd',OOS:'s-oos',Active_rental:'s-active'}[r.status]||'s-other';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${r.reg_number||'–'}</td><td>${r.city||'–'}</td><td>${r.hub_name||'–'}</td>
+      <td>${r.model_name||'–'}</td>
+      <td><span class="status-pill ${sc}">${r.status||'–'}</span></td>
+      <td>${r.odometer_bucket||'–'}</td>
+      <td>${fmt(r.current_odometer)}</td>
+      <td>${r.active_days!=null?parseFloat(r.active_days).toFixed(1):'–'}</td>
+      <td>${r.utilization_pct||'–'}</td><td>${r.oos_pct||'–'}</td><td>${r.uptime_pct||'–'}</td>
       <td>₹${fmt(cost)}</td>
-      <td>₹${fmt(+(r['Part Cost']||0))}</td>
-      <td>₹${fmt(+(r['Labour Cost']||0))}</td>
-      <td>₹${fmt(+(r['Wear and Tear Cost']||0))}</td>
-      <td>₹${fmt(+(r['Warranty Cost']||0))}</td>
-      <td>${r['Total Cost per KM'] != null ? '₹'+parseFloat(r['Total Cost per KM']).toFixed(2) : '–'}</td>
-      <td>${fmt(r['Repair Frequency (JC Count)'])}</td>
-      <td>₹${fmt(+(r['Rental Revenue']||0))}</td>
-      <td>₹${fmt(+(r['Total Revenue']||0))}</td>
+      <td>₹${fmt(+(r.part_cost||0))}</td>
+      <td>₹${fmt(+(r.labour_cost||0))}</td>
+      <td>₹${fmt(+(r.wear_tear_cost||0))}</td>
+      <td>₹${fmt(+(r.warranty_cost||0))}</td>
+      <td>${r.total_cost_per_km!=null?'₹'+parseFloat(r.total_cost_per_km).toFixed(2):'–'}</td>
+      <td>${fmt(r.repair_frequency)}</td>
+      <td>₹${fmt(+(r.rental_revenue||0))}</td>
+      <td>₹${fmt(+(r.total_revenue||0))}</td>
       <td>${costPct}</td>
     `;
     tbody.appendChild(tr);
   }
 }
 
-function changePage(dir) {
-  currentPage += dir;
+function changePage(dir){
+  currentPage+=dir;
   renderDetail();
-  window.scrollTo({top: document.querySelector('.detail-table-wrap').offsetTop - 20, behavior:'smooth'});
+  window.scrollTo({top:document.querySelector('.detail-table-wrap').offsetTop-20,behavior:'smooth'});
 }
 
-// ─────────────────────────────────────────────
-// EXPORT CSV
-// ─────────────────────────────────────────────
-function exportCSV() {
-  const cols = ['Reg_Number','City','Hub Name','Model Name','Status',
-    'Odometer Bucket','Current Odometer','Active Days','Utilization %',
-    'OOS %','Uptime %','Total Service Cost','Part Cost','Labour Cost',
-    'Wear and Tear Cost','Warranty Cost','Total Cost per KM',
-    'Repair Frequency (JC Count)','Rental Revenue','Total Revenue'];
-  const header = cols.join(',');
-  const rows = detailData.map(r =>
-    cols.map(c => {
-      const v = r[c];
-      if (v == null) return '';
-      const s = String(v);
-      return s.includes(',') ? `"${s}"` : s;
-    }).join(',')
-  );
-  const csv = [header, ...rows].join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-  a.download = `fleet_km_analysis_${new Date().toISOString().slice(0,10)}.csv`;
+// ── EXPORT ──
+function exportCSV(){
+  const cols=['reg_number','city','hub_name','model_name','status','odometer_bucket',
+    'current_odometer','active_days','utilization_pct','oos_pct','uptime_pct',
+    'total_service_cost','part_cost','labour_cost','wear_tear_cost','warranty_cost',
+    'total_cost_per_km','repair_frequency','rental_revenue','total_revenue'];
+  const header=cols.join(',');
+  const rows=detailData.map(r=>cols.map(c=>{ const v=r[c]; if(v==null)return''; const s=String(v); return s.includes(',')?`"${s}"`:s; }).join(','));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([[header,...rows].join('\n')],{type:'text/csv'}));
+  a.download=`fleet_km_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
-// ─────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────
 fetchData();
 </script>
 </body>
