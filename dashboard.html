@@ -250,7 +250,8 @@ function onFilterChange(){
 function clearF(){
   const today = new Date().toISOString().slice(0,10);
   const jan1  = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10);
-  document.getElementById('f-start').value = jan1;
+  const month1 = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+  document.getElementById('f-start').value = month1;
   document.getElementById('f-end').value   = today;
   ["f-city","f-model","f-sub","f-com","f-line"].forEach(id=>document.getElementById(id).value="");
   load();
@@ -458,8 +459,9 @@ function toggleSidebar() {
 
 // Script is at end of body — DOM is ready, call directly
 const _today = new Date().toISOString().slice(0,10);
-const _jan1  = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10);
-document.getElementById('f-start').value = _jan1;
+const _now   = new Date();
+const _month1 = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
+document.getElementById('f-start').value = _month1;
 document.getElementById('f-end').value   = _today;
 load();
 </script>
