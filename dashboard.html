@@ -179,9 +179,9 @@ tbody tr:last-child td{border-bottom:none}
       <!-- Model split -->
       <div>
         <div class="sh">Model Split</div>
-        <div class="g2">
-          <div class="cbox"><div class="ct">Total Cost by Model</div><canvas id="modelChart" height="45"></canvas></div>
-          <div class="cbox"><div class="ct">Avg Cost / JC by Model</div><canvas id="modelAvgChart" height="45"></canvas></div>
+        <div class="cbox" style="max-width:600px">
+          <div class="ct">Total Cost by Model</div>
+          <canvas id="modelAvgChart" height="55"></canvas>
         </div>
       </div>
 
@@ -484,36 +484,32 @@ async function load(){
     </tr>`;
   }).join("")}</tbody></table>`;
 
-  // Model charts — rich tooltip
+  // Total Cost by Model (horizontal bar, sorted desc)
   if(by_model.length > 0){
-    mk("modelChart","doughnut",{
-      labels:by_model.map(r=>r.bike_model_name),
-      datasets:[{data:by_model.map(r=>r.total_cost||0),backgroundColor:["#2563eb","#f53b3b","#16a34a","#d97706"],borderColor:"#fff",borderWidth:2}]
-    },{plugins:{
-      legend:{position:"right",labels:{color:"#64748b",font:{size:9},boxWidth:10}},
-      tooltip:{callbacks:{
-        label:(ctx)=>{
-          const r=by_model[ctx.dataIndex]||{};
-          const tc=r.total_cost||0,jc=r.unique_jcs||1;
-          return [` Cost:   ${fmtC(tc)}`,` Avg/JC: ${fmtC(tc/jc)}`,` No. JC: ${jc.toLocaleString('en-IN')}`];
-        }
-      }}
-    }});
+    const by_model_s = [...by_model].sort((a,b)=>(b.total_cost||0)-(a.total_cost||0));
     mk("modelAvgChart","bar",{
-      labels:by_model.map(r=>r.bike_model_name),
-      datasets:[{label:"Avg/JC (₹)",data:by_model.map(r=>r.unique_jcs>0?Math.round(r.total_cost/r.unique_jcs):0),
-        backgroundColor:["#2563eb","#f53b3b","#16a34a","#d97706"],borderRadius:5,borderSkipped:false}]
+      labels:by_model_s.map(r=>r.bike_model_name),
+      datasets:[{
+        label:"Total Cost",
+        data:by_model_s.map(r=>r.total_cost||0),
+        backgroundColor:["#2563eb","#f53b3b","#16a34a","#d97706"],
+        borderRadius:5,borderSkipped:false
+      }]
     },{
       indexAxis:"y",
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{
           label:(ctx)=>{
-            const r=by_model[ctx.dataIndex]||{};
+            const r=by_model_s[ctx.dataIndex]||{};
             const tc=r.total_cost||0,jc=r.unique_jcs||1;
             return [` Cost:   ${fmtC(tc)}`,` Avg/JC: ${fmtC(tc/jc)}`,` No. JC: ${jc.toLocaleString('en-IN')}`];
           }
         }}
+      },
+      scales:{
+        x:{ticks:{color:"#94a3b8",font:{size:9},callback:v=>fmt(v)},grid:{color:"rgba(0,0,0,.05)"}},
+        y:{ticks:{color:"#64748b",font:{size:10}}}
       }
     });
   }
