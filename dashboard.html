@@ -259,8 +259,8 @@ function clearF(){
 
 async function fetchAll(){
   const body = {
-    p_start: document.getElementById("f-start").value || new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10),
-    p_end:   document.getElementById("f-end").value   || new Date().toISOString().slice(0,10),
+    p_start: document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+    p_end:   document.getElementById("f-end").value   || localDate(new Date()),
     p_city:  document.getElementById("f-city").value  || null,
     p_sub:   document.getElementById("f-sub").value   || null,
     p_com:   document.getElementById("f-com").value   || null,
@@ -458,9 +458,16 @@ function toggleSidebar() {
 })();
 
 // Script is at end of body — DOM is ready, call directly
-const _today = new Date().toISOString().slice(0,10);
-const _now   = new Date();
-const _month1 = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
+// Use local date (not UTC) to avoid IST timezone shifting date back by 1
+function localDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+const _now    = new Date();
+const _today  = localDate(_now);
+const _month1 = localDate(new Date(_now.getFullYear(), _now.getMonth(), 1));
 document.getElementById('f-start').value = _month1;
 document.getElementById('f-end').value   = _today;
 load();
