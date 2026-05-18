@@ -163,9 +163,9 @@ tbody tr:last-child td{border-bottom:none}
       <div>
         <div class="sh">City, Hub &amp; Model</div>
         <div class="g3e">
-          <div class="cbox"><div class="ct">Avg Cost / JC by City</div><canvas id="cityChart" height="110"></canvas></div>
-          <div class="cbox"><div class="ct">Top 10 Hubs by Cost</div><canvas id="hubChart" height="110"></canvas></div>
-          <div class="cbox"><div class="ct">Total Cost by Model</div><canvas id="modelAvgChart" height="110"></canvas></div>
+          <div class="cbox"><div class="ct">Avg Cost / JC by City</div><canvas id="cityChart" height="160"></canvas></div>
+          <div class="cbox"><div class="ct">Top 10 Hubs by Cost</div><canvas id="hubChart" height="160"></canvas></div>
+          <div class="cbox"><div class="ct">Total Cost by Model</div><canvas id="modelAvgChart" height="160"></canvas></div>
         </div>
       </div>
 
@@ -419,7 +419,7 @@ async function load(){
   }});
 
   // City — sort desc by total cost, rich tooltip
-  const by_city_s = [...by_city].sort((a,b)=>(b.total_cost||0)-(a.total_cost||0));
+  const by_city_s = [...by_city].sort((a,b)=>((b.total_cost||0)/Math.max(b.unique_jcs||1,1))-((a.total_cost||0)/Math.max(a.unique_jcs||1,1)));
   mk("cityChart","bar",{
     labels:by_city_s.map(r=>r.city||'Unknown'),
     datasets:[{label:"Avg/JC",data:by_city_s.map(r=>r.unique_jcs>0?Math.round(r.total_cost/r.unique_jcs):0),
