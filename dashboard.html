@@ -222,13 +222,14 @@ const sjp = arr => arr.reduce((s,r)=>s+(parseInt(r.jcs_with_parts)||0),0);
 function mk(id,type,data,opts={}){
   if(CH[id]) CH[id].destroy();
   const ctx = document.getElementById(id); if(!ctx) return;
+  const defaultScales = (type!=="pie"&&type!=="doughnut"&&!opts.scales) ? {
+    x:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
+    y:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
+  } : undefined;
   CH[id] = new Chart(ctx,{type,data,options:{
     responsive:true, maintainAspectRatio:true,
     plugins:{legend:{labels:{color:"#94a3b8",font:{size:9},boxWidth:10}}},
-    scales: type!=="pie"&&type!=="doughnut" ? {
-      x:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
-      y:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
-    } : undefined,
+    ...(defaultScales ? {scales:defaultScales} : {}),
     ...opts
   }});
 }
@@ -273,6 +274,7 @@ async function fetchAll(){
 }
 
 async function load(){
+  try {
   document.getElementById("kpis").innerHTML = `<div class="loading" style="grid-column:1/-1"><div class="spin"></div>Loading...</div>`;
   document.getElementById("sync-lbl").textContent = "Loading...";
 
