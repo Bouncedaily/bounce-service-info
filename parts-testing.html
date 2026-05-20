@@ -352,7 +352,7 @@ async function loadTestRows() {
       keywords.some(k => {
         if (!j.item_name || !j.item_name.toLowerCase().includes(k)) return false;
         const expectedLt = ltMap[k] || 'Part';
-        return j.line_type === expectedLt;
+        return expectedLt === 'Both' || j.line_type === expectedLt;
       })
     );
     if (match) replMap[key] = match;
@@ -434,7 +434,7 @@ async function loadOemRows() {
       const matchedKw = keywords.find(k => j.item_name && j.item_name.toLowerCase().includes(k));
       if (!matchedKw) return false;
       const expectedLt = ltMap[matchedKw] || 'Part';
-      return j.line_type === expectedLt;
+      return expectedLt === 'Both' || j.line_type === expectedLt;
     });
 
     // Group by chassis: first JC = fitment, second JC = replacement
@@ -574,8 +574,10 @@ function renderSummary() {
     const oRows  = oem.filter(r => r.part_category === cat);
     const oRepl  = oRows.filter(r => r.status === 'Replaced');
 
+    // Test avg: ALL bikes (replaced use replacement_odo - fitment, active use current_odo - fitment)
     const tAvg = tRows.length ? avg(tRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
-    const oAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
+    // OEM avg: ALL OEM bikes (same logic — replaced + active current km)
+    const oAvg = oRows.length ? avg(oRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
 
     const tBarW = maxKm ? Math.round(tAvg/maxKm*100) : 0;
     const oBarW = maxKm ? Math.round(oAvg/maxKm*100) : 0;
@@ -583,7 +585,7 @@ function renderSummary() {
     const vendor = tRows[0]?.vendor || '—';
 
     let verdict = '';
-    if (!oRepl.length) {
+    if (!oRows.length) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
     } else if (!tRows.length) {
       verdict = `<span class="pill p-gray">No data</span>`;
@@ -614,7 +616,7 @@ function renderSummary() {
           <div class="km-bar-row">
             <span class="lbl">OEM</span>
             <div class="bar"><div style="width:${oBarW}%;background:#94a3b8"></div></div>
-            <span class="val">${oAvg ? fmt(oAvg)+' km' : '—'}</span>
+            <span class="val">${oAvg ? fmt(oAvg)+' km ('+oRows.length+' bikes)' : '—'}</span>
           </div>
         </div>
       </td>
