@@ -405,7 +405,7 @@ async function loadTestRows() {
 async function loadOemRows() {
   // 1. Fetch OEM data from view (Supabase does all the heavy SQL)
   const oemData = await sbFetch(
-    'oem_parts_performance?select=*&order=part_category,chassis_number&limit=5000'
+    'oem_parts_cache?select=*&order=part_category,chassis_number&limit=5000'
   );
 
   // 2. Fetch current odo only for active bikes (km_on_part is null for active)
