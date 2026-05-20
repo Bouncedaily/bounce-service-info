@@ -328,43 +328,25 @@ async function loadTestRows() {
   // 3. Get replacement JCs for test bikes (using part_category_mapping)
   // For each test chassis, find first JC after fitted_date with matching item_name
   const chassisStr = chassisIds.map(c => `"${c}"`).join(',');
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type,is_fitment');
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name');
   const catItems = {};
-  const catLineType = {};
-  const catFitmentItems = {}; // items that count as fitment (for OEM first-JC detection)
   mappings.forEach(m => {
-    if (!catItems[m.category_name]) {
-      catItems[m.category_name] = [];
-      catLineType[m.category_name] = {};
-      catFitmentItems[m.category_name] = [];
-    }
+    if (!catItems[m.category_name]) catItems[m.category_name] = [];
     catItems[m.category_name].push(m.jc_item_name.toLowerCase());
-    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
-    // If is_fitment = true → use for fitment detection; if no fitment items defined → all items qualify
-    if (m.is_fitment) catFitmentItems[m.category_name].push(m.jc_item_name.toLowerCase());
-  });
-  // If a category has no explicit fitment items, all items qualify as fitment proxy
-  Object.keys(catItems).forEach(cat => {
-    if (!catFitmentItems[cat].length) catFitmentItems[cat] = [...catItems[cat]];
   });
 
-  // Get all JCs for test chassis after their fitted dates (Part AND Labour — filter per keyword)
-  const jcs = await sbFetch(`jc_details?select=chassis_number,item_name,bike_odo,start_time,line_type&chassis_number=in.(${chassisStr})&order=chassis_number,start_time`);
+  // Get all JCs for test chassis after their fitted dates
+  const jcs = await sbFetch(`jc_details?select=chassis_number,item_name,bike_odo,start_time&chassis_number=in.(${chassisStr})&order=chassis_number,start_time`);
 
   // Build replacement map: chassis+category -> first replacement JC
   const replMap = {};
   fitments.forEach(f => {
     const key = f.chassis_number + '|' + f.part_category;
     const keywords = catItems[f.part_category] || [];
-    const ltMap = catLineType[f.part_category] || {};
     const match = jcs.find(j =>
       j.chassis_number === f.chassis_number &&
       new Date(j.start_time) > new Date(f.fitted_date) &&
-      keywords.some(k => {
-        if (!j.item_name || !j.item_name.toLowerCase().includes(k)) return false;
-        const expectedLt = ltMap[k] || 'Part';
-        return expectedLt === 'Both' || j.line_type === expectedLt;
-      })
+      keywords.some(k => j.item_name && j.item_name.toLowerCase().includes(k))
     );
     if (match) replMap[key] = match;
   });
@@ -401,51 +383,83 @@ async function loadTestRows() {
   allRows = [...allRows, ...testRows];
 }
 
-// OEM bikes: read from pre-computed Supabase view — just 2 API calls total
+// OEM bikes: non-test bikes that had the same parts replaced in same window
 async function loadOemRows() {
-  // 1. Fetch OEM data from view (Supabase does all the heavy SQL)
-  const oemData = await sbFetch(
-    'oem_parts_cache?select=*&order=part_category,chassis_number&limit=5000'
-  );
-
-  // 2. Fetch current odo only for active bikes (km_on_part is null for active)
-  const activeChassis = [...new Set(oemData.filter(r => r.status === 'Active').map(r => r.chassis_number))];
-  const odoMap = {};
-  if (activeChassis.length) {
-    const bikes = await sbFetch(
-      `bike_fleet?select=chassis_number,current_odometer&chassis_number=in.(${activeChassis.map(c => `"${c}"`).join(',')})`
-    );
-    bikes.forEach(b => odoMap[b.chassis_number] = b.current_odometer);
-  }
-
-  // 3. Build rows
-  const oemRows = oemData.map(r => {
-    const kmOnPart = r.km_on_part !== null
-      ? r.km_on_part
-      : Math.max(0, (odoMap[r.chassis_number] || 0) - (r.km_at_fitment || 0));
-    return {
-      type: 'OEM',
-      reg_number: r.reg_number || '—',
-      chassis_number: r.chassis_number,
-      part_category: r.part_category,
-      part_name: r.part_name,
-      vendor: 'OEM',
-      fitted_date: r.fitted_date,
-      km_at_fitment: r.km_at_fitment,
-      replacement_date: r.replacement_date,
-      km_at_replacement: r.km_at_replacement,
-      km_on_part: kmOnPart,
-      status: r.status,
-      city: r.city || '—',
-      hub: r.hub || '—'
-    };
+  // Get test chassis list and window per part
+  const fitments = await sbFetch('parts_testing?select=chassis_number,part_category,fitted_date');
+  const testChassis = new Set(fitments.map(r => r.chassis_number));
+  const windows = {};
+  fitments.forEach(f => {
+    if (!windows[f.part_category] || f.fitted_date < windows[f.part_category])
+      windows[f.part_category] = f.fitted_date;
   });
+
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name');
+  const catItems = {};
+  mappings.forEach(m => {
+    if (!catItems[m.category_name]) catItems[m.category_name] = [];
+    catItems[m.category_name].push(m.jc_item_name.toLowerCase());
+  });
+
+  const oemRows = [];
+
+  for (const [cat, startDate] of Object.entries(windows)) {
+    const keywords = catItems[cat] || [];
+    if (!keywords.length) continue;
+
+    // Fetch all JCs for this part category after startDate, excluding test bikes
+    // We'll get up to 5000 rows per category
+    const itemFilter = keywords.map(k => `item_name.ilike.*${encodeURIComponent(k)}*`).join(',');
+
+    // Get fitment JCs (first occurrence per chassis after startDate)
+    const fitJcs = await sbFetch(
+      `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name` +
+      `&or=(${keywords.map(k=>`item_name.ilike.*${k}*`).join(',')})` +
+      `&start_time=gte.${startDate}` +
+      `&city=in.(Bangalore,NCR,Hyderabad)` +
+      `&order=chassis_number,start_time` +
+      `&limit=5000`
+    );
+
+    // Group by chassis: first JC = fitment, second JC = replacement
+    const byChass = {};
+    fitJcs.forEach(j => {
+      if (testChassis.has(j.chassis_number)) return;
+      if (!byChass[j.chassis_number]) byChass[j.chassis_number] = [];
+      byChass[j.chassis_number].push(j);
+    });
+
+    Object.entries(byChass).forEach(([chassis, jcList]) => {
+      const first = jcList[0];
+      const second = jcList[1] || null;
+      const kmOnPart = second
+        ? Math.max(0, second.bike_odo - first.bike_odo)
+        : null; // still active for OEM too if only one JC
+
+      const city = first.city === 'Bangalore' ? 'Bangalore' : first.city === 'NCR' ? 'NCR' : first.city === 'Hyderabad' ? 'Hyderabad' : first.city;
+
+      oemRows.push({
+        type: 'OEM',
+        reg_number: first.reg_number || '—',
+        chassis_number: chassis,
+        part_category: cat,
+        part_name: first.item_name,
+        vendor: 'OEM',
+        fitted_date: first.start_time?.slice(0,10),
+        km_at_fitment: first.bike_odo,
+        replacement_date: second ? second.start_time?.slice(0,10) : null,
+        km_at_replacement: second ? second.bike_odo : null,
+        km_on_part: kmOnPart !== null ? kmOnPart : 0,
+        status: second ? 'Replaced' : 'Active',
+        city: city || '—',
+        hub: first.hub_name || '—'
+      });
+    });
+  }
 
   allRows = allRows.filter(r => r.type !== 'OEM');
   allRows = [...allRows, ...oemRows];
 }
-
-
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
 function applyFilters() {
@@ -493,13 +507,11 @@ function renderKpis() {
   let beating = 0;
   cats.forEach(cat => {
     const tRows = test.filter(r => r.part_category === cat && r.km_on_part > 0);
-    const oRows = oem.filter(r => r.part_category === cat && r.km_on_part > 0);
+    const oRows = oem.filter(r => r.part_category === cat && r.status === 'Replaced' && r.km_on_part > 0);
     if (!tRows.length || !oRows.length) return;
-    const tAvgR = avg(test.filter(r => r.part_category === cat && r.status === 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
-    const oAvgR = avg(oem.filter(r => r.part_category === cat && r.status === 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
-    const tCmp = tAvgR || avg(test.filter(r => r.part_category === cat && r.km_on_part > 0).map(r => r.km_on_part));
-    const oCmp = oAvgR || avg(oem.filter(r => r.part_category === cat && r.km_on_part > 0).map(r => r.km_on_part));
-    if (tCmp && oCmp && tCmp > oCmp) beating++;
+    const tAvg = avg(tRows.map(r => r.km_on_part));
+    const oAvg = avg(oRows.map(r => r.km_on_part));
+    if (tAvg > oAvg) beating++;
   });
 
   document.getElementById('k-test').textContent  = test.length.toLocaleString();
@@ -523,11 +535,9 @@ function renderSummary() {
   // Find max KM for bar scaling
   let maxKm = 0;
   cats.forEach(cat => {
-    const tRAvg = avg(test.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
-    const tAAvg = avg(test.filter(r=>r.part_category===cat&&r.status==='Active'&&r.km_on_part>0).map(r=>r.km_on_part));
-    const oRAvg = avg(oem.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
-    const oAAvg = avg(oem.filter(r=>r.part_category===cat&&r.status==='Active'&&r.km_on_part>0).map(r=>r.km_on_part));
-    maxKm = Math.max(maxKm, tRAvg, tAAvg, oRAvg, oAAvg);
+    const tAvg = avg(test.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
+    const oAvg = avg(oem.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
+    maxKm = Math.max(maxKm, tAvg, oAvg);
   });
   if (!maxKm) maxKm = 10000;
 
@@ -545,77 +555,28 @@ function renderSummary() {
 
   cats.forEach(cat => {
     const tRows  = test.filter(r => r.part_category === cat);
-    const tRepl  = tRows.filter(r => r.status === 'Replaced' && r.km_on_part > 0);
-    const tActv  = tRows.filter(r => r.status === 'Active'   && r.km_on_part > 0);
+    const tRepl  = tRows.filter(r => r.status === 'Replaced');
     const oRows  = oem.filter(r => r.part_category === cat);
-    const oRepl  = oRows.filter(r => r.status === 'Replaced' && r.km_on_part > 0);
-    const oActv  = oRows.filter(r => r.status === 'Active'   && r.km_on_part > 0);
+    const oRepl  = oRows.filter(r => r.status === 'Replaced');
 
-    const tReplAvg = tRepl.length ? avg(tRepl.map(r=>r.km_on_part)) : 0;
-    const tActvAvg = tActv.length ? avg(tActv.map(r=>r.km_on_part)) : 0;
-    const oReplAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
-    const oActvAvg = oActv.length ? avg(oActv.map(r=>r.km_on_part)) : 0;
+    const tAvg = tRows.length ? avg(tRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
+    const oAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
 
-    const tBarRW = maxKm ? Math.round(tReplAvg/maxKm*100) : 0;
-    const tBarAW = maxKm ? Math.round(tActvAvg/maxKm*100) : 0;
-    const oBarRW = maxKm ? Math.round(oReplAvg/maxKm*100) : 0;
-    const oBarAW = maxKm ? Math.round(oActvAvg/maxKm*100) : 0;
+    const tBarW = maxKm ? Math.round(tAvg/maxKm*100) : 0;
+    const oBarW = maxKm ? Math.round(oAvg/maxKm*100) : 0;
 
     const vendor = tRows[0]?.vendor || '—';
 
-    // Verdict based on replaced avg (most reliable signal); fall back to active if no replaced yet
-    const tCmp = tReplAvg || tActvAvg;
-    const oCmp = oReplAvg || oActvAvg;
     let verdict = '';
-    if (!oRows.length) {
+    if (!oRepl.length) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
     } else if (!tRows.length) {
       verdict = `<span class="pill p-gray">No data</span>`;
-    } else if (!tCmp || !oCmp) {
-      verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (tCmp > oCmp * 1.05) {
-      const pct = Math.round((tCmp/oCmp-1)*100);
+    } else if (tAvg > oAvg * 1.05) {
+      const pct = Math.round((tAvg/oAvg-1)*100);
       verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tCmp < oCmp * 0.95) {
-      const pct = Math.round((1-tCmp/oCmp)*100);
-      verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
-    } else {
-      verdict = `<span class="pill p-blue">≈ Similar</span>`;
-    }
-
-    html += `<tr>
-      <td style="font-weight:600">${cat}</td>
-      <td><span class="pill p-gray" style="font-size:10px">${vendor}</span></td>
-      <td>${tRows.length}</td>
-      <td>${tRepl.length}</td>
-      <td>${oRows.length}</td>
-      <td>${oRepl.length}</td>
-      <td class="km-cell">
-        <div class="km-bars">
-          <div class="km-bar-row">
-            <span class="lbl" style="color:#f53b3b;font-weight:600">T-Repl</span>
-            <div class="bar"><div style="width:${tBarRW}%;background:#f53b3b"></div></div>
-            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km ('+tRepl.length+')' : '—'}</span>
-          </div>
-          <div class="km-bar-row">
-            <span class="lbl" style="color:#f53b3b">T-Run</span>
-            <div class="bar"><div style="width:${tBarAW}%;background:#fca5a5"></div></div>
-            <span class="val">${tActvAvg ? fmt(tActvAvg)+' km ('+tActv.length+')' : '—'}</span>
-          </div>
-          <div class="km-bar-row">
-            <span class="lbl" style="color:#475569;font-weight:600">O-Repl</span>
-            <div class="bar"><div style="width:${oBarRW}%;background:#475569"></div></div>
-            <span class="val">${oReplAvg ? fmt(oReplAvg)+' km ('+oRepl.length+')' : '—'}</span>
-          </div>
-          <div class="km-bar-row">
-            <span class="lbl" style="color:#94a3b8">O-Run</span>
-            <div class="bar"><div style="width:${oBarAW}%;background:#cbd5e1"></div></div>
-            <span class="val">${oActvAvg ? fmt(oActvAvg)+' km ('+oActv.length+')' : '—'}</span>
-          </div>
-        </div>
-      </td>
-      <td>${verdict}</td>
-    </tr>`;
+    } else if (tAvg < oAvg * 0.95) {
+      const pct = Math.round((1-tAvg/oAvg)*100);
       verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
     } else {
       verdict = `<span class="pill p-blue">≈ Similar</span>`;
@@ -638,7 +599,7 @@ function renderSummary() {
           <div class="km-bar-row">
             <span class="lbl">OEM</span>
             <div class="bar"><div style="width:${oBarW}%;background:#94a3b8"></div></div>
-            <span class="val">${oAvg ? fmt(oAvg)+' km ('+oRows.length+' bikes)' : '—'}</span>
+            <span class="val">${oAvg ? fmt(oAvg)+' km' : '—'}</span>
           </div>
         </div>
       </td>
