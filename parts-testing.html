@@ -453,11 +453,19 @@ async function loadOemRows() {
       else if (ch.fitment && !ch.replacement && new Date(j.start_time) > new Date(ch.fitment.start_time)) { ch.replacement = j; }
     });
 
+    // Fetch current odo for active bikes in this batch
+    const activeCh = Object.entries(byChass).filter(([,v])=>!v.replacement).map(([c])=>c);
+    const batchOdo = {};
+    if (activeCh.length) {
+      const bf = await sbFetch(`bike_fleet?select=chassis_number,current_odometer&chassis_number=in.(${activeCh.map(c=>`"${c}"`).join(',')})`);
+      bf.forEach(b => batchOdo[b.chassis_number] = b.current_odometer);
+    }
+
     Object.entries(byChass).forEach(([chassis, {fitment: first, replacement: second}]) => {
       if (!first) return;
       const kmOnPart = second
         ? Math.max(0, second.bike_odo - first.bike_odo)
-        : null;
+        : Math.max(0, (batchOdo[chassis] || 0) - first.bike_odo);
 
       const city = first.city === 'Bangalore' ? 'Bangalore' : first.city === 'NCR' ? 'NCR' : first.city === 'Hyderabad' ? 'Hyderabad' : first.city;
 
@@ -472,7 +480,7 @@ async function loadOemRows() {
         km_at_fitment: first.bike_odo,
         replacement_date: second ? second.start_time?.slice(0,10) : null,
         km_at_replacement: second ? second.bike_odo : null,
-        km_on_part: kmOnPart !== null ? kmOnPart : 0,
+        km_on_part: kmOnPart,
         status: second ? 'Replaced' : 'Active',
         city: city || '—',
         hub: first.hub_name || '—'
