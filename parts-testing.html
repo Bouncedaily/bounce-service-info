@@ -185,8 +185,11 @@ async function load() {
     const res = await fetch(SB + '/rest/v1/rpc/get_parts_dashboard', {
       method: 'POST', headers: H, body: JSON.stringify({})
     });
-    if (!res.ok) throw new Error(await res.text());
-    allRows = await res.json();
+    const txt = await res.text();
+    if (!res.ok) throw new Error(txt);
+    const data = JSON.parse(txt);
+    allRows = Array.isArray(data) ? data : [];
+    if (!allRows.length) throw new Error('RPC returned no data: ' + txt.slice(0,200));
     document.getElementById('meta').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN') + ' · ' + allRows.length.toLocaleString() + ' records';
     render();
   } catch(e) {
