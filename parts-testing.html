@@ -328,13 +328,24 @@ async function loadTestRows() {
   // 3. Get replacement JCs for test bikes (using part_category_mapping)
   // For each test chassis, find first JC after fitted_date with matching item_name
   const chassisStr = chassisIds.map(c => `"${c}"`).join(',');
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type,is_fitment');
   const catItems = {};
-  const catLineType = {}; // category -> { keyword -> line_type }
+  const catLineType = {};
+  const catFitmentItems = {}; // items that count as fitment (for OEM first-JC detection)
   mappings.forEach(m => {
-    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
+    if (!catItems[m.category_name]) {
+      catItems[m.category_name] = [];
+      catLineType[m.category_name] = {};
+      catFitmentItems[m.category_name] = [];
+    }
     catItems[m.category_name].push(m.jc_item_name.toLowerCase());
     catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
+    // If is_fitment = true → use for fitment detection; if no fitment items defined → all items qualify
+    if (m.is_fitment) catFitmentItems[m.category_name].push(m.jc_item_name.toLowerCase());
+  });
+  // If a category has no explicit fitment items, all items qualify as fitment proxy
+  Object.keys(catItems).forEach(cat => {
+    if (!catFitmentItems[cat].length) catFitmentItems[cat] = [...catItems[cat]];
   });
 
   // Get all JCs for test chassis after their fitted dates (Part AND Labour — filter per keyword)
@@ -401,13 +412,22 @@ async function loadOemRows() {
       windows[f.part_category] = f.fitted_date;
   });
 
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type,is_fitment');
   const catItems = {};
   const catLineType = {};
+  const catFitmentItems = {};
   mappings.forEach(m => {
-    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
+    if (!catItems[m.category_name]) {
+      catItems[m.category_name] = [];
+      catLineType[m.category_name] = {};
+      catFitmentItems[m.category_name] = [];
+    }
     catItems[m.category_name].push(m.jc_item_name.toLowerCase());
     catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
+    if (m.is_fitment) catFitmentItems[m.category_name].push(m.jc_item_name.toLowerCase());
+  });
+  Object.keys(catItems).forEach(cat => {
+    if (!catFitmentItems[cat].length) catFitmentItems[cat] = [...catItems[cat]];
   });
 
   const oemRows = [];
@@ -437,16 +457,24 @@ async function loadOemRows() {
       return expectedLt === 'Both' || j.line_type === expectedLt;
     });
 
-    // Group by chassis: first JC = fitment, second JC = replacement
+    // Group by chassis:
+    // first JC matching a FITMENT item = fitment proxy
+    // next JC matching ANY replacement item = replacement
     const byChass = {};
     validJcs.forEach(j => {
-      if (!byChass[j.chassis_number]) byChass[j.chassis_number] = [];
-      byChass[j.chassis_number].push(j);
+      if (!byChass[j.chassis_number]) byChass[j.chassis_number] = { fitment: null, replacement: null };
+      const ch = byChass[j.chassis_number];
+      const kw = keywords.find(k => j.item_name && j.item_name.toLowerCase().includes(k));
+      const isFitmentItem = catFitmentItems[cat].some(k => j.item_name && j.item_name.toLowerCase().includes(k));
+      if (!ch.fitment && isFitmentItem) {
+        ch.fitment = j;
+      } else if (ch.fitment && !ch.replacement && new Date(j.start_time) > new Date(ch.fitment.start_time)) {
+        ch.replacement = j;
+      }
     });
 
-    Object.entries(byChass).forEach(([chassis, jcList]) => {
-      const first = jcList[0];
-      const second = jcList[1] || null;
+    Object.entries(byChass).forEach(([chassis, {fitment: first, replacement: second}]) => {
+      if (!first) return; // no fitment found, skip
       const kmOnPart = second
         ? Math.max(0, second.bike_odo - first.bike_odo)
         : null; // still active for OEM too if only one JC
