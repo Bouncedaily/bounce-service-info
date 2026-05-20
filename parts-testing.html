@@ -328,25 +328,32 @@ async function loadTestRows() {
   // 3. Get replacement JCs for test bikes (using part_category_mapping)
   // For each test chassis, find first JC after fitted_date with matching item_name
   const chassisStr = chassisIds.map(c => `"${c}"`).join(',');
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name');
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
   const catItems = {};
+  const catLineType = {}; // category -> { keyword -> line_type }
   mappings.forEach(m => {
-    if (!catItems[m.category_name]) catItems[m.category_name] = [];
+    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
     catItems[m.category_name].push(m.jc_item_name.toLowerCase());
+    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
   });
 
-  // Get all JCs for test chassis after their fitted dates
-  const jcs = await sbFetch(`jc_details?select=chassis_number,item_name,bike_odo,start_time&chassis_number=in.(${chassisStr})&order=chassis_number,start_time`);
+  // Get all JCs for test chassis after their fitted dates (Part AND Labour — filter per keyword)
+  const jcs = await sbFetch(`jc_details?select=chassis_number,item_name,bike_odo,start_time,line_type&chassis_number=in.(${chassisStr})&order=chassis_number,start_time`);
 
   // Build replacement map: chassis+category -> first replacement JC
   const replMap = {};
   fitments.forEach(f => {
     const key = f.chassis_number + '|' + f.part_category;
     const keywords = catItems[f.part_category] || [];
+    const ltMap = catLineType[f.part_category] || {};
     const match = jcs.find(j =>
       j.chassis_number === f.chassis_number &&
       new Date(j.start_time) > new Date(f.fitted_date) &&
-      keywords.some(k => j.item_name && j.item_name.toLowerCase().includes(k))
+      keywords.some(k => {
+        if (!j.item_name || !j.item_name.toLowerCase().includes(k)) return false;
+        const expectedLt = ltMap[k] || 'Part';
+        return j.line_type === expectedLt;
+      })
     );
     if (match) replMap[key] = match;
   });
@@ -394,11 +401,13 @@ async function loadOemRows() {
       windows[f.part_category] = f.fitted_date;
   });
 
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name');
+  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
   const catItems = {};
+  const catLineType = {};
   mappings.forEach(m => {
-    if (!catItems[m.category_name]) catItems[m.category_name] = [];
+    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
     catItems[m.category_name].push(m.jc_item_name.toLowerCase());
+    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
   });
 
   const oemRows = [];
@@ -407,13 +416,11 @@ async function loadOemRows() {
     const keywords = catItems[cat] || [];
     if (!keywords.length) continue;
 
-    // Fetch all JCs for this part category after startDate, excluding test bikes
-    // We'll get up to 5000 rows per category
-    const itemFilter = keywords.map(k => `item_name.ilike.*${encodeURIComponent(k)}*`).join(',');
+    const ltMap = catLineType[cat] || {};
 
-    // Get fitment JCs (first occurrence per chassis after startDate)
+    // Get fitment+replacement JCs for this part category — include line_type for filtering
     const fitJcs = await sbFetch(
-      `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name` +
+      `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name,line_type` +
       `&or=(${keywords.map(k=>`item_name.ilike.*${k}*`).join(',')})` +
       `&start_time=gte.${startDate}` +
       `&city=in.(Bangalore,NCR,Hyderabad)` +
@@ -421,10 +428,18 @@ async function loadOemRows() {
       `&limit=5000`
     );
 
+    // Filter by correct line_type per keyword
+    const validJcs = fitJcs.filter(j => {
+      if (testChassis.has(j.chassis_number)) return false;
+      const matchedKw = keywords.find(k => j.item_name && j.item_name.toLowerCase().includes(k));
+      if (!matchedKw) return false;
+      const expectedLt = ltMap[matchedKw] || 'Part';
+      return j.line_type === expectedLt;
+    });
+
     // Group by chassis: first JC = fitment, second JC = replacement
     const byChass = {};
-    fitJcs.forEach(j => {
-      if (testChassis.has(j.chassis_number)) return;
+    validJcs.forEach(j => {
       if (!byChass[j.chassis_number]) byChass[j.chassis_number] = [];
       byChass[j.chassis_number].push(j);
     });
