@@ -401,115 +401,50 @@ async function loadTestRows() {
   allRows = [...allRows, ...testRows];
 }
 
-// OEM bikes: non-test bikes that had the same parts replaced in same window
+// OEM bikes: read from pre-computed Supabase view — just 2 API calls total
 async function loadOemRows() {
-  // 1. Test chassis + windows
-  const fitments = await sbFetch('parts_testing?select=chassis_number,part_category,fitted_date');
-  const testChassis = new Set(fitments.map(r => r.chassis_number));
-  const windows = {};
-  fitments.forEach(f => {
-    if (!windows[f.part_category] || f.fitted_date < windows[f.part_category])
-      windows[f.part_category] = f.fitted_date;
-  });
-  const earliestDate = Object.values(windows).sort()[0];
-
-  // 2. Mappings
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type,is_fitment');
-  const catItems = {}, catLineType = {}, catFitmentItems = {};
-  mappings.forEach(m => {
-    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; catFitmentItems[m.category_name] = []; }
-    catItems[m.category_name].push(m.jc_item_name.toLowerCase());
-    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
-    if (m.is_fitment) catFitmentItems[m.category_name].push(m.jc_item_name.toLowerCase());
-  });
-  Object.keys(catItems).forEach(cat => {
-    if (!catFitmentItems[cat].length) catFitmentItems[cat] = [...catItems[cat]];
-  });
-
-  // 3. ONE bulk JC fetch for all keywords + all categories
-  const allKeywords = [...new Set(Object.values(catItems).flat())];
-  const orFilter = allKeywords.map(k => `item_name.ilike.*${k}*`).join(',');
-  const allJcs = await sbFetch(
-    `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name,line_type` +
-    `&or=(${orFilter})` +
-    `&start_time=gte.${earliestDate}` +
-    `&city=in.(Bangalore,NCR,Hyderabad)` +
-    `&order=chassis_number,start_time` +
-    `&limit=10000`
+  // 1. Fetch OEM data from view (Supabase does all the heavy SQL)
+  const oemData = await sbFetch(
+    'oem_parts_performance?select=*&order=part_category,chassis_number&limit=5000'
   );
 
-  // Process per category using in-memory data
-  const pendingRows = [];
-  const allActiveChassis = new Set();
-
-  for (const [cat, startDate] of Object.entries(windows)) {
-    const keywords = catItems[cat] || [];
-    if (!keywords.length) continue;
-    const ltMap = catLineType[cat] || {};
-
-    const catJcs = allJcs.filter(j => {
-      if (testChassis.has(j.chassis_number)) return false;
-      if (j.start_time < startDate) return false;
-      const matchedKw = keywords.find(k => j.item_name && j.item_name.toLowerCase().includes(k));
-      if (!matchedKw) return false;
-      const expectedLt = ltMap[matchedKw] || 'Part';
-      return expectedLt === 'Both' || j.line_type === expectedLt;
-    });
-
-    const byChass = {};
-    catJcs.forEach(j => {
-      if (!byChass[j.chassis_number]) byChass[j.chassis_number] = { fitment: null, replacement: null };
-      const ch = byChass[j.chassis_number];
-      const isFitmentItem = catFitmentItems[cat].some(k => j.item_name && j.item_name.toLowerCase().includes(k));
-      if (!ch.fitment && isFitmentItem) { ch.fitment = j; }
-      else if (ch.fitment && !ch.replacement && new Date(j.start_time) > new Date(ch.fitment.start_time)) { ch.replacement = j; }
-    });
-
-    Object.entries(byChass).forEach(([chassis, {fitment: first, replacement: second}]) => {
-      if (!first) return;
-      if (!second) allActiveChassis.add(chassis);
-      pendingRows.push({ chassis, first, second, cat });
-    });
-  }
-
-  // 4. ONE bulk bike_fleet fetch for all active OEM bikes
-  const oemOdoMap = {};
-  if (allActiveChassis.size) {
-    const oemBikes = await sbFetch(
-      `bike_fleet?select=chassis_number,current_odometer&chassis_number=in.(${[...allActiveChassis].map(c => `"${c}"`).join(',')})`
+  // 2. Fetch current odo only for active bikes (km_on_part is null for active)
+  const activeChassis = [...new Set(oemData.filter(r => r.status === 'Active').map(r => r.chassis_number))];
+  const odoMap = {};
+  if (activeChassis.length) {
+    const bikes = await sbFetch(
+      `bike_fleet?select=chassis_number,current_odometer&chassis_number=in.(${activeChassis.map(c => `"${c}"`).join(',')})`
     );
-    oemBikes.forEach(b => oemOdoMap[b.chassis_number] = b.current_odometer);
+    bikes.forEach(b => odoMap[b.chassis_number] = b.current_odometer);
   }
 
-  // 5. Build final rows
-  const oemRows = pendingRows.map(({ chassis, first, second, cat }) => {
-    let kmOnPart = 0;
-    if (second) {
-      kmOnPart = Math.max(0, second.bike_odo - first.bike_odo);
-    } else {
-      kmOnPart = Math.max(0, (oemOdoMap[chassis] || 0) - first.bike_odo);
-    }
+  // 3. Build rows
+  const oemRows = oemData.map(r => {
+    const kmOnPart = r.km_on_part !== null
+      ? r.km_on_part
+      : Math.max(0, (odoMap[r.chassis_number] || 0) - (r.km_at_fitment || 0));
     return {
       type: 'OEM',
-      reg_number: first.reg_number || '—',
-      chassis_number: chassis,
-      part_category: cat,
-      part_name: first.item_name,
+      reg_number: r.reg_number || '—',
+      chassis_number: r.chassis_number,
+      part_category: r.part_category,
+      part_name: r.part_name,
       vendor: 'OEM',
-      fitted_date: first.start_time?.slice(0,10),
-      km_at_fitment: first.bike_odo,
-      replacement_date: second ? second.start_time?.slice(0,10) : null,
-      km_at_replacement: second ? second.bike_odo : null,
+      fitted_date: r.fitted_date,
+      km_at_fitment: r.km_at_fitment,
+      replacement_date: r.replacement_date,
+      km_at_replacement: r.km_at_replacement,
       km_on_part: kmOnPart,
-      status: second ? 'Replaced' : 'Active',
-      city: first.city || '—',
-      hub: first.hub_name || '—'
+      status: r.status,
+      city: r.city || '—',
+      hub: r.hub || '—'
     };
   });
 
   allRows = allRows.filter(r => r.type !== 'OEM');
   allRows = [...allRows, ...oemRows];
 }
+
 
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
