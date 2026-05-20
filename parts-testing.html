@@ -286,7 +286,7 @@ const PAGE_SIZE = 50;
 let currentPage = 1;
 
 async function sbFetch(path) {
-  const r = await fetch(SB_URL + '/rest/v1/' + path, { headers: { ...HEADS, 'Accept': 'application/json', 'Prefer': 'count=exact' } });
+  const r = await fetch(SB_URL + '/rest/v1/' + path, { headers: { ...HEADS, 'Accept': 'application/json' } });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -305,13 +305,22 @@ async function sbRpc(fn, body) {
 async function loadAll() {
   document.getElementById('last-updated').textContent = 'Loading…';
   try {
-    await Promise.all([loadTestRows(), loadOemRows()]);
-    applyFilters();
-    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
+    await loadTestRows();
+    document.getElementById('last-updated').textContent = 'Test data loaded…';
   } catch(e) {
-    document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
-    document.getElementById('raw-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+    document.getElementById('raw-body').innerHTML = `<div class="err">Test load error: ${e.message}</div>`;
+    console.error('loadTestRows error:', e);
+    return;
   }
+  try {
+    await loadOemRows();
+  } catch(e) {
+    document.getElementById('raw-body').innerHTML = `<div class="err">OEM load error: ${e.message}</div>`;
+    console.error('loadOemRows error:', e);
+    return;
+  }
+  applyFilters();
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
 }
 
 // Test bikes: parts_testing + current_odometer from bike_fleet + replacement from jc_details
