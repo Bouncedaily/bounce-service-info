@@ -304,177 +304,48 @@ async function sbRpc(fn, body) {
 // ─── LOAD ALL DATA ───────────────────────────────────────────
 async function loadAll() {
   document.getElementById('last-updated').textContent = 'Loading…';
+  document.getElementById('summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
+  document.getElementById('raw-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
-    await Promise.all([loadTestRows(), loadOemRows()]);
+    const res = await fetch(SB_URL + '/rest/v1/rpc/get_parts_dashboard', {
+      method: 'POST',
+      headers: { ...HEADS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(txt);
+    const data = JSON.parse(txt);
+    // RPC returns jsonb — Supabase wraps it as [jsonb_value]
+    const parsed = Array.isArray(data) ? data[0] : data;
+    allRows = Array.isArray(parsed) ? parsed : [];
+    if (!allRows.length) throw new Error('No data: ' + txt.slice(0, 200));
+    // Normalise field names (RPC uses row_type, dashboard uses type)
+    allRows = allRows.map(r => ({
+      type: r.row_type,
+      reg_number: r.reg_number || '—',
+      chassis_number: r.chassis_number,
+      part_category: r.part_category,
+      part_name: r.part_name,
+      vendor: r.vendor || '—',
+      city: r.city || '—',
+      hub: r.hub || '—',
+      fitted_date: r.fitted_date,
+      km_at_fitment: r.km_at_fitment,
+      replacement_date: r.replacement_date,
+      km_at_replacement: r.km_at_replacement,
+      km_on_part: +(r.km_on_part) || 0,
+      status: r.status
+    }));
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-IN') + ' · ' + allRows.length.toLocaleString() + ' records';
     applyFilters();
-    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
   } catch(e) {
     document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
-    document.getElementById('raw-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+    document.getElementById('raw-body').innerHTML = '';
+    console.error(e);
   }
 }
 
-// Test bikes: parts_testing + current_odometer from bike_fleet + replacement from jc_details
-async function loadTestRows() {
-  // 1. Get all test fitments
-  const fitments = await sbFetch('parts_testing?select=chassis_number,reg_number,part_category,part_name,fitted_date,km_at_fitment,hub,vendor_name,city&order=part_category,fitted_date');
-
-  // 2. Get current odometers
-  const chassisIds = [...new Set(fitments.map(r => r.chassis_number))];
-  const bikes = await sbFetch(`bike_fleet?select=chassis_number,current_odometer&chassis_number=in.(${chassisIds.map(c=>`"${c}"`).join(',')})`);
-  const odoMap = {};
-  bikes.forEach(b => odoMap[b.chassis_number] = b.current_odometer);
-
-  // 3. Get replacement JCs for test bikes (using part_category_mapping)
-  // For each test chassis, find first JC after fitted_date with matching item_name
-  const chassisStr = chassisIds.map(c => `"${c}"`).join(',');
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
-  const catItems = {};
-  const catLineType = {}; // category -> { keyword -> line_type }
-  mappings.forEach(m => {
-    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
-    catItems[m.category_name].push(m.jc_item_name.toLowerCase());
-    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
-  });
-
-  // Get all JCs for test chassis after their fitted dates (Part AND Labour — filter per keyword)
-  const jcs = await sbFetch(`jc_details?select=chassis_number,item_name,bike_odo,start_time,line_type&chassis_number=in.(${chassisStr})&order=chassis_number,start_time`);
-
-  // Build replacement map: chassis+category -> first replacement JC
-  const replMap = {};
-  fitments.forEach(f => {
-    const key = f.chassis_number + '|' + f.part_category;
-    const keywords = catItems[f.part_category] || [];
-    const ltMap = catLineType[f.part_category] || {};
-    const match = jcs.find(j =>
-      j.chassis_number === f.chassis_number &&
-      new Date(j.start_time) > new Date(f.fitted_date) &&
-      keywords.some(k => {
-        if (!j.item_name || !j.item_name.toLowerCase().includes(k)) return false;
-        const expectedLt = ltMap[k] || 'Part';
-        return j.line_type === expectedLt;
-      })
-    );
-    if (match) replMap[key] = match;
-  });
-
-  // 4. Build rows
-  const testRows = fitments.map(f => {
-    const key = f.chassis_number + '|' + f.part_category;
-    const repl = replMap[key];
-    const curOdo = odoMap[f.chassis_number] || 0;
-    const replOdo = repl ? repl.bike_odo : null;
-    const kmOnPart = repl
-      ? Math.max(0, replOdo - f.km_at_fitment)
-      : Math.max(0, curOdo - f.km_at_fitment);
-    return {
-      type: 'Test',
-      reg_number: f.reg_number,
-      chassis_number: f.chassis_number,
-      part_category: f.part_category,
-      part_name: f.part_name,
-      vendor: f.vendor_name || 'OEM+',
-      fitted_date: f.fitted_date,
-      km_at_fitment: f.km_at_fitment,
-      replacement_date: repl ? repl.start_time?.slice(0,10) : null,
-      km_at_replacement: replOdo,
-      km_on_part: kmOnPart,
-      status: repl ? 'Replaced' : 'Active',
-      city: f.city || '—',
-      hub: f.hub || '—'
-    };
-  });
-
-  // Merge into allRows (replacing previous test rows)
-  allRows = allRows.filter(r => r.type !== 'Test');
-  allRows = [...allRows, ...testRows];
-}
-
-// OEM bikes: non-test bikes that had the same parts replaced in same window
-async function loadOemRows() {
-  // Get test chassis list and window per part
-  const fitments = await sbFetch('parts_testing?select=chassis_number,part_category,fitted_date');
-  const testChassis = new Set(fitments.map(r => r.chassis_number));
-  const windows = {};
-  fitments.forEach(f => {
-    if (!windows[f.part_category] || f.fitted_date < windows[f.part_category])
-      windows[f.part_category] = f.fitted_date;
-  });
-
-  const mappings = await sbFetch('part_category_mapping?select=category_name,jc_item_name,line_type');
-  const catItems = {};
-  const catLineType = {};
-  mappings.forEach(m => {
-    if (!catItems[m.category_name]) { catItems[m.category_name] = []; catLineType[m.category_name] = {}; }
-    catItems[m.category_name].push(m.jc_item_name.toLowerCase());
-    catLineType[m.category_name][m.jc_item_name.toLowerCase()] = m.line_type;
-  });
-
-  const oemRows = [];
-
-  for (const [cat, startDate] of Object.entries(windows)) {
-    const keywords = catItems[cat] || [];
-    if (!keywords.length) continue;
-
-    const ltMap = catLineType[cat] || {};
-
-    // Get fitment+replacement JCs for this part category — include line_type for filtering
-    const fitJcs = await sbFetch(
-      `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name,line_type` +
-      `&or=(${keywords.map(k=>`item_name.ilike.*${encodeURIComponent(k)}*`).join(',')})` +
-      `&start_time=gte.${startDate}` +
-      `&city=in.(Bangalore,NCR,Hyderabad)` +
-      `&order=chassis_number,start_time` +
-      `&limit=5000`
-    );
-
-    // Filter by correct line_type per keyword
-    const validJcs = fitJcs.filter(j => {
-      if (testChassis.has(j.chassis_number)) return false;
-      const matchedKw = keywords.find(k => j.item_name && j.item_name.toLowerCase().includes(k));
-      if (!matchedKw) return false;
-      const expectedLt = ltMap[matchedKw] || 'Part';
-      return j.line_type === expectedLt;
-    });
-
-    // Group by chassis: first JC = fitment, second JC = replacement
-    const byChass = {};
-    validJcs.forEach(j => {
-      if (!byChass[j.chassis_number]) byChass[j.chassis_number] = [];
-      byChass[j.chassis_number].push(j);
-    });
-
-    Object.entries(byChass).forEach(([chassis, jcList]) => {
-      const first = jcList[0];
-      const second = jcList[1] || null;
-      const kmOnPart = second
-        ? Math.max(0, second.bike_odo - first.bike_odo)
-        : null; // still active for OEM too if only one JC
-
-      const city = first.city === 'Bangalore' ? 'Bangalore' : first.city === 'NCR' ? 'NCR' : first.city === 'Hyderabad' ? 'Hyderabad' : first.city;
-
-      oemRows.push({
-        type: 'OEM',
-        reg_number: first.reg_number || '—',
-        chassis_number: chassis,
-        part_category: cat,
-        part_name: first.item_name,
-        vendor: 'OEM',
-        fitted_date: first.start_time?.slice(0,10),
-        km_at_fitment: first.bike_odo,
-        replacement_date: second ? second.start_time?.slice(0,10) : null,
-        km_at_replacement: second ? second.bike_odo : null,
-        km_on_part: kmOnPart !== null ? kmOnPart : 0,
-        status: second ? 'Replaced' : 'Active',
-        city: city || '—',
-        hub: first.hub_name || '—'
-      });
-    });
-  }
-
-  allRows = allRows.filter(r => r.type !== 'OEM');
-  allRows = [...allRows, ...oemRows];
-}
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
 function applyFilters() {
