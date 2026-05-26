@@ -302,53 +302,49 @@ async function sbRpc(fn, body) {
 }
 
 // ─── LOAD ALL DATA ───────────────────────────────────────────
+async function rpcFetch(fn) {
+  const res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: { ...HEADS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(fn + ': ' + txt);
+  const data = JSON.parse(txt);
+  // Supabase returns jsonb as [{...jsonb_value...}] — unwrap
+  const raw = Array.isArray(data) && data.length === 1 && Array.isArray(data[0]) ? data[0]
+             : Array.isArray(data) ? data : [];
+  return raw.map(r => ({
+    type: r.row_type,
+    reg_number: r.reg_number || '—',
+    chassis_number: r.chassis_number,
+    part_category: r.part_category,
+    part_name: r.part_name,
+    vendor: r.vendor || '—',
+    city: r.city || '—',
+    hub: r.hub || '—',
+    fitted_date: r.fitted_date,
+    km_at_fitment: r.km_at_fitment,
+    replacement_date: r.replacement_date,
+    km_at_replacement: r.km_at_replacement,
+    km_on_part: +(r.km_on_part) || 0,
+    status: r.status
+  }));
+}
+
 async function loadAll() {
   document.getElementById('last-updated').textContent = 'Loading…';
   document.getElementById('summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   document.getElementById('raw-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
-    const res = await fetch(SB_URL + '/rest/v1/rpc/get_parts_dashboard', {
-      method: 'POST',
-      headers: { ...HEADS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    const txt = await res.text();
-    if (!res.ok) throw new Error(txt);
-    const data = JSON.parse(txt);
-    // Supabase RPC returning jsonb comes back as [<jsonb_value>]
-    // where <jsonb_value> is the actual array of row objects
-    // So data[0] is our rows array
-    let rows;
-    if (Array.isArray(data) && Array.isArray(data[0])) {
-      rows = data[0]; // jsonb array wrapped in outer array
-    } else if (Array.isArray(data) && data.length > 0 && data[0] && data[0].row_type) {
-      rows = data; // already flat array of rows
-    } else if (Array.isArray(data) && data.length === 1) {
-      rows = data[0]; // single jsonb value
-    } else {
-      rows = data;
-    }
-    allRows = Array.isArray(rows) ? rows : [];
-    if (!allRows.length) throw new Error('Empty response');
-    // Normalise field names (RPC uses row_type, dashboard uses type)
-    allRows = allRows.map(r => ({
-      type: r.row_type,
-      reg_number: r.reg_number || '—',
-      chassis_number: r.chassis_number,
-      part_category: r.part_category,
-      part_name: r.part_name,
-      vendor: r.vendor || '—',
-      city: r.city || '—',
-      hub: r.hub || '—',
-      fitted_date: r.fitted_date,
-      km_at_fitment: r.km_at_fitment,
-      replacement_date: r.replacement_date,
-      km_at_replacement: r.km_at_replacement,
-      km_on_part: +(r.km_on_part) || 0,
-      status: r.status
-    }));
+    const [testRows, oemRows] = await Promise.all([
+      rpcFetch('get_parts_test'),
+      rpcFetch('get_parts_oem')
+    ]);
+    allRows = [...testRows, ...oemRows];
     document.getElementById('last-updated').textContent =
-      'Updated ' + new Date().toLocaleTimeString('en-IN') + ' · ' + allRows.length.toLocaleString() + ' records';
+      'Updated ' + new Date().toLocaleTimeString('en-IN') +
+      ' · ' + testRows.length + ' test, ' + oemRows.length + ' OEM';
     applyFilters();
   } catch(e) {
     document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
