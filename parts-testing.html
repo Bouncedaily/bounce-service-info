@@ -185,14 +185,12 @@ tr:hover td { background: #f8fafc; }
         <option>Cone Set</option>
         <option>Front brake pad</option>
         <option>Rear brake pad</option>
-        <option>B2B - Throttle Assembly</option>
       </select>
       <div class="sep"></div>
       <label>Vendor</label>
       <select id="f-vendor" onchange="applyFilters()">
         <option value="">All vendors</option>
         <option>Gabriel</option>
-        <option>Arrow +</option>
         <option>Arrow +</option>
         <option>OEM improved</option>
       </select>
@@ -423,7 +421,7 @@ async function loadOemRows() {
     // Get fitment+replacement JCs for this part category — include line_type for filtering
     const fitJcs = await sbFetch(
       `jc_details?select=chassis_number,reg_number,item_name,bike_odo,start_time,city,hub_name,line_type` +
-      `&or=(${keywords.map(k=>`item_name.ilike.*${k}*`).join(',')})` +
+      `&or=(${keywords.map(k=>`item_name.ilike.*${encodeURIComponent(k)}*`).join(',')})` +
       `&start_time=gte.${startDate}` +
       `&city=in.(Bangalore,NCR,Hyderabad)` +
       `&order=chassis_number,start_time` +
