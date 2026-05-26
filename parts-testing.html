@@ -315,10 +315,21 @@ async function loadAll() {
     const txt = await res.text();
     if (!res.ok) throw new Error(txt);
     const data = JSON.parse(txt);
-    // RPC returns jsonb — Supabase wraps it as [jsonb_value]
-    const parsed = Array.isArray(data) ? data[0] : data;
-    allRows = Array.isArray(parsed) ? parsed : [];
-    if (!allRows.length) throw new Error('No data: ' + txt.slice(0, 200));
+    // Supabase RPC returning jsonb comes back as [<jsonb_value>]
+    // where <jsonb_value> is the actual array of row objects
+    // So data[0] is our rows array
+    let rows;
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      rows = data[0]; // jsonb array wrapped in outer array
+    } else if (Array.isArray(data) && data.length > 0 && data[0] && data[0].row_type) {
+      rows = data; // already flat array of rows
+    } else if (Array.isArray(data) && data.length === 1) {
+      rows = data[0]; // single jsonb value
+    } else {
+      rows = data;
+    }
+    allRows = Array.isArray(rows) ? rows : [];
+    if (!allRows.length) throw new Error('Empty response');
     // Normalise field names (RPC uses row_type, dashboard uses type)
     allRows = allRows.map(r => ({
       type: r.row_type,
