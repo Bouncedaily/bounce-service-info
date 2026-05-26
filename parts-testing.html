@@ -302,19 +302,8 @@ async function sbRpc(fn, body) {
 }
 
 // ─── LOAD ALL DATA ───────────────────────────────────────────
-async function rpcFetch(fn) {
-  const res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
-    method: 'POST',
-    headers: { ...HEADS, 'Content-Type': 'application/json' },
-    body: JSON.stringify({})
-  });
-  const txt = await res.text();
-  if (!res.ok) throw new Error(fn + ': ' + txt);
-  const data = JSON.parse(txt);
-  // Supabase returns jsonb as [{...jsonb_value...}] — unwrap
-  const raw = Array.isArray(data) && data.length === 1 && Array.isArray(data[0]) ? data[0]
-             : Array.isArray(data) ? data : [];
-  return raw.map(r => ({
+function normalise(r) {
+  return {
     type: r.row_type,
     reg_number: r.reg_number || '—',
     chassis_number: r.chassis_number,
@@ -329,7 +318,16 @@ async function rpcFetch(fn) {
     km_at_replacement: r.km_at_replacement,
     km_on_part: +(r.km_on_part) || 0,
     status: r.status
-  }));
+  };
+}
+
+async function fetchPage(offset, limit) {
+  const res = await fetch(
+    SB_URL + `/rest/v1/parts_dashboard_cache?select=row_type,chassis_number,reg_number,part_category,part_name,vendor,city,hub,fitted_date,km_at_fitment,replacement_date,km_at_replacement,km_on_part,status&order=id&offset=${offset}&limit=${limit}`,
+    { headers: { ...HEADS, 'Accept': 'application/json', 'Range-Unit': 'items', 'Range': `${offset}-${offset+limit-1}` } }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 async function loadAll() {
@@ -337,14 +335,16 @@ async function loadAll() {
   document.getElementById('summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   document.getElementById('raw-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
-    const [testRows, oemRows] = await Promise.all([
-      rpcFetch('get_parts_test'),
-      rpcFetch('get_parts_oem')
+    // Fetch all pages in parallel (max 1000 per page, we have ~3714 rows)
+    const [p1, p2, p3, p4] = await Promise.all([
+      fetchPage(0, 1000),
+      fetchPage(1000, 1000),
+      fetchPage(2000, 1000),
+      fetchPage(3000, 1000)
     ]);
-    allRows = [...testRows, ...oemRows];
+    allRows = [...p1, ...p2, ...p3, ...p4].map(normalise);
     document.getElementById('last-updated').textContent =
-      'Updated ' + new Date().toLocaleTimeString('en-IN') +
-      ' · ' + testRows.length + ' test, ' + oemRows.length + ' OEM';
+      'Updated ' + new Date().toLocaleTimeString('en-IN') + ' · ' + allRows.length.toLocaleString() + ' records';
     applyFilters();
   } catch(e) {
     document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
