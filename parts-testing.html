@@ -811,7 +811,10 @@ function renderOemPerfFilter() {
   );
 
   // Aggregate across cities (sum counts, weighted avg for KMs)
+  // total_fleet must be tracked per city (not per city+year) to avoid double-counting
+  // e.g. 3,397 Bangalore bikes appear in both 2025 and 2026 rows — summing would double-count
   const byPart = {};
+  const fleetSeenKey = {}; // track city already counted for fleet per part
   filtered.forEach(r => {
     if (!byPart[r.part_group]) byPart[r.part_group] = {
       part_group: r.part_group, total_fleet: 0,
@@ -820,7 +823,16 @@ function renderOemPerfFilter() {
       sum_km_run: 0, n_run: 0
     };
     const p = byPart[r.part_group];
-    p.total_fleet      += r.total_fleet || 0;
+    // Only add fleet once per city (avoid double-count across years)
+    const fleetKey = r.part_group + '|' + r.city;
+    if (!fleetSeenKey[fleetKey]) {
+      fleetSeenKey[fleetKey] = true;
+      // Sum fleet for this city — use max across years for that city
+      const cityFleet = filtered
+        .filter(x => x.part_group === r.part_group && x.city === r.city)
+        .reduce((max, x) => Math.max(max, x.total_fleet || 0), 0);
+      p.total_fleet += cityFleet;
+    }
     p.first_repl_count += r.first_repl_count || 0;
     p.second_repl_count+= r.second_repl_count || 0;
     if (r.avg_km_0to1 && r.first_repl_count)  { p.sum_km_0to1 += r.avg_km_0to1 * r.first_repl_count;  p.n_0to1 += r.first_repl_count; }
