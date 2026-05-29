@@ -266,6 +266,28 @@ tr:hover td { background: #f8fafc; }
       </div>
     </div>
 
+    <!-- RAW DATA TABLE -->
+    <div class="card">
+      <div class="card-hd">
+        <h2>All vehicles — raw data</h2>
+        <span class="sub" id="raw-count">—</span>
+      </div>
+      <div class="raw-controls">
+        <input type="text" id="search" placeholder="Search reg / chassis…" oninput="applyFilters()" />
+        <select id="f-sort" onchange="applyFilters()">
+          <option value="km_desc">KM on part ↓</option>
+          <option value="km_asc">KM on part ↑</option>
+          <option value="fitted_desc">Fitted date ↓</option>
+          <option value="fitted_asc">Fitted date ↑</option>
+        </select>
+        <span class="page-info" id="page-info"></span>
+      </div>
+      <div id="raw-body">
+        <div class="loading"><div class="spin"></div> Loading data…</div>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
     </div><!-- /tab-pane test-oem -->
 
     <!-- TAB: OEM PARTS PERFORMANCE -->
@@ -297,28 +319,6 @@ tr:hover td { background: #f8fafc; }
       <div id="oem-raw-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
       </div>
-    </div>
-
-    <!-- RAW DATA TABLE -->
-    <div class="card">
-      <div class="card-hd">
-        <h2>All vehicles — raw data</h2>
-        <span class="sub" id="raw-count">—</span>
-      </div>
-      <div class="raw-controls">
-        <input type="text" id="search" placeholder="Search reg / chassis…" oninput="applyFilters()" />
-        <select id="f-sort" onchange="applyFilters()">
-          <option value="km_desc">KM on part ↓</option>
-          <option value="km_asc">KM on part ↑</option>
-          <option value="fitted_desc">Fitted date ↓</option>
-          <option value="fitted_asc">Fitted date ↑</option>
-        </select>
-        <span class="page-info" id="page-info"></span>
-      </div>
-      <div id="raw-body">
-        <div class="loading"><div class="spin"></div> Loading data…</div>
-      </div>
-      <div class="pagination" id="pagination"></div>
     </div>
 
     </div><!-- /tab-pane oem-perf -->
