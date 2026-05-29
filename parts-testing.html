@@ -348,6 +348,7 @@ tr:hover td { background: #f8fafc; }
       <div id="oem-raw-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
       </div>
+      <div class="pagination" id="oem-pagination"></div>
     </div>
 
     </div><!-- /tab-pane oem-perf -->
@@ -900,7 +901,32 @@ function renderOemRaw(resetPage) {
   pgHtml += `<button onclick="_oemRawPage=${totalPages};renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>»</button>`;
   pgHtml += `</div>`;
 
-  document.getElementById('oem-raw-body').innerHTML = html + pgHtml;
+  document.getElementById('oem-raw-body').innerHTML = html;
+  renderOemPagination(filtered.length, totalPages);
+}
+
+function renderOemPagination(total, pages) {
+  if (pages <= 1) { document.getElementById('oem-pagination').innerHTML = ''; return; }
+
+  let html = `<button class="pg-btn" onclick="_oemRawPage--;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>
+    <i class="ti ti-chevron-left" aria-hidden="true"></i>
+  </button>`;
+
+  const range = [];
+  for (let i = 1; i <= pages; i++) {
+    if (i===1||i===pages||Math.abs(i-_oemRawPage)<=2) range.push(i);
+    else if (range[range.length-1]!=='…') range.push('…');
+  }
+  range.forEach(p => {
+    if (p==='…') html += `<span style="font-size:11px;color:var(--muted);padding:0 4px">…</span>`;
+    else html += `<button class="pg-btn ${p===_oemRawPage?'active':''}" onclick="_oemRawPage=${p};renderOemRaw()">${p}</button>`;
+  });
+
+  html += `<button class="pg-btn" onclick="_oemRawPage++;renderOemRaw()" ${_oemRawPage===pages?'disabled':''}>
+    <i class="ti ti-chevron-right" aria-hidden="true"></i>
+  </button>`;
+
+  document.getElementById('oem-pagination').innerHTML = html;
 }
 
 </script>
