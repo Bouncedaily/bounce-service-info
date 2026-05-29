@@ -681,10 +681,7 @@ async function renderOemPerf() {
     { group: 'Fr Brake Shoe Set',           items: ['Fr Brake Shoe Set - Drum'] },
     { group: 'Rr Brake Shoe Set',           items: ['Rr Brake Shoe Set - Drum'] },
     { group: 'Rear Suspension',             items: ['Rear Suspension'] },
-    { group: 'Bearing 6201-2RS',            items: ['Bearing -6201-2RS'] },
-    { group: 'Front Wheel Bearing 6301',    items: ['Front Wheel Bearing 6301-2RS1'] },
-    { group: 'Rear Wheel Bearing 6204',     items: ['Rear Wheel Bearing 6204-2RS1/C3'] },
-    { group: 'Rear Wheel Bearing 6205',     items: ['Rear Wheel Bearing 6205-2RS1/C3'] },
+    { group: 'Bearing (All)',               items: ['Bearing -6201-2RS','Front Wheel Bearing 6301-2RS1','Rear Wheel Bearing 6204-2RS1/C3','Rear Wheel Bearing 6205-2RS1/C3'] },
   ];
 
   document.getElementById('oem-perf-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
@@ -746,7 +743,7 @@ async function renderOemPerf() {
       <thead><tr>
         <th style="width:22%">Part</th>
         <th style="width:9%">Total Bikes</th>
-        <th style="width:9%">Intervals</th>
+        <th style="width:9%">Replacements</th>
         <th style="width:10%">Avg KM</th>
         <th style="width:10%">Median KM</th>
         <th style="width:40%">Avg KM</th>
