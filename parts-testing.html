@@ -456,8 +456,12 @@ function renderSummary() {
     const oRepl  = oRows.filter(r => r.status === 'Replaced');
     const oRepair = oRows.reduce((s,r) => s + (r.repair_count||0), 0);
 
+    // Avg KM — Option B: all bikes (active + replaced) for bar display
     const tAvg = tRows.length ? avg(tRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
-    const oAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
+    const oAvg = oRows.length ? avg(oRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
+    // Verdict — replaced only on both sides (true failure KM)
+    const tReplAvg = tRepl.length ? avg(tRepl.map(r=>r.km_on_part)) : 0;
+    const oReplAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
 
     const tBarW = maxKm ? Math.round(tAvg/maxKm*100) : 0;
     const oBarW = maxKm ? Math.round(oAvg/maxKm*100) : 0;
@@ -465,15 +469,13 @@ function renderSummary() {
     const vendor = tRows[0]?.vendor || '—';
 
     let verdict = '';
-    if (!oRepl.length) {
+    if (!oRepl.length || !tRepl.length) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (!tRows.length) {
-      verdict = `<span class="pill p-gray">No data</span>`;
-    } else if (tAvg > oAvg * 1.05) {
-      const pct = Math.round((tAvg/oAvg-1)*100);
+    } else if (tReplAvg > oReplAvg * 1.05) {
+      const pct = Math.round((tReplAvg/oReplAvg-1)*100);
       verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tAvg < oAvg * 0.95) {
-      const pct = Math.round((1-tAvg/oAvg)*100);
+    } else if (tReplAvg < oReplAvg * 0.95) {
+      const pct = Math.round((1-tReplAvg/oReplAvg)*100);
       verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
     } else {
       verdict = `<span class="pill p-blue">≈ Similar</span>`;
