@@ -305,6 +305,13 @@ tr:hover td { background: #f8fafc; }
           <option value="2026">2026</option>
           <option value="2025">2025</option>
         </select>
+        <label style="font-size:12px;font-weight:600">City</label>
+        <select id="oem-perf-city" onchange="renderOemPerfFilter()">
+          <option value="">All cities</option>
+          <option value="Bangalore">Bangalore</option>
+          <option value="NCR">NCR</option>
+          <option value="Hyderabad">Hyderabad</option>
+        </select>
       </div>
       <div id="oem-perf-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
@@ -772,82 +779,123 @@ async function renderOemPerf() {
   document.getElementById('oem-raw-body').innerHTML  = '<div class="loading"><div class="spin"></div> Loading…</div>';
 
   try {
-    // Read from cache tables — fast single queries
-    const summary = await sbFetch('oem_parts_perf_cache?select=*&order=avg_repl_km.asc.nullslast');
-    const raw     = await sbFetch('oem_parts_perf_raw?select=*&order=km_on_part.desc.nullslast&limit=10000');
+    const [summary, raw] = await Promise.all([
+      sbFetch('oem_parts_perf_cache?select=*'),
+      sbFetch('oem_parts_perf_raw?select=*&order=km_on_part.desc.nullslast&limit=10000')
+    ]);
 
-    // ── Summary table ──
-    const maxKm = Math.max(
-      ...summary.filter(r=>r.avg_repl_km).map(r=>r.avg_repl_km),
-      ...summary.filter(r=>r.avg_run_km).map(r=>r.avg_run_km)
-    );
-
-    let html = `<table>
-      <thead><tr>
-        <th style="width:20%">Part</th>
-        <th style="width:8%">Total Bikes</th>
-        <th style="width:8%">Replaced</th>
-        <th style="width:8%">Running</th>
-        <th style="width:10%">Avg KM replaced</th>
-        <th style="width:10%">Avg KM running</th>
-        <th style="width:9%">Median repl</th>
-        <th style="width:27%">KM comparison</th>
-      </tr></thead><tbody>`;
-
-    summary.forEach(r => {
-      const replBarW = r.avg_repl_km && maxKm ? Math.round(r.avg_repl_km/maxKm*100) : 0;
-      const runBarW  = r.avg_run_km  && maxKm ? Math.round(r.avg_run_km/maxKm*100)  : 0;
-      const barColor = !r.avg_repl_km ? '#94a3b8' : r.avg_repl_km < 5000 ? '#f53b3b' : r.avg_repl_km < 10000 ? '#f59e0b' : '#22c55e';
-      html += `<tr>
-        <td style="font-weight:600">${r.part_group}</td>
-        <td>${(r.total_bikes||0).toLocaleString()}</td>
-        <td>${r.replaced_bikes||0}</td>
-        <td>${r.running_bikes||0}</td>
-        <td>${r.avg_repl_km  ? fmt(r.avg_repl_km) +' km' : '—'}</td>
-        <td>${r.avg_run_km   ? fmt(r.avg_run_km)  +' km' : '—'}</td>
-        <td>${r.median_repl_km ? fmt(r.median_repl_km)+' km' : '—'}</td>
-        <td class="km-cell">
-          <div class="km-bars">
-            <div class="km-bar-row">
-              <span class="lbl">Repl</span>
-              <div class="bar"><div style="width:${replBarW}%;background:${barColor}"></div></div>
-              <span class="val">${r.avg_repl_km ? fmt(r.avg_repl_km)+' km' : '—'}</span>
-            </div>
-            <div class="km-bar-row">
-              <span class="lbl">Run</span>
-              <div class="bar"><div style="width:${runBarW}%;background:#3b82f6"></div></div>
-              <span class="val">${r.avg_run_km ? fmt(r.avg_run_km)+' km' : '—'}</span>
-            </div>
-          </div>
-        </td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
-    document.getElementById('oem-perf-body').innerHTML = html;
-
-    // Store raw globally and render
+    window._oemSummaryAll = summary;
     window._oemRawRows = raw.map(r => ({
-      part:     r.part_group,
-      reg:      r.reg_number,
-      chassis:  r.chassis_number,
-      city:     r.city,
-      hub:      r.hub_name,
-      jcNo:     r.dms_jc_no,
-      odoFit:   r.odo_at_fitment,
-      odoRepl:  r.odo_at_replacement,
-      kmOnPart: r.km_on_part,
-      dateFit:  r.date_at_fitment,
-      dateRepl: r.date_at_replacement,
-      submType: r.submission_type,
-      dmsCat:   r.dms_cat,
-      status:      r.status,
-      deployedYear: r.deployed_year
+      part: r.part_group, reg: r.reg_number, chassis: r.chassis_number,
+      city: r.city, hub: r.hub_name, jcNo: r.dms_jc_no, dmsCat: r.dms_cat,
+      odoFit: r.odo_at_fitment, odoRepl: r.odo_at_replacement, kmOnPart: r.km_on_part,
+      dateFit: r.date_at_fitment, dateRepl: r.date_at_replacement,
+      submType: r.submission_type, status: r.status, deployedYear: r.deployed_year
     }));
-    renderOemRaw();
 
+    renderOemPerfFilter();
   } catch(e) {
     document.getElementById('oem-perf-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
   }
+}
+
+function renderOemPerfFilter() {
+  const fYear = document.getElementById('oem-perf-year')?.value || '';
+  const fCity = document.getElementById('oem-perf-city')?.value || '';
+  const summary = window._oemSummaryAll || [];
+
+  // Filter and aggregate by part_group
+  const filtered = summary.filter(r =>
+    (!fYear || r.deployed_year === fYear) &&
+    (!fCity || r.city === fCity)
+  );
+
+  // Aggregate across cities (sum counts, weighted avg for KMs)
+  const byPart = {};
+  filtered.forEach(r => {
+    if (!byPart[r.part_group]) byPart[r.part_group] = {
+      part_group: r.part_group, total_fleet: 0,
+      first_repl_count: 0, second_repl_count: 0,
+      sum_km_0to1: 0, n_0to1: 0, sum_km_1to2: 0, n_1to2: 0,
+      sum_km_run: 0, n_run: 0
+    };
+    const p = byPart[r.part_group];
+    p.total_fleet      += r.total_fleet || 0;
+    p.first_repl_count += r.first_repl_count || 0;
+    p.second_repl_count+= r.second_repl_count || 0;
+    if (r.avg_km_0to1 && r.first_repl_count)  { p.sum_km_0to1 += r.avg_km_0to1 * r.first_repl_count;  p.n_0to1 += r.first_repl_count; }
+    if (r.avg_km_1to2 && r.second_repl_count) { p.sum_km_1to2 += r.avg_km_1to2 * r.second_repl_count; p.n_1to2 += r.second_repl_count; }
+    if (r.avg_km_running) { p.sum_km_run += r.avg_km_running; p.n_run++; }
+    // Store medians from single-city (use last value when aggregating — median can't be averaged)
+    if (r.median_km_0to1) p.median_km_0to1 = r.median_km_0to1;
+    if (r.median_km_1to2) p.median_km_1to2 = r.median_km_1to2;
+  });
+
+  const parts = Object.values(byPart).map(p => ({
+    ...p,
+    avg_km_0to1:  p.n_0to1 ? Math.round(p.sum_km_0to1/p.n_0to1) : null,
+    avg_km_1to2:  p.n_1to2 ? Math.round(p.sum_km_1to2/p.n_1to2) : null,
+    avg_km_running: p.n_run ? Math.round(p.sum_km_run/p.n_run) : null,
+  })).sort((a,b) => (a.avg_km_0to1||999999) - (b.avg_km_0to1||999999));
+
+  const maxKm = Math.max(...parts.flatMap(p => [p.avg_km_0to1||0, p.avg_km_1to2||0, p.avg_km_running||0]));
+
+  let html = `<table>
+    <thead><tr>
+      <th style="width:18%">Part</th>
+      <th style="width:7%">Total Fleet</th>
+      <th style="width:7%">1st Repl</th>
+      <th style="width:7%">2nd Repl</th>
+      <th style="width:8%">Avg KM (0→1)</th>
+      <th style="width:8%">Median (0→1)</th>
+      <th style="width:8%">Avg KM (1→2)</th>
+      <th style="width:8%">Median (1→2)</th>
+      <th style="width:8%">Avg KM Running</th>
+      <th style="width:21%">KM Comparison</th>
+    </tr></thead><tbody>`;
+
+  parts.forEach(p => {
+    const b0 = p.avg_km_0to1  && maxKm ? Math.round(p.avg_km_0to1/maxKm*100)  : 0;
+    const b1 = p.avg_km_1to2  && maxKm ? Math.round(p.avg_km_1to2/maxKm*100)  : 0;
+    const br = p.avg_km_running && maxKm ? Math.round(p.avg_km_running/maxKm*100) : 0;
+    const c0 = !p.avg_km_0to1 ? '#94a3b8' : p.avg_km_0to1 < 5000 ? '#f53b3b' : p.avg_km_0to1 < 10000 ? '#f59e0b' : '#22c55e';
+    const pct1 = p.total_fleet ? ((p.first_repl_count/p.total_fleet)*100).toFixed(1)+'%' : '—';
+    html += `<tr>
+      <td style="font-weight:600">${p.part_group}</td>
+      <td>${p.total_fleet.toLocaleString()}</td>
+      <td>${p.first_repl_count} <span style="font-size:10px;color:var(--muted)">(${pct1})</span></td>
+      <td>${p.second_repl_count || '—'}</td>
+      <td>${p.avg_km_0to1  ? fmt(p.avg_km_0to1) +' km' : '—'}</td>
+      <td>${p.median_km_0to1 ? fmt(p.median_km_0to1)+' km' : '—'}</td>
+      <td>${p.avg_km_1to2  ? fmt(p.avg_km_1to2) +' km' : '—'}</td>
+      <td>${p.median_km_1to2 ? fmt(p.median_km_1to2)+' km' : '—'}</td>
+      <td>${p.avg_km_running ? fmt(p.avg_km_running)+' km' : '—'}</td>
+      <td class="km-cell">
+        <div class="km-bars">
+          <div class="km-bar-row">
+            <span class="lbl" style="font-size:9px">0→1</span>
+            <div class="bar"><div style="width:${b0}%;background:${c0}"></div></div>
+            <span class="val">${p.avg_km_0to1 ? fmt(p.avg_km_0to1)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl" style="font-size:9px">1→2</span>
+            <div class="bar"><div style="width:${b1}%;background:#f59e0b"></div></div>
+            <span class="val">${p.avg_km_1to2 ? fmt(p.avg_km_1to2)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl" style="font-size:9px">Run</span>
+            <div class="bar"><div style="width:${br}%;background:#3b82f6"></div></div>
+            <span class="val">${p.avg_km_running ? fmt(p.avg_km_running)+' km' : '—'}</span>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('oem-perf-body').innerHTML = html;
+
+  // Also filter raw table
+  renderOemRaw(true);
 }
 
 
