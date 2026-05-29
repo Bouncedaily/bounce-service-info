@@ -73,6 +73,13 @@ tr:hover td { background: #f8fafc; }
 .st-replaced { background: #fef2f2; color: #dc2626; font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
 .st-oem { background: #eff6ff; color: #2563eb; font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
 
+/* Tabs */
+.tab-bar { display:flex; gap:4px; padding:12px 20px 0; background:var(--bg); border-bottom:1px solid var(--border); }
+.tab-btn { padding:8px 16px; font-size:13px; font-weight:600; border:none; background:none; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s,border-color .15s; }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
 /* Raw table controls */
 .raw-controls {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -162,7 +169,16 @@ tr:hover td { background: #f8fafc; }
     </div>
   </div>
 
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('test-oem')">Test vs OEM</button>
+    <button class="tab-btn" onclick="switchTab('oem-perf')">OEM Parts Performance</button>
+  </div>
+
   <div class="content">
+
+    <!-- TAB: TEST VS OEM -->
+    <div class="tab-pane active" id="tab-test-oem">
 
     <!-- FILTER BAR -->
     <div class="filter-bar">
@@ -250,13 +266,35 @@ tr:hover td { background: #f8fafc; }
       </div>
     </div>
 
-    <!-- OEM PARTS PERFORMANCE -->
+    </div><!-- /tab-pane test-oem -->
+
+    <!-- TAB: OEM PARTS PERFORMANCE -->
+    <div class="tab-pane" id="tab-oem-perf">
     <div class="card">
       <div class="card-hd">
         <h2>OEM Parts Performance</h2>
         <span class="sub">Avg KM between replacements — Jan 2026 onwards</span>
       </div>
       <div id="oem-perf-body">
+        <div class="loading"><div class="spin"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- OEM PERF RAW DATA -->
+    <div class="card">
+      <div class="card-hd">
+        <h2>OEM Parts — Raw Data</h2>
+        <span class="sub" id="oem-raw-count">—</span>
+      </div>
+      <div class="raw-controls">
+        <input type="text" id="oem-search" placeholder="Search reg / chassis / part…" oninput="renderOemRaw()" />
+        <select id="oem-sort" onchange="renderOemRaw()">
+          <option value="repl_km_desc">Repl KM ↓</option>
+          <option value="repl_km_asc">Repl KM ↑</option>
+          <option value="run_km_desc">Run KM ↓</option>
+        </select>
+      </div>
+      <div id="oem-raw-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
       </div>
     </div>
@@ -283,6 +321,7 @@ tr:hover td { background: #f8fafc; }
       <div class="pagination" id="pagination"></div>
     </div>
 
+    </div><!-- /tab-pane oem-perf -->
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -397,7 +436,6 @@ function applyFilters() {
   currentPage = 1;
   renderKpis();
   renderSummary();
-  renderOemPerf();
   renderRaw();
 }
 
@@ -666,6 +704,16 @@ function toggleSidebar() {
 loadAll();
 
 
+// ── Tab switching ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['test-oem','oem-perf'][i] === tab));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-'+tab));
+  if (tab === 'oem-perf' && !window._oemPerfLoaded) {
+    window._oemPerfLoaded = true;
+    renderOemPerf();
+  }
+}
+
 // ── OEM Parts Performance ──
 async function renderOemPerf() {
   const PARTS = [
@@ -742,7 +790,26 @@ async function renderOemPerf() {
       const avgReplKm = replKms.length ? Math.round(replKms.reduce((a,b)=>a+b,0)/replKms.length) : null;
       const avgRunKm  = runKms.length  ? Math.round(runKms.reduce((a,b)=>a+b,0)/runKms.length)   : null;
 
-      return { group: p.group, totalBikes, replacedBikes, runningBikes, avgReplKm, avgRunKm };
+      // Median of replaced intervals
+      const sortedRepl = [...replKms].sort((a,b)=>a-b);
+      const medianRepl = sortedRepl.length ? sortedRepl[Math.floor(sortedRepl.length/2)] : null;
+
+      // Store raw rows for raw table: replaced bikes with their intervals, running bikes with odo
+      const rawRows = [];
+      Object.entries(byChass).forEach(([chassis, {odos, dates}]) => {
+        if (odos.length >= 2) {
+          for (let i = 1; i < odos.length; i++) {
+            const diff = odos[i] - odos[i-1];
+            if (diff >= 100 && diff <= 80000) {
+              rawRows.push({ part: p.group, chassis, status:'Replaced', replKm: diff, runKm: null, odo: odos[i], date: dates[i] });
+            }
+          }
+        } else {
+          rawRows.push({ part: p.group, chassis, status:'Running', replKm: null, runKm: odos[0], odo: odos[0], date: dates[0] });
+        }
+      });
+
+      return { group: p.group, totalBikes, replacedBikes, runningBikes, avgReplKm, avgRunKm, medianRepl, rawRows };
     }).filter(r => r.totalBikes > 0);
 
     // Sort by avgReplKm ascending (shortest lasting first)
@@ -762,7 +829,8 @@ async function renderOemPerf() {
         <th style="width:8%">Running</th>
         <th style="width:10%">Avg KM replaced</th>
         <th style="width:10%">Avg KM running</th>
-        <th style="width:36%">KM comparison</th>
+        <th style="width:9%">Median repl</th>
+        <th style="width:27%">KM comparison</th>
       </tr></thead><tbody>`;
 
     results.forEach(r => {
@@ -775,7 +843,8 @@ async function renderOemPerf() {
         <td>${r.replacedBikes}</td>
         <td>${r.runningBikes}</td>
         <td>${r.avgReplKm ? fmt(r.avgReplKm)+' km' : '—'}</td>
-        <td>${r.avgRunKm  ? fmt(r.avgRunKm) +' km' : '—'}</td>
+        <td>${r.avgRunKm   ? fmt(r.avgRunKm)  +' km' : '—'}</td>
+        <td>${r.medianRepl ? fmt(r.medianRepl)+' km' : '—'}</td>
         <td class="km-cell">
           <div class="km-bars">
             <div class="km-bar-row">
@@ -795,9 +864,55 @@ async function renderOemPerf() {
 
     html += '</tbody></table>';
     document.getElementById('oem-perf-body').innerHTML = html;
+
+    // Store raw rows globally
+    window._oemRawRows = results.flatMap(r => r.rawRows || []);
+    renderOemRaw();
   } catch(e) {
     document.getElementById('oem-perf-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
   }
+}
+
+// ── OEM Raw Data ──
+function renderOemRaw() {
+  const rows = window._oemRawRows || [];
+  if (!rows.length) return;
+  const q = (document.getElementById('oem-search')?.value || '').toLowerCase();
+  const sort = document.getElementById('oem-sort')?.value || 'repl_km_desc';
+
+  let filtered = rows.filter(r =>
+    !q || r.chassis.toLowerCase().includes(q) || r.part.toLowerCase().includes(q)
+  );
+
+  filtered.sort((a,b) => {
+    if (sort === 'repl_km_desc') return (b.replKm||0)-(a.replKm||0);
+    if (sort === 'repl_km_asc')  return (a.replKm||0)-(b.replKm||0);
+    if (sort === 'run_km_desc')  return (b.runKm||0)-(a.runKm||0);
+    return 0;
+  });
+
+  document.getElementById('oem-raw-count').textContent = filtered.length.toLocaleString() + ' records';
+
+  let html = `<div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th>Part</th><th>Chassis</th><th>Status</th>
+      <th>KM on part</th><th>Odo at event</th><th>Date</th>
+    </tr></thead><tbody>`;
+
+  filtered.forEach(r => {
+    const km = r.replKm || r.runKm;
+    html += `<tr>
+      <td>${r.part}</td>
+      <td style="font-family:monospace;font-size:11px">${r.chassis}</td>
+      <td><span class="pill ${r.status==='Replaced'?'p-red':'p-green'}" style="font-size:10px">${r.status}</span></td>
+      <td>${km ? fmt(km)+' km' : '—'}</td>
+      <td>${r.odo ? fmt(r.odo)+' km' : '—'}</td>
+      <td>${r.date ? r.date.slice(0,10) : '—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('oem-raw-body').innerHTML = html;
 }
 
 </script>
