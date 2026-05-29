@@ -309,12 +309,41 @@ tr:hover td { background: #f8fafc; }
         <span class="sub" id="oem-raw-count">—</span>
       </div>
       <div class="raw-controls">
-        <input type="text" id="oem-search" placeholder="Search reg / chassis / part…" oninput="renderOemRaw(true)" />
-        <select id="oem-sort" onchange="renderOemRaw(true)">
-          <option value="repl_km_desc">Repl KM ↓</option>
-          <option value="repl_km_asc">Repl KM ↑</option>
-          <option value="run_km_desc">Run KM ↓</option>
+        <input type="text" id="oem-search" placeholder="Search reg / chassis…" oninput="renderOemRaw(true)" />
+        <select id="oem-f-part" onchange="renderOemRaw(true)">
+          <option value="">All parts</option>
+          <option>Rear Tyre 12Inch</option>
+          <option>Front/Rear Tyre 12Inch Zoom</option>
+          <option>Energy Ride Tyre 110/70-12</option>
+          <option>Front Tyre 12-Inch</option>
+          <option>Cone Set Assy</option>
+          <option>Throttle Assembly</option>
+          <option>B2B - Throttle Assembly</option>
+          <option>Front Brake Pad</option>
+          <option>Rear Brake Pad</option>
+          <option>Fr Brake Shoe Set</option>
+          <option>Rr Brake Shoe Set</option>
+          <option>Rear Suspension</option>
+          <option>Bearing (All)</option>
         </select>
+        <select id="oem-f-status" onchange="renderOemRaw(true)">
+          <option value="">All status</option>
+          <option value="Replaced">Replaced</option>
+          <option value="Running">Running</option>
+        </select>
+        <select id="oem-f-city" onchange="renderOemRaw(true)">
+          <option value="">All cities</option>
+          <option value="Bangalore">Bangalore</option>
+          <option value="NCR">NCR</option>
+          <option value="Hyderabad">Hyderabad</option>
+        </select>
+        <select id="oem-sort" onchange="renderOemRaw(true)">
+          <option value="km_desc">KM ↓</option>
+          <option value="km_asc">KM ↑</option>
+          <option value="date_desc">Date ↓</option>
+          <option value="date_asc">Date ↑</option>
+        </select>
+        <span class="page-info" id="oem-page-info"></span>
       </div>
       <div id="oem-raw-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
@@ -775,13 +804,19 @@ async function renderOemPerf() {
 
     // Store raw globally and render
     window._oemRawRows = raw.map(r => ({
-      part: r.part_group,
-      chassis: r.chassis_number,
-      status: r.status,
-      replKm: r.km_on_part,
-      runKm: r.status === 'Running' ? r.odo_at_event : null,
-      odo: r.odo_at_event,
-      date: r.event_date
+      part:     r.part_group,
+      reg:      r.reg_number,
+      chassis:  r.chassis_number,
+      city:     r.city,
+      hub:      r.hub_name,
+      jcNo:     r.dms_jc_no,
+      odoFit:   r.odo_at_fitment,
+      odoRepl:  r.odo_at_replacement,
+      kmOnPart: r.km_on_part,
+      dateFit:  r.date_at_fitment,
+      dateRepl: r.date_at_replacement,
+      submType: r.submission_type,
+      status:   r.status
     }));
     renderOemRaw();
 
@@ -799,51 +834,68 @@ function renderOemRaw(resetPage) {
   if (resetPage) _oemRawPage = 1;
   const rows = window._oemRawRows || [];
   if (!rows.length) return;
-  const q = (document.getElementById('oem-search')?.value || '').toLowerCase();
-  const sort = document.getElementById('oem-sort')?.value || 'repl_km_desc';
 
-  let filtered = rows.filter(r =>
-    !q || r.chassis.toLowerCase().includes(q) || r.part.toLowerCase().includes(q)
-  );
+  const q      = (document.getElementById('oem-search')?.value || '').toLowerCase();
+  const fPart  = document.getElementById('oem-f-part')?.value   || '';
+  const fStat  = document.getElementById('oem-f-status')?.value || '';
+  const fCity  = document.getElementById('oem-f-city')?.value   || '';
+  const sort   = document.getElementById('oem-sort')?.value     || 'km_desc';
+
+  let filtered = rows.filter(r => {
+    if (q     && !r.reg?.toLowerCase().includes(q) && !r.chassis?.toLowerCase().includes(q)) return false;
+    if (fPart && r.part !== fPart)     return false;
+    if (fStat && r.status !== fStat)   return false;
+    if (fCity && r.city !== fCity)     return false;
+    return true;
+  });
 
   filtered.sort((a,b) => {
-    if (sort === 'repl_km_desc') return (b.replKm||0)-(a.replKm||0);
-    if (sort === 'repl_km_asc')  return (a.replKm||0)-(b.replKm||0);
-    if (sort === 'run_km_desc')  return (b.runKm||0)-(a.runKm||0);
+    if (sort === 'km_desc')   return (b.kmOnPart||b.odoFit||0) - (a.kmOnPart||a.odoFit||0);
+    if (sort === 'km_asc')    return (a.kmOnPart||a.odoFit||0) - (b.kmOnPart||b.odoFit||0);
+    if (sort === 'date_desc') return (b.dateFit||'').localeCompare(a.dateFit||'');
+    if (sort === 'date_asc')  return (a.dateFit||'').localeCompare(b.dateFit||'');
     return 0;
   });
 
-  const totalPages = Math.ceil(filtered.length / OEM_PAGE_SIZE);
-  if (_oemRawPage > totalPages) _oemRawPage = Math.max(1, totalPages);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / OEM_PAGE_SIZE));
+  if (_oemRawPage > totalPages) _oemRawPage = totalPages;
   const paged = filtered.slice((_oemRawPage-1)*OEM_PAGE_SIZE, _oemRawPage*OEM_PAGE_SIZE);
 
   document.getElementById('oem-raw-count').textContent = filtered.length.toLocaleString() + ' records';
+  document.getElementById('oem-page-info').textContent = `Page ${_oemRawPage} of ${totalPages}`;
 
   let html = `<div style="overflow-x:auto"><table>
     <thead><tr>
-      <th>Part</th><th>Chassis</th><th>Status</th>
-      <th>KM on part</th><th>Odo at event</th><th>Date</th>
+      <th>Reg No</th><th>Chassis</th><th>Part</th><th>City</th><th>Hub</th>
+      <th>JC No</th><th>Odo Fitment</th><th>Odo Replacement</th>
+      <th>KM on part</th><th>Date Fitted</th><th>Date Replaced</th>
+      <th>Submission</th><th>Status</th>
     </tr></thead><tbody>`;
 
   paged.forEach(r => {
-    const km = r.replKm || r.runKm;
     html += `<tr>
-      <td>${r.part}</td>
-      <td style="font-family:monospace;font-size:11px">${r.chassis}</td>
+      <td style="font-weight:600">${r.reg||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${r.chassis||'—'}</td>
+      <td>${r.part||'—'}</td>
+      <td>${r.city||'—'}</td>
+      <td>${r.hub||'—'}</td>
+      <td style="font-size:11px">${r.jcNo||'—'}</td>
+      <td>${r.odoFit ? fmt(r.odoFit)+' km' : '—'}</td>
+      <td>${r.odoRepl ? fmt(r.odoRepl)+' km' : '—'}</td>
+      <td>${r.kmOnPart ? fmt(r.kmOnPart)+' km' : '—'}</td>
+      <td>${r.dateFit||'—'}</td>
+      <td>${r.dateRepl||'—'}</td>
+      <td>${r.submType||'—'}</td>
       <td><span class="pill ${r.status==='Replaced'?'p-red':'p-green'}" style="font-size:10px">${r.status}</span></td>
-      <td>${km ? fmt(km)+' km' : '—'}</td>
-      <td>${r.odo ? fmt(r.odo)+' km' : '—'}</td>
-      <td>${r.date ? r.date.slice(0,10) : '—'}</td>
     </tr>`;
   });
 
   html += '</tbody></table></div>';
 
-  // Pagination controls
+  // Pagination
   let pgHtml = `<div class="pagination">`;
   pgHtml += `<button onclick="_oemRawPage=1;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>«</button>`;
   pgHtml += `<button onclick="_oemRawPage--;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>‹</button>`;
-  pgHtml += `<span style="padding:0 8px;font-size:12px">Page ${_oemRawPage} of ${totalPages}</span>`;
   pgHtml += `<button onclick="_oemRawPage++;renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>›</button>`;
   pgHtml += `<button onclick="_oemRawPage=${totalPages};renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>»</button>`;
   pgHtml += `</div>`;
