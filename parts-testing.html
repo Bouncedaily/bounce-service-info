@@ -309,8 +309,8 @@ tr:hover td { background: #f8fafc; }
         <span class="sub" id="oem-raw-count">—</span>
       </div>
       <div class="raw-controls">
-        <input type="text" id="oem-search" placeholder="Search reg / chassis / part…" oninput="renderOemRaw()" />
-        <select id="oem-sort" onchange="renderOemRaw()">
+        <input type="text" id="oem-search" placeholder="Search reg / chassis / part…" oninput="renderOemRaw(true)" />
+        <select id="oem-sort" onchange="renderOemRaw(true)">
           <option value="repl_km_desc">Repl KM ↓</option>
           <option value="repl_km_asc">Repl KM ↑</option>
           <option value="run_km_desc">Run KM ↓</option>
@@ -792,7 +792,11 @@ async function renderOemPerf() {
 
 
 // ── OEM Raw Data ──
-function renderOemRaw() {
+let _oemRawPage = 1;
+const OEM_PAGE_SIZE = 20;
+
+function renderOemRaw(resetPage) {
+  if (resetPage) _oemRawPage = 1;
   const rows = window._oemRawRows || [];
   if (!rows.length) return;
   const q = (document.getElementById('oem-search')?.value || '').toLowerCase();
@@ -809,6 +813,10 @@ function renderOemRaw() {
     return 0;
   });
 
+  const totalPages = Math.ceil(filtered.length / OEM_PAGE_SIZE);
+  if (_oemRawPage > totalPages) _oemRawPage = Math.max(1, totalPages);
+  const paged = filtered.slice((_oemRawPage-1)*OEM_PAGE_SIZE, _oemRawPage*OEM_PAGE_SIZE);
+
   document.getElementById('oem-raw-count').textContent = filtered.length.toLocaleString() + ' records';
 
   let html = `<div style="overflow-x:auto"><table>
@@ -817,7 +825,7 @@ function renderOemRaw() {
       <th>KM on part</th><th>Odo at event</th><th>Date</th>
     </tr></thead><tbody>`;
 
-  filtered.forEach(r => {
+  paged.forEach(r => {
     const km = r.replKm || r.runKm;
     html += `<tr>
       <td>${r.part}</td>
@@ -830,7 +838,17 @@ function renderOemRaw() {
   });
 
   html += '</tbody></table></div>';
-  document.getElementById('oem-raw-body').innerHTML = html;
+
+  // Pagination controls
+  let pgHtml = `<div class="pagination">`;
+  pgHtml += `<button onclick="_oemRawPage=1;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>«</button>`;
+  pgHtml += `<button onclick="_oemRawPage--;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>‹</button>`;
+  pgHtml += `<span style="padding:0 8px;font-size:12px">Page ${_oemRawPage} of ${totalPages}</span>`;
+  pgHtml += `<button onclick="_oemRawPage++;renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>›</button>`;
+  pgHtml += `<button onclick="_oemRawPage=${totalPages};renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>»</button>`;
+  pgHtml += `</div>`;
+
+  document.getElementById('oem-raw-body').innerHTML = html + pgHtml;
 }
 
 </script>
