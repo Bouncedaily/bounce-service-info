@@ -297,6 +297,14 @@ tr:hover td { background: #f8fafc; }
         <h2>OEM Parts Performance</h2>
         <span class="sub">Avg KM between replacements — Jan 2026 onwards</span>
       </div>
+      <div class="raw-controls" style="padding:10px 14px 0">
+        <label style="font-size:12px;font-weight:600">Deployed year</label>
+        <select id="oem-perf-year" onchange="renderOemPerfFilter()">
+          <option value="">All years</option>
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
       <div id="oem-perf-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
       </div>
@@ -336,6 +344,11 @@ tr:hover td { background: #f8fafc; }
           <option value="Bangalore">Bangalore</option>
           <option value="NCR">NCR</option>
           <option value="Hyderabad">Hyderabad</option>
+        </select>
+        <select id="oem-f-year" onchange="renderOemRaw(true)">
+          <option value="">All years</option>
+          <option value="2026">Deployed 2026</option>
+          <option value="2025">Deployed 2025</option>
         </select>
         <select id="oem-sort" onchange="renderOemRaw(true)">
           <option value="km_desc">KM ↓</option>
@@ -818,7 +831,8 @@ async function renderOemPerf() {
       dateRepl: r.date_at_replacement,
       submType: r.submission_type,
       dmsCat:   r.dms_cat,
-      status:   r.status
+      status:      r.status,
+      deployedYear: r.deployed_year
     }));
     renderOemRaw();
 
@@ -841,13 +855,15 @@ function renderOemRaw(resetPage) {
   const fPart  = document.getElementById('oem-f-part')?.value   || '';
   const fStat  = document.getElementById('oem-f-status')?.value || '';
   const fCity  = document.getElementById('oem-f-city')?.value   || '';
+  const fYear  = document.getElementById('oem-f-year')?.value   || '';
   const sort   = document.getElementById('oem-sort')?.value     || 'km_desc';
 
   let filtered = rows.filter(r => {
     if (q     && !r.reg?.toLowerCase().includes(q) && !r.chassis?.toLowerCase().includes(q)) return false;
-    if (fPart && r.part !== fPart)     return false;
-    if (fStat && r.status !== fStat)   return false;
-    if (fCity && r.city !== fCity)     return false;
+    if (fPart && r.part !== fPart)       return false;
+    if (fStat && r.status !== fStat)     return false;
+    if (fCity && r.city !== fCity)       return false;
+    if (fYear && r.deployedYear !== fYear) return false;
     return true;
   });
 
@@ -905,6 +921,84 @@ function renderOemRaw(resetPage) {
 
   document.getElementById('oem-raw-body').innerHTML = html;
   renderOemPagination(filtered.length, totalPages);
+}
+
+function renderOemPerfFilter() {
+  const fYear = document.getElementById('oem-perf-year')?.value || '';
+  const raw = window._oemRawRows || [];
+
+  // Re-compute summary filtered by deployed year
+  const parts = [...new Set(raw.map(r => r.part))];
+  const filtered = fYear ? raw.filter(r => r.deployedYear === fYear) : raw;
+
+  const summary = parts.map(part => {
+    const rows = filtered.filter(r => r.part === part);
+    const replRows = rows.filter(r => r.status === 'Replaced');
+    const runRows  = rows.filter(r => r.status === 'Running');
+    const replKms  = replRows.map(r => r.kmOnPart).filter(Boolean);
+    const runKms   = runRows.map(r => r.odoFit).filter(Boolean);
+    const avgReplKm = replKms.length ? Math.round(replKms.reduce((a,b)=>a+b,0)/replKms.length) : null;
+    const avgRunKm  = runKms.length  ? Math.round(runKms.reduce((a,b)=>a+b,0)/runKms.length)   : null;
+    const sortedRepl = [...replKms].sort((a,b)=>a-b);
+    const medianRepl = sortedRepl.length ? sortedRepl[Math.floor(sortedRepl.length/2)] : null;
+    const totalBikes   = new Set(rows.map(r=>r.chassis)).size;
+    const replacedBikes = new Set(replRows.map(r=>r.chassis)).size;
+    const runningBikes  = new Set(runRows.map(r=>r.chassis)).size;
+    return { part_group: part, total_bikes: totalBikes, replaced_bikes: replacedBikes,
+             running_bikes: runningBikes, avg_repl_km: avgReplKm, avg_run_km: avgRunKm, median_repl_km: medianRepl };
+  }).filter(r => r.total_bikes > 0).sort((a,b) => (a.avg_repl_km||999999)-(b.avg_repl_km||999999));
+
+  // Re-render summary table using same logic
+  const maxKm = Math.max(
+    ...summary.filter(r=>r.avg_repl_km).map(r=>r.avg_repl_km),
+    ...summary.filter(r=>r.avg_run_km).map(r=>r.avg_run_km)
+  );
+
+  let html = `<table>
+    <thead><tr>
+      <th style="width:20%">Part</th>
+      <th style="width:8%">Total Bikes</th>
+      <th style="width:8%">Replaced</th>
+      <th style="width:8%">Running</th>
+      <th style="width:10%">Avg KM replaced</th>
+      <th style="width:10%">Avg KM running</th>
+      <th style="width:9%">Median repl</th>
+      <th style="width:27%">KM comparison</th>
+    </tr></thead><tbody>`;
+
+  summary.forEach(r => {
+    const replBarW = r.avg_repl_km && maxKm ? Math.round(r.avg_repl_km/maxKm*100) : 0;
+    const runBarW  = r.avg_run_km  && maxKm ? Math.round(r.avg_run_km/maxKm*100)  : 0;
+    const barColor = !r.avg_repl_km ? '#94a3b8' : r.avg_repl_km < 5000 ? '#f53b3b' : r.avg_repl_km < 10000 ? '#f59e0b' : '#22c55e';
+    html += `<tr>
+      <td style="font-weight:600">${r.part_group}</td>
+      <td>${(r.total_bikes||0).toLocaleString()}</td>
+      <td>${r.replaced_bikes||0}</td>
+      <td>${r.running_bikes||0}</td>
+      <td>${r.avg_repl_km  ? fmt(r.avg_repl_km) +' km' : '—'}</td>
+      <td>${r.avg_run_km   ? fmt(r.avg_run_km)  +' km' : '—'}</td>
+      <td>${r.median_repl_km ? fmt(r.median_repl_km)+' km' : '—'}</td>
+      <td class="km-cell">
+        <div class="km-bars">
+          <div class="km-bar-row">
+            <span class="lbl">Repl</span>
+            <div class="bar"><div style="width:${replBarW}%;background:${barColor}"></div></div>
+            <span class="val">${r.avg_repl_km ? fmt(r.avg_repl_km)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl">Run</span>
+            <div class="bar"><div style="width:${runBarW}%;background:#3b82f6"></div></div>
+            <span class="val">${r.avg_run_km ? fmt(r.avg_run_km)+' km' : '—'}</span>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('oem-perf-body').innerHTML = html;
+
+  // Also filter raw table
+  renderOemRaw(true);
 }
 
 function renderOemPagination(total, pages) {
