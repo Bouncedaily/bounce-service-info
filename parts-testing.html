@@ -474,13 +474,14 @@ function renderSummary() {
     const vendor = tRows[0]?.vendor || '—';
 
     let verdict = '';
-    if (!oRepl.length || !tRepl.length) {
+    // Verdict uses all-bikes avg KM for both test and OEM
+    if (!oAvg || !tAvg) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (tReplAvg > oReplAvg * 1.05) {
-      const pct = Math.round((tReplAvg/oReplAvg-1)*100);
+    } else if (tAvg > oAvg * 1.05) {
+      const pct = Math.round((tAvg/oAvg-1)*100);
       verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tReplAvg < oReplAvg * 0.95) {
-      const pct = Math.round((1-tReplAvg/oReplAvg)*100);
+    } else if (tAvg < oAvg * 0.95) {
+      const pct = Math.round((1-tAvg/oAvg)*100);
       verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
     } else {
       verdict = `<span class="pill p-blue">≈ Similar</span>`;
