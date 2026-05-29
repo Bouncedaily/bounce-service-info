@@ -704,66 +704,89 @@ async function renderOemPerf() {
       }
     }
 
-    // Group by part group + chassis, sort by date, calc intervals
+    // Group by part group + chassis, compute avg KM replaced and avg KM running
     const results = PARTS.map(p => {
       const rows = allJcs
         .filter(j => p.items.includes(j.item_name))
         .sort((a,b) => new Date(a.end_time) - new Date(b.end_time));
 
-      // Per chassis: consecutive replacements
+      // Per chassis: get latest odo and whether they have 2+ replacements
       const byChass = {};
       rows.forEach(r => {
-        if (!byChass[r.chassis_number]) byChass[r.chassis_number] = [];
-        byChass[r.chassis_number].push(r.bike_odo);
+        if (!byChass[r.chassis_number]) byChass[r.chassis_number] = { odos: [], dates: [] };
+        byChass[r.chassis_number].odos.push(Number(r.bike_odo));
+        byChass[r.chassis_number].dates.push(r.end_time);
       });
 
-      const intervals = [];
-      Object.values(byChass).forEach(odos => {
-        for (let i = 1; i < odos.length; i++) {
-          const diff = odos[i] - odos[i-1];
-          if (diff >= 100 && diff <= 80000) intervals.push(diff);
+      // Replaced bikes: have 2+ JC events → use intervals between consecutive replacements
+      const replKms = [];
+      const runKms  = [];
+
+      Object.values(byChass).forEach(({odos}) => {
+        if (odos.length >= 2) {
+          // Multiple replacements — take all intervals
+          for (let i = 1; i < odos.length; i++) {
+            const diff = odos[i] - odos[i-1];
+            if (diff >= 100 && diff <= 80000) replKms.push(diff);
+          }
+        } else {
+          // Only one JC event — bike is still running on that part
+          if (odos[0] > 0) runKms.push(odos[0]);
         }
       });
 
-      const totalBikes = Object.keys(byChass).length;
-      const avgKm = intervals.length ? Math.round(intervals.reduce((a,b)=>a+b,0)/intervals.length) : null;
-      const sorted = [...intervals].sort((a,b)=>a-b);
-      const median = sorted.length ? sorted[Math.floor(sorted.length/2)] : null;
+      const totalBikes    = Object.keys(byChass).length;
+      const replacedBikes = Object.values(byChass).filter(b => b.odos.length >= 2).length;
+      const runningBikes  = totalBikes - replacedBikes;
 
-      return { group: p.group, totalBikes, replacements: intervals.length, avgKm, median };
+      const avgReplKm = replKms.length ? Math.round(replKms.reduce((a,b)=>a+b,0)/replKms.length) : null;
+      const avgRunKm  = runKms.length  ? Math.round(runKms.reduce((a,b)=>a+b,0)/runKms.length)   : null;
+
+      return { group: p.group, totalBikes, replacedBikes, runningBikes, avgReplKm, avgRunKm };
     }).filter(r => r.totalBikes > 0);
 
-    // Sort by avgKm ascending (shortest lasting first)
-    results.sort((a,b) => (a.avgKm||999999) - (b.avgKm||999999));
+    // Sort by avgReplKm ascending (shortest lasting first)
+    results.sort((a,b) => (a.avgReplKm||999999) - (b.avgReplKm||999999));
 
-    // Find max avg for bar scaling
-    const maxAvg = Math.max(...results.filter(r=>r.avgKm).map(r=>r.avgKm));
+    // Find max for bar scaling across both metrics
+    const maxKm = Math.max(
+      ...results.filter(r=>r.avgReplKm).map(r=>r.avgReplKm),
+      ...results.filter(r=>r.avgRunKm).map(r=>r.avgRunKm)
+    );
 
     let html = `<table>
       <thead><tr>
-        <th style="width:22%">Part</th>
-        <th style="width:9%">Total Bikes</th>
-        <th style="width:9%">Replacements</th>
-        <th style="width:10%">Avg KM</th>
-        <th style="width:10%">Median KM</th>
-        <th style="width:40%">Avg KM</th>
+        <th style="width:20%">Part</th>
+        <th style="width:8%">Total Bikes</th>
+        <th style="width:8%">Replaced</th>
+        <th style="width:8%">Running</th>
+        <th style="width:10%">Avg KM replaced</th>
+        <th style="width:10%">Avg KM running</th>
+        <th style="width:36%">KM comparison</th>
       </tr></thead><tbody>`;
 
     results.forEach(r => {
-      const barW = r.avgKm && maxAvg ? Math.round(r.avgKm/maxAvg*100) : 0;
-      // color: red < 5000, amber < 10000, green >= 10000
-      const barColor = !r.avgKm ? '#94a3b8' : r.avgKm < 5000 ? '#f53b3b' : r.avgKm < 10000 ? '#f59e0b' : '#22c55e';
+      const replBarW = r.avgReplKm && maxKm ? Math.round(r.avgReplKm/maxKm*100) : 0;
+      const runBarW  = r.avgRunKm  && maxKm ? Math.round(r.avgRunKm/maxKm*100)  : 0;
+      const barColor = !r.avgReplKm ? '#94a3b8' : r.avgReplKm < 5000 ? '#f53b3b' : r.avgReplKm < 10000 ? '#f59e0b' : '#22c55e';
       html += `<tr>
         <td style="font-weight:600">${r.group}</td>
         <td>${r.totalBikes.toLocaleString()}</td>
-        <td>${r.replacements}</td>
-        <td>${r.avgKm ? fmt(r.avgKm)+' km' : '—'}</td>
-        <td>${r.median ? fmt(r.median)+' km' : '—'}</td>
+        <td>${r.replacedBikes}</td>
+        <td>${r.runningBikes}</td>
+        <td>${r.avgReplKm ? fmt(r.avgReplKm)+' km' : '—'}</td>
+        <td>${r.avgRunKm  ? fmt(r.avgRunKm) +' km' : '—'}</td>
         <td class="km-cell">
           <div class="km-bars">
             <div class="km-bar-row">
-              <div class="bar"><div style="width:${barW}%;background:${barColor}"></div></div>
-              <span class="val">${r.avgKm ? fmt(r.avgKm)+' km' : '—'}</span>
+              <span class="lbl">Repl</span>
+              <div class="bar"><div style="width:${replBarW}%;background:${barColor}"></div></div>
+              <span class="val">${r.avgReplKm ? fmt(r.avgReplKm)+' km' : '—'}</span>
+            </div>
+            <div class="km-bar-row">
+              <span class="lbl">Run</span>
+              <div class="bar"><div style="width:${runBarW}%;background:#3b82f6"></div></div>
+              <span class="val">${r.avgRunKm ? fmt(r.avgRunKm)+' km' : '—'}</span>
             </div>
           </div>
         </td>
