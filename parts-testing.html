@@ -780,7 +780,7 @@ async function renderOemPerf() {
   try {
     const [summary, raw] = await Promise.all([
       sbFetch('oem_parts_perf_cache?select=*'),
-      sbFetch('oem_parts_perf_raw?select=*&status=eq.Replaced&order=km_on_part.desc.nullslast&limit=10000')
+      sbFetch('oem_parts_perf_raw?select=*&status=eq.Replaced&order=deployed_year.desc,km_on_part.desc.nullslast&limit=15000')
     ]);
 
     window._oemSummaryAll = summary;
