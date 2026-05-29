@@ -716,109 +716,18 @@ function switchTab(tab) {
 
 // ── OEM Parts Performance ──
 async function renderOemPerf() {
-  const PARTS = [
-    { group: 'Rear Tyre 12Inch',            items: ['Rear Tyre 12Inch'] },
-    { group: 'Front/Rear Tyre 12Inch Zoom', items: ['Front/Rear Tyre 12Inch Zoom'] },
-    { group: 'Energy Ride Tyre 110/70-12',  items: ['Energy Ride Tyre 110/70-12'] },
-    { group: 'Front Tyre 12-Inch',          items: ['Front Tyre 12-Inch'] },
-    { group: 'Cone Set Assy',               items: ['Cone Set Assy'] },
-    { group: 'Throttle Assembly',           items: ['Throttle Assembly'] },
-    { group: 'B2B - Throttle Assembly',     items: ['B2B - Throttle Assembly'] },
-    { group: 'Front Brake Pad',             items: ['Front Brake Pad'] },
-    { group: 'Rear Brake Pad',              items: ['Rear Brake Pad'] },
-    { group: 'Fr Brake Shoe Set',           items: ['Fr Brake Shoe Set - Drum'] },
-    { group: 'Rr Brake Shoe Set',           items: ['Rr Brake Shoe Set - Drum'] },
-    { group: 'Rear Suspension',             items: ['Rear Suspension'] },
-    { group: 'Bearing (All)',               items: ['Bearing -6201-2RS','Front Wheel Bearing 6301-2RS1','Rear Wheel Bearing 6204-2RS1/C3','Rear Wheel Bearing 6205-2RS1/C3'] },
-  ];
-
   document.getElementById('oem-perf-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
+  document.getElementById('oem-raw-body').innerHTML  = '<div class="loading"><div class="spin"></div> Loading…</div>';
 
   try {
-    // Fetch all relevant JC lines from Jan 2026 in batches per item
-    const allJcs = [];
-    for (const p of PARTS) {
-      for (const item of p.items) {
-        const rows = await sbFetch(
-          `jc_details?select=chassis_number,item_name,bike_odo,end_time` +
-          `&item_name=eq.${encodeURIComponent(item)}` +
-          `&line_type=eq.Part` +
-          `&end_time=gte.2026-01-01` +
-          `&sfx_to_bd=eq.false` +
-          `&bike_odo=gt.0` +
-          `&limit=5000`
-        );
-        allJcs.push(...rows);
-      }
-    }
+    // Read from cache tables — fast single queries
+    const summary = await sbFetch('oem_parts_perf_cache?select=*&order=avg_repl_km.asc.nullslast');
+    const raw     = await sbFetch('oem_parts_perf_raw?select=*&order=km_on_part.desc.nullslast&limit=10000');
 
-    // Group by part group + chassis, compute avg KM replaced and avg KM running
-    const results = PARTS.map(p => {
-      const rows = allJcs
-        .filter(j => p.items.includes(j.item_name))
-        .sort((a,b) => new Date(a.end_time) - new Date(b.end_time));
-
-      // Per chassis: get latest odo and whether they have 2+ replacements
-      const byChass = {};
-      rows.forEach(r => {
-        if (!byChass[r.chassis_number]) byChass[r.chassis_number] = { odos: [], dates: [] };
-        byChass[r.chassis_number].odos.push(Number(r.bike_odo));
-        byChass[r.chassis_number].dates.push(r.end_time);
-      });
-
-      // Replaced bikes: have 2+ JC events → use intervals between consecutive replacements
-      const replKms = [];
-      const runKms  = [];
-
-      Object.values(byChass).forEach(({odos}) => {
-        if (odos.length >= 2) {
-          // Multiple replacements — take all intervals
-          for (let i = 1; i < odos.length; i++) {
-            const diff = odos[i] - odos[i-1];
-            if (diff >= 100 && diff <= 80000) replKms.push(diff);
-          }
-        } else {
-          // Only one JC event — bike is still running on that part
-          if (odos[0] > 0) runKms.push(odos[0]);
-        }
-      });
-
-      const totalBikes    = Object.keys(byChass).length;
-      const replacedBikes = Object.values(byChass).filter(b => b.odos.length >= 2).length;
-      const runningBikes  = totalBikes - replacedBikes;
-
-      const avgReplKm = replKms.length ? Math.round(replKms.reduce((a,b)=>a+b,0)/replKms.length) : null;
-      const avgRunKm  = runKms.length  ? Math.round(runKms.reduce((a,b)=>a+b,0)/runKms.length)   : null;
-
-      // Median of replaced intervals
-      const sortedRepl = [...replKms].sort((a,b)=>a-b);
-      const medianRepl = sortedRepl.length ? sortedRepl[Math.floor(sortedRepl.length/2)] : null;
-
-      // Store raw rows for raw table: replaced bikes with their intervals, running bikes with odo
-      const rawRows = [];
-      Object.entries(byChass).forEach(([chassis, {odos, dates}]) => {
-        if (odos.length >= 2) {
-          for (let i = 1; i < odos.length; i++) {
-            const diff = odos[i] - odos[i-1];
-            if (diff >= 100 && diff <= 80000) {
-              rawRows.push({ part: p.group, chassis, status:'Replaced', replKm: diff, runKm: null, odo: odos[i], date: dates[i] });
-            }
-          }
-        } else {
-          rawRows.push({ part: p.group, chassis, status:'Running', replKm: null, runKm: odos[0], odo: odos[0], date: dates[0] });
-        }
-      });
-
-      return { group: p.group, totalBikes, replacedBikes, runningBikes, avgReplKm, avgRunKm, medianRepl, rawRows };
-    }).filter(r => r.totalBikes > 0);
-
-    // Sort by avgReplKm ascending (shortest lasting first)
-    results.sort((a,b) => (a.avgReplKm||999999) - (b.avgReplKm||999999));
-
-    // Find max for bar scaling across both metrics
+    // ── Summary table ──
     const maxKm = Math.max(
-      ...results.filter(r=>r.avgReplKm).map(r=>r.avgReplKm),
-      ...results.filter(r=>r.avgRunKm).map(r=>r.avgRunKm)
+      ...summary.filter(r=>r.avg_repl_km).map(r=>r.avg_repl_km),
+      ...summary.filter(r=>r.avg_run_km).map(r=>r.avg_run_km)
     );
 
     let html = `<table>
@@ -833,45 +742,54 @@ async function renderOemPerf() {
         <th style="width:27%">KM comparison</th>
       </tr></thead><tbody>`;
 
-    results.forEach(r => {
-      const replBarW = r.avgReplKm && maxKm ? Math.round(r.avgReplKm/maxKm*100) : 0;
-      const runBarW  = r.avgRunKm  && maxKm ? Math.round(r.avgRunKm/maxKm*100)  : 0;
-      const barColor = !r.avgReplKm ? '#94a3b8' : r.avgReplKm < 5000 ? '#f53b3b' : r.avgReplKm < 10000 ? '#f59e0b' : '#22c55e';
+    summary.forEach(r => {
+      const replBarW = r.avg_repl_km && maxKm ? Math.round(r.avg_repl_km/maxKm*100) : 0;
+      const runBarW  = r.avg_run_km  && maxKm ? Math.round(r.avg_run_km/maxKm*100)  : 0;
+      const barColor = !r.avg_repl_km ? '#94a3b8' : r.avg_repl_km < 5000 ? '#f53b3b' : r.avg_repl_km < 10000 ? '#f59e0b' : '#22c55e';
       html += `<tr>
-        <td style="font-weight:600">${r.group}</td>
-        <td>${r.totalBikes.toLocaleString()}</td>
-        <td>${r.replacedBikes}</td>
-        <td>${r.runningBikes}</td>
-        <td>${r.avgReplKm ? fmt(r.avgReplKm)+' km' : '—'}</td>
-        <td>${r.avgRunKm   ? fmt(r.avgRunKm)  +' km' : '—'}</td>
-        <td>${r.medianRepl ? fmt(r.medianRepl)+' km' : '—'}</td>
+        <td style="font-weight:600">${r.part_group}</td>
+        <td>${(r.total_bikes||0).toLocaleString()}</td>
+        <td>${r.replaced_bikes||0}</td>
+        <td>${r.running_bikes||0}</td>
+        <td>${r.avg_repl_km  ? fmt(r.avg_repl_km) +' km' : '—'}</td>
+        <td>${r.avg_run_km   ? fmt(r.avg_run_km)  +' km' : '—'}</td>
+        <td>${r.median_repl_km ? fmt(r.median_repl_km)+' km' : '—'}</td>
         <td class="km-cell">
           <div class="km-bars">
             <div class="km-bar-row">
               <span class="lbl">Repl</span>
               <div class="bar"><div style="width:${replBarW}%;background:${barColor}"></div></div>
-              <span class="val">${r.avgReplKm ? fmt(r.avgReplKm)+' km' : '—'}</span>
+              <span class="val">${r.avg_repl_km ? fmt(r.avg_repl_km)+' km' : '—'}</span>
             </div>
             <div class="km-bar-row">
               <span class="lbl">Run</span>
               <div class="bar"><div style="width:${runBarW}%;background:#3b82f6"></div></div>
-              <span class="val">${r.avgRunKm ? fmt(r.avgRunKm)+' km' : '—'}</span>
+              <span class="val">${r.avg_run_km ? fmt(r.avg_run_km)+' km' : '—'}</span>
             </div>
           </div>
         </td>
       </tr>`;
     });
-
     html += '</tbody></table>';
     document.getElementById('oem-perf-body').innerHTML = html;
 
-    // Store raw rows globally
-    window._oemRawRows = results.flatMap(r => r.rawRows || []);
+    // Store raw globally and render
+    window._oemRawRows = raw.map(r => ({
+      part: r.part_group,
+      chassis: r.chassis_number,
+      status: r.status,
+      replKm: r.km_on_part,
+      runKm: r.status === 'Running' ? r.odo_at_event : null,
+      odo: r.odo_at_event,
+      date: r.event_date
+    }));
     renderOemRaw();
+
   } catch(e) {
     document.getElementById('oem-perf-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
   }
 }
+
 
 // ── OEM Raw Data ──
 function renderOemRaw() {
