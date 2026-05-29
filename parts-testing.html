@@ -425,12 +425,14 @@ function renderSummary() {
   const test = allRows.filter(r => r.type === 'Test');
   const oem  = allRows.filter(r => r.type === 'OEM');
 
-  // Find max KM for bar scaling
+  // Find max KM across all 4 metrics for bar scaling
   let maxKm = 0;
   cats.forEach(cat => {
-    const tAvg = avg(test.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
-    const oAvg = avg(oem.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
-    maxKm = Math.max(maxKm, tAvg, oAvg);
+    const tAll  = avg(test.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
+    const tRepl = avg(test.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
+    const oAll  = avg(oem.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
+    const oRepl = avg(oem.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
+    maxKm = Math.max(maxKm, tAll, tRepl, oAll, oRepl);
   });
   if (!maxKm) maxKm = 10000;
 
@@ -463,8 +465,10 @@ function renderSummary() {
     const tReplAvg = tRepl.length ? avg(tRepl.map(r=>r.km_on_part)) : 0;
     const oReplAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
 
-    const tBarW = maxKm ? Math.round(tAvg/maxKm*100) : 0;
-    const oBarW = maxKm ? Math.round(oAvg/maxKm*100) : 0;
+    const tBarW    = maxKm ? Math.round(tAvg/maxKm*100) : 0;
+    const oBarW    = maxKm ? Math.round(oAvg/maxKm*100) : 0;
+    const tReplBarW = maxKm ? Math.round(tReplAvg/maxKm*100) : 0;
+    const oReplBarW = maxKm ? Math.round(oReplAvg/maxKm*100) : 0;
 
     const vendor = tRows[0]?.vendor || '—';
 
@@ -493,14 +497,24 @@ function renderSummary() {
       <td class="km-cell">
         <div class="km-bars">
           <div class="km-bar-row">
-            <span class="lbl">Test</span>
+            <span class="lbl" style="color:#f53b3b">Test all</span>
             <div class="bar"><div style="width:${tBarW}%;background:#f53b3b"></div></div>
             <span class="val">${tAvg ? fmt(tAvg)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
-            <span class="lbl">OEM</span>
+            <span class="lbl" style="color:#c0392b">Test repl</span>
+            <div class="bar"><div style="width:${tReplBarW}%;background:#c0392b"></div></div>
+            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl" style="color:#64748b">OEM all</span>
             <div class="bar"><div style="width:${oBarW}%;background:#94a3b8"></div></div>
             <span class="val">${oAvg ? fmt(oAvg)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl" style="color:#334155">OEM repl</span>
+            <div class="bar"><div style="width:${oReplBarW}%;background:#475569"></div></div>
+            <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
           </div>
         </div>
       </td>
