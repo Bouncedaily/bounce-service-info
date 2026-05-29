@@ -817,6 +817,7 @@ async function renderOemPerf() {
       dateFit:  r.date_at_fitment,
       dateRepl: r.date_at_replacement,
       submType: r.submission_type,
+      dmsCat:   r.dms_cat,
       status:   r.status
     }));
     renderOemRaw();
@@ -870,7 +871,7 @@ function renderOemRaw(resetPage) {
       <th>Reg No</th><th>Chassis</th><th>Part</th><th>City</th><th>Hub</th>
       <th>JC No</th><th>Odo Fitment</th><th>Odo Replacement</th>
       <th>KM on part</th><th>Date Fitted</th><th>Date Replaced</th>
-      <th>Submission</th><th>Status</th>
+      <th>Submission</th><th>DMS Cat</th><th>Status</th>
     </tr></thead><tbody>`;
 
   paged.forEach(r => {
@@ -887,6 +888,7 @@ function renderOemRaw(resetPage) {
       <td>${r.dateFit||'—'}</td>
       <td>${r.dateRepl||'—'}</td>
       <td>${r.submType||'—'}</td>
+      <td>${r.dmsCat||'—'}</td>
       <td><span class="pill ${r.status==='Replaced'?'p-red':'p-green'}" style="font-size:10px">${r.status}</span></td>
     </tr>`;
   });
