@@ -440,8 +440,10 @@ function renderSummary() {
       <th style="width:9%">Vendor</th>
       <th style="width:8%">Test bikes</th>
       <th style="width:8%">Test repl.</th>
+      <th style="width:7%">Test repair</th>
       <th style="width:8%">OEM bikes</th>
       <th style="width:8%">OEM repl.</th>
+      <th style="width:7%">OEM repair</th>
       <th style="width:28%">Avg KM comparison</th>
       <th style="width:13%">Verdict</th>
     </tr></thead><tbody>`;
@@ -449,8 +451,10 @@ function renderSummary() {
   cats.forEach(cat => {
     const tRows  = test.filter(r => r.part_category === cat);
     const tRepl  = tRows.filter(r => r.status === 'Replaced');
+    const tRepair = tRows.reduce((s,r) => s + (r.repair_count||0), 0);
     const oRows  = oem.filter(r => r.part_category === cat);
     const oRepl  = oRows.filter(r => r.status === 'Replaced');
+    const oRepair = oRows.reduce((s,r) => s + (r.repair_count||0), 0);
 
     const tAvg = tRows.length ? avg(tRows.filter(r=>r.km_on_part>0).map(r=>r.km_on_part)) : 0;
     const oAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
@@ -480,8 +484,10 @@ function renderSummary() {
       <td><span class="pill p-gray" style="font-size:10px">${vendor}</span></td>
       <td>${tRows.length}</td>
       <td>${tRepl.length}</td>
+      <td>${tRepair || '—'}</td>
       <td>${oRows.length}</td>
       <td>${oRepl.length}</td>
+      <td>${oRepair || '—'}</td>
       <td class="km-cell">
         <div class="km-bars">
           <div class="km-bar-row">
