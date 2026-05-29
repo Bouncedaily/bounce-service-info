@@ -161,7 +161,7 @@ tr:hover td { background: #f8fafc; }
   <div class="topbar">
     <div>
       <div class="topbar h1" style="font-size:15px;font-weight:700">Parts Testing Tracker</div>
-      <div class="meta" id="last-updated">Loading…</div>
+      <div class="meta" id="last-updated" style="color:var(--text-muted,#64748b)">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="export-btn" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
@@ -480,6 +480,7 @@ function applyFilters() {
   renderKpis();
   renderSummary();
   renderRaw();
+  restoreTab();
 }
 
 function renderKpis() {
@@ -755,6 +756,13 @@ function switchTab(tab) {
     window._oemPerfLoaded = true;
     renderOemPerf();
   }
+  location.hash = tab;
+}
+
+// Restore tab from URL hash on load
+function restoreTab() {
+  const hash = location.hash.replace('#','');
+  if (hash === 'oem-perf') switchTab('oem-perf');
 }
 
 // ── OEM Parts Performance ──
