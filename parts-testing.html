@@ -446,7 +446,8 @@ function renderSummary() {
       <th style="width:8%">OEM bikes</th>
       <th style="width:8%">OEM repl.</th>
       <th style="width:7%">OEM repair</th>
-      <th style="width:28%">Avg KM comparison</th>
+      <th style="width:16%">Avg KM (All)</th>
+      <th style="width:16%">Avg KM (Replaced)</th>
       <th style="width:13%">Verdict</th>
     </tr></thead><tbody>`;
 
@@ -497,23 +498,27 @@ function renderSummary() {
       <td class="km-cell">
         <div class="km-bars">
           <div class="km-bar-row">
-            <span class="lbl" style="color:#f53b3b">Test all</span>
+            <span class="lbl">Test</span>
             <div class="bar"><div style="width:${tBarW}%;background:#f53b3b"></div></div>
             <span class="val">${tAvg ? fmt(tAvg)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
-            <span class="lbl" style="color:#c0392b">Test repl</span>
-            <div class="bar"><div style="width:${tReplBarW}%;background:#c0392b"></div></div>
-            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
-          </div>
-          <div class="km-bar-row">
-            <span class="lbl" style="color:#64748b">OEM all</span>
+            <span class="lbl">OEM</span>
             <div class="bar"><div style="width:${oBarW}%;background:#94a3b8"></div></div>
             <span class="val">${oAvg ? fmt(oAvg)+' km' : '—'}</span>
           </div>
+        </div>
+      </td>
+      <td class="km-cell">
+        <div class="km-bars">
           <div class="km-bar-row">
-            <span class="lbl" style="color:#334155">OEM repl</span>
-            <div class="bar"><div style="width:${oReplBarW}%;background:#475569"></div></div>
+            <span class="lbl">Test</span>
+            <div class="bar"><div style="width:${tReplBarW}%;background:#f53b3b"></div></div>
+            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl">OEM</span>
+            <div class="bar"><div style="width:${oReplBarW}%;background:#94a3b8"></div></div>
             <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
           </div>
         </div>
