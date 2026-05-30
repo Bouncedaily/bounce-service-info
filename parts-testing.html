@@ -368,9 +368,9 @@ tr:hover td { background: #f8fafc; }
         </select>
         <span class="page-info" id="oem-page-info"></span>
       </div>
-      <div class="table-scroll"><div id="oem-raw-body">
+      <div id="oem-raw-body">
         <div class="loading"><div class="spin"></div> Loading…</div>
-      </div></div>
+      </div>
       <div class="pagination" id="oem-pagination"></div>
     </div>
 
@@ -951,7 +951,7 @@ function renderOemRaw(resetPage) {
   document.getElementById('oem-raw-count').textContent = filtered.length.toLocaleString() + ' records';
   document.getElementById('oem-page-info').textContent = `Page ${_oemRawPage} of ${totalPages}`;
 
-  let html = `<div style="overflow-x:auto"><table>
+  let html = `<div style="overflow-x:auto;overflow-y:auto;max-height:480px"><table>
     <thead><tr>
       <th>Reg No</th><th>Chassis</th><th>Part</th><th>City</th><th>Hub</th>
       <th>JC No</th><th>Odo Fitment</th><th>Odo Replacement</th>
