@@ -344,7 +344,8 @@ tr:hover td { background: #f8fafc; }
         </select>
         <select id="oem-f-status" onchange="renderOemRaw(true)">
           <option value="">All replacements</option>
-          <option value="Replaced">Replaced only</option>
+          <option value="1">OEM replacements</option>
+          <option value="2">SPD replacements</option>
         </select>
         <select id="oem-f-city" onchange="renderOemRaw(true)">
           <option value="">All cities</option>
@@ -789,7 +790,8 @@ async function renderOemPerf() {
       city: r.city, hub: r.hub_name, jcNo: r.dms_jc_no, dmsCat: r.dms_cat,
       odoFit: r.odo_at_fitment, odoRepl: r.odo_at_replacement, kmOnPart: r.km_on_part,
       dateFit: r.date_at_fitment, dateRepl: r.date_at_replacement,
-      submType: r.submission_type, status: r.status, deployedYear: r.deployed_year
+      submType: r.submission_type, status: r.status, deployedYear: r.deployed_year,
+      intervalNo: r.interval_no
     }));
 
     renderOemPerfFilter();
@@ -854,12 +856,12 @@ function renderOemPerfFilter() {
   let html = `<table>
     <thead><tr>
       <th style="width:22%">Part</th>
-      <th style="width:8%">1st Repl</th>
-      <th style="width:8%">2nd Repl</th>
-      <th style="width:9%">Avg KM (0→1)</th>
-      <th style="width:9%">Median (0→1)</th>
-      <th style="width:9%">Avg KM (1→2)</th>
-      <th style="width:9%">Median (1→2)</th>
+      <th style="width:8%">OEM Repl</th>
+      <th style="width:8%">SPD Repl</th>
+      <th style="width:9%">Avg KM (OEM)</th>
+      <th style="width:9%">Median (OEM)</th>
+      <th style="width:9%">Avg KM (SPD)</th>
+      <th style="width:9%">Median (SPD)</th>
       <th style="width:9%">Avg KM Running</th>
       <th style="width:17%">KM Comparison</th>
     </tr></thead><tbody>`;
@@ -881,12 +883,12 @@ function renderOemPerfFilter() {
       <td class="km-cell">
         <div class="km-bars">
           <div class="km-bar-row">
-            <span class="lbl" style="font-size:9px">0→1</span>
+            <span class="lbl" style="font-size:9px">OEM</span>
             <div class="bar"><div style="width:${b0}%;background:${c0}"></div></div>
             <span class="val">${p.avg_km_0to1 ? fmt(p.avg_km_0to1)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
-            <span class="lbl" style="font-size:9px">1→2</span>
+            <span class="lbl" style="font-size:9px">SPD</span>
             <div class="bar"><div style="width:${b1}%;background:#f59e0b"></div></div>
             <span class="val">${p.avg_km_1to2 ? fmt(p.avg_km_1to2)+' km' : '—'}</span>
           </div>
@@ -926,7 +928,7 @@ function renderOemRaw(resetPage) {
   let filtered = rows.filter(r => {
     if (q     && !r.reg?.toLowerCase().includes(q) && !r.chassis?.toLowerCase().includes(q)) return false;
     if (fPart && r.part !== fPart)       return false;
-    if (fStat && r.status !== fStat)     return false;
+    if (fStat && String(r.intervalNo) !== fStat) return false;
     if (fCity && r.city !== fCity)       return false;
     if (fYear && r.deployedYear !== fYear) return false;
     return true;
@@ -970,7 +972,7 @@ function renderOemRaw(resetPage) {
       <td>${r.dateRepl||'—'}</td>
       <td>${r.submType||'—'}</td>
       <td>${r.dmsCat||'—'}</td>
-      <td><span class="pill ${r.status==='Replaced'?'p-red':'p-green'}" style="font-size:10px">${r.status}</span></td>
+      <td><span class="pill ${r.intervalNo===1?'p-red':'p-blue'}" style="font-size:10px">${r.intervalNo===1?'OEM Repl':'SPD Repl'}</span></td>
     </tr>`;
   });
 
