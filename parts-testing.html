@@ -821,7 +821,7 @@ function renderOemPerfFilter() {
   filtered.forEach(r => {
     if (!byPart[r.part_group]) byPart[r.part_group] = {
       part_group: r.part_group, total_fleet: 0,
-      first_repl_count: 0, second_repl_count: 0,
+      first_repl_count: 0, second_repl_count: 0, running_count: 0,
       sum_km_0to1: 0, n_0to1: 0, sum_km_1to2: 0, n_1to2: 0,
       sum_km_run: 0, n_run: 0
     };
@@ -838,6 +838,7 @@ function renderOemPerfFilter() {
     }
     p.first_repl_count += r.first_repl_count || 0;
     p.second_repl_count+= r.second_repl_count || 0;
+    p.running_count    += r.running_count || 0;
     if (r.avg_km_0to1 && r.first_repl_count)  { p.sum_km_0to1 += r.avg_km_0to1 * r.first_repl_count;  p.n_0to1 += r.first_repl_count; }
     if (r.avg_km_1to2 && r.second_repl_count) { p.sum_km_1to2 += r.avg_km_1to2 * r.second_repl_count; p.n_1to2 += r.second_repl_count; }
     if (r.avg_km_running) { p.sum_km_run += r.avg_km_running; p.n_run++; }
@@ -857,15 +858,16 @@ function renderOemPerfFilter() {
 
   let html = `<table>
     <thead><tr>
-      <th style="width:22%">Part</th>
-      <th style="width:8%">OEM Repl</th>
-      <th style="width:8%">SPD Repl</th>
-      <th style="width:9%">Avg KM (OEM)</th>
-      <th style="width:9%">Median (OEM)</th>
-      <th style="width:9%">Avg KM (SPD)</th>
-      <th style="width:9%">Median (SPD)</th>
-      <th style="width:9%">Avg KM Running</th>
-      <th style="width:17%">KM Comparison</th>
+      <th style="width:20%">Part</th>
+      <th style="width:7%">OEM Repl</th>
+      <th style="width:7%">SPD Repl</th>
+      <th style="width:7%">Running</th>
+      <th style="width:8%">Avg KM (OEM)</th>
+      <th style="width:8%">Median (OEM)</th>
+      <th style="width:8%">Avg KM (SPD)</th>
+      <th style="width:8%">Median (SPD)</th>
+      <th style="width:8%">Avg KM Running</th>
+      <th style="width:19%">KM Comparison</th>
     </tr></thead><tbody>`;
 
   parts.forEach(p => {
@@ -877,6 +879,7 @@ function renderOemPerfFilter() {
       <td style="font-weight:600">${p.part_group}</td>
       <td>${p.first_repl_count || '—'}</td>
       <td>${p.second_repl_count || '—'}</td>
+      <td>${p.running_count ? p.running_count.toLocaleString() : '—'}</td>
       <td>${p.avg_km_0to1  ? fmt(p.avg_km_0to1) +' km' : '—'}</td>
       <td>${p.median_km_0to1 ? fmt(p.median_km_0to1)+' km' : '—'}</td>
       <td>${p.avg_km_1to2  ? fmt(p.avg_km_1to2) +' km' : '—'}</td>
