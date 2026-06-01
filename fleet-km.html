@@ -266,7 +266,7 @@ const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const SYNC_FN = SB_URL + '/functions/v1/sync-fleet-km';
 // Only fetch columns we actually render — cuts payload from 14MB to ~2MB
 const COLS = 'bike_id,reg_number,city,hub_name,model_name,status,odometer_bucket,current_odometer,filtered_odometer,active_days,total_life_days,utilization_pct,oos_pct,uptime_pct,total_service_cost,part_cost,labour_cost,wear_tear_cost,wear_tear_part_cost,wear_tear_labour_cost,warranty_cost,warranty_part_cost,warranty_labour_cost,total_cost_per_km,repair_frequency,rental_revenue,total_revenue,synced_at';
-const SB_HDR = { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Accept-Encoding': 'gzip', 'Range': '0-9999', 'Prefer': 'count=none' };
+const SB_HDR = { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Accept-Encoding': 'gzip', 'Range': '0-99999', 'Prefer': 'count=none' };
 
 const ODO_ORDER = ['Undeployed','0 - 5K','5K - 10K','10K - 15K','15K - 20K','20K - 25K','25K - 30K','30K - 35K','35K - 40K','40K+','No Data'];
 const PER_PAGE = 50;
@@ -302,9 +302,10 @@ async function load(month) {
     allData = await res.json();
     if (!Array.isArray(allData)) throw new Error('Unexpected format');
 
-    // Sync time from first row
-    if (allData[0]?.synced_at) {
-      const d = new Date(allData[0].synced_at);
+    // Sync time from latest row
+    const latestSync = allData.reduce((max, r) => r.synced_at > max ? r.synced_at : max, '');
+    if (latestSync) {
+      const d = new Date(latestSync);
       document.getElementById('sync-ts').textContent = 'Synced ' + d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
     }
 
@@ -334,10 +335,10 @@ async function triggerSync() {
     const d = await r.json();
     if (d.success) {
       btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
-      setTimeout(() => { btn.textContent='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
+      setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
     } else throw new Error(d.error);
   } catch(e) {
-    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed'; setTimeout(()=>{ btn.textContent='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
+    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed'; setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
   }
 }
 
