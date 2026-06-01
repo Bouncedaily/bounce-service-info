@@ -345,9 +345,10 @@ tr:hover td { background: #f8fafc; }
           <option>Bearing (All)</option>
         </select>
         <select id="oem-f-status" onchange="renderOemRaw(true)">
-          <option value="">All replacements</option>
+          <option value="">All</option>
           <option value="1">OEM replacements</option>
           <option value="2">SPD replacements</option>
+          <option value="Running">Running</option>
         </select>
         <select id="oem-f-city" onchange="renderOemRaw(true)">
           <option value="">All cities</option>
@@ -787,18 +788,41 @@ async function renderOemPerf() {
     ]);
 
     window._oemSummaryAll = summary;
-    window._oemRawRows = raw.map(r => ({
-      part: r.part_group, reg: r.reg_number, chassis: r.chassis_number,
-      city: r.city, hub: r.hub_name, jcNo: r.dms_jc_no, dmsCat: r.dms_cat,
-      odoFit: r.odo_at_fitment, odoRepl: r.odo_at_replacement, kmOnPart: r.km_on_part,
-      dateFit: r.date_at_fitment, dateRepl: r.date_at_replacement,
-      submType: r.submission_type, status: r.status, deployedYear: r.deployed_year,
-      intervalNo: r.interval_no
-    }));
+    window._oemRawRows = raw.map(mapRawRow);
 
     renderOemPerfFilter();
   } catch(e) {
     document.getElementById('oem-perf-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+  }
+}
+
+function mapRawRow(r) {
+  return {
+    part: r.part_group, reg: r.reg_number, chassis: r.chassis_number,
+    city: r.city, hub: r.hub_name, jcNo: r.dms_jc_no, dmsCat: r.dms_cat,
+    odoFit: r.odo_at_fitment, odoRepl: r.odo_at_replacement, kmOnPart: r.km_on_part,
+    dateFit: r.date_at_fitment, dateRepl: r.date_at_replacement,
+    submType: r.submission_type, status: r.status, deployedYear: r.deployed_year,
+    intervalNo: r.interval_no
+  };
+}
+
+// Fetch running rows for a specific part and merge into _oemRawRows
+async function fetchRunningForPart(partGroup) {
+  const key = '_oemRunningFetched_' + partGroup;
+  if (window[key]) return; // already fetched
+  window[key] = true;
+  try {
+    const encoded = encodeURIComponent(partGroup);
+    const running = await sbFetch(
+      `oem_parts_perf_raw?select=*&part_group=eq.${encoded}&status=neq.Replaced&order=km_on_part.desc.nullslast&limit=5000`
+    );
+    const newRows = running.map(mapRawRow);
+    // Remove any existing running rows for this part then add fresh ones
+    window._oemRawRows = window._oemRawRows.filter(r => !(r.part === partGroup && r.status !== 'Replaced'));
+    window._oemRawRows = window._oemRawRows.concat(newRows);
+  } catch(e) {
+    console.error('Failed to fetch running rows for', partGroup, e);
   }
 }
 
@@ -922,6 +946,27 @@ function renderOemRaw(resetPage) {
   if (resetPage) _oemRawPage = 1;
   const rows = window._oemRawRows || [];
   if (!rows.length) return;
+
+  const q      = (document.getElementById('oem-search')?.value || '').toLowerCase();
+  const fPart  = document.getElementById('oem-f-part')?.value   || '';
+  const fStat  = document.getElementById('oem-f-status')?.value || '';
+  const fCity  = document.getElementById('oem-f-city')?.value   || '';
+  const fYear  = document.getElementById('oem-f-year')?.value   || '';
+  const sort   = document.getElementById('oem-sort')?.value     || 'km_desc';
+
+  // If a specific part is selected, fetch its running rows on demand
+  if (fPart) {
+    fetchRunningForPart(fPart).then(() => {
+      _renderOemRawTable(resetPage);
+    });
+    return;
+  }
+  _renderOemRawTable(resetPage);
+}
+
+function _renderOemRawTable(resetPage) {
+  if (resetPage) _oemRawPage = 1;
+  const rows = window._oemRawRows || [];
 
   const q      = (document.getElementById('oem-search')?.value || '').toLowerCase();
   const fPart  = document.getElementById('oem-f-part')?.value   || '';
