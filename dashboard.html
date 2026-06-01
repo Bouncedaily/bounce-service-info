@@ -15,20 +15,13 @@
 .content{flex:1;overflow-y:auto;background:var(--bg)}
 
 /* Hero */
-.hero{
-  background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#2563eb 100%);
-  padding:28px 28px 48px;position:relative;overflow:hidden;
-}
-.hero::after{
-  content:'';position:absolute;bottom:-30px;left:0;right:0;height:60px;
-  background:var(--bg);border-radius:50% 50% 0 0/30px 30px 0 0;
-}
+.hero{padding:20px 24px 12px;background:var(--bg);}
 .hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-.hero-title{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.4px}
-.hero-sub{font-size:13px;color:rgba(255,255,255,.6);margin-top:2px}
+.hero-title{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.3px}
+.hero-sub{font-size:12px;color:var(--muted);margin-top:2px}
 .hero-badges{display:flex;gap:8px;align-items:center}
-.hbadge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;backdrop-filter:blur(4px)}
-.hbadge.live{background:rgba(6,234,86,.15);border-color:rgba(6,234,86,.3);color:#4ade80}
+.hbadge{background:#f0f2f5;border:1px solid var(--border2);color:var(--text2);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;}
+.hbadge.live{background:#f0fdf4;border-color:#bbf7d0;color:var(--green)}
 
 /* Filters */
 .filters{background:var(--card);border-bottom:1px solid var(--border);padding:8px 28px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.06)}
@@ -42,7 +35,7 @@
 .inner{padding:0 28px 28px}
 
 /* KPI Grid */
-.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:-24px 28px 20px;position:relative;z-index:1}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 24px 20px;position:relative;z-index:1}
 @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:box-shadow .15s,transform .15s}
 .kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px)}
