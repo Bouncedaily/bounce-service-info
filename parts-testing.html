@@ -345,9 +345,10 @@ tr:hover td { background: #f8fafc; }
           <option>Bearing (All)</option>
         </select>
         <select id="oem-f-status" onchange="renderOemRaw(true)">
-          <option value="">All replacements</option>
+          <option value="">All</option>
           <option value="1">OEM replacements</option>
           <option value="2">SPD replacements</option>
+          <option value="Running">Running</option>
         </select>
         <select id="oem-f-city" onchange="renderOemRaw(true)">
           <option value="">All cities</option>
@@ -783,7 +784,7 @@ async function renderOemPerf() {
   try {
     const [summary, raw] = await Promise.all([
       sbFetch('oem_parts_perf_cache?select=*'),
-      sbFetch('oem_parts_perf_raw?select=*&status=eq.Replaced&order=deployed_year.desc,km_on_part.desc.nullslast&limit=15000')
+      sbFetch('oem_parts_perf_raw?select=*&order=deployed_year.desc,km_on_part.desc.nullslast&limit=20000')
     ]);
 
     window._oemSummaryAll = summary;
@@ -933,7 +934,11 @@ function renderOemRaw(resetPage) {
   let filtered = rows.filter(r => {
     if (q     && !r.reg?.toLowerCase().includes(q) && !r.chassis?.toLowerCase().includes(q)) return false;
     if (fPart && r.part !== fPart)       return false;
-    if (fStat && String(r.intervalNo) !== fStat) return false;
+    if (fStat === 'Running') {
+      if (!r.status?.startsWith('Running')) return false;
+    } else if (fStat) {
+      if (String(r.intervalNo) !== fStat) return false;
+    }
     if (fCity && r.city !== fCity)       return false;
     if (fYear && r.deployedYear !== fYear) return false;
     return true;
@@ -977,7 +982,7 @@ function renderOemRaw(resetPage) {
       <td>${r.dateRepl||'—'}</td>
       <td>${r.submType||'—'}</td>
       <td>${r.dmsCat||'—'}</td>
-      <td><span class="pill ${r.intervalNo===1?'p-red':'p-blue'}" style="font-size:10px">${r.intervalNo===1?'OEM Repl':'SPD Repl'}</span></td>
+      <td><span class="pill ${r.status?.startsWith('Running') ? 'p-green' : r.intervalNo===1?'p-red':'p-blue'}" style="font-size:10px">${r.status?.startsWith('Running') ? 'Running' : r.intervalNo===1?'OEM Repl':'SPD Repl'}</span></td>
     </tr>`;
   });
 
