@@ -345,10 +345,9 @@ tr:hover td { background: #f8fafc; }
           <option>Bearing (All)</option>
         </select>
         <select id="oem-f-status" onchange="renderOemRaw(true)">
-          <option value="">All</option>
+          <option value="">All replacements</option>
           <option value="1">OEM replacements</option>
           <option value="2">SPD replacements</option>
-          <option value="Running">Running</option>
         </select>
         <select id="oem-f-city" onchange="renderOemRaw(true)">
           <option value="">All cities</option>
@@ -784,7 +783,7 @@ async function renderOemPerf() {
   try {
     const [summary, raw] = await Promise.all([
       sbFetch('oem_parts_perf_cache?select=*'),
-      sbFetch('oem_parts_perf_raw?select=*&order=deployed_year.desc,km_on_part.desc.nullslast&limit=20000')
+      sbFetch('oem_parts_perf_raw?select=*&status=eq.Replaced&order=deployed_year.desc,km_on_part.desc.nullslast&limit=15000')
     ]);
 
     window._oemSummaryAll = summary;
