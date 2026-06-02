@@ -108,8 +108,7 @@ td:nth-child(2){min-width:55px}
 </style>
 </head>
 <body>
-
-<!-- NAV -->
+<script src="auth-guard.js"></script>
 
 <div class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
@@ -132,6 +131,10 @@ td:nth-child(2){min-width:55px}
     <i class="ti ti-test-pipe sb-icon" aria-hidden="true" style="font-size:15px;width:18px;text-align:center;flex-shrink:0"></i><span class="sb-label">Parts Testing</span>
   </a>
   <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;font-size:11px;color:#94a3b8;border-top:1px solid rgba(255,255,255,0.06);margin-top:4px">
+    <div id="sb-email" style="margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:6px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
   <div class="sb-foot">
     <div><span class="sb-dot"></span><span id="sync-lbl">Loading…</span></div>
     <div style="margin-top:3px">v1 · Internal</div>
@@ -523,6 +526,10 @@ function toggleSidebar() {
 // ── INIT ──
 populateMonths();
 load('all_time');
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('sb-email');
+  if (el) el.textContent = authGetEmail() || '';
+});
 </script>
 </div></div>
 </body>

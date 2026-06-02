@@ -1,8 +1,23 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
-<meta http-equiv="refresh" content="0;url=dashboard.html"/>
 <title>Bounce · RMC Ops</title>
 </head>
-<body><script>window.location.href="dashboard.html";</script></body>
+<body>
+<script src="auth-guard.js"></script>
+<script>
+  // auth-guard will redirect to login if not authenticated
+  // if authenticated, go to dashboard
+  window.addEventListener('load', () => {
+    const stored = localStorage.getItem('sb_session');
+    if (stored) {
+      try {
+        const s = JSON.parse(stored);
+        if (s?.access_token) { window.location.href = 'dashboard.html'; return; }
+      } catch(e) {}
+    }
+    window.location.href = 'login.html';
+  });
+</script>
+</body>
 </html>
