@@ -3,7 +3,7 @@
   const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
   const ALLOWED = ['nithish@bounceshare.com', 'vamsee@bounceshare.com'];
-  const LOGIN_URL = '/login.html';
+  const LOGIN_URL = 'login.html';
 
   async function checkAuth() {
     const stored = localStorage.getItem('sb_session');
