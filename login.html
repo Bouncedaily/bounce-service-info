@@ -6,7 +6,6 @@
   <title>Login — Bounce Ops</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #0f172a;
@@ -15,7 +14,6 @@
       align-items: center;
       justify-content: center;
     }
-
     .card {
       background: #1e293b;
       border: 1px solid #334155;
@@ -25,7 +23,6 @@
       max-width: 400px;
       box-shadow: 0 25px 50px rgba(0,0,0,0.4);
     }
-
     .logo {
       display: flex;
       align-items: center;
@@ -33,114 +30,40 @@
       margin-bottom: 32px;
       justify-content: center;
     }
-
-    .logo-icon {
-      font-size: 28px;
+    .logo-icon { font-size: 28px; }
+    .logo-name { font-size: 22px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.5px; }
+    .logo-name span { color: #f97316; }
+    h1 { font-size: 18px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; text-align: center; }
+    .subtitle { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 28px; line-height: 1.5; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 11px 14px;
+      background: #0f172a; border: 1px solid #334155;
+      border-radius: 8px; color: #f1f5f9; font-size: 14px;
+      outline: none; transition: border-color 0.15s; margin-bottom: 16px;
     }
-
-    .logo-name {
-      font-size: 22px;
-      font-weight: 800;
-      color: #f1f5f9;
-      letter-spacing: -0.5px;
-    }
-
-    .logo-name span {
-      color: #f97316;
-    }
-
-    h1 {
-      font-size: 18px;
-      font-weight: 700;
-      color: #f1f5f9;
-      margin-bottom: 6px;
-      text-align: center;
-    }
-
-    .subtitle {
-      font-size: 13px;
-      color: #94a3b8;
-      text-align: center;
-      margin-bottom: 28px;
-      line-height: 1.5;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
-
-    input[type="email"] {
-      width: 100%;
-      padding: 11px 14px;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: #f1f5f9;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.15s;
-      margin-bottom: 16px;
-    }
-
-    input[type="email"]:focus {
-      border-color: #f97316;
-    }
-
-    input[type="email"]::placeholder {
-      color: #475569;
-    }
-
+    input:focus { border-color: #f97316; }
+    input::placeholder { color: #475569; }
+    input[type="text"] { letter-spacing: 6px; font-size: 20px; font-weight: 700; text-align: center; }
     button {
-      width: 100%;
-      padding: 12px;
-      background: #f97316;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.15s, opacity 0.15s;
+      width: 100%; padding: 12px;
+      background: #f97316; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.15s;
     }
-
     button:hover:not(:disabled) { background: #ea6c0a; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .msg {
-      margin-top: 16px;
-      padding: 12px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      line-height: 1.5;
-      display: none;
+    .btn-secondary {
+      background: transparent; border: 1px solid #334155;
+      color: #94a3b8; margin-top: 8px; font-weight: 500;
     }
-
-    .msg.success {
-      background: #052e16;
-      border: 1px solid #16a34a;
-      color: #4ade80;
-      display: block;
-    }
-
-    .msg.error {
-      background: #450a0a;
-      border: 1px solid #dc2626;
-      color: #fca5a5;
-      display: block;
-    }
-
-    .footer {
-      margin-top: 24px;
-      text-align: center;
-      font-size: 11px;
-      color: #475569;
-    }
+    .btn-secondary:hover:not(:disabled) { background: #0f172a; }
+    .msg { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; display: none; }
+    .msg.success { background: #052e16; border: 1px solid #16a34a; color: #4ade80; display: block; }
+    .msg.error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; display: block; }
+    .footer { margin-top: 24px; text-align: center; font-size: 11px; color: #475569; }
+    #otp-section { display: none; }
   </style>
 </head>
 <body>
@@ -152,13 +75,24 @@
   </div>
 
   <h1>Management Dashboard</h1>
-  <p class="subtitle">Enter your work email and we'll send you a secure login link — no password needed.</p>
 
-  <div id="login-form">
+  <!-- Step 1: Email -->
+  <div id="email-section">
+    <p class="subtitle">Enter your work email and we'll send you a one-time code.</p>
     <label for="email">Work Email</label>
     <input type="email" id="email" placeholder="you@bounceshare.com" autocomplete="email" />
-    <button id="send-btn" onclick="sendMagicLink()">Send Login Link</button>
-    <div class="msg" id="msg"></div>
+    <button id="send-btn" onclick="sendOTP()">Send OTP</button>
+    <div class="msg" id="email-msg"></div>
+  </div>
+
+  <!-- Step 2: OTP -->
+  <div id="otp-section">
+    <p class="subtitle" id="otp-subtitle">Enter the 6-digit code sent to your email.</p>
+    <label for="otp">One-Time Code</label>
+    <input type="text" id="otp" placeholder="······" maxlength="6" inputmode="numeric" />
+    <button id="verify-btn" onclick="verifyOTP()">Verify & Login</button>
+    <button class="btn-secondary" onclick="backToEmail()">← Change Email</button>
+    <div class="msg" id="otp-msg"></div>
   </div>
 
   <div class="footer">Only authorised Bounce management accounts can access this dashboard.</div>
@@ -167,114 +101,129 @@
 <script>
   const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-
-  // Allowed emails
   const ALLOWED = ['nithish@bounceshare.com', 'vamsee@bounceshare.com'];
 
-  // If already logged in, redirect to dashboard
+  let currentEmail = '';
+
+  // Check if already logged in
   async function checkSession() {
+    const stored = localStorage.getItem('sb_session');
+    if (!stored) return;
     try {
-      const stored = localStorage.getItem('sb_session');
-      if (!stored) return;
       const session = JSON.parse(stored);
       if (!session?.access_token) return;
-
-      // Verify token is still valid
       const res = await fetch(`${SB_URL}/auth/v1/user`, {
         headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${session.access_token}` }
       });
-      if (res.ok) {
-        window.location.href = 'dashboard.html';
-      } else {
-        localStorage.removeItem('sb_session');
-      }
+      if (res.ok) window.location.href = 'dashboard.html';
+      else localStorage.removeItem('sb_session');
     } catch(e) {}
   }
 
-  // Handle magic link callback (when user clicks link in email)
-  async function handleAuthCallback() {
-    const hash = window.location.hash;
-    if (!hash.includes('access_token')) return;
-
-    const params = new URLSearchParams(hash.substring(1));
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-
-    if (!access_token) return;
-
-    // Get user info
-    try {
-      const res = await fetch(`${SB_URL}/auth/v1/user`, {
-        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${access_token}` }
-      });
-      const user = await res.json();
-
-      if (!ALLOWED.includes(user.email?.toLowerCase())) {
-        showMsg('error', 'Access denied. Your email is not authorised for this dashboard.');
-        return;
-      }
-
-      // Store session
-      localStorage.setItem('sb_session', JSON.stringify({ access_token, refresh_token, email: user.email }));
-      // Clean URL and redirect
-      window.location.href = 'dashboard.html';
-    } catch(e) {
-      showMsg('error', 'Authentication failed. Please try again.');
-    }
-  }
-
-  async function sendMagicLink() {
+  async function sendOTP() {
     const email = document.getElementById('email').value.trim().toLowerCase();
     const btn = document.getElementById('send-btn');
-    const msg = document.getElementById('msg');
 
-    if (!email) { showMsg('error', 'Please enter your email address.'); return; }
+    if (!email) { showMsg('email-msg', 'error', 'Please enter your email address.'); return; }
     if (!ALLOWED.includes(email)) {
-      showMsg('error', 'This email is not authorised to access the dashboard.');
+      showMsg('email-msg', 'error', 'This email is not authorised to access the dashboard.');
       return;
     }
 
     btn.disabled = true;
     btn.textContent = 'Sending…';
-    msg.className = 'msg';
-    msg.style.display = 'none';
+    clearMsg('email-msg');
 
     try {
-      const res = await fetch(`${SB_URL}/auth/v1/magiclink`, {
+      const res = await fetch(`${SB_URL}/auth/v1/otp`, {
         method: 'POST',
         headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, redirect_to: 'https://serviceinfo.bouncedaily.in/login.html' })
+        body: JSON.stringify({ email, create_user: true })
       });
 
-      if (res.ok || res.status === 200) {
-        showMsg('success', `✅ Login link sent to ${email}. Check your inbox and click the link to access the dashboard.`);
-        btn.textContent = 'Resend Link';
+      if (res.ok) {
+        currentEmail = email;
+        document.getElementById('email-section').style.display = 'none';
+        document.getElementById('otp-section').style.display = 'block';
+        document.getElementById('otp-subtitle').textContent = `Enter the 6-digit code sent to ${email}.`;
+        document.getElementById('otp').focus();
       } else {
         const err = await res.json();
-        throw new Error(err.error_description || err.msg || 'Failed to send link');
+        throw new Error(err.error_description || err.msg || 'Failed to send OTP');
       }
     } catch(e) {
-      showMsg('error', e.message || 'Something went wrong. Please try again.');
-      btn.textContent = 'Send Login Link';
+      showMsg('email-msg', 'error', e.message || 'Something went wrong. Please try again.');
     }
 
     btn.disabled = false;
+    btn.textContent = 'Send OTP';
   }
 
-  function showMsg(type, text) {
-    const msg = document.getElementById('msg');
-    msg.className = `msg ${type}`;
-    msg.textContent = text;
-    msg.style.display = 'block';
+  async function verifyOTP() {
+    const otp = document.getElementById('otp').value.trim();
+    const btn = document.getElementById('verify-btn');
+
+    if (!otp || otp.length < 6) { showMsg('otp-msg', 'error', 'Please enter the 6-digit code.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Verifying…';
+    clearMsg('otp-msg');
+
+    try {
+      const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=http://supabase.io/auth/v1/gotrue/otp`, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentEmail, token: otp, type: 'email' })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error_description || data.msg || 'Invalid or expired code');
+
+      // Store session and redirect
+      localStorage.setItem('sb_session', JSON.stringify({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        email: data.user?.email || currentEmail
+      }));
+      window.location.href = 'dashboard.html';
+
+    } catch(e) {
+      showMsg('otp-msg', 'error', e.message || 'Verification failed. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Verify & Login';
+    }
   }
 
-  // Enter key support
+  function backToEmail() {
+    document.getElementById('otp-section').style.display = 'none';
+    document.getElementById('email-section').style.display = 'block';
+    document.getElementById('otp').value = '';
+    clearMsg('otp-msg');
+    clearMsg('email-msg');
+  }
+
+  function showMsg(id, type, text) {
+    const el = document.getElementById(id);
+    el.className = `msg ${type}`;
+    el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  function clearMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'msg';
+    el.style.display = 'none';
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('email').addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendMagicLink();
-    });
-    handleAuthCallback();
     checkSession();
+    document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendOTP(); });
+    document.getElementById('otp').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOTP(); });
+    // Auto-verify when 6 digits entered
+    document.getElementById('otp').addEventListener('input', e => {
+      if (e.target.value.length === 6) verifyOTP();
+    });
   });
 </script>
 
