@@ -70,7 +70,7 @@ tbody tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-
+<div class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
@@ -541,6 +541,8 @@ function toggleSidebar() {
   btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
+// Clean up old auth keys
+localStorage.removeItem('sb_session');
 // Restore state
 (function(){
   // Default expanded — only collapse if user explicitly toggled it to '1'
