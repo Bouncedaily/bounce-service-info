@@ -159,10 +159,6 @@ tr:hover td { background: #f8fafc; }
     <i class="ti ti-test-pipe sb-icon" aria-hidden="true"></i><span class="sb-label">Parts Testing</span>
   </a>
   <div class="sb-spacer"></div>
-  <div class="sb-user" id="sb-user-info" style="padding:10px 12px;font-size:11px;color:#94a3b8;border-top:1px solid #1e293b;margin-top:4px">
-    <div id="sb-email" style="margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-    <button onclick="authLogout()" style="width:100%;padding:6px 8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
-  </div>
   <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
 </nav>
 
@@ -1081,8 +1077,6 @@ function renderOemPagination(total, pages) {
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('sb-email');
-    if (el) el.textContent = authGetEmail() || '';
   });
 </script>
 </body>
