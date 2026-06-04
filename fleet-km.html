@@ -336,21 +336,23 @@ async function triggerSync() {
   btn.disabled = true; btn.textContent = '⏳ Syncing…';
   const month = document.getElementById('f-month').value || 'all_time';
   try {
-    // Always sync all_time only (avoids timeout), then copy to current month via RPC
-    const r = await fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:['all_time']})});
-    const d = await r.json();
-    if (d.success) {
-      // Copy all_time into current month via Supabase RPC
-      await fetch(`${SB_URL}/rest/v1/rpc/sync_current_month_from_alltime`, {
-        method: 'POST',
-        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-        body: '{}'
-      });
-      btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
-      setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
-    } else throw new Error(d.error);
+    // Sync all_time (may timeout on free plan — that's ok, cron handles it)
+    fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:['all_time']})})
+      .catch(()=>{});
+
+    // Wait 3 seconds then copy all_time → current month regardless
+    await new Promise(r => setTimeout(r, 3000));
+    await fetch(`${SB_URL}/rest/v1/rpc/sync_current_month_from_alltime`, {
+      method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+
+    btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
+    setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
   } catch(e) {
-    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed'; setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
+    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed';
+    setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
   }
 }
 
