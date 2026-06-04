@@ -157,7 +157,7 @@
 
   // Auth guard
   const _session = JSON.parse(localStorage.getItem('sb_session') || '{}');
-  if (!_session?.access_token || _session?.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!_session?.email || _session?.email?.toLowerCase() !== ADMIN_EMAIL) {
     window.location.href = 'login.html';
   }
   const session = _session;
