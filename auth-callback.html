@@ -1,17 +1,12 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Authenticating…</title></head>
+<html><head><meta charset="UTF-8"><title>Authenticating…</title></head>
 <body>
 <script>
-  // This page handles the magic link redirect
-  // Supabase appends #access_token=... to the redirect URL
   const hash = window.location.hash;
   if (hash && hash.includes('access_token')) {
-    // Pass the hash to login.html to process
-    window.location.href = 'login.html' + hash;
+    window.location.replace('login.html' + hash);
   } else {
-    window.location.href = 'login.html';
+    window.location.replace('login.html');
   }
 </script>
-</body>
-</html>
+</body></html>

@@ -5,236 +5,161 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — Bounce Daily</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f172a;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
-    }
-    .logo { display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
-    .logo-name { font-size: 28px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.5px; }
-    .logo-name span { color: #dc2626; }
-    h1 { font-size: 18px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; text-align: center; }
-    .subtitle { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 28px; line-height: 1.5; }
-    label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    input {
-      width: 100%; padding: 11px 14px;
-      background: #0f172a; border: 1px solid #334155;
-      border-radius: 8px; color: #f1f5f9; font-size: 14px;
-      outline: none; transition: border-color 0.15s; margin-bottom: 16px;
-    }
-    input:focus { border-color: #dc2626; }
-    input::placeholder { color: #475569; }
-    button {
-      width: 100%; padding: 12px;
-      background: #dc2626; color: #fff;
-      border: none; border-radius: 8px;
-      font-size: 14px; font-weight: 700;
-      cursor: pointer; transition: background 0.15s;
-    }
-    button:hover:not(:disabled) { background: #b91c1c; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .msg { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; display: none; }
-    .msg.success { background: #052e16; border: 1px solid #16a34a; color: #4ade80; display: block; }
-    .msg.error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; display: block; }
-    .footer { margin-top: 24px; text-align: center; font-size: 11px; color: #475569; }
-    .spinner { text-align: center; color: #94a3b8; padding: 20px 0; font-size: 13px; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 25px 50px rgba(0,0,0,0.4)}
+    .logo{display:flex;align-items:center;justify-content:center;margin-bottom:32px}
+    .logo-name{font-size:28px;font-weight:800;color:#f1f5f9;letter-spacing:-.5px}
+    .logo-name span{color:#dc2626}
+    h1{font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:6px;text-align:center}
+    .sub{font-size:13px;color:#94a3b8;text-align:center;margin-bottom:28px;line-height:1.5}
+    label{display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    input{width:100%;padding:11px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;transition:border-color .15s;margin-bottom:16px}
+    input:focus{border-color:#dc2626}
+    input::placeholder{color:#475569}
+    button{width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+    button:hover:not(:disabled){background:#b91c1c}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .msg{margin-top:16px;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.5;display:none}
+    .msg.ok{background:#052e16;border:1px solid #16a34a;color:#4ade80;display:block}
+    .msg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
+    .footer{margin-top:24px;text-align:center;font-size:11px;color:#475569}
+    .spin{text-align:center;color:#94a3b8;padding:20px 0;font-size:13px}
   </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">
-    <span class="logo-name">Bounce <span>Daily</span></span>
-  </div>
+  <div class="logo"><span class="logo-name">Bounce <span>Daily</span></span></div>
   <h1>Management Dashboard</h1>
-
-  <div id="spinner" class="spinner">Checking session…</div>
-
-  <div id="email-section" style="display:none">
-    <p class="subtitle">Enter your work email — we'll send you a secure sign-in link.</p>
-    <label for="email">Work Email</label>
-    <input type="email" id="email" placeholder="you@bounceshare.com" autocomplete="email" />
-    <button id="send-btn" onclick="sendLink()">Send Sign-in Link</button>
+  <div id="spin" class="spin">Checking…</div>
+  <div id="form" style="display:none">
+    <p class="sub">Enter your work email — we'll send you a secure sign-in link.</p>
+    <label>Work Email</label>
+    <input type="email" id="email" placeholder="you@bounceshare.com" autocomplete="email"/>
+    <button id="btn" onclick="send()">Send Sign-in Link</button>
     <div class="msg" id="msg"></div>
   </div>
-
-  <div id="sent-section" style="display:none">
-    <p class="subtitle" id="sent-text"></p>
-    <button onclick="backToEmail()" style="background:#334155;margin-top:8px">← Use different email</button>
+  <div id="sent" style="display:none">
+    <p class="sub" id="sent-txt"></p>
+    <button onclick="showForm()" style="background:#334155;margin-top:8px">← Use different email</button>
   </div>
-
   <div class="footer">Only authorised Bounce management accounts can access this dashboard.</div>
 </div>
-
 <script>
-  const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-  const BASE = 'https://bouncedaily.github.io/bounce-service-info';
+const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const BASE = 'https://bouncedaily.github.io/bounce-service-info';
 
-  async function init() {
-    // Handle magic link callback — token comes in URL hash
-    const hash = window.location.hash;
-    if (hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1));
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token');
-      if (access_token) {
-        try {
-          // Get user info
-          const res = await fetch(`${SB_URL}/auth/v1/user`, {
-            headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${access_token}` }
-          });
-          const user = await res.json();
-          const email = user.email?.toLowerCase();
-
-          // Check if allowed
-          const check = await fetch(`${SB_URL}/rest/v1/rpc/check_allowed_user`, {
-            method: 'POST',
-            headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_email: email })
-          });
-          const allowed = await check.json();
-
-          if (!allowed) {
-            show('email-section');
-            showMsg('error', 'Access denied. Your email is not authorised.');
-            return;
-          }
-
-          // Update last login
-          fetch(`${SB_URL}/rest/v1/rpc/update_last_login`, {
-            method: 'POST',
-            headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_email: email })
-          });
-
-          // Store session
-          localStorage.setItem('sb_session', JSON.stringify({
-            access_token, refresh_token,
-            email: user.email,
-            role: allowed.role,
-            name: allowed.name
-          }));
-
-          // Clean URL and redirect
-          window.history.replaceState(null, '', window.location.pathname);
-          window.location.href = 'dashboard.html';
-          return;
-        } catch(e) {
-          show('email-section');
-          showMsg('error', 'Authentication failed. Please try again.');
-          return;
-        }
-      }
-    }
-
-    // Check existing session
-    const stored = localStorage.getItem('sb_session');
-    if (stored) {
-      try {
-        const session = JSON.parse(stored);
-        if (session?.access_token) {
-          const res = await fetch(`${SB_URL}/auth/v1/user`, {
-            headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${session.access_token}` }
-          });
-          if (res.ok) { window.location.href = 'dashboard.html'; return; }
-          localStorage.removeItem('sb_session');
-        }
-      } catch(e) {}
-    }
-
-    show('email-section');
-  }
-
-  async function sendLink() {
-    const email = document.getElementById('email').value.trim().toLowerCase();
-    const btn = document.getElementById('send-btn');
-    clearMsg();
-
-    if (!email) { showMsg('error', 'Please enter your email address.'); return; }
-
-    // Check if allowed before sending
-    const check = await fetch(`${SB_URL}/rest/v1/rpc/check_allowed_user`, {
-      method: 'POST',
-      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_email: email })
-    });
-    const allowed = await check.json();
-    if (!allowed) { showMsg('error', 'This email is not authorised to access the dashboard.'); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-
-    try {
-      const res = await fetch(`${SB_URL}/auth/v1/otp`, {
-        method: 'POST',
-        headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          create_user: true,
-          options: { redirect_to: `${BASE}/auth-callback.html` }
-        })
-      });
-
-      if (res.ok) {
-        show('sent-section');
-        document.getElementById('sent-text').innerHTML =
-          `✅ Sign-in link sent to <strong>${email}</strong>.<br><br>Check your inbox and click the link to access the dashboard. Link expires in 1 hour.`;
-      } else {
-        const err = await res.json();
-        throw new Error(err.error_description || err.msg || 'Failed to send link');
-      }
-    } catch(e) {
-      showMsg('error', e.message || 'Something went wrong. Please try again.');
-    }
-
-    btn.disabled = false;
-    btn.textContent = 'Send Sign-in Link';
-  }
-
-  function backToEmail() {
-    show('email-section');
-    clearMsg();
-  }
-
-  function show(id) {
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('email-section').style.display = 'none';
-    document.getElementById('sent-section').style.display = 'none';
-    document.getElementById(id).style.display = 'block';
-  }
-
-  function showMsg(type, text) {
-    const el = document.getElementById('msg');
-    el.className = `msg ${type}`;
-    el.innerHTML = text;
-    el.style.display = 'block';
-  }
-
-  function clearMsg() {
-    const el = document.getElementById('msg');
-    el.className = 'msg';
-    el.style.display = 'none';
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    init();
-    document.getElementById('email').addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendLink();
-    });
+async function rpc(fn, body) {
+  const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, {
+    method:'POST', headers:{'apikey':KEY,'Content-Type':'application/json'},
+    body: JSON.stringify(body)
   });
+  return r.json();
+}
+
+async function processToken(access_token, refresh_token) {
+  // Get user
+  const ur = await fetch(`${SB}/auth/v1/user`, {
+    headers:{'apikey':KEY,'Authorization':`Bearer ${access_token}`}
+  });
+  if (!ur.ok) { showForm(); msg('err','Authentication failed. Please try again.'); return; }
+  const user = await ur.json();
+  const email = user.email?.toLowerCase();
+
+  // Check allowed
+  const allowed = await rpc('check_allowed_user', { user_email: email });
+  if (!allowed) { showForm(); msg('err','Access denied. Your email is not authorised.'); return; }
+
+  // Update last login
+  rpc('update_last_login', { user_email: email }).catch(()=>{});
+
+  // Store session with permissions
+  localStorage.setItem('sb_session', JSON.stringify({
+    access_token, refresh_token,
+    email: user.email,
+    role: allowed.role,
+    name: allowed.name,
+    permissions: allowed.permissions || { rmc:true, fleet_km:true, parts_testing:true }
+  }));
+
+  // Redirect to dashboard
+  window.location.replace('dashboard.html');
+}
+
+async function init() {
+  // 1. Check for token in URL hash (magic link callback)
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const p = new URLSearchParams(hash.substring(1));
+    const at = p.get('access_token'), rt = p.get('refresh_token');
+    if (at) { await processToken(at, rt); return; }
+  }
+
+  // 2. Check existing session
+  try {
+    const s = JSON.parse(localStorage.getItem('sb_session') || 'null');
+    if (s?.access_token) {
+      const r = await fetch(`${SB}/auth/v1/user`, {
+        headers:{'apikey':KEY,'Authorization':`Bearer ${s.access_token}`}
+      });
+      if (r.ok) { window.location.replace('dashboard.html'); return; }
+      localStorage.removeItem('sb_session');
+    }
+  } catch(e) {}
+
+  showForm();
+}
+
+async function send() {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const btn = document.getElementById('btn');
+  clearMsg();
+
+  if (!email) { msg('err','Please enter your email.'); return; }
+
+  // Check allowed first
+  const allowed = await rpc('check_allowed_user', { user_email: email });
+  if (!allowed) { msg('err','This email is not authorised to access the dashboard.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  const r = await fetch(`${SB}/auth/v1/otp`, {
+    method:'POST',
+    headers:{'apikey':KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({ email, create_user:true, options:{ redirect_to:`${BASE}/login.html` } })
+  });
+
+  if (r.ok) {
+    document.getElementById('spin').style.display='none';
+    document.getElementById('form').style.display='none';
+    document.getElementById('sent').style.display='block';
+    document.getElementById('sent-txt').innerHTML=
+      `✅ Sign-in link sent to <strong>${email}</strong>.<br><br>Check your inbox and click the link — it will log you in automatically.`;
+  } else {
+    const e = await r.json();
+    msg('err', e.error_description || e.msg || 'Failed to send. Please try again.');
+    btn.disabled=false; btn.textContent='Send Sign-in Link';
+  }
+}
+
+function showForm() {
+  document.getElementById('spin').style.display='none';
+  document.getElementById('sent').style.display='none';
+  document.getElementById('form').style.display='block';
+}
+function msg(type, text) {
+  const el=document.getElementById('msg');
+  el.className=`msg ${type}`; el.innerHTML=text; el.style.display='block';
+}
+function clearMsg() {
+  const el=document.getElementById('msg');
+  el.className='msg'; el.style.display='none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+  document.getElementById('email').addEventListener('keydown', e => { if(e.key==='Enter') send(); });
+});
 </script>
-</body>
-</html>
+</body></html>
