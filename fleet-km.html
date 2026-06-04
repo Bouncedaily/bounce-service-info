@@ -336,9 +336,16 @@ async function triggerSync() {
   btn.disabled = true; btn.textContent = '⏳ Syncing…';
   const month = document.getElementById('f-month').value || 'all_time';
   try {
-    const r = await fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:[month,'all_time']})});
+    // Always sync all_time only (avoids timeout), then copy to current month via RPC
+    const r = await fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:['all_time']})});
     const d = await r.json();
     if (d.success) {
+      // Copy all_time into current month via Supabase RPC
+      await fetch(`${SB_URL}/rest/v1/rpc/sync_current_month_from_alltime`, {
+        method: 'POST',
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: '{}'
+      });
       btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
       setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
     } else throw new Error(d.error);
