@@ -154,11 +154,8 @@
   const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
   const ADMIN_EMAIL = 'nithish@bounceshare.com';
 
-  // Auth guard — admin only
-  const session = JSON.parse(localStorage.getItem('sb_session') || '{}');
-  if (!session?.access_token || session?.email?.toLowerCase() !== ADMIN_EMAIL) {
-    window.location.href = 'login.html';
-  }
+  // Auth bypassed temporarily
+  const session = { email: 'nithish@bounceshare.com', role: 'admin' };
 
   // Sidebar toggle
   function toggleSidebar() {
