@@ -217,7 +217,7 @@ td:nth-child(2){min-width:55px}
           </tr>
           <tr>
             <th>KM Bucket</th><th># Bikes</th>
-            <th class="z-rev">Rental Rev</th><th class="z-rev">Total Rev</th><th class="z-rev">Rev/Life</th><th class="z-rev">Rev/Active</th><th class="z-rev">Util%</th><th class="z-rev">Uptime%</th>
+            <th class="z-rev">Rental Rev</th><th class="z-rev">Total Rev</th><th class="z-rev" title="Total Revenue ÷ Life Days × 30 — actual monthly earnings">Monthly Rev (Actual)</th><th class="z-rev" title="Total Revenue ÷ Active Days × 30 × 90% — potential monthly earnings at 90% utilization">Monthly Rev (Potential) <span style="font-size:9px;opacity:0.7">@90%</span></th><th class="z-rev">Util%</th><th class="z-rev">Uptime%</th>
             <th class="z-cost">Cost</th><th class="z-cost">Cost/KM</th><th class="z-cost">JC/Bike</th><th class="z-cost">Avg/Bike</th><th class="z-cost">Cost%Rev</th>
             <th class="z-excl">Cost</th><th class="z-excl">Cost/KM</th><th class="z-excl">JC/Bike</th><th class="z-excl">Avg/Bike</th><th class="z-excl">Cost%Rev</th>
             <th class="z-wt">Cost</th><th class="z-wt">Cost/KM</th><th class="z-wt">JC/Bike</th><th class="z-wt">Avg/Bike</th><th class="z-wt">Cost%Rev</th>
@@ -226,8 +226,11 @@ td:nth-child(2){min-width:55px}
         <tbody id="matrix-body"></tbody>
       </table>
     </div>
-
-    <!-- DETAIL -->
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;padding:0 4px">
+      <i class="ti ti-info-circle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>
+      <strong>Monthly Rev (Potential)</strong> assumes 90% utilization — calculated as (Total Revenue ÷ Active Days × 30 × 0.9). 
+      <strong>Monthly Rev (Actual)</strong> is based on total life days including downtime.
+    </div>
     <div class="section-header" style="margin-top:4px">
       <div class="section-title">
         <i class="ti ti-list-details" style="font-size:14px;vertical-align:-2px;margin-right:5px;color:var(--muted)"></i><span>Bike Level Detail</span>
@@ -425,7 +428,7 @@ function renderMatrix() {
     const util=life?(act/life*100).toFixed(1)+'%':'–';
     const uptArr=rows.map(r=>parseFloat(r.uptime_pct||0)).filter(v=>!isNaN(v));
     const upt=uptArr.length?(uptArr.reduce((a,b)=>a+b,0)/uptArr.length).toFixed(1)+'%':'–';
-    const rl=life?Math.round(revA/life*30):null, ra=act?Math.round(revA/act*30):null;
+    const rl=life?Math.round(revA/life*30):null, ra=act?Math.round((revA/act*30)*0.9):null;
     const cpR=revA?(tc/revA*100).toFixed(1)+'%':'–', exR=revA?(ex/revA*100).toFixed(1)+'%':'–', wtR=revA?(wt/revA*100).toFixed(1)+'%':'–';
     const jcb=cnt?(jc/cnt).toFixed(2):'0.00', ab=cnt?Math.round(tc/cnt):0, exb=cnt?Math.round(ex/cnt):0, wtb=cnt?Math.round(wt/cnt):0;
     const cpk=odo?fmtK(tc/odo):'–', exk=odo?fmtK(ex/odo):'–', wtk=odo?fmtK(wt/odo):'–';
