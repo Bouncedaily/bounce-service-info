@@ -155,21 +155,23 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // Check existing session
 (async () => {
   // Clear old custom session format to avoid conflicts with SDK
-  const oldSess = localStorage.getItem('sb_session');
-  if (oldSess) {
-    try {
-      const s = JSON.parse(oldSess);
-      // If it's our old format (has email but no supabase internal keys), clear it
-      if (s?.email && !s?.['sb_session_v2']) {
-        localStorage.removeItem('sb_session');
-        sessionStorage.removeItem('sb_session');
-      }
-    } catch(e) {}
+  localStorage.removeItem('sb_session');
+  sessionStorage.removeItem('sb_session');
+
+  // First check if there's a token in the URL hash (magic link callback)
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    // Let the SDK process it via onAuthStateChange
+    // Just wait — don't show form yet
+    setTimeout(() => {
+      // If still on login page after 5 seconds, something went wrong
+      showForm();
+    }, 5000);
+    return;
   }
 
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    // Already logged in via SDK — redirect
     window.location.replace('dashboard.html');
     return;
   }
