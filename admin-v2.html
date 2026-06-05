@@ -2,188 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>Admin — Bounce Ops</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+  <title>Admin — Bounce Daily</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
-  <link rel="stylesheet" href="bounce-theme.css?v=1780647172"/>
+  <link rel="stylesheet" href="bounce-theme.css"/>
   <style>
-    .admin-wrap { padding: 24px; max-width: 960px; }
-    .page-title { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-    .section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
-    .section-hd { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-    .section-hd h2 { font-size: 13px; font-weight: 700; color: var(--text); }
-    .section-hd .sub { font-size: 11px; color: var(--muted); }
-    .tbl-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 10px 18px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
-    td { padding: 12px 18px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255,255,255,0.02); }
-    .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-    .p-admin { background: #fef2f2; color: #dc2626; }
-    .p-viewer { background: #eff6ff; color: #2563eb; }
-    .p-active { background: #052e16; color: #4ade80; }
-    .p-inactive { background: #1c1917; color: #78716c; }
-    .p-pending { background: #fef9c3; color: #854d0e; }
-    .p-approved { background: #052e16; color: #4ade80; }
-    .p-rejected { background: #450a0a; color: #fca5a5; }
-    .btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; }
-    .btn:hover { opacity: 0.8; }
-    .btn-danger { background: #450a0a; color: #fca5a5; }
-    .btn-primary { background: #dc2626; color: #fff; }
-    .btn-green { background: #052e16; color: #4ade80; }
-    .btn-sm { padding: 4px 10px; font-size: 11px; }
-    .add-form { padding: 18px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
-    .add-form input, .add-form select { padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; }
-    .add-form input { flex: 1; min-width: 160px; }
-    .add-form input:focus, .add-form select:focus { border-color: #dc2626; }
-    .add-form label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 18px; }
-    .stat { background: var(--bg); border-radius: 8px; padding: 14px 16px; }
-    .stat-val { font-size: 24px; font-weight: 800; color: var(--text); }
-    .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
-    .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin: 12px 18px; display: none; }
-    .msg.success { background: #052e16; border: 1px solid #16a34a; color: #4ade80; display: block; }
-    .msg.error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; display: block; }
-    .badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; margin-left: 6px; }
+    .wrap{padding:24px;max-width:960px}
+    .ptitle{font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px}
+    .psub{font-size:13px;color:var(--muted);margin-bottom:24px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
+    .card-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .card-hd h2{font-size:13px;font-weight:700;color:var(--text)}
+    .card-hd .sub{font-size:11px;color:var(--muted)}
+    .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 18px}
+    .stat{background:var(--bg);border-radius:8px;padding:14px 16px}
+    .stat-val{font-size:24px;font-weight:800;color:var(--text)}
+    .stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+    .add-form{padding:18px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+    .add-form label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+    .add-form input,.add-form select{padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
+    .add-form input{flex:1;min-width:150px}
+    .add-form input:focus,.add-form select:focus{border-color:#dc2626}
+    .tbl{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;padding:10px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap}
+    td{padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+    .p-admin{background:#fef2f2;color:#dc2626}
+    .p-viewer{background:#eff6ff;color:#2563eb}
+    .p-active{background:#052e16;color:#4ade80}
+    .p-inactive{background:#1c1917;color:#78716c}
+    .p-pending{background:#fef9c3;color:#854d0e}
+    .p-approved{background:#052e16;color:#4ade80}
+    .p-rejected{background:#450a0a;color:#fca5a5}
+    .btn{padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;margin-right:4px}
+    .btn-primary{background:#dc2626;color:#fff}
+    .btn-green{background:#166534;color:#4ade80}
+    .btn-danger{background:#450a0a;color:#fca5a5}
+    .badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dc2626;color:#fff;font-size:10px;font-weight:700;margin-left:6px}
+    .empty{text-align:center;padding:28px;color:var(--muted);font-size:13px}
+    .fmsg{padding:10px 14px;border-radius:8px;font-size:13px;margin:10px 18px;display:none}
+    .fmsg.ok{background:#052e16;border:1px solid #16a34a;color:#4ade80;display:block}
+    .fmsg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
   </style>
 </head>
 <body>
+<script src="auth-guard.js?v=2"></script>
 <nav class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
   <div class="sb-brand">
-    <div class="sb-logo-fallback" style="display:flex">
-      <img src="https://i.imgur.com/bounce-logo.png" onerror="this.style.display='none'" style="width:28px;height:28px;border-radius:6px"/>
-    </div>
+    <div class="sb-logo-fallback" style="display:flex">🏍️</div>
     <span class="sb-name">Bounce <span>Ops</span></span>
   </div>
   <div class="sb-sec">ANALYTICS</div>
-  <a class="sb-item" href="dashboard.html">
-    <i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span>
-  </a>
-  <a class="sb-item" href="fleet-km.html">
-    <i class="ti ti-bike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span>
-  </a>
-  <a class="sb-item" href="parts-testing.html">
-    <i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span>
-  </a>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
   <div class="sb-sec">ADMIN</div>
-  <a class="sb-item active" href="admin-v2.html">
-    <i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span>
-  </a>
+  <a class="sb-item active" href="admin-v2.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
   <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
+    <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
   <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
 </nav>
 
 <div class="main">
   <div class="content">
-    <div class="admin-wrap">
-      <div class="page-title">Admin Panel</div>
-      <div class="page-sub">Manage dashboard access and users</div>
+    <div class="wrap">
+      <div class="ptitle">Admin Panel</div>
+      <div class="psub">Manage dashboard access and users</div>
 
       <!-- Stats -->
-      <div class="section">
-        <div class="section-hd"><h2>Overview</h2></div>
+      <div class="card">
+        <div class="card-hd"><h2>Overview</h2></div>
         <div class="stat-grid">
-          <div class="stat">
-            <div class="stat-val" id="stat-total">—</div>
-            <div class="stat-lbl">Total Users</div>
-          </div>
-          <div class="stat">
-            <div class="stat-val" id="stat-active">—</div>
-            <div class="stat-lbl">Active Users</div>
-          </div>
-          <div class="stat">
-            <div class="stat-val" id="stat-admins">—</div>
-            <div class="stat-lbl">Admins</div>
-          </div>
+          <div class="stat"><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Users</div></div>
+          <div class="stat"><div class="stat-val" id="s-active">—</div><div class="stat-lbl">Active Users</div></div>
+          <div class="stat"><div class="stat-val" id="s-admins">—</div><div class="stat-lbl">Admins</div></div>
         </div>
       </div>
 
       <!-- Users -->
-      <div class="section">
-        <div class="section-hd">
-          <h2>Allowed Users</h2>
-          <span class="sub">Only these emails can log in</span>
-        </div>
-
-        <!-- Add user form -->
+      <div class="card">
+        <div class="card-hd"><h2>Allowed Users</h2><span class="sub">Only these emails can log in</span></div>
         <div class="add-form">
-          <div>
-            <label>Email</label>
-            <input type="email" id="new-email" placeholder="user@bounceshare.com" />
-          </div>
-          <div>
-            <label>Name</label>
-            <input type="text" id="new-name" placeholder="Full name" style="min-width:130px" />
-          </div>
-          <div>
-            <label>Role</label>
-            <select id="new-role">
-              <option value="viewer">Viewer</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+          <div><label>Email</label><input type="email" id="new-email" placeholder="user@bounceshare.com"/></div>
+          <div><label>Name</label><input type="text" id="new-name" placeholder="Full name" style="min-width:120px"/></div>
+          <div><label>Role</label><select id="new-role"><option value="viewer">Viewer</option><option value="admin">Admin</option></select></div>
           <button class="btn btn-primary" onclick="addUser()">+ Add User</button>
         </div>
-        <div class="msg" id="add-msg"></div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Sidebar Access</th>
-              <th>Last Login</th>
-              <th>Added By</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="users-tbody">
-            <tr><td colspan="8" class="empty">Loading…</td></tr>
-          </tbody>
-        </table>
+        <div class="fmsg" id="add-msg"></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Login Requests -->
-      <div class="section">
-        <div class="section-hd">
-          <h2>Access Requests <span class="badge" id="requests-badge" style="display:none">0</span></h2>
+      <!-- Access Requests -->
+      <div class="card">
+        <div class="card-hd">
+          <h2>Access Requests <span class="badge" id="req-badge" style="display:none">0</span></h2>
           <span class="sub">Emails that tried to login but aren't authorised</span>
         </div>
-        <div class="tbl-wrap">
+        <div class="tbl">
           <table>
-            <thead><tr>
-              <th>Email</th><th>Requested At</th><th>Status</th><th>Action</th>
-            </tr></thead>
-            <tbody id="requests-tbody">
-              <tr><td colspan="4" class="empty">Loading…</td></tr>
-            </tbody>
+            <thead><tr><th>Email</th><th>Requested At</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="req-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
 
       <!-- Login Activity -->
-      <div class="section">
-        <div class="section-hd">
-          <h2>Login Activity</h2>
-          <span class="sub">Recent sign-ins</span>
-        </div>
-        <div class="tbl-wrap">
+      <div class="card">
+        <div class="card-hd"><h2>Login Activity</h2><span class="sub">Recent sign-ins</span></div>
+        <div class="tbl">
           <table>
-            <thead><tr>
-              <th>Email</th><th>Logged In At</th>
-            </tr></thead>
-            <tbody id="activity-tbody">
-              <tr><td colspan="2" class="empty">Loading…</td></tr>
-            </tbody>
+            <thead><tr><th>Email</th><th>Logged In At</th></tr></thead>
+            <tbody id="act-tbody"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -193,199 +135,171 @@
 </div>
 
 <script>
-  const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-  const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-  const ADMIN_EMAIL = 'nithish@bounceshare.com';
+const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const ADMIN = 'nithish@bounceshare.com';
 
-  // Auth guard
-  const _raw = localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session');
-  const _session = JSON.parse(_raw || '{}');
-  // Just check if any session exists — sidebar access control handles the rest
-  if (!_session?.email) {
-    window.location.href = 'login.html';
-  }
-  const session = _session;
+// Get session
+const sess = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || '{}');
+if (!sess.email) { window.location.href = 'login.html'; }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('sb-user-email');
+  if (el) el.textContent = sess.email || '';
 
   // Sidebar toggle
-  function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    const btn = document.getElementById('sb-toggle');
-    sb.classList.toggle('collapsed');
-    btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
-    localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  }
-  if (localStorage.getItem('sb_collapsed') === '1') {
+  if (localStorage.getItem('sb_collapsed')==='1') {
     document.getElementById('sidebar').classList.add('collapsed');
-    document.getElementById('sb-toggle').textContent = '›';
+    document.getElementById('sb-toggle').textContent='›';
   }
+});
 
-  async function sbFetch(path) {
-    const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
-      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Accept': 'application/json' }
-    });
-    return r.json();
+function toggleSidebar() {
+  const sb=document.getElementById('sidebar'), btn=document.getElementById('sb-toggle');
+  sb.classList.toggle('collapsed');
+  btn.textContent=sb.classList.contains('collapsed')?'›':'‹';
+  localStorage.setItem('sb_collapsed',sb.classList.contains('collapsed')?'1':'0');
+}
+
+async function get(path) {
+  const r = await fetch(`${SB}/rest/v1/${path}`, {
+    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Accept':'application/json'}
+  });
+  return r.json();
+}
+
+async function rpc(fn, body) {
+  return fetch(`${SB}/rest/v1/rpc/${fn}`, {
+    method:'POST',
+    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+}
+
+function fmt(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+// ── USERS ──
+async function loadUsers() {
+  const users = await get('allowed_users?order=added_at.asc');
+  document.getElementById('s-total').textContent = users.length;
+  document.getElementById('s-active').textContent = users.filter(u=>u.is_active).length;
+  document.getElementById('s-admins').textContent = users.filter(u=>u.role==='admin').length;
+
+  document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
+    const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true};
+    const isProt = u.email===ADMIN;
+    const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `
+      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.rmc?'checked':''} onchange="setPerm('${u.email}','rmc',this.checked)"> RMC</label>
+      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
+      <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>`;
+    return `<tr>
+      <td style="font-weight:600">${u.name||'—'}</td>
+      <td>${u.email}</td>
+      <td><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
+      <td><span class="pill ${u.is_active?'p-active':'p-inactive'}">${u.is_active?'Active':'Inactive'}</span></td>
+      <td>${perms}</td>
+      <td style="font-size:12px;color:var(--muted)">${fmt(u.last_login)}</td>
+      <td>${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
+        u.is_active
+          ? `<button class="btn btn-danger" onclick="revokeUser('${u.email}')">Revoke</button>`
+          : `<button class="btn btn-green" onclick="restoreUser('${u.email}')">Restore</button>`
+      }</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">No users</td></tr>';
+}
+
+async function addUser() {
+  const email = document.getElementById('new-email').value.trim().toLowerCase();
+  const name  = document.getElementById('new-name').value.trim();
+  const role  = document.getElementById('new-role').value;
+  const msg   = document.getElementById('add-msg');
+  if (!email||!name) { showMsg(msg,'err','Email and name required.'); return; }
+  const r = await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
+  if (r.ok) {
+    showMsg(msg,'ok',`✅ ${name} added.`);
+    document.getElementById('new-email').value='';
+    document.getElementById('new-name').value='';
+    loadUsers();
+  } else {
+    const e = await r.json().catch(()=>({}));
+    showMsg(msg,'err',`Failed: ${e.message||e.hint||JSON.stringify(e)}`);
   }
+}
 
-  async function sbRpc(fn, body) {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
-      method: 'POST',
-      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return r;
-  }
-
-  async function loadUsers() {
-    const users = await sbFetch('allowed_users?order=added_at.asc');
-    const tbody = document.getElementById('users-tbody');
-
-    document.getElementById('stat-total').textContent = users.length;
-    document.getElementById('stat-active').textContent = users.filter(u => u.is_active).length;
-    document.getElementById('stat-admins').textContent = users.filter(u => u.role === 'admin').length;
-
-    if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = users.map(u => {
-      const p = u.permissions || { rmc:true, fleet_km:true, parts_testing:true };
-      const isProtected = u.email === ADMIN_EMAIL;
-      const permsHtml = isProtected
-        ? '<span style="color:var(--muted);font-size:11px">All access</span>'
-        : `<label style="font-size:11px;margin-right:8px;cursor:pointer;white-space:nowrap">
-            <input type="checkbox" ${p.rmc?'checked':''} onchange="updatePerm('${u.email}','rmc',this.checked)"> RMC
-           </label>
-           <label style="font-size:11px;margin-right:8px;cursor:pointer;white-space:nowrap">
-            <input type="checkbox" ${p.fleet_km?'checked':''} onchange="updatePerm('${u.email}','fleet_km',this.checked)"> Fleet KM
-           </label>
-           <label style="font-size:11px;cursor:pointer;white-space:nowrap">
-            <input type="checkbox" ${p.parts_testing?'checked':''} onchange="updatePerm('${u.email}','parts_testing',this.checked)"> Parts
-           </label>`;
-      return `<tr>
-        <td style="font-weight:600">${u.name||'—'}</td>
-        <td>${u.email}</td>
-        <td><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
-        <td><span class="pill ${u.is_active?'p-active':'p-inactive'}">${u.is_active?'Active':'Inactive'}</span></td>
-        <td>${permsHtml}</td>
-        <td>${u.last_login ? new Date(u.last_login).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
-        <td style="color:var(--muted);font-size:12px">${u.added_by||'—'}</td>
-        <td>
-          ${isProtected ? '<span style="color:var(--muted);font-size:11px">Protected</span>' :
-            u.is_active
-              ? `<button class="btn btn-danger btn-sm" onclick="removeUser('${u.email}')">Revoke</button>`
-              : `<button class="btn btn-primary btn-sm" onclick="restoreUser('${u.email}')">Restore</button>`
-          }
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function updatePerm(email, key, val) {
-    const users = await sbFetch(`allowed_users?email=eq.${encodeURIComponent(email)}`);
-    if (!users.length) return;
-    const perms = { ...(users[0].permissions || { rmc:true, fleet_km:true, parts_testing:true }), [key]: val };
-    await sbRpc('update_user_permissions', { user_email: email, user_permissions: perms });
-  }
-
-  async function addUser() {
-    const email = document.getElementById('new-email').value.trim().toLowerCase();
-    const name  = document.getElementById('new-name').value.trim();
-    const role  = document.getElementById('new-role').value;
-    const msgEl = document.getElementById('add-msg');
-
-    if (!email || !name) { showMsg(msgEl, 'error', 'Email and name are required.'); return; }
-
-    const r = await sbRpc('add_allowed_user', {
-      user_email: email, user_name: name, user_role: role,
-      added_by_email: session.email
-    });
-
-    if (r.ok) {
-      showMsg(msgEl, 'success', `✅ ${name} (${email}) added successfully.`);
-      document.getElementById('new-email').value = '';
-      document.getElementById('new-name').value = '';
-      loadUsers();
-    } else {
-      const err = await r.json().catch(()=>({}));
-      showMsg(msgEl, 'error', `Failed: ${err.message || err.hint || JSON.stringify(err)}`);
-    }
-  }
-
-  async function removeUser(email) {
-    if (!confirm(`Revoke access for ${email}?`)) return;
-    const r = await sbRpc('remove_allowed_user', { user_email: email });
-    if (r.ok) loadUsers();
-  }
-
-  async function restoreUser(email) {
-    const r = await fetch(`${SB_URL}/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}`, {
-      method: 'PATCH',
-      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_active: true })
-    });
-    if (r.ok) loadUsers();
-  }
-
-  function showMsg(el, type, text) {
-    el.className = `msg ${type}`;
-    el.textContent = text;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 4000);
-  }
-
-  async function loadRequests() {
-    const requests = await sbFetch('login_requests?order=requested_at.desc&limit=50');
-    const tbody = document.getElementById('requests-tbody');
-    const pending = requests.filter(r => r.status === 'pending');
-    const badge = document.getElementById('requests-badge');
-    if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = 'inline-flex'; }
-    else badge.style.display = 'none';
-
-    if (!requests.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No access requests yet</td></tr>'; return; }
-    tbody.innerHTML = requests.map(r => `
-      <tr>
-        <td style="font-weight:600">${r.email}</td>
-        <td style="color:var(--muted);font-size:12px">${new Date(r.requested_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-        <td><span class="pill p-${r.status}">${r.status}</span></td>
-        <td>
-          ${r.status === 'pending' ? `
-            <button class="btn btn-green btn-sm" onclick="approveRequest('${r.id}','${r.email}')">Approve</button>
-            <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="rejectRequest('${r.id}')">Reject</button>
-          ` : `<span style="color:var(--muted);font-size:11px">Reviewed by ${r.reviewed_by||'—'}</span>`}
-        </td>
-      </tr>`).join('');
-  }
-
-  async function approveRequest(id, email) {
-    const name = prompt(`Enter name for ${email}:`);
-    if (!name) return;
-    const role = confirm('Grant Admin role? (Cancel for Viewer)') ? 'admin' : 'viewer';
-    await sbRpc('approve_login_request', { request_id: id, reviewed_by_email: session.email });
-    await sbRpc('add_allowed_user', { user_email: email, user_name: name, user_role: role, added_by_email: session.email });
-    loadRequests(); loadUsers();
-  }
-
-  async function rejectRequest(id) {
-    await sbRpc('reject_login_request', { request_id: id, reviewed_by_email: session.email });
-    loadRequests();
-  }
-
-  async function loadActivity() {
-    const activity = await sbFetch('login_activity?order=logged_in_at.desc&limit=30');
-    const tbody = document.getElementById('activity-tbody');
-    if (!activity.length) { tbody.innerHTML = '<tr><td colspan="2" class="empty">No login activity yet</td></tr>'; return; }
-    tbody.innerHTML = activity.map(a => `
-      <tr>
-        <td style="font-weight:600">${a.email}</td>
-        <td style="color:var(--muted);font-size:12px">${new Date(a.logged_in_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-      </tr>`).join('');
-  }
-
+async function revokeUser(email) {
+  if (!confirm(`Revoke access for ${email}?`)) return;
+  await rpc('remove_allowed_user',{user_email:email});
   loadUsers();
+}
+
+async function restoreUser(email) {
+  await fetch(`${SB}/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}`,{
+    method:'PATCH',
+    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    body:JSON.stringify({is_active:true})
+  });
+  loadUsers();
+}
+
+async function setPerm(email, key, val) {
+  const users = await get(`allowed_users?email=eq.${encodeURIComponent(email)}`);
+  if (!users.length) return;
+  const perms = {...(users[0].permissions||{rmc:true,fleet_km:true,parts_testing:true}),[key]:val};
+  await rpc('update_user_permissions',{user_email:email,user_permissions:perms});
+}
+
+// ── REQUESTS ──
+async function loadRequests() {
+  const reqs = await get('login_requests?order=requested_at.desc&limit=50');
+  const pending = reqs.filter(r=>r.status==='pending');
+  const badge = document.getElementById('req-badge');
+  if (pending.length) { badge.textContent=pending.length; badge.style.display='inline-flex'; }
+  else badge.style.display='none';
+
+  document.getElementById('req-tbody').innerHTML = reqs.length ? reqs.map(r=>`
+    <tr>
+      <td style="font-weight:600">${r.email}</td>
+      <td style="font-size:12px;color:var(--muted)">${fmt(r.requested_at)}</td>
+      <td><span class="pill p-${r.status}">${r.status}</span></td>
+      <td>${r.status==='pending'
+        ? `<button class="btn btn-green" onclick="approveReq('${r.id}','${r.email}')">Approve</button>
+           <button class="btn btn-danger" onclick="rejectReq('${r.id}')">Reject</button>`
+        : `<span style="color:var(--muted);font-size:11px">${r.reviewed_by||'—'}</span>`
+      }</td>
+    </tr>`).join('')
+  : '<tr><td colspan="4" class="empty">No requests yet</td></tr>';
+}
+
+async function approveReq(id, email) {
+  const name = prompt(`Name for ${email}:`);
+  if (!name) return;
+  const role = confirm('Admin role? Cancel = Viewer') ? 'admin' : 'viewer';
+  await rpc('approve_login_request',{request_id:id,reviewed_by_email:sess.email});
+  await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
+  loadRequests(); loadUsers();
+}
+
+async function rejectReq(id) {
+  await rpc('reject_login_request',{request_id:id,reviewed_by_email:sess.email});
   loadRequests();
-  loadActivity();
+}
+
+// ── ACTIVITY ──
+async function loadActivity() {
+  const acts = await get('login_activity?order=logged_in_at.desc&limit=30');
+  document.getElementById('act-tbody').innerHTML = acts.length
+    ? acts.map(a=>`<tr><td style="font-weight:600">${a.email}</td><td style="font-size:12px;color:var(--muted)">${fmt(a.logged_in_at)}</td></tr>`).join('')
+    : '<tr><td colspan="2" class="empty">No activity yet</td></tr>';
+}
+
+function showMsg(el,type,text){
+  el.className=`fmsg ${type}`; el.textContent=text;
+  setTimeout(()=>el.style.display='none',4000);
+}
+
+loadUsers(); loadRequests(); loadActivity();
 </script>
-</body>
-</html>
-<!-- 1780647945 -->
+</body></html>
