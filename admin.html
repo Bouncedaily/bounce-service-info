@@ -52,6 +52,8 @@
   </style>
 </head>
 <body>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=2"></script>
 <nav class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
@@ -147,7 +149,11 @@ const ADMIN = 'nithish@bounceshare.com';
 const sess = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || '{}');
 if (!sess.email) { window.location.href = 'login.html'; }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Close sidebar on nav link click (mobile)
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); });
+  });
+  document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('sb-user-email');
   if (el) el.textContent = sess.email || '';
 
@@ -158,6 +164,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sb-overlay').classList.add('active');
+  document.getElementById('sb-hamburger').style.display='none';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sb-overlay').classList.remove('active');
+  document.getElementById('sb-hamburger').style.display='';
+}
 function toggleSidebar() {
   const sb=document.getElementById('sidebar'), btn=document.getElementById('sb-toggle');
   sb.classList.toggle('collapsed');

@@ -133,6 +133,8 @@ tr:hover td { background: #f8fafc; }
 </style>
 </head>
 <body>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=1780647172"></script>
 
 
@@ -764,6 +766,16 @@ function exportCSV() {
 }
 
 // ─── SIDEBAR ─────────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sb-overlay').classList.add('active');
+  document.getElementById('sb-hamburger').style.display='none';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sb-overlay').classList.remove('active');
+  document.getElementById('sb-hamburger').style.display='';
+}
 function toggleSidebar() {
   const sb = document.getElementById('sb');
   const arrow = document.getElementById('sb-arrow');
@@ -1105,9 +1117,17 @@ function renderOemPagination(total, pages) {
 
 </script>
 <script>
+  // Close sidebar on nav link click (mobile)
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); });
+  });
   document.addEventListener('DOMContentLoaded', () => {
   });
 </script><script>
+  // Close sidebar on nav link click (mobile)
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); });
+  });
   document.addEventListener('DOMContentLoaded', () => {
     const emailEl = document.getElementById('sb-user-email');
     if (emailEl) emailEl.textContent = authGetEmail();

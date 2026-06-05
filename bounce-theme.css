@@ -211,3 +211,95 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
   display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-top: 4px;
 }
 .sh::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── MAIN CONTENT ── */
+.main { flex: 1; overflow-y: auto; height: 100vh; }
+.content { min-height: 100%; }
+
+/* ── MOBILE OVERLAY ── */
+.sb-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+.sb-overlay.active { display: block; }
+
+/* ── MOBILE HAMBURGER ── */
+.sb-hamburger {
+  display: none;
+  position: fixed; top: 12px; left: 12px;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--sb-bg); border: 1px solid var(--sb-border);
+  color: #fff; font-size: 16px; cursor: pointer;
+  align-items: center; justify-content: center;
+  z-index: 101; transition: background .15s;
+}
+.sb-hamburger:hover { background: var(--red); }
+
+/* ── RESPONSIVE BREAKPOINT ── */
+@media (max-width: 768px) {
+  html, body { overflow: hidden; }
+
+  /* Sidebar becomes slide-in drawer */
+  .sidebar {
+    position: fixed !important;
+    left: -220px;
+    top: 0; bottom: 0;
+    width: var(--sw) !important;
+    height: 100vh;
+    z-index: 100;
+    transition: left .25s cubic-bezier(.4,0,.2,1);
+    overflow-y: auto;
+  }
+  .sidebar.mobile-open { left: 0 !important; }
+  .sidebar.collapsed { width: var(--sw) !important; left: -220px; }
+  .sidebar.collapsed .sb-text,
+  .sidebar.collapsed .sb-label,
+  .sidebar.collapsed .sb-sec,
+  .sidebar.collapsed .sb-foot { opacity: 1 !important; }
+
+  /* Hide desktop toggle, show hamburger */
+  .sb-toggle { display: none !important; }
+  .sb-hamburger { display: flex; }
+
+  /* Main takes full width */
+  .main { width: 100%; height: 100vh; overflow-y: auto; }
+
+  /* Top padding to avoid hamburger overlap */
+  .content { padding-top: 8px; }
+
+  /* Tables scroll horizontally */
+  .tbl, table { overflow-x: auto; display: block; }
+  th, td { white-space: nowrap; }
+
+  /* Filters stack vertically */
+  .filters, .filter-row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  select, input[type=date] {
+    font-size: 13px;
+    width: 100%;
+  }
+
+  /* Cards full width */
+  .card { border-radius: 8px; }
+
+  /* KM comparison bars smaller on mobile */
+  .km-cell { min-width: 120px; }
+
+  /* Stat grids responsive */
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── MOBILE TOPBAR for content pages ── */
+@media (max-width: 768px) {
+  .topbar { padding-left: 52px !important; }
+  .wrap, .admin-wrap { padding: 12px !important; }
+}
