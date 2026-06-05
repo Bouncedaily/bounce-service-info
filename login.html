@@ -154,16 +154,25 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 // Check existing session
 (async () => {
+  // Clear old custom session format to avoid conflicts with SDK
+  const oldSess = localStorage.getItem('sb_session');
+  if (oldSess) {
+    try {
+      const s = JSON.parse(oldSess);
+      // If it's our old format (has email but no supabase internal keys), clear it
+      if (s?.email && !s?.['sb_session_v2']) {
+        localStorage.removeItem('sb_session');
+        sessionStorage.removeItem('sb_session');
+      }
+    } catch(e) {}
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
+    // Already logged in via SDK — redirect
     window.location.replace('dashboard.html');
     return;
   }
-  // Also check our custom session
-  try {
-    const s = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || 'null');
-    if (s?.email) { window.location.replace('dashboard.html'); return; }
-  } catch(e) {}
   showForm();
 })();
 

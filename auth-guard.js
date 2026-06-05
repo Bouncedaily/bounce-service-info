@@ -3,9 +3,20 @@
 
   let session = null;
   try {
-    // Try localStorage first, then sessionStorage
+    // Check new SDK session first, then fall back to old custom session
     const raw = localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session');
     session = JSON.parse(raw || 'null');
+    // Also check SDK's own storage key
+    if (!session?.email) {
+      const sdkRaw = localStorage.getItem('sb-fuslpeyhpmofzijrotkb-auth-token');
+      if (sdkRaw) {
+        const sdkSess = JSON.parse(sdkRaw);
+        if (sdkSess?.user?.email) {
+          session = { email: sdkSess.user.email, access_token: sdkSess.access_token,
+            permissions: { rmc:true, fleet_km:true, parts_testing:true } };
+        }
+      }
+    }
   } catch(e) {}
 
   if (!session || !session.email) {
