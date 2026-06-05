@@ -76,15 +76,17 @@ async function processToken(at, rt) {
     // Update last login
     rpc('update_last_login', {user_email: email}).catch(()=>{});
 
-    // Store session
-    localStorage.setItem('sb_session', JSON.stringify({
+    // Store session in both storages
+    const sessionData = JSON.stringify({
       access_token: at,
       refresh_token: rt,
       email: user.email,
       role: allowed.role,
       name: allowed.name,
       permissions: allowed.permissions || {rmc:true,fleet_km:true,parts_testing:true}
-    }));
+    });
+    localStorage.setItem('sb_session', sessionData);
+    sessionStorage.setItem('sb_session', sessionData);
 
     // Redirect to dashboard
     window.location.replace('dashboard.html');

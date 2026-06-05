@@ -2,13 +2,14 @@
 <html><head><meta charset="UTF-8"><title>Setup</title></head>
 <body>
 <script>
-  localStorage.setItem('sb_session', JSON.stringify({
+  const s = JSON.stringify({
     email: 'nithish@bounceshare.com',
     name: 'Nithish',
     role: 'admin',
     permissions: { rmc: true, fleet_km: true, parts_testing: true }
-  }));
-  window.location.href = 'dashboard.html';
+  });
+  localStorage.setItem('sb_session', s);
+  sessionStorage.setItem('sb_session', s);
+  window.location.replace('dashboard.html');
 </script>
 </body></html>
-<!-- cache bust Fri Jun  5 04:56:53 UTC 2026 -->
