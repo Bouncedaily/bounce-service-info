@@ -144,7 +144,7 @@ async function send() {
     document.getElementById('form').style.display='none';
     document.getElementById('sent').style.display='block';
     document.getElementById('sent-txt').innerHTML =
-      `📬 Access request sent for <strong>${email}</strong>.<br><br>Your email is not yet authorised. The admin has been notified and will review your request shortly.<br><br>You'll receive a sign-in link once access is approved.`;
+      `📬 Access request sent for <strong>${email}</strong>.<br><br>Your email is not yet authorised. The admin has been notified and will review your request shortly.<br><br>You'll receive a sign-in link once access is approved. For urgent access, contact <strong>nithish@bounceshare.com</strong>.`;
     btn.disabled=false; btn.textContent='Send Sign-in Link';
     return;
   }
