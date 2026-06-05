@@ -135,10 +135,12 @@ async function send() {
   if (!email) { showMsg('err','Please enter your email.'); return; }
 
   // Check if allowed before sending
+  btn.disabled = true; btn.textContent = 'Checking…';
   const allowed = await rpc('check_allowed_user', {user_email: email});
-  if (!allowed) {
+  if (!allowed || (typeof allowed === 'object' && !allowed.email)) {
     rpc('request_login_access', {user_email: email}).catch(()=>{});
     showMsg('err','Your email is not yet authorised. An access request has been sent to the admin.');
+    btn.disabled=false; btn.textContent='Send Sign-in Link';
     return;
   }
 
