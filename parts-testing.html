@@ -970,14 +970,16 @@ const OEM_PAGE_SIZE = 20;
 function renderOemRaw(resetPage) {
   if (resetPage) _oemRawPage = 1;
   const rows = window._oemRawRows || [];
-  if (!rows.length) return;
-
-  const q      = (document.getElementById('oem-search')?.value || '').toLowerCase();
   const fPart  = document.getElementById('oem-f-part')?.value   || '';
   const fStat  = document.getElementById('oem-f-status')?.value || '';
-  const fCity  = document.getElementById('oem-f-city')?.value   || '';
-  const fYear  = document.getElementById('oem-f-year')?.value   || '';
-  const sort   = document.getElementById('oem-sort')?.value     || 'km_desc';
+
+  // If Running filter selected but no part — show hint
+  if (fStat === 'Running' && !fPart) {
+    document.getElementById('oem-raw-body').innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Select a specific part to view running bikes</div>';
+    document.getElementById('oem-raw-count').textContent = '—';
+    return;
+  }
 
   // If a specific part is selected, fetch its running rows on demand
   if (fPart) {
