@@ -863,7 +863,8 @@ function renderOemPerfFilter() {
       part_group: r.part_group, total_fleet: 0,
       first_repl_count: 0, second_repl_count: 0, running_count: 0,
       sum_km_0to1: 0, n_0to1: 0, sum_km_1to2: 0, n_1to2: 0,
-      sum_km_run: 0, n_run: 0
+      sum_km_run: 0, n_run: 0,
+      sum_med_run: 0, n_med_run: 0
     };
     const p = byPart[r.part_group];
     // Only add fleet once per city (avoid double-count across years)
@@ -881,7 +882,8 @@ function renderOemPerfFilter() {
     p.running_count    += r.running_count || 0;
     if (r.avg_km_0to1 && r.first_repl_count)  { p.sum_km_0to1 += r.avg_km_0to1 * r.first_repl_count;  p.n_0to1 += r.first_repl_count; }
     if (r.avg_km_1to2 && r.second_repl_count) { p.sum_km_1to2 += r.avg_km_1to2 * r.second_repl_count; p.n_1to2 += r.second_repl_count; }
-    if (r.avg_km_running) { p.sum_km_run += r.avg_km_running; p.n_run++; }
+    if (r.avg_km_running && r.running_count) { p.sum_km_run += r.avg_km_running * r.running_count; p.n_run += r.running_count; }
+    if (r.median_km_running && r.running_count) { p.sum_med_run += r.median_km_running * r.running_count; p.n_med_run += r.running_count; }
     // Store medians from single-city (use last value when aggregating — median can't be averaged)
     if (r.median_km_0to1) p.median_km_0to1 = r.median_km_0to1;
     if (r.median_km_1to2) p.median_km_1to2 = r.median_km_1to2;
@@ -893,6 +895,7 @@ function renderOemPerfFilter() {
     avg_km_0to1:  p.n_0to1 ? Math.round(p.sum_km_0to1/p.n_0to1) : null,
     avg_km_1to2:  p.n_1to2 ? Math.round(p.sum_km_1to2/p.n_1to2) : null,
     avg_km_running: p.n_run ? Math.round(p.sum_km_run/p.n_run) : null,
+    median_km_running: p.n_med_run ? Math.round(p.sum_med_run/p.n_med_run) : null,
   })).sort((a,b) => (a.avg_km_0to1||999999) - (b.avg_km_0to1||999999));
 
   const maxKm = Math.max(...parts.flatMap(p => [p.avg_km_0to1||0, p.avg_km_1to2||0, p.avg_km_running||0]));
