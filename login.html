@@ -71,10 +71,16 @@ async function processToken(at, rt) {
 
     // Check if allowed
     const allowed = await rpc('check_allowed_user', {user_email: email});
-    if (!allowed) { showForm(); showMsg('err','Access denied. Your email is not authorised.'); return; }
+    if (!allowed) {
+      // Log access request for admin review
+      rpc('request_login_access', {user_email: email}).catch(()=>{});
+      showForm();
+      showMsg('err','Your email is not yet authorised. An access request has been sent to the admin.');
+      return;
+    }
 
-    // Update last login
-    rpc('update_last_login', {user_email: email}).catch(()=>{});
+    // Update last login + log activity
+    rpc('log_login_activity', {user_email: email, user_ip: navigator.userAgent.substring(0,100)}).catch(()=>{});
 
     // Store session in both storages
     const sessionData = JSON.stringify({
@@ -127,7 +133,11 @@ async function send() {
 
   // Check if allowed before sending
   const allowed = await rpc('check_allowed_user', {user_email: email});
-  if (!allowed) { showMsg('err','This email is not authorised to access the dashboard.'); return; }
+  if (!allowed) {
+    rpc('request_login_access', {user_email: email}).catch(()=>{});
+    showMsg('err','Your email is not yet authorised. An access request has been sent to the admin.');
+    return;
+  }
 
   btn.disabled = true; btn.textContent = 'Sending…';
 
