@@ -113,25 +113,12 @@ async function sendLink() {
 // Handle auth state — SDK automatically processes the token from URL hash
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    const email = session.user.email?.toLowerCase();
-    // Check allowed + store session
-    const { data: allowed } = await sb.rpc('check_allowed_user', { user_email: email });
-    if (!allowed || !allowed.email) {
-      await sb.auth.signOut();
-      showForm();
-      document.getElementById('err').textContent = 'Access denied. Your email is not authorised.';
-      return;
-    }
-    // Log login
-    sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }).catch(() => {});
-    // Store our custom session
+    // Store session and redirect — allowed_users check happens in auth-guard
     const sessionData = JSON.stringify({
       access_token: session.access_token,
       refresh_token: session.refresh_token,
       email: session.user.email,
-      role: allowed.role,
-      name: allowed.name,
-      permissions: allowed.permissions || { rmc: true, fleet_km: true, parts_testing: true }
+      permissions: { rmc: true, fleet_km: true, parts_testing: true }
     });
     localStorage.setItem('sb_session', sessionData);
     sessionStorage.setItem('sb_session', sessionData);
