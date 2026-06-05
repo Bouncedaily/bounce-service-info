@@ -314,31 +314,68 @@ async function load(month) {
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('content').style.display = 'none';
   document.getElementById('error').style.display   = 'none';
-  document.getElementById('load-msg').textContent  = 'Loading from Supabase…';
+  document.getElementById('load-msg').textContent  = 'Loading…';
 
   try {
-    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc';
-    const res = await fetch(url, { headers: SB_HDR });
-    if (!res.ok) throw new Error('Supabase HTTP ' + res.status);
-    allData = await res.json();
-    if (!Array.isArray(allData)) throw new Error('Unexpected format');
+    // Step 1: Load summary cache (12 rows) — fast!
+    const sumUrl = SB_URL + '/rest/v1/fleet_km_summary_cache?month=eq.' + encodeURIComponent(month);
+    const sumRes = await fetch(sumUrl, { headers: SB_HDR });
+    const sumData = await sumRes.json();
 
-    // Sync time from latest row
-    const latestSync = allData.reduce((max, r) => r.synced_at > max ? r.synced_at : max, '');
-    if (latestSync) {
-      const d = new Date(latestSync);
-      document.getElementById('sync-ts').textContent = 'Synced ' + d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+    // Convert summary rows into allData format for existing render logic
+    if (Array.isArray(sumData) && sumData.length > 0) {
+      allData = sumData.map(b => ({
+        _is_summary: true,
+        odometer_bucket: b.odometer_bucket,
+        _bike_count: b.bike_count,
+        rental_revenue: b.rental_rev,
+        total_revenue: b.total_rev,
+        active_days: b.active_days,
+        total_life_days: b.life_days,
+        utilization_pct: b.util_pct,
+        uptime_pct: b.uptime_pct,
+        total_service_cost: b.total_cost,
+        part_cost: b.part_cost,
+        labour_cost: b.labour_cost,
+        wear_tear_cost: b.wt_cost,
+        wear_tear_part_cost: b.wt_part_cost,
+        wear_tear_labour_cost: b.wt_labour_cost,
+        warranty_cost: b.warranty_cost,
+        warranty_part_cost: b.warranty_part_cost,
+        filtered_odometer: b.total_odo,
+        repair_frequency: b.total_jc,
+        synced_at: b.synced_at,
+        city: '', hub_name: '', model_name: '', status: '',
+        current_odometer: 0, oos_pct: 0, total_cost_per_km: 0,
+      }));
+
+      const latestSync = sumData.reduce((max, r) => r.synced_at > max ? r.synced_at : max, '');
+      if (latestSync) {
+        const d = new Date(latestSync);
+        document.getElementById('sync-ts').textContent = 'Synced ' + d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+      }
+
+      const sel = document.getElementById('f-month');
+      const label = sel.options[sel.selectedIndex]?.text || month;
+      const totalBikes = sumData.reduce((s, b) => s + (b.bike_count||0), 0);
+      document.getElementById('mode-badge').innerHTML = '<span class="mode-badge mode-sb"><i class="ti ti-database" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Supabase</span>';
+      document.getElementById('data-info').textContent = totalBikes.toLocaleString('en-IN') + ' bikes · ' + label;
+
+      applyFilters();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
     }
 
-    const sel = document.getElementById('f-month');
-    const label = sel.options[sel.selectedIndex]?.text || month;
-    document.getElementById('mode-badge').innerHTML = '<span class="mode-badge mode-sb"><i class="ti ti-database" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Supabase</span>';
-    document.getElementById('data-info').textContent = allData.length.toLocaleString('en-IN') + ' bikes · ' + label;
+    // Step 2: Load full raw data in background for bike detail table
+    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc';
+    fetch(url, { headers: SB_HDR }).then(r => r.json()).then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        allData = data;
+        populateHubs(document.getElementById('f-city').value);
+        applyFilters();
+      }
+    }).catch(() => {});
 
-    populateHubs(document.getElementById('f-city').value);
-    applyFilters();
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('error').style.display   = 'block';
@@ -437,21 +474,28 @@ function renderAll(){ buildTH(); renderMatrix(); renderDetail(); }
 
 function renderMatrix() {
   const grp={};
-  filtered.forEach(r=>{ const b=r.odometer_bucket||'No Data'; if(!grp[b])grp[b]=[]; grp[b].push(r); });
+  // If summary rows, each row is already a pre-aggregated bucket
+  if (filtered.length > 0 && filtered[0]._is_summary) {
+    filtered.forEach(r => { grp[r.odometer_bucket||'No Data'] = [r]; });
+  } else {
+    filtered.forEach(r=>{ const b=r.odometer_bucket||'No Data'; if(!grp[b])grp[b]=[]; grp[b].push(r); });
+  }
   const buckets=ODO_ORDER.filter(b=>grp[b]);
   document.getElementById('matrix-badge').textContent=buckets.length+' buckets';
   const tbody=document.getElementById('matrix-body'); tbody.innerHTML='';
   const R=v=>'₹'+Number(v).toLocaleString('en-IN');
 
   const row=(label,rows,isTotal=false)=>{
-    const cnt=rows.length;
+    // Handle pre-aggregated summary rows (each row = one bucket already summed)
+    const isSummary = rows.length === 1 && rows[0]._is_summary;
+    const cnt = isSummary ? (rows[0]._bike_count || 0) : rows.length;
     const tc=rows.reduce((s,r)=>s+getCost(r),0), ex=rows.reduce((s,r)=>s+getExcl(r),0), wt=rows.reduce((s,r)=>s+getWT(r),0);
     const odo=rows.reduce((s,r)=>s+n(r.filtered_odometer),0);
     const revR=rows.reduce((s,r)=>s+n(r.rental_revenue),0), revA=rows.reduce((s,r)=>s+n(r.total_revenue),0);
     const life=rows.reduce((s,r)=>s+n(r.total_life_days),0), act=rows.reduce((s,r)=>s+n(r.active_days),0);
     const jc=rows.reduce((s,r)=>s+n(r.repair_frequency),0);
     const util=life?(act/life*100).toFixed(1)+'%':'–';
-    const uptArr=rows.map(r=>parseFloat(r.uptime_pct||0)).filter(v=>!isNaN(v));
+    const uptArr = isSummary ? [parseFloat(rows[0].uptime_pct||0)] : rows.map(r=>parseFloat(r.uptime_pct||0)).filter(v=>!isNaN(v));
     const upt=uptArr.length?(uptArr.reduce((a,b)=>a+b,0)/uptArr.length).toFixed(1)+'%':'–';
     const rl=life?Math.round(revA/life*30):null, ra=act?Math.round((revA/act*30)*0.9):null;
     const cpR=revA?(tc/revA*100).toFixed(1)+'%':'–', exR=revA?(ex/revA*100).toFixed(1)+'%':'–', wtR=revA?(wt/revA*100).toFixed(1)+'%':'–';
