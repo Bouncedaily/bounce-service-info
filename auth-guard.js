@@ -38,20 +38,10 @@
   window.authGetEmail = () => session.email || '';
   window.authIsAdmin  = () => (session.email||'').toLowerCase() === ADMIN;
   window.authPerms    = () => session.permissions || {rmc:true,fleet_km:true,parts_testing:true};
-  window.authLogout   = () => {
+  window.authLogout = () => {
+    // Clear everything
     localStorage.clear();
     sessionStorage.clear();
-    // Also sign out from Supabase SDK if available
-    if (window.supabase) {
-      try {
-        const sb = window.supabase.createClient(
-          'https://fuslpeyhpmofzijrotkb.supabase.co',
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs'
-        );
-        sb.auth.signOut().finally(() => { window.location.href = 'login.html'; });
-        return;
-      } catch(e) {}
-    }
     window.location.href = 'login.html';
   };
 
