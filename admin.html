@@ -198,7 +198,7 @@
   const ADMIN_EMAIL = 'nithish@bounceshare.com';
 
   // Auth guard
-  const _raw = localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session');
+  const _raw = localStorage.getItem('sb_session');
   const _session = JSON.parse(_raw || '{}');
   if (!_session?.email || _session?.email?.toLowerCase() !== ADMIN_EMAIL) {
     window.location.href = 'login.html';
