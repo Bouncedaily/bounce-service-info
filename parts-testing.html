@@ -902,7 +902,7 @@ function renderOemPerfFilter() {
         <th rowspan="2" style="width:18%;vertical-align:bottom">Part</th>
         <th colspan="3" style="text-align:center;background:#1e3a5f;color:#93c5fd;border-bottom:1px solid #334155">OEM to SPD (First Replacement)</th>
         <th colspan="3" style="text-align:center;background:#1a3a2a;color:#86efac;border-bottom:1px solid #334155">SPD to SPD (Subsequent Replacement)</th>
-        <th colspan="2" style="text-align:center;background:#2d1b4e;color:#c4b5fd;border-bottom:1px solid #334155">Running</th>
+        <th colspan="3" style="text-align:center;background:#2d1b4e;color:#c4b5fd;border-bottom:1px solid #334155">Running</th>
         <th rowspan="2" style="width:16%;vertical-align:bottom">KM Comparison</th>
       </tr>
       <tr>
@@ -914,6 +914,7 @@ function renderOemPerfFilter() {
         <th style="text-align:right">Median KM</th>
         <th style="text-align:right">Count</th>
         <th style="text-align:right">Avg KM</th>
+        <th style="text-align:right">Median KM</th>
       </tr>
     </thead><tbody>`;
 
@@ -934,6 +935,7 @@ function renderOemPerfFilter() {
       <td style="text-align:right">${p.median_km_1to2 ? fmt(p.median_km_1to2)+' km' : '—'}</td>
       <td style="text-align:right">${p.running_count ? p.running_count.toLocaleString() : '—'}</td>
       <td style="text-align:right">${p.avg_km_running ? fmt(p.avg_km_running)+' km' : '—'}</td>
+      <td style="text-align:right">${p.median_km_running ? fmt(p.median_km_running)+' km' : '—'}</td>
       <td class="km-cell">
         <div class="km-bars">
           <div class="km-bar-row">
