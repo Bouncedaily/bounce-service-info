@@ -156,26 +156,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-// Check existing session with timeout
-(async () => {
-  localStorage.removeItem('sb_session');
-  sessionStorage.removeItem('sb_session');
-
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    setTimeout(() => showForm(), 5000);
-    return;
-  }
-
-  try {
-    const timeout = new Promise(resolve => setTimeout(() => resolve({data:{session:null}}), 3000));
-    const { data: { session } } = await Promise.race([sb.auth.getSession(), timeout]);
-    if (session) { window.location.replace('dashboard.html'); return; }
-  } catch(e) {}
-  showForm();
-})();
-
+// Always show form on login page — auth-guard on dashboard handles existing sessions
 document.addEventListener('DOMContentLoaded', () => {
+  showForm();
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });
 </script>
