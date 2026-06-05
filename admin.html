@@ -199,16 +199,16 @@ async function loadUsers() {
       <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.rmc?'checked':''} onchange="setPerm('${u.email}','rmc',this.checked)"> RMC</label>
       <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
       <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>`;
-    return `<tr>
-      <td style="font-weight:600">${u.name||'—'}</td>
+    return `<tr data-email="${u.email}">
+      <td class="user-name" style="font-weight:600">${u.name||'—'}</td>
       <td>${u.email}</td>
-      <td><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
+      <td class="user-role"><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
       <td><span class="pill ${u.is_active?'p-active':'p-inactive'}">${u.is_active?'Active':'Inactive'}</span></td>
       <td>${perms}</td>
       <td style="font-size:12px;color:var(--muted)">${fmt(u.last_login)}</td>
-      <td>${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
+      <td class="user-action">${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
         u.is_active
-          ? `<button class="btn btn-green" style="margin-right:4px" onclick="editUser('${u.email}','${u.name}','${u.role}')">Edit</button><button class="btn btn-danger" onclick="revokeUser('${u.email}')">Revoke</button>`
+          ? `<button class="btn btn-green" style="margin-right:4px" onclick="editUser('${u.email}','${u.name||''}','${u.role}')">Edit</button><button class="btn btn-danger" onclick="revokeUser('${u.email}')">Revoke</button>`
           : `<button class="btn btn-green" onclick="restoreUser('${u.email}')">Restore</button>`
       }</td>
     </tr>`;
@@ -234,9 +234,26 @@ async function addUser() {
 }
 
 async function editUser(email, currentName, currentRole) {
-  const name = prompt(`Name for ${email}:`, currentName);
-  if (name === null) return;
-  const role = confirm(`Role: OK = Admin, Cancel = Viewer\nCurrent: ${currentRole}`) ? 'admin' : 'viewer';
+  // Show inline edit by replacing the row with editable fields
+  const row = document.querySelector(`tr[data-email="${email}"]`);
+  if (!row) return;
+  const nameTd = row.querySelector('.user-name');
+  const roleTd = row.querySelector('.user-role');
+  const actionTd = row.querySelector('.user-action');
+
+  nameTd.innerHTML = `<input id="edit-name" value="${currentName}" style="padding:4px 8px;background:var(--bg);border:1px solid #dc2626;border-radius:6px;color:var(--text);font-size:13px;width:100px">`;
+  roleTd.innerHTML = `<select id="edit-role" style="padding:4px 8px;background:var(--bg);border:1px solid #dc2626;border-radius:6px;color:var(--text);font-size:12px">
+    <option value="viewer" ${currentRole==='viewer'?'selected':''}>Viewer</option>
+    <option value="admin" ${currentRole==='admin'?'selected':''}>Admin</option>
+  </select>`;
+  actionTd.innerHTML = `<button class="btn btn-primary" onclick="saveUser('${email}')">Save</button>
+    <button class="btn" style="background:#334155;color:#94a3b8;margin-left:4px" onclick="loadUsers()">Cancel</button>`;
+}
+
+async function saveUser(email) {
+  const name = document.getElementById('edit-name')?.value?.trim();
+  const role = document.getElementById('edit-role')?.value;
+  if (!name) return;
   const r = await rpc('add_allowed_user', {user_email:email, user_name:name, user_role:role, added_by_email:sess.email});
   if (r.ok) loadUsers();
 }
