@@ -264,7 +264,8 @@
       document.getElementById('new-name').value = '';
       loadUsers();
     } else {
-      showMsg(msgEl, 'error', 'Failed to add user. Please try again.');
+      const err = await r.json().catch(()=>({}));
+      showMsg(msgEl, 'error', `Failed: ${err.message || err.hint || JSON.stringify(err)}`);
     }
   }
 
