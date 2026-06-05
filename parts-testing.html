@@ -185,7 +185,6 @@ tr:hover td { background: #f8fafc; }
       
     </div>
     <div style="display:flex;gap:8px">
-      <button class="export-btn" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
       <button class="btn-primary" onclick="loadAll()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Refresh</button>
     </div>
   </div>
@@ -301,6 +300,7 @@ tr:hover td { background: #f8fafc; }
           <option value="fitted_desc">Fitted date ↓</option>
           <option value="fitted_asc">Fitted date ↑</option>
         </select>
+        <button class="export-btn" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
         <span class="page-info" id="page-info"></span>
       </div>
       <div id="raw-body">
@@ -385,6 +385,7 @@ tr:hover td { background: #f8fafc; }
           <option value="date_desc">Date ↓</option>
           <option value="date_asc">Date ↑</option>
         </select>
+        <button class="export-btn" onclick="exportOemCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
         <span class="page-info" id="oem-page-info"></span>
       </div>
       <div class="table-scroll"><div id="oem-raw-body">
@@ -760,6 +761,24 @@ function exportCSV() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
   a.download = `parts_testing_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function exportOemCSV() {
+  const rows = window._oemRawRows || [];
+  if (!rows.length) return;
+  const cols = ['Part','Reg No','Chassis','City','Hub','JC No','ODO Fitment','ODO Replacement','KM on Part','Date Fitted','Date Replaced','Submission','DMS Cat','Status','Deployed Year'];
+  const data = rows.map(r => [
+    r.part, r.reg, r.chassis, r.city, r.hub, r.jcNo||'',
+    r.odoFit||'', r.odoRepl||'', r.kmOnPart||'',
+    r.dateFit||'', r.dateRepl||'', r.submType||'', r.dmsCat||'',
+    r.status?.startsWith('Running') ? 'Running' : r.intervalNo===1 ? 'OEM Repl' : 'SPD Repl',
+    r.deployedYear||''
+  ]);
+  const csv = [cols, ...data].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `oem_parts_raw_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
