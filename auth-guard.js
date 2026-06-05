@@ -2,17 +2,32 @@
   const ADMIN = 'nithish@bounceshare.com';
 
   let session = null;
-  try { session = JSON.parse(localStorage.getItem('sb_session') || 'null'); } catch(e) {}
+  try {
+    // Try localStorage first, then sessionStorage
+    const raw = localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session');
+    session = JSON.parse(raw || 'null');
+  } catch(e) {}
 
   if (!session || !session.email) {
     window.location.href = 'login.html';
     return;
   }
 
+  // Keep session alive in both storages
+  try {
+    const s = JSON.stringify(session);
+    localStorage.setItem('sb_session', s);
+    sessionStorage.setItem('sb_session', s);
+  } catch(e) {}
+
   window.authGetEmail = () => session.email || '';
   window.authIsAdmin  = () => (session.email||'').toLowerCase() === ADMIN;
   window.authPerms    = () => session.permissions || {rmc:true,fleet_km:true,parts_testing:true};
-  window.authLogout   = () => { localStorage.removeItem('sb_session'); window.location.href = 'login.html'; };
+  window.authLogout   = () => {
+    localStorage.removeItem('sb_session');
+    sessionStorage.removeItem('sb_session');
+    window.location.href = 'login.html';
+  };
 
   document.addEventListener('DOMContentLoaded', () => {
     const p = session.permissions || {rmc:true,fleet_km:true,parts_testing:true};
