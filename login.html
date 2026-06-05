@@ -95,10 +95,9 @@ async function sendLink() {
 
   btn.disabled = true; btn.textContent = 'Sending…';
 
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.href }
-  });
+  const otpPromise = sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+  const timeoutPromise = new Promise(r => setTimeout(() => r({ error: { message: 'Timed out. Please try again.' } }), 10000));
+  const { error } = await Promise.race([otpPromise, timeoutPromise]);
 
   btn.disabled = false; btn.textContent = 'Send Magic Link';
   if (error) {
