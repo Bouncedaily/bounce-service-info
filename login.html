@@ -152,29 +152,22 @@ sb.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-// Check existing session
+// Check existing session with timeout
 (async () => {
-  // Clear old custom session format to avoid conflicts with SDK
   localStorage.removeItem('sb_session');
   sessionStorage.removeItem('sb_session');
 
-  // First check if there's a token in the URL hash (magic link callback)
   const hash = window.location.hash;
   if (hash && hash.includes('access_token')) {
-    // Let the SDK process it via onAuthStateChange
-    // Just wait — don't show form yet
-    setTimeout(() => {
-      // If still on login page after 5 seconds, something went wrong
-      showForm();
-    }, 5000);
+    setTimeout(() => showForm(), 5000);
     return;
   }
 
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    window.location.replace('dashboard.html');
-    return;
-  }
+  try {
+    const timeout = new Promise(resolve => setTimeout(() => resolve({data:{session:null}}), 3000));
+    const { data: { session } } = await Promise.race([sb.auth.getSession(), timeout]);
+    if (session) { window.location.replace('dashboard.html'); return; }
+  } catch(e) {}
   showForm();
 })();
 
