@@ -127,7 +127,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
 });
 
 // Always show form on login page — auth-guard on dashboard handles existing sessions
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Sign out from SDK to clear any existing session
+  try { await sb.auth.signOut(); } catch(e) {}
   showForm();
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });
