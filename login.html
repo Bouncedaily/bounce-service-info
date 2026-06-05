@@ -95,8 +95,15 @@ async function sendLink() {
 
   btn.disabled = true; btn.textContent = 'Checking…';
 
-  // Check if allowed
-  const { data: allowed } = await sb.rpc('check_allowed_user', { user_email: email });
+  // Check if allowed with timeout
+  let allowed = null;
+  try {
+    const rpcPromise = sb.rpc('check_allowed_user', { user_email: email });
+    const timeout = new Promise(resolve => setTimeout(() => resolve({data:null}), 4000));
+    const { data } = await Promise.race([rpcPromise, timeout]);
+    allowed = data;
+  } catch(e) {}
+
   if (!allowed || !allowed.email) {
     // Request access
     await sb.rpc('request_login_access', { user_email: email }).catch(() => {});
