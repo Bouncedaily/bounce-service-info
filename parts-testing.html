@@ -595,14 +595,14 @@ function renderSummary() {
     const vendor = tRows[0]?.vendor || '—';
 
     let verdict = '';
-    // Verdict uses all-bikes avg KM for both test and OEM
-    if (!oAvg || !tAvg) {
+    // Verdict uses Replaced-only avg KM (true failure KM)
+    if (!oReplAvg || !tReplAvg) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (tAvg > oAvg * 1.05) {
-      const pct = Math.round((tAvg/oAvg-1)*100);
+    } else if (tReplAvg > oReplAvg * 1.05) {
+      const pct = Math.round((tReplAvg/oReplAvg-1)*100);
       verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tAvg < oAvg * 0.95) {
-      const pct = Math.round((1-tAvg/oAvg)*100);
+    } else if (tReplAvg < oReplAvg * 0.95) {
+      const pct = Math.round((1-tReplAvg/oReplAvg)*100);
       verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
     } else {
       verdict = `<span class="pill p-blue">≈ Similar</span>`;
@@ -914,9 +914,9 @@ function renderOemPerfFilter() {
     <thead>
       <tr>
         <th rowspan="2" style="width:18%;vertical-align:bottom">Part</th>
-        <th colspan="3" style="text-align:center;background:#1e40af;color:#fff;border-bottom:2px solid #334155">OEM to SPD (First Replacement)</th>
-        <th colspan="3" style="text-align:center;background:#166534;color:#fff;border-bottom:2px solid #334155">SPD to SPD (Subsequent Replacement)</th>
-        <th colspan="3" style="text-align:center;background:#6b21a8;color:#fff;border-bottom:2px solid #334155">Running</th>
+        <th colspan="3" style="text-align:center;background:#1e40af !important;color:#fff !important;border-bottom:2px solid #93c5fd">OEM to SPD (First Replacement)</th>
+        <th colspan="3" style="text-align:center;background:#166534 !important;color:#fff !important;border-bottom:2px solid #86efac">SPD to SPD (Subsequent Replacement)</th>
+        <th colspan="3" style="text-align:center;background:#6b21a8 !important;color:#fff !important;border-bottom:2px solid #c4b5fd">Running</th>
         <th rowspan="2" style="width:16%;vertical-align:bottom">KM Comparison</th>
       </tr>
       <tr>
