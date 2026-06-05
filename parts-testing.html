@@ -885,6 +885,7 @@ function renderOemPerfFilter() {
     // Store medians from single-city (use last value when aggregating — median can't be averaged)
     if (r.median_km_0to1) p.median_km_0to1 = r.median_km_0to1;
     if (r.median_km_1to2) p.median_km_1to2 = r.median_km_1to2;
+    if (r.median_km_running) p.median_km_running = r.median_km_running;
   });
 
   const parts = Object.values(byPart).map(p => ({
