@@ -407,7 +407,8 @@ function getWarr(r){ return costType==='part'?n(r.warranty_part_cost):costType==
 function getExcl(r){ return Math.max(0,getCost(r)-getWarr(r)); }
 
 // ── FORMAT ──
-const fmt  = v => v==null?'–':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmt  = v => (v == null || isNaN(+v)) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmtZ = v => (!v || isNaN(+v)) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}); // dash on zero
 const fmtK = v => v==null||isNaN(+v)?'–':'₹'+Number(v).toFixed(2);
 const fmtL = v => {
   if(v==null||isNaN(v))return'–'; v=Number(v);

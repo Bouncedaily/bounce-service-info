@@ -222,7 +222,7 @@ const fmt = n => {
   return `₹${Math.round(n)}`;
 };
 // Currency without decimals, comma-separated Indian format
-const fmtC = n => n==null||isNaN(n) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
+const fmtC = n => (n == null || isNaN(n) || n === 0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
 // Rich tooltip plugin for Chart.js (Cost + Avg/JC + No.of JC)
 function richTooltip(dataArr) {
   return {
