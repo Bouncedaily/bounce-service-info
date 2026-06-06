@@ -140,7 +140,7 @@ tr:hover td { background: #f8fafc; }
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780647172"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 
 
 
@@ -451,7 +451,7 @@ async function loadAll() {
   document.getElementById('summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   document.getElementById('raw-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
-    // Fetch all pages in parallel (max 1000 per page, we have ~3714 rows)
+    // Fetch first page and check total count
     const [p1, p2, p3, p4] = await Promise.all([
       fetchPage(0, 1000),
       fetchPage(1000, 1000),
@@ -459,6 +459,21 @@ async function loadAll() {
       fetchPage(3000, 1000)
     ]);
     allRows = [...p1, ...p2, ...p3, ...p4].map(normalise);
+
+    // Bug 3 fix: warn if data may be truncated at 4000 rows
+    if (allRows.length === 4000) {
+      console.warn('Warning: Data may be truncated at 4000 rows. Some records may be missing.');
+      // Fetch additional pages if needed
+      let offset = 4000;
+      while (true) {
+        const extra = await fetchPage(offset, 1000);
+        if (!extra.length) break;
+        allRows = [...allRows, ...extra.map(normalise)];
+        offset += 1000;
+        if (extra.length < 1000) break;
+      }
+    }
+
     applyFilters();
   } catch(e) {
     document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
@@ -847,14 +862,18 @@ function mapRawRow(r) {
 
 // Fetch running rows for a specific part and merge into _oemRawRows
 async function fetchRunningForPart(partGroup) {
-  const key = '_oemRunningFetched_' + partGroup;
-  if (window[key]) return; // already fetched
+  // Bug 4 fix: include active filters in cache key to prevent stale data
+  const city = document.getElementById('oem-f-city')?.value || '';
+  const year = document.getElementById('oem-f-year')?.value || '';
+  const key = `_oemRunningFetched_${partGroup}_${city}_${year}`;
+  if (window[key]) return; // already fetched for this filter combination
   window[key] = true;
   try {
     const encoded = encodeURIComponent(partGroup);
-    const running = await sbFetch(
-      `oem_parts_perf_raw?select=*&part_group=eq.${encoded}&status=neq.Replaced&order=km_on_part.desc.nullslast&limit=5000`
-    );
+    let url = `oem_parts_perf_raw?select=*&part_group=eq.${encoded}&status=neq.Replaced&order=km_on_part.desc.nullslast&limit=5000`;
+    if (city) url += `&city=eq.${encodeURIComponent(city)}`;
+    if (year) url += `&deployed_year=eq.${encodeURIComponent(year)}`;
+    const running = await sbFetch(url);
     const newRows = running.map(mapRawRow);
     // Remove any existing running rows for this part then add fresh ones
     window._oemRawRows = window._oemRawRows.filter(r => !(r.part === partGroup && r.status !== 'Replaced'));

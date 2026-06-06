@@ -54,7 +54,7 @@
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=2"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 <nav class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
   <div class="sb-brand">
@@ -142,7 +142,7 @@
 
 <script>
 const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const ADMIN = 'nithish@bounceshare.com';
 
 // Get session
@@ -183,7 +183,7 @@ function toggleSidebar() {
 
 async function get(path) {
   const r = await fetch(`${SB}/rest/v1/${path}`, {
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Accept':'application/json'}
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Accept':'application/json'}
   });
   return r.json();
 }
@@ -191,7 +191,7 @@ async function get(path) {
 async function rpc(fn, body) {
   return fetch(`${SB}/rest/v1/rpc/${fn}`, {
     method:'POST',
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
 }
@@ -283,7 +283,7 @@ async function revokeUser(email) {
 async function restoreUser(email) {
   await fetch(`${SB}/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}`,{
     method:'PATCH',
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify({is_active:true})
   });
   loadUsers();

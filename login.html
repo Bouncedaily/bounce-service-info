@@ -112,12 +112,35 @@ async function sendLink() {
 // Handle auth state — SDK automatically processes the token from URL hash
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    // Store session and redirect — allowed_users check happens in auth-guard
+    const email = session.user.email?.toLowerCase();
+
+    // Bug 1 fix: Always validate against allowed_users table
+    const { data: userData, error } = await sb
+      .from('allowed_users')
+      .select('email,role,name,permissions,is_active')
+      .eq('email', email)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !userData) {
+      // Not in allowed_users or inactive — sign out and show error
+      await sb.auth.signOut();
+      showForm();
+      document.getElementById('err').textContent = 'Access denied. Your email is not authorised. Contact nithish@bounceshare.com';
+      return;
+    }
+
+    // Log login
+    sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }).catch(() => {});
+
+    // Store session with actual permissions from DB
     const sessionData = JSON.stringify({
       access_token: session.access_token,
       refresh_token: session.refresh_token,
       email: session.user.email,
-      permissions: { rmc: true, fleet_km: true, parts_testing: true }
+      role: userData.role,
+      name: userData.name,
+      permissions: userData.permissions || { rmc: true, fleet_km: true, parts_testing: true }
     });
     localStorage.setItem('sb_session', sessionData);
     sessionStorage.setItem('sb_session', sessionData);
@@ -125,11 +148,14 @@ sb.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-// Always show form on login page — auth-guard on dashboard handles existing sessions
+// Always show form on login page
 document.addEventListener('DOMContentLoaded', async () => {
-  // Sign out from SDK to clear any existing session
-  try { await sb.auth.signOut(); } catch(e) {}
-  showForm();
+  // Only sign out if there's no token being processed (not a callback)
+  const hasToken = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+  if (!hasToken) {
+    try { await sb.auth.signOut(); } catch(e) {}
+    showForm();
+  }
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });
 </script>
