@@ -49,7 +49,7 @@
     </div>
   </div>
 
-  <div id="spin">Checking session…</div>
+  <div id="spin" style="display:none">Signing you in…</div>
 
   <div id="form" style="display:none">
     <h1>Welcome to Service Info</h1>
@@ -153,13 +153,19 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // Always show form on login page — auth-guard on dashboard handles existing sessions
 document.addEventListener('DOMContentLoaded', async () => {
   const hasToken = window.location.hash.includes('access_token') || window.location.search.includes('code=');
-  if (!hasToken) {
-    // Bug 2 fix: clear both SDK and manual session keys
+  if (hasToken) {
+    // Token in URL — show spinner while SDK processes it, don't show form
+    document.getElementById('spin').style.display = 'block';
+    document.getElementById('spin').textContent = 'Signing you in…';
+    // Fallback — if SDK doesn't fire onAuthStateChange within 8s, show form
+    setTimeout(() => { showForm(); }, 8000);
+  } else {
+    // No token — clear session and show form
     localStorage.removeItem('sb_session');
     sessionStorage.removeItem('sb_session');
     try { await sb.auth.signOut(); } catch(e) {}
+    showForm();
   }
-  showForm();
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });
 </script>
