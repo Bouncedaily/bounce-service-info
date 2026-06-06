@@ -97,6 +97,8 @@ tr:hover td { background: #f8fafc; }
 .raw-controls .export-btn { background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;transition:all .15s;margin-left:auto }
 .raw-controls .export-btn:hover { color:var(--text);border-color:var(--text) }
 .page-info { font-size: 11px; color: var(--muted); margin-left: auto; }
+.fg { display:flex;flex-direction:column;gap:3px }
+.fg label { font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600 }
 
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; padding: 10px 14px; justify-content: flex-end; border-top: 1px solid var(--border); }
@@ -253,15 +255,15 @@ tr:hover td { background: #f8fafc; }
         <h2>All vehicles — raw data</h2>
         <span class="sub" id="raw-count">—</span>
       </div>
-      <div class="raw-controls">
-        <input type="text" id="search" placeholder="Search reg / chassis…" oninput="applyFilters()" />
-        <select id="f-city" onchange="applyFilters()">
+      <div class="raw-controls" style="align-items:flex-end">
+        <div class="fg"><label>Search</label><input type="text" id="search" placeholder="Reg / chassis…" oninput="applyFilters()" /></div>
+        <div class="fg"><label>City</label><select id="f-city" onchange="applyFilters()">
           <option value="">All cities</option>
           <option>Bangalore</option>
           <option>NCR</option>
           <option>Hyderabad</option>
-        </select>
-        <select id="f-part" onchange="applyFilters()">
+        </select></div>
+        <div class="fg"><label>Part</label><select id="f-part" onchange="applyFilters()">
           <option value="">All parts</option>
           <option>Kit Side stand</option>
           <option>Rr suspension</option>
@@ -271,29 +273,29 @@ tr:hover td { background: #f8fafc; }
           <option>Cone Set</option>
           <option>Front brake pad</option>
           <option>Rear brake pad</option>
-        </select>
-        <select id="f-vendor" onchange="applyFilters()">
+        </select></div>
+        <div class="fg"><label>Vendor</label><select id="f-vendor" onchange="applyFilters()">
           <option value="">All vendors</option>
           <option>Gabriel</option>
           <option>Arrow +</option>
           <option>OEM improved</option>
-        </select>
-        <select id="f-status" onchange="applyFilters()">
+        </select></div>
+        <div class="fg"><label>Status</label><select id="f-status" onchange="applyFilters()">
           <option value="">All</option>
           <option value="Active">Active</option>
           <option value="Replaced">Replaced</option>
-        </select>
-        <select id="f-type" onchange="applyFilters()">
+        </select></div>
+        <div class="fg"><label>Type</label><select id="f-type" onchange="applyFilters()">
           <option value="">Test + OEM</option>
           <option value="Test">Test only</option>
           <option value="OEM">OEM only</option>
-        </select>
-        <select id="f-sort" onchange="applyFilters()">
+        </select></div>
+        <div class="fg"><label>Sort</label><select id="f-sort" onchange="applyFilters()">
           <option value="km_desc">KM on part ↓</option>
           <option value="km_asc">KM on part ↑</option>
           <option value="fitted_desc">Fitted date ↓</option>
           <option value="fitted_asc">Fitted date ↑</option>
-        </select>
+        </select></div>
         <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
         <span class="page-info" id="page-info"></span>
       </div>
@@ -1118,8 +1120,8 @@ function _renderOemRawTable(resetPage) {
   // Pagination
   let pgHtml = `<div class="pagination">`;
   pgHtml += `<button onclick="_oemRawPage=1;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>«</button>`;
-  pgHtml += `<button onclick="_oemRawPage--;renderOemRaw()" ${_oemRawPage===1?'disabled':''}>‹</button>`;
-  pgHtml += `<button onclick="_oemRawPage++;renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>›</button>`;
+  pgHtml += `<button onclick="_oemRawPage--;renderOemRaw()" ${_oemRawPage===1?'disabled':''}><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>`;
+  pgHtml += `<button onclick="_oemRawPage++;renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>`;
   pgHtml += `<button onclick="_oemRawPage=${totalPages};renderOemRaw()" ${_oemRawPage===totalPages?'disabled':''}>»</button>`;
   pgHtml += `</div>`;
 

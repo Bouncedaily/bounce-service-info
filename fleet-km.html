@@ -28,7 +28,7 @@ body{display:flex}
 .fg label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
 .fg select,.fg input[type=date]{min-width:130px}
 .divider{width:1px;background:var(--border);align-self:stretch;margin:0 4px}
-.type-btns{display:flex}
+.type-btns{display:flex;flex-shrink:0}
 .type-btn{background:#f0f2f5;border:1px solid var(--border2);color:var(--text2);padding:7px 12px;font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}
 .type-btn:first-child{border-radius:7px 0 0 7px}
 .type-btn:last-child{border-radius:0 7px 7px 0}
@@ -74,8 +74,10 @@ tbody tr:hover{background:#fef2f2}
 tbody tr.total-row{background:#f0f2f5;font-weight:700;border-top:2px solid var(--red)}
 tbody tr.total-row td:first-child{background:#f0f2f5}
 td{padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--text)}
-td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:1;border-right:1px solid var(--border);min-width:95px}
-td:nth-child(2){min-width:55px}
+td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:2;min-width:95px}
+td:nth-child(2){min-width:55px;background:#fff;position:sticky;left:95px;z-index:2;border-right:1px solid var(--border)}
+th:first-child{position:sticky;left:0;z-index:11 !important}
+th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px solid var(--border)}
 .z-rev{background:rgba(22,163,74,.07)}
 .z-cost{background:rgba(59,130,246,.07)}
 .z-excl{background:rgba(168,85,247,.06)}
@@ -275,8 +277,8 @@ td:nth-child(2){min-width:55px}
     </div>
     <div class="pagination">
       <span id="page-info"></span>
-      <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← Prev</button>
-      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next →</button>
+      <button class="page-btn" id="btn-prev" onclick="changePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
     </div>
   </div>
 </div>

@@ -325,14 +325,14 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
 /* ── ISSUE 4: Remove checking session flash ── */
 #spin { display: none !important; }
 
-/* ── ISSUE 5: Filter bar max-width and no-wrap on key items ── */
-.filter-bar { flex-wrap: wrap; gap: 8px 12px; }
+/* ── ISSUE 5: Filter bar — no wrap, horizontal scroll ── */
+.filter-bar { flex-wrap: nowrap !important; overflow-x: auto; gap: 8px 12px; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
 .filter-bar .type-group { flex-shrink: 0; }
 
-/* ── ISSUE 7: KPI grid extra breakpoint ── */
-@media (max-width: 900px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
-}
+/* ── ISSUE 7: KPI grid extra breakpoints ── */
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+@media (max-width: 600px) { .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
 
 /* ── ISSUE 11: Sync button disabled state ── */
 .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
