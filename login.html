@@ -97,7 +97,8 @@ async function sendLink() {
 
   btn.disabled = true; btn.textContent = 'Sending…';
 
-  const otpPromise = sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+  const redirectTo = window.location.origin + window.location.pathname.replace('login.html', 'auth-callback.html');
+  const otpPromise = sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
   const timeoutPromise = new Promise(r => setTimeout(() => r({ error: { message: 'Timed out. Please try again.' } }), 10000));
   const { error } = await Promise.race([otpPromise, timeoutPromise]);
 
@@ -111,61 +112,12 @@ async function sendLink() {
   }
 }
 
-// Handle auth state — SDK automatically processes the token from URL hash
-sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    const email = session.user.email?.toLowerCase();
-
-    // Validate against allowed_users
-    const { data: userData } = await sb
-      .from('allowed_users')
-      .select('email,role,name,permissions,is_active')
-      .eq('email', email)
-      .eq('is_active', true)
-      .single();
-
-    if (!userData) {
-      await sb.auth.signOut();
-      showForm();
-      document.getElementById('err').textContent = 'Access denied. Contact nithish@bounceshare.com';
-      return;
-    }
-
-    // Log login activity
-    sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }).catch(() => {});
-
-    // Store session with 7-day expiry
-    const sessionData = JSON.stringify({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      email: session.user.email,
-      role: userData.role,
-      name: userData.name,
-      permissions: userData.permissions || { rmc: true, fleet_km: true, parts_testing: true },
-      expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000)
-    });
-    localStorage.setItem('sb_session', sessionData);
-    sessionStorage.setItem('sb_session', sessionData);
-    window.location.replace('dashboard.html');
-  }
-});
-
-// Always show form on login page — auth-guard on dashboard handles existing sessions
+// DOMContentLoaded — always show form, auth-callback.html handles token processing
 document.addEventListener('DOMContentLoaded', async () => {
-  const hasToken = window.location.hash.includes('access_token') || window.location.search.includes('code=');
-  if (hasToken) {
-    // Token in URL — show spinner while SDK processes it, don't show form
-    document.getElementById('spin').style.display = 'block';
-    document.getElementById('spin').textContent = 'Signing you in…';
-    // Fallback — if SDK doesn't fire onAuthStateChange within 8s, show form
-    setTimeout(() => { showForm(); }, 8000);
-  } else {
-    // No token — clear session and show form
-    localStorage.removeItem('sb_session');
-    sessionStorage.removeItem('sb_session');
-    try { await sb.auth.signOut(); } catch(e) {}
-    showForm();
-  }
+  localStorage.removeItem('sb_session');
+  sessionStorage.removeItem('sb_session');
+  try { await sb.auth.signOut(); } catch(e) {}
+  showForm();
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });
 </script>

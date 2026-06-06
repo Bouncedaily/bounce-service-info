@@ -1,38 +1,112 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Authenticating…</title>
-<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;color:#64748b;font-size:13px}</style>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Signing in…</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { background: #fff; border-radius: 20px; padding: 40px 36px; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.12); }
+    .logo { width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 16px; }
+    h2 { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    p { font-size: 13px; color: #64748b; }
+    .spin { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #dc2626; border-radius: 50%; animation: spin .8s linear infinite; margin: 16px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err { color: #dc2626; font-size: 13px; margin-top: 12px; }
+  </style>
 </head>
 <body>
-<div>Signing you in…</div>
+<div class="card">
+  <img class="logo" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none'">
+  <h2>Signing you in…</h2>
+  <div class="spin"></div>
+  <p id="msg">Please wait</p>
+  <div class="err" id="err"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 
-const hash   = window.location.hash;
-const search = window.location.search;
+const sb = supabase.createClient(SB_URL, ANON_KEY, {
+  auth: { persistSession: true, storageKey: 'sb_auth', autoRefreshToken: false }
+});
 
-if (hash && hash.includes('access_token')) {
-  // Implicit flow — forward hash to login.html for SDK to handle
-  window.location.replace('login.html' + hash);
+async function handleCallback() {
+  let session = null;
 
-} else if (search && search.includes('code=')) {
-  // Bug 4 fix: PKCE flow — exchange code for session via SDK
-  const sb = supabase.createClient(SB_URL, ANON_KEY);
-  sb.auth.exchangeCodeForSession(window.location.href).then(({ data, error }) => {
-    if (error || !data?.session) {
-      console.error('PKCE exchange failed:', error?.message);
-      window.location.replace('login.html');
-    } else {
-      // Forward tokens to login.html via hash
-      const at = data.session.access_token;
-      const rt = data.session.refresh_token;
-      window.location.replace(`login.html#access_token=${at}&refresh_token=${rt}&type=magiclink`);
+  // Try hash-based (implicit flow)
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const at = params.get('access_token');
+    const rt = params.get('refresh_token');
+    if (at) {
+      const { data } = await sb.auth.setSession({ access_token: at, refresh_token: rt });
+      session = data?.session;
     }
-  }).catch(() => window.location.replace('login.html'));
+  }
 
-} else {
-  window.location.replace('login.html');
+  // Try PKCE flow
+  if (!session) {
+    const search = window.location.search;
+    if (search && search.includes('code=')) {
+      const { data } = await sb.auth.exchangeCodeForSession(window.location.href);
+      session = data?.session;
+    }
+  }
+
+  if (!session) {
+    document.getElementById('err').textContent = 'Sign-in failed. Please request a new link.';
+    document.getElementById('msg').textContent = '';
+    setTimeout(() => window.location.replace('login.html'), 3000);
+    return;
+  }
+
+  const email = session.user.email?.toLowerCase();
+  document.getElementById('msg').textContent = 'Checking access…';
+
+  // Validate against allowed_users
+  const { data: userData } = await sb
+    .from('allowed_users')
+    .select('email,role,name,permissions,is_active')
+    .eq('email', email)
+    .eq('is_active', true)
+    .single();
+
+  if (!userData) {
+    document.getElementById('err').textContent = 'Access denied. Contact nithish@bounceshare.com';
+    document.getElementById('msg').textContent = '';
+    await sb.auth.signOut();
+    setTimeout(() => window.location.replace('login.html'), 3000);
+    return;
+  }
+
+  // Log login activity
+  sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }).catch(() => {});
+
+  // Store session with 7-day expiry
+  const sessionData = JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    email: session.user.email,
+    role: userData.role,
+    name: userData.name,
+    permissions: userData.permissions || { rmc: true, fleet_km: true, parts_testing: true },
+    expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000)
+  });
+  localStorage.setItem('sb_session', sessionData);
+  sessionStorage.setItem('sb_session', sessionData);
+
+  document.getElementById('msg').textContent = 'Redirecting…';
+  window.location.replace('dashboard.html');
 }
+
+handleCallback().catch(e => {
+  document.getElementById('err').textContent = 'Error: ' + e.message;
+  setTimeout(() => window.location.replace('login.html'), 3000);
+});
 </script>
-</body></html>
+</body>
+</html>
