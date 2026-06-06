@@ -38,12 +38,17 @@ async function handleCallback() {
 
   // Try hash-based (implicit flow)
   const hash = window.location.hash;
+  console.log('Hash:', hash);
+  console.log('Search:', window.location.search);
+  
   if (hash && hash.includes('access_token')) {
     const params = new URLSearchParams(hash.substring(1));
     const at = params.get('access_token');
     const rt = params.get('refresh_token');
+    console.log('access_token found:', !!at);
     if (at) {
-      const { data } = await sb.auth.setSession({ access_token: at, refresh_token: rt });
+      const { data, error } = await sb.auth.setSession({ access_token: at, refresh_token: rt });
+      console.log('setSession result:', error?.message, data?.session?.user?.email);
       session = data?.session;
     }
   }
