@@ -87,10 +87,15 @@ tr:hover td { background: #f8fafc; }
 .raw-controls {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 10px 14px; border-bottom: 1px solid var(--border);
-  background: #f8fafc;
 }
-.raw-controls input[type=text] { padding: 5px 10px; font-size: 12px; width: 200px; }
-.raw-controls select { font-size: 12px; padding: 5px 10px; }
+.raw-controls .search-wrap { position:relative }
+.raw-controls .search-wrap i { position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none }
+.raw-controls .search-wrap input { padding:6px 10px 6px 28px;width:190px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none }
+.raw-controls .search-wrap input:focus { border-color:var(--red) }
+.raw-controls input[type=text] { padding:6px 10px;font-size:12px;width:190px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none }
+.raw-controls select { font-size:12px;padding:5px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none }
+.raw-controls .export-btn { background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;transition:all .15s;margin-left:auto }
+.raw-controls .export-btn:hover { color:var(--text);border-color:var(--text) }
 .page-info { font-size: 11px; color: var(--muted); margin-left: auto; }
 
 /* Pagination */
@@ -185,7 +190,7 @@ tr:hover td { background: #f8fafc; }
       <div class="meta" id="last-updated" style="color:var(--muted);font-size:11px;margin-top:3px">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="export-btn" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
+      <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
       <button class="btn-primary" onclick="loadAll()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Refresh</button>
     </div>
   </div>
