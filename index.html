@@ -1,12 +1,18 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Bounce Ops</title></head>
+<html><head><meta charset="UTF-8"><title>Bounce Service Info</title></head>
 <body>
 <script>
   // Check session — if exists go to dashboard, else go to login
+  // Check both sb_session (custom) and SDK storage keys
   try {
-    const s = JSON.parse(localStorage.getItem('sb_session')||'null');
-    if (s && s.email) { window.location.replace('dashboard.html'); }
-    else { window.location.replace('login.html'); }
-  } catch(e) { window.location.replace('login.html'); }
+    const s = JSON.parse(localStorage.getItem('sb_session') || 'null');
+    if (s?.email && s?.access_token) {
+      window.location.replace('dashboard.html');
+    } else {
+      window.location.replace('login.html');
+    }
+  } catch(e) {
+    window.location.replace('login.html');
+  }
 </script>
 </body></html>
