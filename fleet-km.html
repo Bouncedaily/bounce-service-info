@@ -28,7 +28,7 @@ body{display:flex}
 .fg label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
 .fg select,.fg input[type=date]{min-width:130px}
 .divider{width:1px;background:var(--border);align-self:stretch;margin:0 4px}
-.type-btns{display:flex}
+.type-btns{display:flex;flex-shrink:0}
 .type-btn{background:#f0f2f5;border:1px solid var(--border2);color:var(--text2);padding:7px 12px;font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}
 .type-btn:first-child{border-radius:7px 0 0 7px}
 .type-btn:last-child{border-radius:0 7px 7px 0}
@@ -74,8 +74,10 @@ tbody tr:hover{background:#fef2f2}
 tbody tr.total-row{background:#f0f2f5;font-weight:700;border-top:2px solid var(--red)}
 tbody tr.total-row td:first-child{background:#f0f2f5}
 td{padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--text)}
-td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:1;border-right:1px solid var(--border);min-width:95px}
-td:nth-child(2){min-width:55px}
+td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:2;min-width:95px}
+td:nth-child(2){min-width:55px;background:#fff;position:sticky;left:95px;z-index:2;border-right:1px solid var(--border)}
+th:first-child{position:sticky;left:0;z-index:11 !important}
+th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px solid var(--border)}
 .z-rev{background:rgba(22,163,74,.07)}
 .z-cost{background:rgba(59,130,246,.07)}
 .z-excl{background:rgba(168,85,247,.06)}
@@ -113,7 +115,7 @@ td:nth-child(2){min-width:55px}
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780647172"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 
 
 <div class="sidebar" id="sidebar">
@@ -145,7 +147,7 @@ td:nth-child(2){min-width:55px}
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
     <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot">
     <div><span class="sb-dot"></span><span id="sync-lbl">Loading…</span></div>
@@ -191,7 +193,7 @@ td:nth-child(2){min-width:55px}
   <div class="divider"></div>
   <div class="fg">
     <label>Month</label>
-    <select id="f-month"><option value="all_time">All Time</option></select>
+    <select id="f-month" onchange="load()"><option value="all_time">All Time</option></select>
   </div>
 </div>
 
@@ -275,8 +277,8 @@ td:nth-child(2){min-width:55px}
     </div>
     <div class="pagination">
       <span id="page-info"></span>
-      <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← Prev</button>
-      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next →</button>
+      <button class="page-btn" id="btn-prev" onclick="changePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
     </div>
   </div>
 </div>
@@ -407,7 +409,8 @@ function getWarr(r){ return costType==='part'?n(r.warranty_part_cost):costType==
 function getExcl(r){ return Math.max(0,getCost(r)-getWarr(r)); }
 
 // ── FORMAT ──
-const fmt  = v => v==null?'–':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmt  = v => (v == null || isNaN(+v) || +v < 0) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmtZ = v => (!v || isNaN(+v) || +v < 0) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
 const fmtK = v => v==null||isNaN(+v)?'–':'₹'+Number(v).toFixed(2);
 const fmtL = v => {
   if(v==null||isNaN(v))return'–'; v=Number(v);
@@ -540,7 +543,7 @@ function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const btn = document.getElementById('sb-toggle');
   sb.classList.toggle('collapsed');
-  btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 // Restore state
@@ -550,7 +553,7 @@ function toggleSidebar() {
   if (state === '1') {
     const sb = document.getElementById('sidebar');
     const btn = document.getElementById('sb-toggle');
-    if (sb) { sb.classList.add('collapsed'); if(btn) btn.textContent = '›'; }
+    if (sb) { sb.classList.add('collapsed');  }
   } else if (state === null) {
     // First visit — ensure expanded, save state
     localStorage.setItem('sb_collapsed', '0');
