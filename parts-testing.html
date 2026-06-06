@@ -624,10 +624,10 @@ function renderSummary() {
     // Verdict uses Replaced-only avg KM (true failure KM)
     if (!oReplAvg || !tReplAvg) {
       verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (tReplAvg > oReplAvg * 1.05) {
+    } else if (tReplAvg >= oReplAvg * 1.05) {
       const pct = Math.round((tReplAvg/oReplAvg-1)*100);
       verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tReplAvg < oReplAvg * 0.95) {
+    } else if (tReplAvg <= oReplAvg * 0.95) {
       const pct = Math.round((1-tReplAvg/oReplAvg)*100);
       verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
     } else {
