@@ -662,7 +662,7 @@ function renderRaw() {
     return;
   }
 
-  let html = `<div style="overflow-x:auto"><table>
+  let html = `<table>
     <thead><tr>
       <th>Type</th>
       <th>Reg number</th>
@@ -704,7 +704,7 @@ function renderRaw() {
     </tr>`;
   });
 
-  html += '</tbody></table></div>';
+  html += '</tbody></table>';
   document.getElementById('raw-body').innerHTML = html;
   renderPagination(total);
 }
