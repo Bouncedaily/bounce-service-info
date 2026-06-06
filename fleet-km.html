@@ -351,26 +351,53 @@ async function load(month) {
 // ── SYNC ──
 async function triggerSync() {
   const btn = document.getElementById('sync-btn');
-  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Syncing…';
   const month = document.getElementById('f-month').value || 'all_time';
-  try {
-    // Sync all_time (may timeout on free plan — that's ok, cron handles it)
-    fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:['all_time']})})
-      .catch(()=>{});
+  let edgeFnOk = false;
 
-    // Wait 3 seconds then copy all_time → current month regardless
-    await new Promise(r => setTimeout(r, 3000));
+  try {
+    // Fire edge function — timeout after 10s (free plan limit is 150s but UI shouldn't wait)
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const r = await fetch(SYNC_FN, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({months:['all_time']}),
+        signal: ctrl.signal
+      });
+      edgeFnOk = r.ok;
+    } catch(fe) {
+      // Timeout or network error — edge fn may still be running in background
+      edgeFnOk = false;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Always copy all_time → current month via RPC (fast, reliable)
     await fetch(`${SB_URL}/rest/v1/rpc/sync_current_month_from_alltime`, {
       method: 'POST',
       headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
       body: '{}'
     });
 
-    btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
-    setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
+    if (edgeFnOk) {
+      btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
+    } else {
+      // Edge fn timed out — cron will finish it, but be honest with the user
+      btn.innerHTML = '<i class="ti ti-clock" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Queued';
+      btn.title = 'Sync is running in the background — data will update in a few minutes';
+    }
+    setTimeout(() => {
+      btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now';
+      btn.disabled=false; btn.title='';
+      load(month);
+    }, 2000);
+
   } catch(e) {
     btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed';
-    setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
+    btn.title = e.message;
+    setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; btn.title=''; }, 2000);
   }
 }
 

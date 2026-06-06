@@ -866,6 +866,7 @@ async function renderOemPerf() {
     renderOemPerfFilter();
   } catch(e) {
     document.getElementById('oem-perf-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+    document.getElementById('oem-raw-body').innerHTML = '';
   }
 }
 
