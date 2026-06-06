@@ -286,9 +286,21 @@ function clearF(){
 }
 
 async function fetchAll(){
+  const startVal = document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const endVal   = document.getElementById("f-end").value   || localDate(new Date());
+
+  // Guard: invalid date range
+  if (startVal && endVal && startVal > endVal) {
+    document.getElementById("kpis").innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--red);font-size:13px;font-weight:600">
+      <i class="ti ti-alert-triangle" style="font-size:16px;vertical-align:-2px;margin-right:6px"></i>
+      "From" date cannot be after "To" date — please adjust the date range.
+    </div>`;
+    return null;
+  }
+
   const body = {
-    p_start: document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
-    p_end:   document.getElementById("f-end").value   || localDate(new Date()),
+    p_start: startVal,
+    p_end:   endVal,
     p_city:  document.getElementById("f-city").value  || null,
     p_sub:   document.getElementById("f-sub").value   || null,
     p_com:   document.getElementById("f-com").value   || null,
