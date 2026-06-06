@@ -218,14 +218,14 @@ const PAL  = ["#2563eb","#16a34a","#d97706","#7c3aed","#0891b2","#dc2626","#0d94
 let debounceTimer = null;
 
 const fmt = n => {
-  if(!n||isNaN(n)) return "—";
+  if(!n||isNaN(n)||n<0) return "—";
   if(n>=10000000) return `₹${(n/10000000).toFixed(2)}Cr`;
   if(n>=100000)   return `₹${(n/100000).toFixed(2)}L`;
   if(n>=1000)     return `₹${(n/1000).toFixed(1)}K`;
   return `₹${Math.round(n)}`;
 };
 // Currency without decimals, comma-separated Indian format
-const fmtC = n => (n == null || isNaN(n) || n === 0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
+const fmtC = n => (n == null || isNaN(n) || n === 0 || n < 0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
 // Rich tooltip plugin for Chart.js (Cost + Avg/JC + No.of JC)
 function richTooltip(dataArr) {
   return {

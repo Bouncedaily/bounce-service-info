@@ -564,7 +564,7 @@ function renderKpis() {
 }
 
 function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
-function fmt(n) { return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString(); }
+function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n).toLocaleString(); }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
 
 function renderSummary() {
