@@ -24,6 +24,13 @@
 
   if (!session?.email) { window.location.href = 'login.html'; return; }
 
+  // Check 7-day session expiry
+  if (session.expires_at && Date.now() > session.expires_at) {
+    localStorage.clear(); sessionStorage.clear();
+    window.location.href = 'login.html';
+    return;
+  }
+
   // Always sync permissions from DB — never trust stale cached session
   fetch(`${SB_URL}/rest/v1/allowed_users?email=eq.${encodeURIComponent(session.email)}&select=permissions,role,is_active`, {
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }

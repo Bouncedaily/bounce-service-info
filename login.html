@@ -114,12 +114,35 @@ async function sendLink() {
 // Handle auth state — SDK automatically processes the token from URL hash
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    // Store session and redirect — allowed_users check happens in auth-guard
+    const email = session.user.email?.toLowerCase();
+
+    // Validate against allowed_users
+    const { data: userData } = await sb
+      .from('allowed_users')
+      .select('email,role,name,permissions,is_active')
+      .eq('email', email)
+      .eq('is_active', true)
+      .single();
+
+    if (!userData) {
+      await sb.auth.signOut();
+      showForm();
+      document.getElementById('err').textContent = 'Access denied. Contact nithish@bounceshare.com';
+      return;
+    }
+
+    // Log login activity
+    sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }).catch(() => {});
+
+    // Store session with 7-day expiry
     const sessionData = JSON.stringify({
       access_token: session.access_token,
       refresh_token: session.refresh_token,
       email: session.user.email,
-      permissions: { rmc: true, fleet_km: true, parts_testing: true }
+      role: userData.role,
+      name: userData.name,
+      permissions: userData.permissions || { rmc: true, fleet_km: true, parts_testing: true },
+      expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000)
     });
     localStorage.setItem('sb_session', sessionData);
     sessionStorage.setItem('sb_session', sessionData);
