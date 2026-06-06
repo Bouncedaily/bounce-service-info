@@ -319,7 +319,7 @@ async function load(month) {
   document.getElementById('load-msg').textContent  = 'Loading from Supabase…';
 
   try {
-    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc';
+    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc.nullslast';
     const res = await fetch(url, { headers: SB_HDR });
     if (!res.ok) throw new Error('Supabase HTTP ' + res.status);
     allData = await res.json();
