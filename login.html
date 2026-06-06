@@ -91,7 +91,9 @@ async function sendLink() {
   err.textContent = '';
 
   if (!email) { err.textContent = 'Please enter your email.'; return; }
-  if (!email.endsWith('@bounceshare.com')) { err.textContent = 'Only @bounceshare.com emails are allowed.'; return; }
+  if (!email || !/^[^\s@]+@bounceshare\.com$/i.test(email)) {
+    err.textContent = 'Please enter a valid @bounceshare.com email.'; return;
+  }
 
   btn.disabled = true; btn.textContent = 'Sending…';
 
@@ -127,8 +129,13 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 // Always show form on login page — auth-guard on dashboard handles existing sessions
 document.addEventListener('DOMContentLoaded', async () => {
-  // Sign out from SDK to clear any existing session
-  try { await sb.auth.signOut(); } catch(e) {}
+  const hasToken = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+  if (!hasToken) {
+    // Bug 2 fix: clear both SDK and manual session keys
+    localStorage.removeItem('sb_session');
+    sessionStorage.removeItem('sb_session');
+    try { await sb.auth.signOut(); } catch(e) {}
+  }
   showForm();
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });

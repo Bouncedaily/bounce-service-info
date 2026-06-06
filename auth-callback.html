@@ -1,12 +1,38 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Authenticating…</title></head>
+<html><head><meta charset="UTF-8"><title>Authenticating…</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;color:#64748b;font-size:13px}</style>
+</head>
 <body>
+<div>Signing you in…</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    window.location.replace('login.html' + hash);
-  } else {
-    window.location.replace('login.html');
-  }
+const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+const hash   = window.location.hash;
+const search = window.location.search;
+
+if (hash && hash.includes('access_token')) {
+  // Implicit flow — forward hash to login.html for SDK to handle
+  window.location.replace('login.html' + hash);
+
+} else if (search && search.includes('code=')) {
+  // Bug 4 fix: PKCE flow — exchange code for session via SDK
+  const sb = supabase.createClient(SB_URL, ANON_KEY);
+  sb.auth.exchangeCodeForSession(window.location.href).then(({ data, error }) => {
+    if (error || !data?.session) {
+      console.error('PKCE exchange failed:', error?.message);
+      window.location.replace('login.html');
+    } else {
+      // Forward tokens to login.html via hash
+      const at = data.session.access_token;
+      const rt = data.session.refresh_token;
+      window.location.replace(`login.html#access_token=${at}&refresh_token=${rt}&type=magiclink`);
+    }
+  }).catch(() => window.location.replace('login.html'));
+
+} else {
+  window.location.replace('login.html');
+}
 </script>
 </body></html>

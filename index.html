@@ -1,12 +1,24 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Bounce Ops</title></head>
+<html><head><meta charset="UTF-8"><title>Bounce Service Info</title></head>
 <body>
 <script>
-  // Check session — if exists go to dashboard, else go to login
   try {
-    const s = JSON.parse(localStorage.getItem('sb_session')||'null');
-    if (s && s.email) { window.location.replace('dashboard.html'); }
-    else { window.location.replace('login.html'); }
-  } catch(e) { window.location.replace('login.html'); }
+    // Bug 3 fix: check both sb_session (manual) and SDK storage key
+    const manual = JSON.parse(localStorage.getItem('sb_session') || 'null');
+    if (manual?.email && manual?.access_token) {
+      window.location.replace('dashboard.html'); return;
+    }
+    // Also check Supabase SDK storage key pattern
+    const sdkKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (sdkKey) {
+      const sdk = JSON.parse(localStorage.getItem(sdkKey) || 'null');
+      if (sdk?.access_token) {
+        window.location.replace('dashboard.html'); return;
+      }
+    }
+    window.location.replace('login.html');
+  } catch(e) {
+    window.location.replace('login.html');
+  }
 </script>
 </body></html>
