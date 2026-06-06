@@ -49,7 +49,7 @@
     </div>
   </div>
 
-  <div id="spin">Checking session…</div>
+  <div id="spin" style="display:none">Checking session…</div>
 
   <div id="form" style="display:none">
     <h1>Welcome to Service Info</h1>
@@ -150,11 +150,10 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 // Always show form on login page
 document.addEventListener('DOMContentLoaded', async () => {
-  // Only sign out if there's no token being processed (not a callback)
+  showForm(); // Show immediately — no flash
   const hasToken = window.location.hash.includes('access_token') || window.location.search.includes('code=');
   if (!hasToken) {
     try { await sb.auth.signOut(); } catch(e) {}
-    showForm();
   }
   document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendLink(); });
 });

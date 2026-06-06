@@ -191,7 +191,7 @@ td:nth-child(2){min-width:55px}
   <div class="divider"></div>
   <div class="fg">
     <label>Month</label>
-    <select id="f-month"><option value="all_time">All Time</option></select>
+    <select id="f-month" onchange="load()"><option value="all_time">All Time</option></select>
   </div>
 </div>
 
@@ -540,7 +540,7 @@ function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const btn = document.getElementById('sb-toggle');
   sb.classList.toggle('collapsed');
-  btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 // Restore state
@@ -550,7 +550,7 @@ function toggleSidebar() {
   if (state === '1') {
     const sb = document.getElementById('sidebar');
     const btn = document.getElementById('sb-toggle');
-    if (sb) { sb.classList.add('collapsed'); if(btn) btn.textContent = '›'; }
+    if (sb) { sb.classList.add('collapsed');  }
   } else if (state === null) {
     // First visit — ensure expanded, save state
     localStorage.setItem('sb_collapsed', '0');

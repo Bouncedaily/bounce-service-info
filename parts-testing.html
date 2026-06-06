@@ -190,7 +190,8 @@ tr:hover td { background: #f8fafc; }
       
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn-primary" onclick="loadAll()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Refresh</button>
+      <span id="last-refresh" style="font-size:11px;color:var(--muted);margin-right:8px"></span>
+      <button class="btn-primary" id="refresh-btn" onclick="loadAll()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Refresh</button>
     </div>
   </div>
 
@@ -447,7 +448,8 @@ async function fetchPage(offset, limit) {
 }
 
 async function loadAll() {
-  
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" style="font-size:12px;margin-right:4px"></i>Loading…'; }
   document.getElementById('summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   document.getElementById('raw-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
@@ -475,6 +477,10 @@ async function loadAll() {
     }
 
     applyFilters();
+    const ts = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const lr = document.getElementById('last-refresh');
+    if (lr) lr.textContent = 'Updated ' + ts;
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Refresh'; }
   } catch(e) {
     document.getElementById('summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
     document.getElementById('raw-body').innerHTML = '';
@@ -820,6 +826,9 @@ function switchTab(tab) {
     window._oemPerfLoaded = true;
     renderOemPerf();
   }
+  // Issue 15: reset scroll on tab switch
+  document.querySelector('.content')?.scrollTo(0, 0);
+  window.scrollTo(0, 0);
   location.hash = tab;
 }
 

@@ -239,7 +239,7 @@ async function addUser() {
   if (!email||!name) { showMsg(msg,'err','Email and name required.'); return; }
   const r = await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
   if (r.ok) {
-    showMsg(msg,'ok',`✅ ${name} added.`);
+    showToast('✅ ' + name + ' added successfully');
     document.getElementById('new-email').value='';
     document.getElementById('new-name').value='';
     loadUsers();
@@ -249,8 +249,16 @@ async function addUser() {
   }
 }
 
+function showToast(msg, type='ok') {
+  let t = document.getElementById('_toast');
+  if (!t) { t = document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
 async function editUser(email, currentName, currentRole) {
-  // Show inline edit by replacing the row with editable fields
   const row = document.querySelector(`tr[data-email="${email}"]`);
   if (!row) return;
   const nameTd = row.querySelector('.user-name');
@@ -271,12 +279,14 @@ async function saveUser(email) {
   const role = document.getElementById('edit-role')?.value;
   if (!name) return;
   const r = await rpc('add_allowed_user', {user_email:email, user_name:name, user_role:role, added_by_email:sess.email});
-  if (r.ok) loadUsers();
+  if (r.ok) { showToast('✅ User updated'); loadUsers(); }
+  else showToast('❌ Failed to update', 'err');
 }
 
 async function revokeUser(email) {
   if (!confirm(`Revoke access for ${email}?`)) return;
   await rpc('remove_allowed_user',{user_email:email});
+  showToast('⚠️ Access revoked for ' + email, 'err');
   loadUsers();
 }
 
