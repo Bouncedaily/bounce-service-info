@@ -16,7 +16,7 @@
 }
 .topbar h1 { font-size: 15px; font-weight: 700; color: var(--text); }
 .topbar .meta { font-size: 11px; color: var(--text-muted, #64748b); margin-top: 1px; }
-.content { flex: 1; overflow-y: auto; padding: 18px 20px; }
+.content { flex: 1; overflow-y: auto; padding: 18px 24px; }
 
 /* Filter bar */
 .filter-bar {
@@ -32,11 +32,15 @@
 .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
 .kpi {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px;
+  border-radius: 12px; padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: box-shadow .15s, transform .15s;
 }
-.kpi .kl { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; margin-bottom: 6px; }
-.kpi .kv { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
-.kpi .ks { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.kpi:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-2px); }
+.kpi .kl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 8px; }
+.kpi .kv { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -.5px; margin-bottom: 4px; }
+.kpi .ks { font-size: 11px; color: var(--muted); }
+.kpi .kbar { height: 3px; border-radius: 2px; margin-top: 10px; background: var(--red); }
 
 /* Summary table */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
@@ -49,13 +53,13 @@ th {
   text-align: left; padding: 9px 12px;
   font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
   color: var(--muted); font-weight: 600;
-  background: #f8fafc; border-bottom: 1px solid var(--border);
+  background: var(--bg); border-bottom: 1px solid var(--border);
   white-space: nowrap;
   position: sticky; top: 0; z-index: 2;
 }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f8fafc; }
+tr:hover td { background: var(--bg); }
 
 /* Bar */
 .bar-wrap { display: flex; align-items: center; gap: 8px; }
@@ -177,8 +181,8 @@ tr:hover td { background: #f8fafc; }
   </div>
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid #1e293b">
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
 </nav>
@@ -215,26 +219,31 @@ tr:hover td { background: #f8fafc; }
         <div class="kl">Test bikes</div>
         <div class="kv" id="k-test">—</div>
         <div class="ks">On trial parts</div>
+        <div class="kbar" style="background:var(--blue)"></div>
       </div>
       <div class="kpi">
         <div class="kl">Test replaced</div>
         <div class="kv" id="k-trepl">—</div>
         <div class="ks" id="k-trepl-pct">— of test fleet</div>
+        <div class="kbar" style="background:var(--amber)"></div>
       </div>
       <div class="kpi">
         <div class="kl">OEM bikes</div>
         <div class="kv" id="k-oem">—</div>
         <div class="ks">Non-test, same window</div>
+        <div class="kbar" style="background:var(--muted)"></div>
       </div>
       <div class="kpi">
         <div class="kl">OEM replaced</div>
         <div class="kv" id="k-orepl">—</div>
         <div class="ks" id="k-orepl-pct">— of OEM bikes</div>
+        <div class="kbar" style="background:var(--red)"></div>
       </div>
       <div class="kpi">
         <div class="kl">Beating OEM</div>
         <div class="kv" id="k-beat">—</div>
         <div class="ks">Part categories</div>
+        <div class="kbar" style="background:var(--green)"></div>
       </div>
     </div>
 
@@ -638,12 +647,12 @@ function renderSummary() {
         <div class="km-bars">
           <div class="km-bar-row">
             <span class="lbl">Test</span>
-            <div class="bar"><div style="width:${tBarW}%;background:#f53b3b"></div></div>
+            <div class="bar"><div style="width:${tBarW}%;background:var(--red)"></div></div>
             <span class="val">${tAvg ? fmt(tAvg)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
             <span class="lbl">OEM</span>
-            <div class="bar"><div style="width:${oBarW}%;background:#94a3b8"></div></div>
+            <div class="bar"><div style="width:${oBarW}%;background:var(--muted)"></div></div>
             <span class="val">${oAvg ? fmt(oAvg)+' km' : '—'}</span>
           </div>
         </div>
@@ -652,12 +661,12 @@ function renderSummary() {
         <div class="km-bars">
           <div class="km-bar-row">
             <span class="lbl">Test</span>
-            <div class="bar"><div style="width:${tReplBarW}%;background:#f53b3b"></div></div>
+            <div class="bar"><div style="width:${tReplBarW}%;background:var(--red)"></div></div>
             <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
             <span class="lbl">OEM</span>
-            <div class="bar"><div style="width:${oReplBarW}%;background:#94a3b8"></div></div>
+            <div class="bar"><div style="width:${oReplBarW}%;background:var(--muted)"></div></div>
             <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
           </div>
         </div>
@@ -955,22 +964,22 @@ function renderOemPerfFilter() {
   let html = `<table>
     <thead>
       <tr>
-        <th rowspan="2" style="width:18%;vertical-align:bottom;position:sticky;top:0;z-index:3;background:#f8fafc !important">Part</th>
+        <th rowspan="2" style="width:18%;vertical-align:bottom;position:sticky;top:0;z-index:3;background:var(--bg) !important">Part</th>
         <th colspan="3" style="text-align:center;background:#1e40af !important;color:#fff !important;border-bottom:2px solid #93c5fd;position:sticky;top:0;z-index:3">OEM to SPD (First Replacement)</th>
         <th colspan="3" style="text-align:center;background:#166534 !important;color:#fff !important;border-bottom:2px solid #86efac;position:sticky;top:0;z-index:3">SPD to SPD (Subsequent Replacement)</th>
         <th colspan="3" style="text-align:center;background:#6b21a8 !important;color:#fff !important;border-bottom:2px solid #c4b5fd;position:sticky;top:0;z-index:3">Running</th>
-        <th rowspan="2" style="width:16%;vertical-align:bottom;position:sticky;top:0;z-index:3;background:#f8fafc !important">KM Comparison</th>
+        <th rowspan="2" style="width:16%;vertical-align:bottom;position:sticky;top:0;z-index:3;background:var(--bg) !important">KM Comparison</th>
       </tr>
       <tr>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Count</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Avg KM</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Median KM</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Count</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Avg KM</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Median KM</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Count</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Avg KM</th>
-        <th style="text-align:right;position:sticky;top:37px;background:#f8fafc !important">Median KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Count</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Avg KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Median KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Count</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Avg KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Median KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Count</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Avg KM</th>
+        <th style="text-align:right;position:sticky;top:37px;background:var(--bg) !important">Median KM</th>
       </tr>
     </thead><tbody>`;
 
@@ -980,7 +989,7 @@ function renderOemPerfFilter() {
     const b0 = p.avg_km_0to1  && maxKm ? Math.round(p.avg_km_0to1/maxKm*100)  : 0;
     const b1 = p.avg_km_1to2  && maxKm ? Math.round(p.avg_km_1to2/maxKm*100)  : 0;
     const br = p.avg_km_running && maxKm ? Math.round(p.avg_km_running/maxKm*100) : 0;
-    const c0 = !p.avg_km_0to1 ? '#94a3b8' : p.avg_km_0to1 < 5000 ? '#f53b3b' : p.avg_km_0to1 < 10000 ? '#f59e0b' : '#22c55e';
+    const c0 = !p.avg_km_0to1 ? 'var(--muted)' : p.avg_km_0to1 < 5000 ? 'var(--red)' : p.avg_km_0to1 < 10000 ? '#f59e0b' : '#22c55e';
     html += `<tr>
       <td style="font-weight:600">${p.part_group}</td>
       <td style="text-align:right">${p.first_repl_count || '—'}</td>

@@ -44,6 +44,12 @@
 
   /* Sidebar width */
   --sw: 210px;
+
+  /* Aliases — fix undefined vars used across pages */
+  --accent:       var(--red);
+  --text-muted:   var(--muted);
+  --muted2:       var(--muted);
+  --bounce-border: var(--border2);
 }
 
 /* ── BASE ── */
@@ -361,3 +367,20 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.ok { background: #052e16; border: 1px solid #16a34a; color: #4ade80; }
 .toast.err { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; }
+
+/* ── CANONICAL KPI CARD (shared across all pages) ── */
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: box-shadow .15s, transform .15s;
+}
+.kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-2px); }
+.kpi-card .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.kpi-card .kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.kpi-card .kpi-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.kpi-card .kpi-val { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 4px; line-height: 1; }
+.kpi-card .kpi-sub { font-size: 11px; color: var(--muted); }
+.kpi-card .kpi-bar { height: 3px; border-radius: 2px; margin-top: 10px; }
