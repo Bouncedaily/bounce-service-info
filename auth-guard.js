@@ -31,27 +31,27 @@
     return;
   }
 
-  // Always sync permissions from DB — never trust stale cached session
-  fetch(`${SB_URL}/rest/v1/allowed_users?email=eq.${encodeURIComponent(session.email)}&select=permissions,role,is_active`, {
+  // Sync permissions from DB — only logout if explicitly revoked
+  const emailLower = session.email.toLowerCase();
+  fetch(`${SB_URL}/rest/v1/allowed_users?email=eq.${encodeURIComponent(emailLower)}&select=permissions,role,is_active`, {
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
   }).then(r => r.json()).then(rows => {
-    if (!rows?.length || !rows[0].is_active) {
-      // User revoked — force logout
+    if (!Array.isArray(rows)) return; // unexpected response — keep cached session
+    if (rows.length > 0 && rows[0].is_active === false) {
+      // Explicitly revoked — force logout
       localStorage.clear(); sessionStorage.clear();
       window.location.href = 'login.html';
       return;
     }
+    if (!rows.length) return; // not found — keep cached session, don't logout
     const fresh = rows[0].permissions || { rmc:true, fleet_km:true, parts_testing:true };
-    // Update session with fresh permissions
     session.permissions = fresh;
     session.role = rows[0].role;
     const s = JSON.stringify(session);
     localStorage.setItem('sb_session', s);
     sessionStorage.setItem('sb_session', s);
-    // Re-apply sidebar with fresh permissions
     applyPerms(fresh);
   }).catch(() => {
-    // Network error — fall back to cached permissions
     applyPerms(session.permissions || { rmc:true, fleet_km:true, parts_testing:true });
   });
 
