@@ -95,7 +95,27 @@ async function sendLink() {
     err.textContent = 'Please enter a valid @bounceshare.com email.'; return;
   }
 
-  btn.disabled = true; btn.textContent = 'Sending…';
+  btn.disabled = true; btn.textContent = 'Checking…';
+
+  // Check if email is in allowed_users before sending
+  const { data: userData } = await sb
+    .from('allowed_users')
+    .select('email,is_active')
+    .eq('email', email)
+    .eq('is_active', true)
+    .single();
+
+  if (!userData) {
+    // Not authorised — log access request for admin
+    await sb.rpc('request_login_access', { user_email: email }).catch(() => {});
+    btn.disabled = false; btn.textContent = 'Send Magic Link';
+    document.getElementById('form').style.display = 'none';
+    document.getElementById('sent').style.display = 'block';
+    document.getElementById('sent-txt').innerHTML = `📬 Access request submitted!<br><br>Your email is not yet authorised. The admin has been notified and will review your request shortly.`;
+    return;
+  }
+
+  btn.textContent = 'Sending…';
 
   const redirectTo = window.location.origin + window.location.pathname.replace('login.html', 'auth-callback.html');
   const otpPromise = sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
