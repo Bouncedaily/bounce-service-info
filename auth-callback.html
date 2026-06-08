@@ -88,7 +88,14 @@ async function handleCallback() {
   });
   localStorage.setItem('sb_session', sessionData);
   sessionStorage.setItem('sb_session', sessionData);
-  window.location.replace('dashboard.html');
+
+  // Redirect to first page user has access to
+  const perms = userData.permissions || { rmc:true, fleet_km:true, parts_testing:true };
+  let landing = 'dashboard.html';
+  if (!perms.rmc && perms.fleet_km) landing = 'fleet-km.html';
+  else if (!perms.rmc && !perms.fleet_km && perms.parts_testing) landing = 'parts-testing.html';
+
+  window.location.replace(landing);
 }
 
 handleCallback().catch(e => {
