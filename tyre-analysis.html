@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tyre Deep Dive — Bounce</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    .wrap{padding:24px}
+    .page-title{font-size:20px;font-weight:800;color:var(--text)}
+    .page-sub{font-size:12px;color:var(--muted);margin-top:2px;margin-bottom:20px}
+    .filter-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+    .fg{display:flex;flex-direction:column;gap:3px}
+    .fg label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+    .fg select,.fg input{padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none}
+    .fg select:focus,.fg input:focus{border-color:var(--red)}
+    .btn-load{padding:8px 16px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+    .export-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:auto}
+    .export-btn:hover{color:var(--text);border-color:var(--text)}
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .kpi .kl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:6px}
+    .kpi .kv{font-size:22px;font-weight:800;color:var(--text);line-height:1}
+    .kpi .ks{font-size:11px;color:var(--muted);margin-top:4px}
+    .kpi .kbar{height:3px;border-radius:2px;margin-top:10px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+    @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+    .card-hd{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .card-hd h2{font-size:13px;font-weight:700;color:var(--text)}
+    .card-hd .sub{font-size:11px;color:var(--muted)}
+    .tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{text-align:left;padding:8px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
+    td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(0,0,0,.02)}
+    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+    .p-blr{background:#eff6ff;color:#1d4ed8}.p-ncr{background:#fef2f2;color:#dc2626}.p-hyd{background:#f0fdf4;color:#16a34a}
+    .tag-part{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:10px;color:var(--text2);white-space:nowrap}
+    .repeat-badge{background:#fef2f2;color:#dc2626;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+    .pg-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--border);font-size:12px}
+    .pg-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:11px}
+    .pg-btn:disabled{opacity:.4;cursor:not-allowed}
+    .loading-state{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+    .spin{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .sub-wr{background:#fffbeb;color:#92400e;border-radius:4px;padding:1px 6px;font-size:10px}
+    .sub-rs{background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:10px}
+    .sub-be{background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 6px;font-size:10px}
+    .sub-pd{background:#faf5ff;color:#6b21a8;border-radius:4px;padding:1px 6px;font-size:10px}
+  </style>
+</head>
+<body>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
+<nav class="sidebar" id="sidebar">
+  <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
+  <div class="sb-brand">
+    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
+    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
+    <div class="sb-text"><div class="sb-name">Bounce <span>Service Info</span></div></div>
+  </div>
+  <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
+  <a class="sb-item" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre & Brake</span></a>
+  <a class="sb-item active" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
+  <div class="sb-sec">ADMIN</div>
+  <a class="sb-item admin-only" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
+  <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
+    <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
+  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
+</nav>
+
+<div class="main">
+  <div class="content">
+    <div class="wrap">
+      <div class="page-title">Tyre Replacement Deep Dive</div>
+      <div class="page-sub">All tyre replacements from JC details — count, cost, repeat replacements, hub & city breakdown</div>
+
+      <div class="filter-bar">
+        <div class="fg">
+          <label>City</label>
+          <select id="f-city">
+            <option value="">All cities</option>
+            <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Tyre Type</label>
+          <select id="f-part">
+            <option value="">All tyres</option>
+            <option>Rear Tyre (Energy Ride / 12Inch)</option>
+            <option>Front Tyre (Zoom)</option>
+            <option>Front Tyre 12-Inch</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>From</label>
+          <input type="date" id="f-start"/>
+        </div>
+        <div class="fg">
+          <label>To</label>
+          <input type="date" id="f-end"/>
+        </div>
+        <button class="btn-load" onclick="loadData()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Load</button>
+        <button class="export-btn" onclick="exportAll()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
+      </div>
+
+      <div class="kpi-row" id="kpi-row">
+        <div class="kpi"><div class="loading-state" style="padding:12px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hd"><h2>By Tyre Type</h2></div>
+          <div class="tbl-wrap"><div id="by-part-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h2>By Submission Type</h2></div>
+          <div class="tbl-wrap"><div id="by-sub-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><h2>By Hub</h2><span class="sub" id="hub-count">—</span></div>
+        <div class="tbl-wrap"><div id="by-hub-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <h2>⚠️ Repeat Replacements</h2>
+          <span class="sub" id="repeat-count">Same bike, same tyre replaced in multiple JCs</span>
+        </div>
+        <div class="tbl-wrap"><div id="repeat-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><h2>All Replacements</h2><span class="sub" id="all-count">—</span></div>
+        <div class="tbl-wrap" id="all-tbl-wrap"><div id="all-body"><div class="loading-state"><div class="spin"></div>Loading…</div></div></div>
+        <div class="pg-bar" id="pg-bar" style="display:none">
+          <button class="pg-btn" id="pg-prev" onclick="changePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+          <span id="pg-info" style="color:var(--muted)"></span>
+          <button class="pg-btn" id="pg-next" onclick="changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL   = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+let _result = null, _page = 1;
+const PER_PAGE = 100;
+const fmt = n => (n==null||isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-IN');
+const fmtC = n => (n==null||isNaN(n)||n<=0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
+const fmtD = d => d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+const cityPill = c => c==='NCR'?'p-ncr':c==='Bangalore'?'p-blr':'p-hyd';
+const subTag = s => {
+  if (!s) return '—';
+  const lc = s.toLowerCase();
+  if (lc.includes('wear'))    return `<span class="sub-wr">${s}</span>`;
+  if (lc.includes('running')) return `<span class="sub-rs">${s}</span>`;
+  if (lc.includes('exchange'))return `<span class="sub-be">${s}</span>`;
+  return `<span class="sub-pd">${s}</span>`;
+};
+
+async function rpc(fn, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method:'POST',
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+async function loadData() {
+  _page = 1;
+  ['kpi-row','by-part-body','by-sub-body','by-hub-body','repeat-body','all-body'].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin:0 auto"></div></div>';
+  });
+  _result = await rpc('get_tyre_analysis', {
+    p_city:  document.getElementById('f-city').value  || null,
+    p_part:  document.getElementById('f-part').value  || null,
+    p_start: document.getElementById('f-start').value || null,
+    p_end:   document.getElementById('f-end').value   || null
+  });
+  renderAll();
+}
+
+function renderAll() {
+  if (!_result) return;
+  const s = _result.summary || {};
+  // KPIs
+  const kpis = [
+    {l:'Total Replacements', v:fmt(s.total_replacements),  sub:'Tyre part lines',                        bar:'#dc2626'},
+    {l:'Unique JCs',         v:fmt(s.unique_jcs),          sub:'Job cards',                              bar:'#2563eb'},
+    {l:'Unique Bikes',       v:fmt(s.unique_bikes),        sub:'Vehicles',                               bar:'#7c3aed'},
+    {l:'Avg KM on Part',     v:s.avg_km ? fmt(s.avg_km)+' km' : '—', sub:`${fmt(s.km_available_count)} with prev data`, bar:'#d97706'},
+    {l:'Median KM on Part',  v:s.median_km ? fmt(s.median_km)+' km' : '—', sub:'50th percentile',       bar:'#16a34a'},
+    {l:'Total Cost',         v:fmtC(s.total_cost),         sub:'Part cost only',                         bar:'#0891b2'},
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(k=>`
+    <div class="kpi">
+      <div class="kl">${k.l}</div>
+      <div class="kv">${k.v}</div>
+      <div class="ks">${k.sub}</div>
+      <div class="kbar" style="background:${k.bar}"></div>
+    </div>`).join('');
+
+  // By part
+  const parts = _result.by_part || [];
+  const maxP = Math.max(...parts.map(p=>p.replacements||0));
+  document.getElementById('by-part-body').innerHTML = parts.length ? `
+    <table><thead><tr><th>Tyre Type</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Median KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th></tr></thead>
+    <tbody>${parts.map(p=>`<tr>
+      <td><span class="tag-part">${p.part_group}</span></td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="width:${Math.round(p.replacements/maxP*60)}px;height:6px;background:var(--red);border-radius:3px"></div>
+        <span style="font-weight:700">${p.replacements}</span></div></td>
+      <td style="color:var(--text2)">${p.unique_bikes}</td>
+      <td style="font-family:var(--mono);font-weight:600;color:var(--text)">${fmt(p.avg_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--text2)">${fmt(p.median_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(p.min_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(p.max_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(p.total_cost)}</td>
+    </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
+
+  // By sub type
+  const subs = _result.by_sub || [];
+  const maxS = Math.max(...subs.map(s=>s.replacements||0));
+  document.getElementById('by-sub-body').innerHTML = subs.length ? `
+    <table><thead><tr><th>Submission Type</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Total Cost</th></tr></thead>
+    <tbody>${subs.map(s=>`<tr>
+      <td>${subTag(s.submission_type)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="width:${Math.round(s.replacements/maxS*60)}px;height:6px;background:var(--blue);border-radius:3px"></div>
+        <span style="font-weight:700">${s.replacements}</span></div></td>
+      <td style="color:var(--text2)">${s.unique_bikes}</td>
+      <td style="font-family:var(--mono);font-weight:600">${fmt(s.avg_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(s.total_cost)}</td>
+    </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
+
+  // By hub
+  const hubs = _result.by_hub || [];
+  const maxH = Math.max(...hubs.map(h=>h.replacements||0));
+  document.getElementById('hub-count').textContent = `${hubs.length} hubs`;
+  document.getElementById('by-hub-body').innerHTML = hubs.length ? `
+    <table><thead><tr><th>Hub</th><th>City</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th></tr></thead>
+    <tbody>${hubs.map(h=>`<tr>
+      <td style="font-weight:600">${h.hub_name||'—'}</td>
+      <td><span class="pill ${cityPill(h.city)}">${h.city||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="width:${Math.round(h.replacements/maxH*80)}px;height:6px;background:var(--red);border-radius:3px"></div>
+        <span style="font-weight:700">${h.replacements}</span></div></td>
+      <td style="color:var(--text2)">${h.unique_bikes}</td>
+      <td style="font-family:var(--mono);font-weight:600">${fmt(h.avg_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(h.min_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(h.max_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(h.total_cost)}</td>
+    </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
+
+  // Repeats
+  const repeats = _result.repeats || [];
+  document.getElementById('repeat-count').textContent = repeats.length
+    ? `${repeats.length} bikes with multiple replacements`
+    : 'No repeat replacements in selected range';
+  document.getElementById('repeat-body').innerHTML = repeats.length ? `
+    <table><thead><tr><th>Reg No</th><th>City</th><th>Hub</th><th>Tyre</th><th>Times</th><th>Avg KM</th><th>Min KM</th><th>Max KM</th><th>First</th><th>Last</th><th>Sub Types</th></tr></thead>
+    <tbody>${repeats.map(r=>`<tr>
+      <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
+      <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
+      <td style="color:var(--text2)">${r.hub_name||'—'}</td>
+      <td><span class="tag-part">${r.part_group||'—'}</span></td>
+      <td><span class="repeat-badge">${r.times_replaced}×</span></td>
+      <td style="font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(r.avg_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.min_km)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.max_km)} km</td>
+      <td style="color:var(--muted);font-size:11px">${fmtD(r.first_date)}</td>
+      <td style="color:var(--muted);font-size:11px">${fmtD(r.last_date)}</td>
+      <td style="font-size:11px">${(r.sub_types||'').split(', ').map(subTag).join(' ')}</td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="loading-state" style="padding:20px;color:var(--green)">✅ No repeat replacements found</div>';
+
+  renderAllRows(_result.all_rows || []);
+}
+
+function renderAllRows(rows) {
+  if (!rows.length) {
+    document.getElementById('all-body').innerHTML = '<div class="loading-state">No replacements found.</div>';
+    document.getElementById('all-count').textContent = '0 replacements';
+    document.getElementById('pg-bar').style.display = 'none';
+    return;
+  }
+  const total = rows.length;
+  const totalPages = Math.ceil(total / PER_PAGE);
+  _page = Math.min(_page, totalPages);
+  const page = rows.slice((_page-1)*PER_PAGE, _page*PER_PAGE);
+  document.getElementById('all-count').textContent = `${total.toLocaleString('en-IN')} replacements`;
+  document.getElementById('pg-info').textContent = `Page ${_page} of ${totalPages}`;
+  document.getElementById('pg-prev').disabled = _page <= 1;
+  document.getElementById('pg-next').disabled = _page >= totalPages;
+  document.getElementById('pg-bar').style.display = 'flex';
+  document.getElementById('all-body').innerHTML = `
+    <table><thead><tr>
+      <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th><th>Item Name</th>
+      <th>KM on Part</th><th>Total Odo</th><th>Date</th><th>Cost</th><th>Sub Type</th><th>DMS Cat</th>
+    </tr></thead><tbody>
+    ${page.map(r=>`<tr>
+      <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
+      <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
+      <td style="color:var(--text2)">${r.hub_name||'—'}</td>
+      <td><span class="tag-part">${r.part_group||'—'}</span></td>
+      <td style="color:var(--text2);font-size:11px">${r.item_name||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700;color:${r.km_on_part ? (r.km_on_part < 5000 ? 'var(--red)' : 'var(--text)') : 'var(--muted)'}">
+        ${r.km_on_part ? fmt(r.km_on_part)+' km' : '<span title="No previous tyre JC in DB">—</span>'}
+      </td>
+      <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${fmt(r.curr_odo)} km</td>
+      <td style="color:var(--muted);font-size:11px">${fmtD(r.replaced_date)}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(r.cost)}</td>
+      <td>${subTag(r.submission_type)}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.dms_cat||'—'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function changePage(dir) { _page += dir; renderAllRows(_result?.all_rows || []); document.getElementById('all-tbl-wrap').scrollTop = 0; }
+
+function exportAll() {
+  if (!_result?.all_rows?.length) return;
+  const cols = ['Reg No','City','Hub','Tyre Bucket','Item Name','Date','Cost','Sub Type','DMS Cat','JC No','Draft JC ID'];
+  const rows = _result.all_rows.map(r=>[
+    r.reg_number, r.city, r.hub_name, r.part_group, r.item_name,
+    r.replaced_date ? new Date(r.replaced_date).toLocaleDateString('en-IN') : '',
+    r.cost, r.submission_type, r.dms_cat, r.dms_jc_no, r.draft_jc_id
+  ]);
+  const csv = [cols,...rows].map(r=>r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `tyre_deep_dive_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function openSidebar()  { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('mobile-open'); document.getElementById('sb-overlay').classList.remove('active'); document.getElementById('sb-hamburger').style.display=''; }
+function toggleSidebar() { const sb=document.getElementById('sidebar'); sb.classList.toggle('collapsed'); localStorage.setItem('sb_collapsed',sb.classList.contains('collapsed')?'1':'0'); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('sb_collapsed')==='1') document.getElementById('sidebar').classList.add('collapsed');
+  const now = new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('f-start').value = `${y}-${m}-01`;
+  document.getElementById('f-end').value   = now.toISOString().slice(0,10);
+  loadData();
+});
+</script>
+</body>
+</html>
