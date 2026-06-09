@@ -98,6 +98,10 @@
       <!-- Filters -->
       <div class="filter-bar">
         <div class="fg">
+          <label>Reg No</label>
+          <input type="text" id="f-reg" placeholder="e.g. KA05AP1234" style="width:140px" oninput="renderTable()"/>
+        </div>
+        <div class="fg">
           <label>City</label>
           <select id="f-city">
             <option value="">All cities</option>
@@ -217,14 +221,22 @@ function renderTable() {
   }
 
   // Sort
-  const sorted = [..._data].sort((a, b) => {
+  const regFilter = (document.getElementById('f-reg').value || '').toUpperCase().trim();
+  const filtered = regFilter ? _data.filter(r => (r.reg_number||'').toUpperCase().includes(regFilter)) : _data;
+
+  if (!filtered.length) {
+    document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found for the selected filters.</div>';
+    document.getElementById('tbl-count').textContent = '0 vehicles';
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
     const av = a[_sortCol] ?? -1, bv = b[_sortCol] ?? -1;
     return typeof av === 'string' ? av.localeCompare(bv) * _sortDir : (av - bv) * _sortDir;
   });
 
   const maxKm   = Math.max(...sorted.map(r => r.avg_km     || 0));
   const maxCurr = Math.max(...sorted.map(r => r.current_km || 0));
-  const arrow   = col => `<span class="sort-arrow" onclick="sortBy('${col}')">${_sortCol===col?(_sortDir>0?'↑':'↓'):'↕'}</span>`;
   const cityPill = c => c==='NCR'?'p-ncr':c==='Bangalore'?'p-blr':'p-hyd';
 
   document.getElementById('tbl-count').textContent = `${sorted.length.toLocaleString('en-IN')} vehicles`;
