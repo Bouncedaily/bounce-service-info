@@ -1,12 +1,108 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Authenticating…</title></head>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Signing in…</title>
+  <style>
+    body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .card{background:#fff;border-radius:20px;padding:40px 36px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.12)}
+    img{width:52px;height:52px;border-radius:14px;margin:0 auto 16px}
+    h2{font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px}
+    p{font-size:13px;color:#64748b}
+    .spin{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#dc2626;border-radius:50%;animation:spin .8s linear infinite;margin:16px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .err{color:#dc2626;font-size:13px;margin-top:12px}
+  </style>
+</head>
 <body>
+<div class="card">
+  <img src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none'">
+  <h2>Signing you in…</h2>
+  <div class="spin"></div>
+  <p id="msg">Please wait</p>
+  <div class="err" id="err"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-  const hash = window.location.hash;
+const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+const sb = supabase.createClient(SB_URL, ANON_KEY);
+
+async function handleCallback() {
+  let session = null;
+
+  const hash   = window.location.hash;
+  const search = window.location.search;
+
   if (hash && hash.includes('access_token')) {
-    window.location.replace('login.html' + hash);
-  } else {
-    window.location.replace('login.html');
+    const p  = new URLSearchParams(hash.substring(1));
+    const at = p.get('access_token');
+    const rt = p.get('refresh_token');
+    if (at) {
+      const { data, error } = await sb.auth.setSession({ access_token: at, refresh_token: rt || '' });
+      if (error) console.error('setSession error:', error.message);
+      session = data?.session;
+    }
+  } else if (search && search.includes('code=')) {
+    const { data, error } = await sb.auth.exchangeCodeForSession(window.location.href);
+    if (error) console.error('exchangeCode error:', error.message);
+    session = data?.session;
   }
+
+  if (!session) {
+    document.getElementById('err').textContent = 'Sign-in link expired or invalid. Redirecting…';
+    document.getElementById('msg').textContent = '';
+    setTimeout(() => window.location.replace('login.html'), 2000);
+    return;
+  }
+
+  const email = session.user.email?.toLowerCase();
+  document.getElementById('msg').textContent = 'Checking access…';
+
+  const { data: userData } = await sb
+    .from('allowed_users')
+    .select('email,role,name,permissions,is_active')
+    .eq('email', email)
+    .eq('is_active', true)
+    .single();
+
+  if (!userData) {
+    document.getElementById('err').textContent = 'Access denied. Contact nithish@bounceshare.com';
+    document.getElementById('msg').textContent = '';
+    await sb.auth.signOut();
+    setTimeout(() => window.location.replace('login.html'), 2000);
+    return;
+  }
+
+  try { await sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }); } catch(e) {}
+
+  const sessionData = JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    email: session.user.email,
+    role: userData.role,
+    name: userData.name,
+    permissions: userData.permissions || { rmc:true, fleet_km:true, parts_testing:true },
+    expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000)
+  });
+  localStorage.setItem('sb_session', sessionData);
+  sessionStorage.setItem('sb_session', sessionData);
+
+  // Redirect to first page user has access to
+  const perms = userData.permissions || { rmc:true, fleet_km:true, parts_testing:true };
+  let landing = 'dashboard.html';
+  if (!perms.rmc && perms.fleet_km) landing = 'fleet-km.html';
+  else if (!perms.rmc && !perms.fleet_km && perms.parts_testing) landing = 'parts-testing.html';
+
+  window.location.replace(landing);
+}
+
+handleCallback().catch(e => {
+  console.error('Auth error:', e);
+  document.getElementById('err').textContent = 'Error: ' + e.message;
+  setTimeout(() => window.location.replace('login.html'), 2000);
+});
 </script>
-</body></html>
+</body>
+</html>
