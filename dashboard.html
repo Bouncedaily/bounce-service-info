@@ -27,7 +27,7 @@
 .hbadge.live{background:#f0fdf4;border-color:#bbf7d0;color:var(--green)}
 
 /* Filters */
-.filters{background:var(--card);border-bottom:1px solid var(--border);padding:8px 28px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.filters{background:var(--card);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .fl{display:flex;align-items:center;gap:5px}
 .fl-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;white-space:nowrap}
 .fsep{width:1px;height:20px;background:var(--border);margin:0 4px}
@@ -40,6 +40,8 @@
 /* KPI Grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 24px 20px;position:relative;z-index:1}
 @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:box-shadow .15s,transform .15s}
 .kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px)}
 .kpi-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
@@ -75,10 +77,10 @@ tbody tr:last-child td{border-bottom:none}
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780647172"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 
 <div class="sidebar" id="sidebar">
-  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
+  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
@@ -104,7 +106,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
     <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot">
     <div><span class="sb-dot"></span><span id="sync-lbl">Loading…</span></div>
@@ -137,8 +139,9 @@ tbody tr:last-child td{border-bottom:none}
 
     <!-- FILTERS -->
     <div class="filters">
-      <div class="fl"><span class="fl-l">From</span><input type="date" id="f-start"/></div>
-      <div class="fl"><span class="fl-l">To</span><input type="date" id="f-end"/></div>
+      <div class="fl"><span class="fl-l">From</span><input type="date" id="f-start" oninput="updateDatePill()"/></div>
+      <div class="fl"><span class="fl-l">To</span><input type="date" id="f-end" oninput="updateDatePill()"/></div>
+      <span id="date-pill" style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:2px 8px;color:var(--muted);white-space:nowrap;flex-shrink:0">Current month</span>
       <div class="fsep"></div>
       <div class="fl"><span class="fl-l">City</span>
         <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select>
@@ -215,14 +218,14 @@ const PAL  = ["#2563eb","#16a34a","#d97706","#7c3aed","#0891b2","#dc2626","#0d94
 let debounceTimer = null;
 
 const fmt = n => {
-  if(!n||isNaN(n)) return "—";
+  if(!n||isNaN(n)||n<0) return "—";
   if(n>=10000000) return `₹${(n/10000000).toFixed(2)}Cr`;
   if(n>=100000)   return `₹${(n/100000).toFixed(2)}L`;
   if(n>=1000)     return `₹${(n/1000).toFixed(1)}K`;
   return `₹${Math.round(n)}`;
 };
 // Currency without decimals, comma-separated Indian format
-const fmtC = n => n==null||isNaN(n) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
+const fmtC = n => (n == null || isNaN(n) || n === 0 || n < 0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
 // Rich tooltip plugin for Chart.js (Cost + Avg/JC + No.of JC)
 function richTooltip(dataArr) {
   return {
@@ -250,6 +253,23 @@ const sjp = arr => arr.reduce((s,r)=>s+(parseInt(r.jcs_with_parts)||0),0);
 function mk(id,type,data,opts={}){
   if(CH[id]) CH[id].destroy();
   const ctx = document.getElementById(id); if(!ctx) return;
+
+  // Issue 8: Show empty state if no data
+  const hasData = data.datasets?.some(d => d.data?.some(v => v > 0));
+  const wrapper = ctx.parentElement;
+  const existingEmpty = wrapper?.querySelector('.chart-empty');
+  if (existingEmpty) existingEmpty.remove();
+  if (!hasData) {
+    ctx.style.display = 'none';
+    const empty = document.createElement('div');
+    empty.className = 'chart-empty';
+    empty.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;color:var(--muted);font-size:12px;gap:4px';
+    empty.innerHTML = `<span>No data for selected filters</span><span style="font-size:10px">Try adjusting the date range or <a href="#" onclick="clearF();return false;" style="color:var(--red)">clearing filters</a></span>`;
+    wrapper?.appendChild(empty);
+    return;
+  }
+  ctx.style.display = '';
+
   const defaultScales = (type!=="pie"&&type!=="doughnut"&&!opts.scales) ? {
     x:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
     y:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
@@ -275,6 +295,14 @@ function onFilterChange(){
   document.getElementById(id).addEventListener('change', onFilterChange);
 });
 
+function updateDatePill() {
+  const s = document.getElementById('f-start').value;
+  const e = document.getElementById('f-end').value;
+  const pill = document.getElementById('date-pill');
+  if (!pill) return;
+  pill.style.display = (s || e) ? 'none' : '';
+}
+
 function clearF(){
   const today = new Date().toISOString().slice(0,10);
   const jan1  = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10);
@@ -286,9 +314,21 @@ function clearF(){
 }
 
 async function fetchAll(){
+  const startVal = document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const endVal   = document.getElementById("f-end").value   || localDate(new Date());
+
+  // Guard: invalid date range
+  if (startVal && endVal && startVal > endVal) {
+    document.getElementById("kpis").innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--red);font-size:13px;font-weight:600">
+      <i class="ti ti-alert-triangle" style="font-size:16px;vertical-align:-2px;margin-right:6px"></i>
+      "From" date cannot be after "To" date — please adjust the date range.
+    </div>`;
+    return null;
+  }
+
   const body = {
-    p_start: document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
-    p_end:   document.getElementById("f-end").value   || localDate(new Date()),
+    p_start: startVal,
+    p_end:   endVal,
     p_city:  document.getElementById("f-city").value  || null,
     p_sub:   document.getElementById("f-sub").value   || null,
     p_com:   document.getElementById("f-com").value   || null,
@@ -340,20 +380,43 @@ async function load(){
   const avg = jcs>0 ? tc/jcs : 0;
   const att = jcs>0 ? pjc/jcs*100 : 0;
 
+  // Prev month comparison
+  const ptc  = parseFloat(totals.prev_total_cost)  || 0;
+  const ppc  = parseFloat(totals.prev_part_cost)   || 0;
+  const plc  = parseFloat(totals.prev_labour_cost) || 0;
+  const pjcs = parseInt(totals.prev_unique_jcs)    || 0;
+  const pavg = pjcs>0 ? ptc/pjcs : 0;
+  const prevLabel = totals.prev_start ? `vs ${totals.prev_start.slice(5)} – ${totals.prev_end.slice(5)}` : 'vs prev month';
+
+  const chg = (curr, prev) => {
+    if (!prev || !curr) return '';
+    const pct = ((curr - prev) / prev * 100);
+    const sign = pct >= 0 ? '▲' : '▼';
+    const col = pct >= 0 ? '#dc2626' : '#16a34a'; // red = cost up (bad), green = cost down (good)
+    return `<span style="font-size:11px;color:${col};font-weight:600">${sign} ${Math.abs(pct).toFixed(1)}%</span>`;
+  };
+  const chgN = (curr, prev) => { // for JC count, up = neutral blue
+    if (!prev || !curr) return '';
+    const pct = ((curr - prev) / prev * 100);
+    const sign = pct >= 0 ? '▲' : '▼';
+    const col = '#2563eb';
+    return `<span style="font-size:11px;color:${col};font-weight:600">${sign} ${Math.abs(pct).toFixed(1)}%</span>`;
+  };
+
   const s = document.getElementById("f-start").value;
   const e = document.getElementById("f-end").value;
   document.getElementById("row-badge").textContent  = `${jcs.toLocaleString()} JCs`;
   document.getElementById("date-badge").textContent = `${s} → ${e}`;
   document.getElementById("sync-lbl").textContent = `Synced · ${new Date().toLocaleTimeString()}`;
 
-  // KPIs
+  // KPIs with prev comparison
   const KPIS = [
-    {l:"Total Cost",    v:fmt(tc),              s:"Part + Labour",      icon:'<i class="ti ti-cash" style="font-size:16px"></i>', bg:"#eff6ff", ic:"#2563eb"},
-    {l:"Part Cost",     v:fmt(pc),              s:pc>0?(pc/tc*100).toFixed(1)+"% of total":"—", icon:'<i class="ti ti-tools" style="font-size:16px"></i>', bg:"#f0fdf4", ic:"#16a34a"},
-    {l:"Labour Cost",   v:fmt(lc),              s:lc>0?(lc/tc*100).toFixed(1)+"% of total":"—", icon:'<i class="ti ti-tool" style="font-size:16px"></i>', bg:"#faf5ff", ic:"#7c3aed"},
-    {l:"Unique JCs",    v:jcs.toLocaleString(), s:"Job cards",          icon:'<i class="ti ti-clipboard-list" style="font-size:16px"></i>', bg:"#fffbeb", ic:"#d97706"},
-    {l:"Avg / JC",      v:`₹${Math.round(avg)}`,s:"All line items",    icon:'<i class="ti ti-chart-bar" style="font-size:16px"></i>', bg:"#fffbeb", ic:"#d97706"},
-    {l:"Part Attach",   v:`${att.toFixed(1)}%`, s:`${pjc} JCs w/ parts`,icon:'<i class="ti ti-paperclip" style="font-size:16px"></i>',bg:"#f0fdf4", ic:"#16a34a"},
+    {l:"Total Cost",  v:fmt(tc),  s:`Part + Labour`, p:fmt(ptc), chg:chg(tc,ptc),  icon:'<i class="ti ti-cash" style="font-size:16px"></i>',          bg:"#eff6ff", ic:"#2563eb"},
+    {l:"Part Cost",   v:fmt(pc),  s:pc>0?(pc/tc*100).toFixed(1)+"% of total":"—", p:fmt(ppc), chg:chg(pc,ppc),  icon:'<i class="ti ti-tools" style="font-size:16px"></i>',         bg:"#f0fdf4", ic:"#16a34a"},
+    {l:"Labour Cost", v:fmt(lc),  s:lc>0?(lc/tc*100).toFixed(1)+"% of total":"—", p:fmt(plc), chg:chg(lc,plc),  icon:'<i class="ti ti-tool" style="font-size:16px"></i>',           bg:"#faf5ff", ic:"#7c3aed"},
+    {l:"Unique JCs",  v:jcs.toLocaleString(), s:"Job cards", p:pjcs.toLocaleString(), chg:chgN(jcs,pjcs), icon:'<i class="ti ti-clipboard-list" style="font-size:16px"></i>', bg:"#fffbeb", ic:"#d97706"},
+    {l:"Avg / JC",    v:`₹${Math.round(avg)}`, s:"All line items", p:pavg?`₹${Math.round(pavg)}`:'—', chg:chg(avg,pavg), icon:'<i class="ti ti-chart-bar" style="font-size:16px"></i>', bg:"#fffbeb", ic:"#d97706"},
+    {l:"Part Attach", v:`${att.toFixed(1)}%`, s:`${pjc} JCs w/ parts`, p:'', chg:'', icon:'<i class="ti ti-paperclip" style="font-size:16px"></i>', bg:"#f0fdf4", ic:"#16a34a"},
   ];
   document.getElementById("kpis").innerHTML = KPIS.map(k=>`
     <div class="kpi">
@@ -363,6 +426,11 @@ async function load(){
       </div>
       <div class="kpi-val">${k.v}</div>
       <div class="kpi-sub">${k.s}</div>
+      ${k.p ? `<div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <span style="font-size:11px;color:var(--muted)">${k.p}</span>
+        ${k.chg}
+        <span style="font-size:10px;color:var(--muted)">${prevLabel}</span>
+      </div>` : ''}
       <div class="kpi-bar" style="background:linear-gradient(90deg,${k.ic}22,${k.ic}44)"></div>
     </div>`).join("");
 
@@ -472,21 +540,39 @@ async function load(){
   // Hub table
   document.getElementById("hub-count").textContent = `${by_hub.length} hubs`;
   const maxC = Math.max(...by_hub.map(r=>r.total_cost||0));
+  const hubChg = (curr, prev) => {
+    if (!prev || !curr) return '<span style="color:var(--muted);font-size:10px">—</span>';
+    const pct = (curr - prev) / prev * 100;
+    const col = pct > 0 ? '#dc2626' : '#16a34a';
+    return `<span style="font-size:10px;color:${col};font-weight:600">${pct>0?'▲':'▼'}${Math.abs(pct).toFixed(1)}%</span>`;
+  };
   document.getElementById("hub-tbl").innerHTML = `
-  <table><thead><tr><th>Hub</th><th>City</th><th>JCs</th><th>Total Cost</th><th>Part Cost</th><th>Labour Cost</th><th>Avg / JC ↓</th><th>Attach%</th></tr></thead>
+  <table><thead><tr>
+    <th>Hub</th><th>City</th>
+    <th>JCs</th><th style="font-size:9px;color:var(--muted)">prev</th>
+    <th>Total Cost</th><th style="font-size:9px;color:var(--muted)">prev</th>
+    <th>Part Cost</th><th style="font-size:9px;color:var(--muted)">prev</th>
+    <th>Labour Cost</th><th>Avg / JC ↓</th><th style="font-size:9px;color:var(--muted)">prev</th><th>Attach%</th>
+  </tr></thead>
   <tbody>${by_hub.map(r=>{
     const j=r.unique_jcs||0, tc2=r.total_cost||0, pc2=r.part_cost||0, lc2=r.labour_cost||0;
+    const pj=r.prev_unique_jcs||0, ptc2=r.prev_total_cost||0, ppc2=r.prev_part_cost||0;
     const av=j>0?tc2/j:0, at=j>0?(r.jcs_with_parts||0)/j*100:0;
+    const pav=pj>0?ptc2/pj:0;
     const ct=r.city==="NCR"?"t-r":r.city==="Bangalore"?"t-b":"t-g";
     const avC=av>700?"var(--red)":av>400?"var(--amber)":"var(--green)";
     return`<tr>
       <td><strong>${r.hub_name||'—'}</strong></td>
       <td><span class="tag ${ct}">${r.city||'—'}</span></td>
-      <td style="font-family:var(--mono);color:var(--text2)">${j}</td>
+      <td style="font-family:var(--mono)">${j}</td>
+      <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${pj||'—'} ${hubChg(j,pj)}</td>
       <td><div class="bw"><span style="font-family:var(--mono)">${fmt(tc2)}</span><div class="bb"><div class="bf" style="width:${tc2/maxC*100}%"></div></div></div></td>
+      <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${fmt(ptc2)} ${hubChg(tc2,ptc2)}</td>
       <td style="font-family:var(--mono);color:var(--blue)">${fmt(pc2)}</td>
+      <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${fmt(ppc2)} ${hubChg(pc2,ppc2)}</td>
       <td style="font-family:var(--mono);color:var(--purple)">${fmt(lc2)}</td>
       <td style="font-family:var(--mono);font-weight:600;color:${avC}">₹${Math.round(av)}</td>
+      <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${pav?'₹'+Math.round(pav):'—'} ${hubChg(av,pav)}</td>
       <td style="font-family:var(--mono);color:var(--text2)">${at.toFixed(1)}%</td>
     </tr>`;
   }).join("")}</tbody></table>`;
@@ -565,7 +651,7 @@ function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const btn = document.getElementById('sb-toggle');
   sb.classList.toggle('collapsed');
-  btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 // Clean up old auth keys
@@ -577,7 +663,7 @@ localStorage.removeItem('sb_session');
   if (state === '1') {
     const sb = document.getElementById('sidebar');
     const btn = document.getElementById('sb-toggle');
-    if (sb) { sb.classList.add('collapsed'); if(btn) btn.textContent = '›'; }
+    if (sb) { sb.classList.add('collapsed');  }
   } else if (state === null) {
     // First visit — ensure expanded, save state
     localStorage.setItem('sb_collapsed', '0');
