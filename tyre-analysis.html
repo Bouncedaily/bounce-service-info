@@ -313,7 +313,7 @@ function renderAllRows(rows) {
   document.getElementById('all-body').innerHTML = `
     <table><thead><tr>
       <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th><th>Item Name</th>
-      <th>KM on Part</th><th>Total Odo</th><th>Date</th><th>Cost</th><th>Sub Type</th><th>DMS Cat</th>
+      <th>Last Replaced Part</th><th>KM on Part</th><th>Total Odo</th><th>Date</th><th>Cost</th><th>Sub Type</th><th>DMS Cat</th>
     </tr></thead><tbody>
     ${page.map(r=>`<tr>
       <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
@@ -321,6 +321,7 @@ function renderAllRows(rows) {
       <td style="color:var(--text2)">${r.hub_name||'—'}</td>
       <td><span class="tag-part">${r.part_group||'—'}</span></td>
       <td style="color:var(--text2);font-size:11px">${r.item_name||'—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.last_replaced_part||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:${r.km_on_part ? (r.km_on_part < 5000 ? 'var(--red)' : 'var(--text)') : 'var(--muted)'}">
         ${r.km_on_part ? fmt(r.km_on_part)+' km' : '<span title="No previous tyre JC in DB">—</span>'}
       </td>
