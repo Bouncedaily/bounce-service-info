@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+  <title>Tyre & Brake Analysis — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    .wrap { padding: 24px; }
+    .page-hd { margin-bottom: 20px; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* Summary cards */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .sum-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .sum-part { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .sum-val { font-size: 22px; font-weight: 800; color: var(--text); }
+    .sum-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .sum-bar { height: 3px; border-radius: 2px; margin-top: 10px; background: var(--red); }
+
+    /* Filter bar */
+    .filter-bar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select, .fg input { padding: 7px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 12px; outline: none; }
+    .fg select:focus, .fg input:focus { border-color: var(--red); }
+    .btn-load { padding: 8px 16px; background: var(--red); color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn-load:hover { background: var(--red2); }
+    .export-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 7px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; margin-left: auto; }
+    .export-btn:hover { color: var(--text); border-color: var(--text); }
+
+    /* Table */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+    .card-hd { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-hd h2 { font-size: 13px; font-weight: 700; color: var(--text); }
+    .card-hd .sub { font-size: 11px; color: var(--muted); }
+    .tbl-wrap { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 9px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,0,0,.02); }
+    .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+    .p-blr { background: #eff6ff; color: #1d4ed8; }
+    .p-ncr { background: #fef2f2; color: #dc2626; }
+    .p-hyd { background: #f0fdf4; color: #16a34a; }
+    .tag-part { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-size: 10px; color: var(--text2); white-space: nowrap; }
+    .km-bar-wrap { display: flex; align-items: center; gap: 6px; }
+    .km-bar { height: 6px; border-radius: 3px; background: var(--red); min-width: 4px; }
+    .loading-state { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
+    .spin { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sort-arrow { cursor: pointer; user-select: none; }
+    .sort-arrow:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
+
+<nav class="sidebar" id="sidebar">
+  <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
+  <div class="sb-brand">
+    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
+    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
+    <div class="sb-text"><div class="sb-name">Bounce <span>Service Info</span></div></div>
+  </div>
+  <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
+  <a class="sb-item active" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre & Brake</span></a>
+  <div class="sb-sec">ADMIN</div>
+  <a class="sb-item admin-only" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
+  <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
+    <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
+  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
+</nav>
+
+<div class="main">
+  <div class="content">
+    <div class="wrap">
+
+      <div class="page-hd">
+        <div class="page-title">Tyre & Brake Analysis</div>
+        <div class="page-sub">Vehicle-wise replacement count and avg KM — Energy Ride Tyre, Front/Rear Brake Pad</div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <div class="fg">
+          <label>City</label>
+          <select id="f-city">
+            <option value="">All cities</option>
+            <option>Bangalore</option>
+            <option>NCR</option>
+            <option>Hyderabad</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Part</label>
+          <select id="f-part">
+            <option value="">All parts</option>
+            <option>Energy Ride Tyre 110/70-12</option>
+            <option>Front/Rear Tyre 12Inch Zoom</option>
+            <option>Rear Tyre 12Inch</option>
+            <option>Front Tyre 12-Inch</option>
+            <option>Front Brake Pad</option>
+            <option>Rear Brake Pad</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>From</label>
+          <input type="date" id="f-start"/>
+        </div>
+        <div class="fg">
+          <label>To</label>
+          <input type="date" id="f-end"/>
+        </div>
+        <button class="btn-load" onclick="loadData()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Load</button>
+        <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-grid" id="summary-grid">
+        <div class="sum-card"><div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin-bottom:0"></div></div></div>
+      </div>
+
+      <!-- Bike-level table -->
+      <div class="card">
+        <div class="card-hd">
+          <h2>Vehicle-wise Breakdown</h2>
+          <span class="sub" id="tbl-count">—</span>
+        </div>
+        <div class="tbl-wrap">
+          <div id="tbl-body"><div class="loading-state"><div class="spin"></div>Loading data…</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+let _data = [];
+let _sortCol = 'qty_replaced', _sortDir = -1;
+
+function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n).toLocaleString('en-IN'); }
+function fmtD(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
+
+async function rpc(fn, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+async function loadData() {
+  document.getElementById('tbl-body').innerHTML = '<div class="loading-state"><div class="spin"></div>Loading…</div>';
+  document.getElementById('summary-grid').innerHTML = '<div class="sum-card" style="grid-column:1/-1"><div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin:0 auto"></div></div></div>';
+
+  const city  = document.getElementById('f-city').value  || null;
+  const part  = document.getElementById('f-part').value  || null;
+  const start = document.getElementById('f-start').value || null;
+  const end   = document.getElementById('f-end').value   || null;
+
+  const result = await rpc('get_tyre_brake_analysis', {
+    p_city: city, p_part: part, p_start: start, p_end: end
+  });
+
+  _data = result.bike_data || [];
+  renderSummary(result.part_summary || []);
+  renderTable();
+}
+
+function renderSummary(parts) {
+  const colors = {
+    'Energy Ride Tyre 110/70-12': '#2563eb',
+    'Front/Rear Tyre 12Inch Zoom': '#7c3aed',
+    'Rear Tyre 12Inch': '#0891b2',
+    'Front Tyre 12-Inch': '#0891b2',
+    'Front Brake Pad': '#dc2626',
+    'Rear Brake Pad': '#d97706',
+  };
+  if (!parts.length) {
+    document.getElementById('summary-grid').innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">No data</div>';
+    return;
+  }
+  document.getElementById('summary-grid').innerHTML = parts.map(p => `
+    <div class="sum-card">
+      <div class="sum-part">${p.part_group}</div>
+      <div class="sum-val">${(p.unique_bikes||0).toLocaleString('en-IN')}</div>
+      <div class="sum-meta">${(p.total_replacements||0).toLocaleString('en-IN')} replacements · Avg ${fmt(p.avg_km)} km</div>
+      <div class="sum-bar" style="background:${colors[p.part_group]||'var(--red)'}"></div>
+    </div>`).join('');
+}
+
+function renderTable() {
+  if (!_data.length) {
+    document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found for the selected filters.</div>';
+    document.getElementById('tbl-count').textContent = '0 vehicles';
+    return;
+  }
+
+  // Sort
+  const sorted = [..._data].sort((a, b) => {
+    const av = a[_sortCol] ?? 0, bv = b[_sortCol] ?? 0;
+    return typeof av === 'string' ? av.localeCompare(bv) * _sortDir : (av - bv) * _sortDir;
+  });
+
+  const maxKm = Math.max(...sorted.map(r => r.avg_km || 0));
+
+  const arrow = col => `<span class="sort-arrow" onclick="sortBy('${col}')">${_sortCol===col?(_sortDir>0?'↑':'↓'):'↕'}</span>`;
+
+  const cityPill = c => c === 'NCR' ? 'p-ncr' : c === 'Bangalore' ? 'p-blr' : 'p-hyd';
+
+  document.getElementById('tbl-count').textContent = `${sorted.length.toLocaleString('en-IN')} vehicles`;
+  document.getElementById('tbl-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Reg No ${arrow('reg_number')}</th>
+        <th>Chassis</th>
+        <th>City</th>
+        <th>Hub</th>
+        <th>Part</th>
+        <th>Qty Replaced ${arrow('qty_replaced')}</th>
+        <th>Avg KM ${arrow('avg_km')}</th>
+        <th>Min KM</th>
+        <th>Max KM</th>
+        <th>Last Sub Type</th>
+        <th>Last Replaced</th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(r => `<tr>
+          <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
+          <td style="font-family:var(--mono);color:var(--text2);font-size:11px">${r.chassis_number||'—'}</td>
+          <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
+          <td style="color:var(--text2)">${r.hub_name||'—'}</td>
+          <td><span class="tag-part">${r.part_group||'—'}</span></td>
+          <td style="font-weight:700;color:var(--red);text-align:center">${r.qty_replaced||0}</td>
+          <td>
+            <div class="km-bar-wrap">
+              <div class="km-bar" style="width:${maxKm?Math.round((r.avg_km||0)/maxKm*80):0}px"></div>
+              <span style="font-family:var(--mono)">${fmt(r.avg_km)} km</span>
+            </div>
+          </td>
+          <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.min_km)} km</td>
+          <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.max_km)} km</td>
+          <td style="color:var(--text2)">${r.last_sub_type||'—'}</td>
+          <td style="color:var(--muted);font-size:11px">${fmtD(r.last_replaced_date)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function sortBy(col) {
+  if (_sortCol === col) _sortDir *= -1;
+  else { _sortCol = col; _sortDir = -1; }
+  renderTable();
+}
+
+function exportCSV() {
+  if (!_data.length) return;
+  const cols = ['Reg No','Chassis','City','Hub','Part','Qty Replaced','Avg KM','Min KM','Max KM','Last Sub Type','Last Replaced'];
+  const rows = _data.map(r => [
+    r.reg_number, r.chassis_number, r.city, r.hub_name, r.part_group,
+    r.qty_replaced, r.avg_km, r.min_km, r.max_km, r.last_sub_type,
+    r.last_replaced_date ? new Date(r.last_replaced_date).toLocaleDateString('en-IN') : ''
+  ]);
+  const csv = [cols, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `tyre_brake_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function openSidebar()  { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('mobile-open'); document.getElementById('sb-overlay').classList.remove('active'); document.getElementById('sb-hamburger').style.display=''; }
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('sb_collapsed') === '1') document.getElementById('sidebar').classList.add('collapsed');
+  loadData();
+});
+</script>
+</body>
+</html>
