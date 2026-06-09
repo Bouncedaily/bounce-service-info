@@ -99,7 +99,7 @@
       <div class="filter-bar">
         <div class="fg">
           <label>Reg No</label>
-          <input type="text" id="f-reg" placeholder="e.g. KA05AP1234" style="width:140px" oninput="renderTable()"/>
+          <input type="text" id="f-reg" placeholder="e.g. KA05AP1234" style="width:140px" oninput="_page=1;renderTable()"/>
         </div>
         <div class="fg">
           <label>City</label>
@@ -212,6 +212,9 @@ function renderSummary(parts) {
     </div>`).join('');
 }
 
+let _page = 1;
+const PER_PAGE = 100;
+
 function renderTable() {
   if (!_data.length) {
     document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found for the selected filters.</div>';
@@ -219,12 +222,11 @@ function renderTable() {
     return;
   }
 
-  // Sort
   const regFilter = (document.getElementById('f-reg').value || '').toUpperCase().trim();
   const filtered = regFilter ? _data.filter(r => (r.reg_number||'').toUpperCase().includes(regFilter)) : _data;
 
   if (!filtered.length) {
-    document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found for the selected filters.</div>';
+    document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found.</div>';
     document.getElementById('tbl-count').textContent = '0 vehicles';
     return;
   }
@@ -234,11 +236,15 @@ function renderTable() {
     return typeof av === 'string' ? av.localeCompare(bv) * _sortDir : (av - bv) * _sortDir;
   });
 
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
+  _page = Math.min(_page, totalPages);
+  const pageData = sorted.slice((_page-1)*PER_PAGE, _page*PER_PAGE);
+
   const maxKm   = Math.max(...sorted.map(r => r.avg_km     || 0));
   const maxCurr = Math.max(...sorted.map(r => r.current_km || 0));
   const cityPill = c => c==='NCR'?'p-ncr':c==='Bangalore'?'p-blr':'p-hyd';
 
-  document.getElementById('tbl-count').textContent = `${sorted.length.toLocaleString('en-IN')} vehicles`;
+  document.getElementById('tbl-count').textContent = `${sorted.length.toLocaleString('en-IN')} vehicles · Page ${_page} of ${totalPages}`;
   document.getElementById('tbl-body').innerHTML = `
     <table>
       <thead><tr>
@@ -255,7 +261,7 @@ function renderTable() {
         <th>Last Sub Type</th>
         <th>Last Replaced</th>
       </tr></thead>
-      <tbody>${sorted.map(r => `<tr>
+      <tbody>${pageData.map(r => `<tr>
         <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
         <td style="font-family:var(--mono);color:var(--text2);font-size:11px">${r.chassis_number||'—'}</td>
         <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
@@ -270,12 +276,20 @@ function renderTable() {
         <td style="color:var(--text2)">${r.last_sub_type||'—'}</td>
         <td style="color:var(--muted);font-size:11px">${fmtD(r.last_replaced_date)}</td>
       </tr>`).join('')}</tbody>
-    </table>`;
+    </table>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border);font-size:12px">
+      <button onclick="changePage(-1)" ${_page<=1?'disabled':''} style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+      <span style="color:var(--muted)">Page ${_page} of ${totalPages} · ${sorted.length.toLocaleString('en-IN')} rows</span>
+      <button onclick="changePage(1)" ${_page>=totalPages?'disabled':''} style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
+    </div>`;
 }
+
+function changePage(dir) { _page += dir; renderTable(); }
 
 function sortBy(col) {
   if (_sortCol === col) _sortDir *= -1;
   else { _sortCol = col; _sortDir = -1; }
+  _page = 1;
   renderTable();
 }
 
