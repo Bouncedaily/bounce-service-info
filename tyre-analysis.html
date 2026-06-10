@@ -323,7 +323,7 @@ function renderAllRows(rows) {
   document.getElementById('all-body').innerHTML = `
     <table><thead><tr>
       <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th><th>Item Name</th>
-      <th>Last Replaced Part</th><th>KM on Part</th><th>Total Odo</th><th>Date</th><th>Cost</th><th>Sub Type</th><th>DMS Cat</th>
+      <th>Last Replaced Part</th><th>KM on Part</th><th>Total Odo</th><th>Date</th><th>Last Replaced Date</th><th>Sub Type</th><th>DMS Cat</th>
     </tr></thead><tbody>
     ${page.map(r=>`<tr>
       <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
@@ -337,7 +337,7 @@ function renderAllRows(rows) {
       </td>
       <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${fmt(r.curr_odo)} km</td>
       <td style="color:var(--muted);font-size:11px">${fmtD(r.replaced_date)}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(r.cost)}</td>
+      <td style="color:var(--muted);font-size:11px">${fmtD(r.last_replaced_date)}</td>
       <td>${subTag(r.submission_type)}</td>
       <td style="font-size:11px;color:var(--text2)">${r.dms_cat||'—'}</td>
     </tr>`).join('')}
