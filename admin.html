@@ -54,7 +54,7 @@
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=2"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 <nav class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">‹</button>
   <div class="sb-brand">
@@ -66,13 +66,16 @@
   <div class="sb-sec">ANALYTICS</div>
   <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
   <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre &amp; Brake</span></a>
+  <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
+  <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
   <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
   <div class="sb-sec">ADMIN</div>
   <a class="sb-item active" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
     <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
 </nav>
@@ -142,7 +145,7 @@
 
 <script>
 const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const ADMIN = 'nithish@bounceshare.com';
 
 // Get session
@@ -183,7 +186,7 @@ function toggleSidebar() {
 
 async function get(path) {
   const r = await fetch(`${SB}/rest/v1/${path}`, {
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Accept':'application/json'}
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Accept':'application/json'}
   });
   return r.json();
 }
@@ -191,7 +194,7 @@ async function get(path) {
 async function rpc(fn, body) {
   return fetch(`${SB}/rest/v1/rpc/${fn}`, {
     method:'POST',
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
 }
@@ -239,7 +242,7 @@ async function addUser() {
   if (!email||!name) { showMsg(msg,'err','Email and name required.'); return; }
   const r = await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
   if (r.ok) {
-    showMsg(msg,'ok',`✅ ${name} added.`);
+    showToast('✅ ' + name + ' added successfully');
     document.getElementById('new-email').value='';
     document.getElementById('new-name').value='';
     loadUsers();
@@ -249,8 +252,16 @@ async function addUser() {
   }
 }
 
+function showToast(msg, type='ok') {
+  let t = document.getElementById('_toast');
+  if (!t) { t = document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
 async function editUser(email, currentName, currentRole) {
-  // Show inline edit by replacing the row with editable fields
   const row = document.querySelector(`tr[data-email="${email}"]`);
   if (!row) return;
   const nameTd = row.querySelector('.user-name');
@@ -271,19 +282,21 @@ async function saveUser(email) {
   const role = document.getElementById('edit-role')?.value;
   if (!name) return;
   const r = await rpc('add_allowed_user', {user_email:email, user_name:name, user_role:role, added_by_email:sess.email});
-  if (r.ok) loadUsers();
+  if (r.ok) { showToast('✅ User updated'); loadUsers(); }
+  else showToast('❌ Failed to update', 'err');
 }
 
 async function revokeUser(email) {
   if (!confirm(`Revoke access for ${email}?`)) return;
   await rpc('remove_allowed_user',{user_email:email});
+  showToast('⚠️ Access revoked for ' + email, 'err');
   loadUsers();
 }
 
 async function restoreUser(email) {
   await fetch(`${SB}/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}`,{
     method:'PATCH',
-    headers:{'apikey':KEY,'Authorization':`Bearer ${KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify({is_active:true})
   });
   loadUsers();

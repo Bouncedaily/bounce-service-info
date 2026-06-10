@@ -28,7 +28,7 @@ body{display:flex}
 .fg label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
 .fg select,.fg input[type=date]{min-width:130px}
 .divider{width:1px;background:var(--border);align-self:stretch;margin:0 4px}
-.type-btns{display:flex}
+.type-btns{display:flex;flex-shrink:0}
 .type-btn{background:#f0f2f5;border:1px solid var(--border2);color:var(--text2);padding:7px 12px;font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}
 .type-btn:first-child{border-radius:7px 0 0 7px}
 .type-btn:last-child{border-radius:0 7px 7px 0}
@@ -74,8 +74,10 @@ tbody tr:hover{background:#fef2f2}
 tbody tr.total-row{background:#f0f2f5;font-weight:700;border-top:2px solid var(--red)}
 tbody tr.total-row td:first-child{background:#f0f2f5}
 td{padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--text)}
-td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:1;border-right:1px solid var(--border);min-width:95px}
-td:nth-child(2){min-width:55px}
+td:first-child{text-align:left;font-weight:600;background:#fff;position:sticky;left:0;z-index:2;min-width:95px}
+td:nth-child(2){min-width:55px;background:#fff;position:sticky;left:95px;z-index:2;border-right:1px solid var(--border)}
+th:first-child{position:sticky;left:0;z-index:11 !important}
+th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px solid var(--border)}
 .z-rev{background:rgba(22,163,74,.07)}
 .z-cost{background:rgba(59,130,246,.07)}
 .z-excl{background:rgba(168,85,247,.06)}
@@ -113,7 +115,7 @@ td:nth-child(2){min-width:55px}
 <body>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780647172"></script>
+<script src="auth-guard.js?v=1780722254"></script>
 
 
 <div class="sidebar" id="sidebar">
@@ -136,6 +138,8 @@ td:nth-child(2){min-width:55px}
   <a class="sb-item" href="parts-testing.html" data-tip="Parts Testing">
     <i class="ti ti-test-pipe sb-icon" aria-hidden="true" style="font-size:15px;width:18px;text-align:center;flex-shrink:0"></i><span class="sb-label">Parts Testing</span>
   </a>
+  <a class="sb-item" href="tyre-brake.html" data-tip="Tyre &amp; Brake"><i class="ti ti-circle sb-icon" aria-hidden="true" style="font-size:15px;width:18px;text-align:center;flex-shrink:0"></i><span class="sb-label">Tyre &amp; Brake</span></a>
+  <a class="sb-item" href="tyre-analysis.html" data-tip="Tyre Deep Dive"><i class="ti ti-chart-dots sb-icon" aria-hidden="true" style="font-size:15px;width:18px;text-align:center;flex-shrink:0"></i><span class="sb-label">Tyre Deep Dive</span></a>
   <div id="admin-link" style="display:none">
     <div class="sb-sec">Admin</div>
     <a class="sb-item" href="admin.html" data-tip="Admin">
@@ -145,7 +149,7 @@ td:nth-child(2){min-width:55px}
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
     <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f97316;font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot">
     <div><span class="sb-dot"></span><span id="sync-lbl">Loading…</span></div>
@@ -191,7 +195,7 @@ td:nth-child(2){min-width:55px}
   <div class="divider"></div>
   <div class="fg">
     <label>Month</label>
-    <select id="f-month"><option value="all_time">All Time</option></select>
+    <select id="f-month" onchange="load()"><option value="all_time">All Time</option></select>
   </div>
 </div>
 
@@ -275,8 +279,8 @@ td:nth-child(2){min-width:55px}
     </div>
     <div class="pagination">
       <span id="page-info"></span>
-      <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← Prev</button>
-      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next →</button>
+      <button class="page-btn" id="btn-prev" onclick="changePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+      <button class="page-btn" id="btn-next" onclick="changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
     </div>
   </div>
 </div>
@@ -317,7 +321,7 @@ async function load(month) {
   document.getElementById('load-msg').textContent  = 'Loading from Supabase…';
 
   try {
-    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc';
+    const url = SB_URL + '/rest/v1/fleet_km_data?select=' + COLS + '&month=eq.' + encodeURIComponent(month) + '&order=current_odometer.desc.nullslast';
     const res = await fetch(url, { headers: SB_HDR });
     if (!res.ok) throw new Error('Supabase HTTP ' + res.status);
     allData = await res.json();
@@ -349,26 +353,53 @@ async function load(month) {
 // ── SYNC ──
 async function triggerSync() {
   const btn = document.getElementById('sync-btn');
-  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Syncing…';
   const month = document.getElementById('f-month').value || 'all_time';
-  try {
-    // Sync all_time (may timeout on free plan — that's ok, cron handles it)
-    fetch(SYNC_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({months:['all_time']})})
-      .catch(()=>{});
+  let edgeFnOk = false;
 
-    // Wait 3 seconds then copy all_time → current month regardless
-    await new Promise(r => setTimeout(r, 3000));
+  try {
+    // Fire edge function — timeout after 10s (free plan limit is 150s but UI shouldn't wait)
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const r = await fetch(SYNC_FN, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({months:['all_time']}),
+        signal: ctrl.signal
+      });
+      edgeFnOk = r.ok;
+    } catch(fe) {
+      // Timeout or network error — edge fn may still be running in background
+      edgeFnOk = false;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Always copy all_time → current month via RPC (fast, reliable)
     await fetch(`${SB_URL}/rest/v1/rpc/sync_current_month_from_alltime`, {
       method: 'POST',
       headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
       body: '{}'
     });
 
-    btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
-    setTimeout(() => { btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; load(month); }, 1500);
+    if (edgeFnOk) {
+      btn.innerHTML = '<i class="ti ti-check" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Done!';
+    } else {
+      // Edge fn timed out — cron will finish it, but be honest with the user
+      btn.innerHTML = '<i class="ti ti-clock" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Queued';
+      btn.title = 'Sync is running in the background — data will update in a few minutes';
+    }
+    setTimeout(() => {
+      btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now';
+      btn.disabled=false; btn.title='';
+      load(month);
+    }, 2000);
+
   } catch(e) {
     btn.innerHTML='<i class="ti ti-x" style="font-size:12px;vertical-align:-2px;margin-right:3px"></i>Failed';
-    setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; }, 2000);
+    btn.title = e.message;
+    setTimeout(()=>{ btn.innerHTML='<i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Sync Now'; btn.disabled=false; btn.title=''; }, 2000);
   }
 }
 
@@ -407,7 +438,8 @@ function getWarr(r){ return costType==='part'?n(r.warranty_part_cost):costType==
 function getExcl(r){ return Math.max(0,getCost(r)-getWarr(r)); }
 
 // ── FORMAT ──
-const fmt  = v => v==null?'–':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmt  = v => (v == null || isNaN(+v) || +v < 0) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmtZ = v => (!v || isNaN(+v) || +v < 0) ? '–' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
 const fmtK = v => v==null||isNaN(+v)?'–':'₹'+Number(v).toFixed(2);
 const fmtL = v => {
   if(v==null||isNaN(v))return'–'; v=Number(v);
@@ -540,7 +572,7 @@ function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const btn = document.getElementById('sb-toggle');
   sb.classList.toggle('collapsed');
-  btn.textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 // Restore state
@@ -550,7 +582,7 @@ function toggleSidebar() {
   if (state === '1') {
     const sb = document.getElementById('sidebar');
     const btn = document.getElementById('sb-toggle');
-    if (sb) { sb.classList.add('collapsed'); if(btn) btn.textContent = '›'; }
+    if (sb) { sb.classList.add('collapsed');  }
   } else if (state === null) {
     // First visit — ensure expanded, save state
     localStorage.setItem('sb_collapsed', '0');
