@@ -324,7 +324,7 @@ function renderAllRows(rows) {
     <table style="font-size:11px"><thead><tr>
       <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th>
       <th>Item Name</th><th>Last Replaced Part</th>
-      <th>KM on Part</th>
+      <th>KM at Last Repl.</th><th>KM at This Repl.</th><th>KM on Part</th>
       <th>Date</th><th>Last Repl. Date</th>
       <th>Sub Type</th><th>Cat</th>
     </tr></thead><tbody>
@@ -335,6 +335,8 @@ function renderAllRows(rows) {
       <td><span class="tag-part">${r.part_group||'—'}</span></td>
       <td style="color:var(--text2)">${fmtTyre(r.item_name, r.part_group)}</td>
       <td style="color:var(--muted)">${fmtTyre(r.last_replaced_part, r.part_group)}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${r.prev_odo ? fmt(r.prev_odo)+' km' : '—'}</td>
+      <td style="font-family:var(--mono);color:var(--text2)">${r.curr_odo ? fmt(r.curr_odo)+' km' : '—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:${r.km_on_part?(r.km_on_part<5000?'var(--red)':'var(--text)'):'var(--muted)'}">${r.km_on_part?fmt(r.km_on_part)+' km':'—'}</td>
       <td style="color:var(--muted)">${fmtD(r.replaced_date)}</td>
       <td style="color:var(--muted)">${fmtD(r.last_replaced_date)}</td>
@@ -348,11 +350,13 @@ function changePage(dir) { _page += dir; renderAllRows(_result?.all_rows || []);
 
 function exportAll() {
   if (!_result?.all_rows?.length) return;
-  const cols = ['Reg No','City','Hub','Tyre Bucket','Item Name','Last Replaced Part','KM on Part','Date','Last Replaced Date','Sub Type','DMS Cat','JC No'];
+  const cols = ['Reg No','City','Hub','Tyre Bucket','Item Name','Last Replaced Part','KM at Last Repl.','KM at This Repl.','KM on Part','Date','Last Replaced Date','Sub Type','DMS Cat','JC No'];
   const rows = _result.all_rows.map(r=>[
     r.reg_number, r.city, r.hub_name, r.part_group,
     fmtTyre(r.item_name, r.part_group),
     fmtTyre(r.last_replaced_part, r.part_group),
+    r.prev_odo || '',
+    r.curr_odo || '',
     r.km_on_part || '',
     r.replaced_date ? new Date(r.replaced_date).toLocaleDateString('en-IN') : '',
     r.last_replaced_date ? new Date(r.last_replaced_date).toLocaleDateString('en-IN') : '',
