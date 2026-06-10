@@ -88,14 +88,14 @@
       <div class="filter-bar">
         <div class="fg">
           <label>City</label>
-          <select id="f-city">
+          <select id="f-city" onchange="loadData()">
             <option value="">All cities</option>
             <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
           </select>
         </div>
         <div class="fg">
           <label>Tyre Type</label>
-          <select id="f-part">
+          <select id="f-part" onchange="loadData()">
             <option value="">All tyres</option>
             <option>Rear Tyre (Energy Ride / 12Inch)</option>
             <option>Front Tyre (Zoom)</option>
@@ -104,11 +104,11 @@
         </div>
         <div class="fg">
           <label>From</label>
-          <input type="date" id="f-start"/>
+          <input type="date" id="f-start" onchange="loadData()"/>
         </div>
         <div class="fg">
           <label>To</label>
-          <input type="date" id="f-end"/>
+          <input type="date" id="f-end" onchange="loadData()"/>
         </div>
         <button class="btn-load" onclick="loadData()"><i class="ti ti-refresh" style="font-size:12px;margin-right:4px"></i>Load</button>
         <button class="export-btn" onclick="exportAll()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
@@ -324,7 +324,7 @@ function renderAllRows(rows) {
     <table style="font-size:11px"><thead><tr>
       <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th>
       <th>Item Name</th><th>Last Replaced Part</th>
-      <th>KM on Part</th><th>Total Odo</th>
+      <th>KM on Part</th>
       <th>Date</th><th>Last Repl. Date</th>
       <th>Sub Type</th><th>Cat</th>
     </tr></thead><tbody>
@@ -336,7 +336,6 @@ function renderAllRows(rows) {
       <td style="color:var(--text2)">${fmtTyre(r.item_name, r.part_group)}</td>
       <td style="color:var(--muted)">${fmtTyre(r.last_replaced_part, r.part_group)}</td>
       <td style="font-family:var(--mono);font-weight:700;color:${r.km_on_part?(r.km_on_part<5000?'var(--red)':'var(--text)'):'var(--muted)'}">${r.km_on_part?fmt(r.km_on_part)+' km':'—'}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.curr_odo)} km</td>
       <td style="color:var(--muted)">${fmtD(r.replaced_date)}</td>
       <td style="color:var(--muted)">${fmtD(r.last_replaced_date)}</td>
       <td>${subTag(r.submission_type)}</td>
@@ -349,11 +348,15 @@ function changePage(dir) { _page += dir; renderAllRows(_result?.all_rows || []);
 
 function exportAll() {
   if (!_result?.all_rows?.length) return;
-  const cols = ['Reg No','City','Hub','Tyre Bucket','Item Name','Date','Cost','Sub Type','DMS Cat','JC No','Draft JC ID'];
+  const cols = ['Reg No','City','Hub','Tyre Bucket','Item Name','Last Replaced Part','KM on Part','Date','Last Replaced Date','Sub Type','DMS Cat','JC No'];
   const rows = _result.all_rows.map(r=>[
-    r.reg_number, r.city, r.hub_name, r.part_group, r.item_name,
+    r.reg_number, r.city, r.hub_name, r.part_group,
+    fmtTyre(r.item_name, r.part_group),
+    fmtTyre(r.last_replaced_part, r.part_group),
+    r.km_on_part || '',
     r.replaced_date ? new Date(r.replaced_date).toLocaleDateString('en-IN') : '',
-    r.cost, r.submission_type, r.dms_cat, r.dms_jc_no, r.draft_jc_id
+    r.last_replaced_date ? new Date(r.last_replaced_date).toLocaleDateString('en-IN') : '',
+    r.submission_type, r.dms_cat, r.dms_jc_no
   ]);
   const csv = [cols,...rows].map(r=>r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
