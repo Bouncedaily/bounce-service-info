@@ -207,6 +207,7 @@ tr:hover td { background: var(--bg); }
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('test-oem')">Test vs OEM</button>
     <button class="tab-btn" onclick="switchTab('oem-perf')">OEM Parts Performance</button>
+    <button class="tab-btn" onclick="switchTab('beading')">Beading Analysis</button>
   </div>
 
   <div class="content">
@@ -405,6 +406,34 @@ tr:hover td { background: var(--bg); }
     </div>
 
     </div><!-- /tab-pane oem-perf -->
+
+    <!-- TAB: BEADING ANALYSIS -->
+    <div class="tab-pane" id="tab-beading">
+      <div class="section-title" style="margin-bottom:12px">Beading Analysis — Test vs OEM</div>
+      <div id="beading-summary-body"><div class="loading"><div class="spin"></div> Loading…</div></div>
+      <div class="section-title" style="margin:20px 0 12px">Raw Data — Beading Bikes</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <div class="fg"><label>City</label><select id="b-city" onchange="renderBeadingRaw()">
+          <option value="">All</option>
+          <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
+        </select></div>
+        <div class="fg"><label>Status</label><select id="b-status" onchange="renderBeadingRaw()">
+          <option value="">All</option>
+          <option value="Active">Active</option>
+          <option value="panel">Has Panel Replacements</option>
+        </select></div>
+        <div class="fg"><label>Sort</label><select id="b-sort" onchange="renderBeadingRaw()">
+          <option value="repls_desc">Replacements ↓</option>
+          <option value="km_desc">KM on Beading ↓</option>
+          <option value="km_asc">KM on Beading ↑</option>
+        </select></div>
+        <input type="text" id="b-search" placeholder="Search reg no…" oninput="renderBeadingRaw()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);width:160px">
+        <span style="font-size:12px;color:var(--text2)" id="b-count">—</span>
+      </div>
+      <div class="table-scroll"><div id="beading-raw-body"><div class="loading"><div class="spin"></div> Loading…</div></div></div>
+    </div><!-- /tab-pane beading -->
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -683,6 +712,70 @@ function renderSummary() {
     </tr>`;
   });
 
+  // ── Beading row ──
+  if (window._beadingSummary) {
+    const bs = window._beadingSummary;
+    const tAvgAll  = bs.avg_km_on_beading || 0;
+    const oAvgAll  = 0; // no global OEM avg_km for beading (per-pair)
+    const tReplAvg = bs.avg_km_first_repl || 0;
+    const oReplAvg = bs.oem_avg_km_first_repl || 0;
+    const maxB = Math.max(tAvgAll, tReplAvg, oReplAvg, 1);
+    let bVerdict = '';
+    if (!tReplAvg || !oReplAvg) {
+      bVerdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
+    } else if (tReplAvg >= oReplAvg * 1.05) {
+      const pct = Math.round((tReplAvg/oReplAvg-1)*100);
+      bVerdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
+    } else if (tReplAvg <= oReplAvg * 0.95) {
+      const pct = Math.round((1-tReplAvg/oReplAvg)*100);
+      bVerdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
+    } else {
+      bVerdict = `<span class="pill p-blue">≈ Similar</span>`;
+    }
+    const tBarW = Math.round(tAvgAll/maxB*100);
+    const tReplBarW = Math.round(tReplAvg/maxB*100);
+    const oReplBarW = Math.round(oReplAvg/maxB*100);
+    html += `<tr style="border-top:2px solid var(--border)">
+      <td style="font-weight:600">Beading</td>
+      <td><span class="pill p-gray" style="font-size:10px">—</span></td>
+      <td>${bs.total_beading_bikes}</td>
+      <td>${bs.bikes_with_repl}</td>
+      <td>—</td>
+      <td>${bs.total_beading_bikes}</td>
+      <td>${bs.oem_bikes_with_repl}</td>
+      <td>—</td>
+      <td class="km-cell">
+        <div class="km-bars">
+          <div class="km-bar-row">
+            <span class="lbl">Test</span>
+            <div class="bar"><div style="width:${tBarW}%;background:var(--red)"></div></div>
+            <span class="val">${tAvgAll ? fmt(tAvgAll)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl">OEM</span>
+            <div class="bar"><div style="width:0%;background:var(--muted)"></div></div>
+            <span class="val">—</span>
+          </div>
+        </div>
+      </td>
+      <td class="km-cell">
+        <div class="km-bars">
+          <div class="km-bar-row">
+            <span class="lbl">Test</span>
+            <div class="bar"><div style="width:${tReplBarW}%;background:var(--red)"></div></div>
+            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
+          </div>
+          <div class="km-bar-row">
+            <span class="lbl">OEM</span>
+            <div class="bar"><div style="width:${oReplBarW}%;background:var(--muted)"></div></div>
+            <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
+          </div>
+        </div>
+      </td>
+      <td>${bVerdict}</td>
+    </tr>`;
+  }
+
   html += '</tbody></table>';
   document.getElementById('summary-body').innerHTML = html;
 }
@@ -838,13 +931,16 @@ loadAll();
 
 // ── Tab switching ──
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['test-oem','oem-perf'][i] === tab));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['test-oem','oem-perf','beading'][i] === tab));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-'+tab));
   if (tab === 'oem-perf' && !window._oemPerfLoaded) {
     window._oemPerfLoaded = true;
     renderOemPerf();
   }
-  // Issue 15: reset scroll on tab switch
+  if (tab === 'beading' && !window._beadingLoaded) {
+    window._beadingLoaded = true;
+    loadBeading();
+  }
   document.querySelector('.content')?.scrollTo(0, 0);
   window.scrollTo(0, 0);
   location.hash = tab;
@@ -854,6 +950,7 @@ function switchTab(tab) {
 function restoreTab() {
   const hash = location.hash.replace('#','');
   if (hash === 'oem-perf') switchTab('oem-perf');
+  if (hash === 'beading') switchTab('beading');
 }
 
 // ── OEM Parts Performance ──
@@ -1193,6 +1290,156 @@ function renderOemPagination(total, pages) {
       if (adminLink) adminLink.style.display = 'block';
     }
   });
+
+// ── BEADING ANALYSIS ──────────────────────────────────────────
+let _beadingRaw = [];
+
+async function loadBeading() {
+  document.getElementById('beading-summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
+  document.getElementById('beading-raw-body').innerHTML     = '<div class="loading"><div class="spin"></div> Loading…</div>';
+  try {
+    const res = await sbRpc('get_beading_analysis', {});
+    const data = res?.[0]?.get_beading_analysis || res;
+    const summary = data.summary || {};
+    const raw     = data.raw     || [];
+    _beadingRaw = raw;
+    window._beadingSummary = summary;
+
+    // Render summary KPI cards
+    const cards = [
+      { label:'Beading Bikes',        val: summary.total_beading_bikes },
+      { label:'Panels Replaced',      val: summary.bikes_with_repl + ' bikes / ' + summary.total_panel_repls + ' parts' },
+      { label:'No Replacement',       val: summary.bikes_no_repl },
+      { label:'Avg KM on Beading',    val: fmt(summary.avg_km_on_beading) + ' km' },
+      { label:'Test: Avg KM to 1st Repl', val: summary.avg_km_first_repl ? fmt(summary.avg_km_first_repl) + ' km' : '—' },
+      { label:'OEM: Avg KM to 1st Repl', val: summary.oem_avg_km_first_repl ? fmt(summary.oem_avg_km_first_repl) + ' km' : '—' },
+    ];
+    let kpiHtml = '<div class="kpi-grid" style="margin-bottom:16px">';
+    cards.forEach(c => {
+      kpiHtml += `<div class="kpi-card"><div class="kpi-val">${c.val ?? '—'}</div><div class="kpi-label">${c.label}</div></div>`;
+    });
+    kpiHtml += '</div>';
+
+    // Verdict banner
+    const tAvg = summary.avg_km_first_repl || 0;
+    const oAvg = summary.oem_avg_km_first_repl || 0;
+    let verdict = '';
+    if (tAvg && oAvg) {
+      if (tAvg >= oAvg * 1.05) {
+        const pct = Math.round((tAvg/oAvg-1)*100);
+        verdict = `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:var(--green);font-size:13px;font-weight:600">✅ Beading is helping — panels last ${pct}% longer before first replacement (${fmt(tAvg)} km vs ${fmt(oAvg)} km)</div>`;
+      } else if (tAvg <= oAvg * 0.95) {
+        const pct = Math.round((1-tAvg/oAvg)*100);
+        verdict = `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:var(--red);font-size:13px;font-weight:600">⚠️ Beading bikes replacing panels ${pct}% sooner (${fmt(tAvg)} km vs OEM ${fmt(oAvg)} km)</div>`;
+      } else {
+        verdict = `<div style="background:rgba(99,102,241,.1);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:var(--accent);font-size:13px;font-weight:600">≈ Similar panel replacement rate between beading and non-beading bikes</div>`;
+      }
+    }
+
+    document.getElementById('beading-summary-body').innerHTML = kpiHtml + verdict;
+
+    // Also re-render the Part Category Summary to include beading row
+    renderSummary();
+
+    renderBeadingRaw();
+  } catch(e) {
+    document.getElementById('beading-summary-body').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+    document.getElementById('beading-raw-body').innerHTML = '';
+  }
+}
+
+function renderBeadingRaw() {
+  const city   = document.getElementById('b-city')?.value  || '';
+  const status = document.getElementById('b-status')?.value || '';
+  const sort   = document.getElementById('b-sort')?.value   || 'repls_desc';
+  const search = (document.getElementById('b-search')?.value || '').toLowerCase();
+
+  let rows = _beadingRaw.filter(r => {
+    if (city   && r.city !== city) return false;
+    if (status === 'Active' && r.total_replacements > 0) return false;
+    if (status === 'panel'  && r.total_replacements === 0) return false;
+    if (search && !r.reg_number?.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  rows.sort((a,b) => {
+    if (sort === 'repls_desc') return b.total_replacements - a.total_replacements;
+    if (sort === 'km_desc')    return (b.km_on_beading||0) - (a.km_on_beading||0);
+    if (sort === 'km_asc')     return (a.km_on_beading||0) - (b.km_on_beading||0);
+    return 0;
+  });
+
+  document.getElementById('b-count').textContent = rows.length + ' bikes';
+
+  if (!rows.length) {
+    document.getElementById('beading-raw-body').innerHTML = '<div class="loading">No records match.</div>';
+    return;
+  }
+
+  let html = `<table>
+    <thead><tr>
+      <th>Reg No</th>
+      <th>City</th>
+      <th>Hub</th>
+      <th>Fitted Date</th>
+      <th>KM at Fitment</th>
+      <th>Current KM</th>
+      <th>KM on Beading</th>
+      <th>Panel Parts Replaced</th>
+      <th>Panel JCs</th>
+      <th>Replacements</th>
+      <th>KM at 1st Repl.</th>
+      <th>Status</th>
+      <th>OEM Bike</th>
+      <th>OEM Repls.</th>
+      <th>OEM Parts Replaced</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const hasRepl = r.total_replacements > 0;
+    const statusText = r.total_replacements === 0 ? 'Active'
+      : r.total_replacements === 1 ? '1 Panel Replaced'
+      : r.total_replacements + ' Panels Replaced';
+    const stPill = hasRepl
+      ? `<span style="background:rgba(239,68,68,.12);color:#f87171;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${statusText}</span>`
+      : `<span class="st-active">Active</span>`;
+    const kmColor = (r.km_on_beading||0) > 5000 ? 'var(--green)' : 'var(--text)';
+    const firstRepl = r.km_at_first_repl != null && r.km_at_first_repl >= 0
+      ? fmt(r.km_at_first_repl) + ' km' : '—';
+
+    html += `<tr>
+      <td style="font-weight:600;font-family:var(--mono);font-size:11px">${r.reg_number||'—'}</td>
+      <td>${r.city||'—'}</td>
+      <td>${r.hub_name||'—'}</td>
+      <td>${fmtDate(r.beading_date)}</td>
+      <td style="font-family:var(--mono)">${r.km_at_fitment ? fmt(r.km_at_fitment) : '0'}</td>
+      <td style="font-family:var(--mono)">${r.current_odo ? fmt(r.current_odo) : '—'}</td>
+      <td style="font-weight:600;font-family:var(--mono);color:${kmColor}">${r.km_on_beading ? fmt(r.km_on_beading) : '0'}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:220px">${r.parts_replaced || '—'}</td>
+      <td style="font-family:var(--mono);text-align:center">${r.total_jcs || '—'}</td>
+      <td style="font-family:var(--mono);text-align:center;font-weight:600;color:${hasRepl?'var(--red)':'var(--text2)'}">${r.total_replacements || '—'}</td>
+      <td style="font-family:var(--mono)">${firstRepl}</td>
+      <td>${stPill}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${r.oem_reg||'—'}</td>
+      <td style="font-family:var(--mono);text-align:center;color:${(r.oem_replacements||0)>0?'var(--amber)':'var(--text2)'}">${r.oem_replacements||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:200px">${r.oem_parts_replaced||'—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('beading-raw-body').innerHTML = html;
+}
+
+async function sbRpc(fn, params) {
+  const r = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: { ...HEADS, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 </script>
 </body>
 </html>
