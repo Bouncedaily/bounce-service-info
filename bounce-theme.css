@@ -44,6 +44,12 @@
 
   /* Sidebar width */
   --sw: 210px;
+
+  /* Aliases — fix undefined vars used across pages */
+  --accent:       var(--red);
+  --text-muted:   var(--muted);
+  --muted2:       var(--muted);
+  --bounce-border: var(--border2);
 }
 
 /* ── BASE ── */
@@ -303,3 +309,78 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
   .topbar { padding-left: 52px !important; }
   .wrap, .admin-wrap { padding: 12px !important; }
 }
+
+/* ── ISSUE 1+2: Sidebar toggle — bigger, consistent, flips icon ── */
+.sb-toggle {
+  width: 32px !important; height: 32px !important;
+  right: -16px !important;
+  border-radius: 50% !important;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.sb-toggle i { transition: transform .22s; }
+.sidebar.collapsed .sb-toggle i { transform: rotate(180deg); }
+
+/* ── ISSUE 3: Loading spinner on month change ── */
+.content-loading { 
+  position: absolute; inset: 0; background: rgba(var(--bg-rgb, 15,23,42),.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10; border-radius: 8px;
+}
+
+/* ── ISSUE 4: Remove checking session flash ── */
+#spin { display: none !important; }
+
+/* ── ISSUE 5: Filter bar — no wrap, horizontal scroll ── */
+.filter-bar { flex-wrap: nowrap !important; overflow-x: auto; gap: 8px 12px; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-bar .type-group { flex-shrink: 0; }
+
+/* ── ISSUE 7: KPI grid extra breakpoints ── */
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+@media (max-width: 600px) { .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+
+/* ── ISSUE 11: Sync button disabled state ── */
+.sync-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── ISSUE 13: Pagination Tabler icons ── */
+.pg-prev::before { font-family: 'tabler-icons'; content: '\eac9'; }
+.pg-next::before { font-family: 'tabler-icons'; content: '\eaca'; }
+
+/* ── ISSUE 15: Tab switch scroll reset ── */
+.tab-pane { scroll-behavior: auto; }
+
+/* ── ISSUE 19: Active status pills consistent ── */
+.pill-active { background: #052e16; color: #4ade80; }
+.pill-inactive { background: #1c1917; color: #78716c; }
+
+/* ── ISSUE 20: Toast notification ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 20px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  z-index: 9999; opacity: 0;
+  transition: opacity .3s, transform .3s;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.ok { background: #052e16; border: 1px solid #16a34a; color: #4ade80; }
+.toast.err { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; }
+
+/* ── CANONICAL KPI CARD (shared across all pages) ── */
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: box-shadow .15s, transform .15s;
+}
+.kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-2px); }
+.kpi-card .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.kpi-card .kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.kpi-card .kpi-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.kpi-card .kpi-val { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 4px; line-height: 1; }
+.kpi-card .kpi-sub { font-size: 11px; color: var(--muted); }
+.kpi-card .kpi-bar { height: 3px; border-radius: 2px; margin-top: 10px; }
