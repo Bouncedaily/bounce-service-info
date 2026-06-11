@@ -1300,25 +1300,50 @@ async function loadBeading() {
   try {
     const res = await sbRpc('get_beading_analysis', {});
     const data = res?.[0]?.get_beading_analysis || res;
-    const summary = data.summary || {};
-    const raw     = data.raw     || [];
+    const summary       = data.summary        || {};
+    const cityBreakdown = data.city_breakdown  || [];
+    const raw           = data.raw            || [];
     _beadingRaw = raw;
     window._beadingSummary = summary;
 
     // Render summary KPI cards
     const cards = [
-      { label:'Beading Bikes',        val: summary.total_beading_bikes },
-      { label:'Panels Replaced',      val: summary.bikes_with_repl + ' bikes / ' + summary.total_panel_repls + ' parts' },
-      { label:'No Replacement',       val: summary.bikes_no_repl },
-      { label:'Avg KM on Beading',    val: fmt(summary.avg_km_on_beading) + ' km' },
-      { label:'Test: Avg KM to 1st Repl', val: summary.avg_km_first_repl ? fmt(summary.avg_km_first_repl) + ' km' : '—' },
-      { label:'OEM: Avg KM to 1st Repl', val: summary.oem_avg_km_first_repl ? fmt(summary.oem_avg_km_first_repl) + ' km' : '—' },
+      { label:'Beading Bikes',             val: summary.total_beading_bikes },
+      { label:'Panels Replaced',           val: summary.bikes_with_repl + ' bikes / ' + summary.total_panel_repls + ' parts' },
+      { label:'No Replacement',            val: summary.bikes_no_repl },
+      { label:'Avg KM on Beading',         val: fmt(summary.avg_km_on_beading) + ' km' },
+      { label:'Test: Avg KM to 1st Repl',  val: summary.avg_km_first_repl ? fmt(summary.avg_km_first_repl) + ' km' : '—' },
+      { label:'OEM: Avg KM to 1st Repl',   val: summary.oem_avg_km_first_repl ? fmt(summary.oem_avg_km_first_repl) + ' km' : '—' },
     ];
     let kpiHtml = '<div class="kpi-grid" style="margin-bottom:16px">';
     cards.forEach(c => {
       kpiHtml += `<div class="kpi-card"><div class="kpi-val">${c.val ?? '—'}</div><div class="kpi-label">${c.label}</div></div>`;
     });
     kpiHtml += '</div>';
+
+    // City breakdown table
+    let cityHtml = `<div style="margin-bottom:20px">
+      <div class="section-title" style="margin-bottom:10px;font-size:13px">City Summary</div>
+      <table style="width:auto;min-width:600px">
+        <thead><tr>
+          <th>City</th>
+          <th>Beading Installed</th>
+          <th>Avg KM Since Install</th>
+          <th>Avg Panel Cost Post Install (if any)</th>
+          <th>Avg Panel Cost Per Vehicle (without beading)</th>
+        </tr></thead><tbody>`;
+    cityBreakdown.forEach(row => {
+      const isTotal = row.city === 'Total';
+      const style = isTotal ? 'style="font-weight:700;border-top:2px solid var(--border)"' : '';
+      cityHtml += `<tr ${style}>
+        <td style="font-weight:600">${row.city}</td>
+        <td style="font-family:var(--mono);text-align:center">${row.installed_count}</td>
+        <td style="font-family:var(--mono)">${row.avg_km_since_install ? fmt(row.avg_km_since_install) + ' km' : '—'}</td>
+        <td style="font-family:var(--mono)">₹${row.avg_panel_cost_with_repl ?? '—'}</td>
+        <td style="font-family:var(--mono)">₹${row.avg_panel_cost_oem_per_vehicle ?? '—'}</td>
+      </tr>`;
+    });
+    cityHtml += '</tbody></table></div>';
 
     // Verdict banner
     const tAvg = summary.avg_km_first_repl || 0;
@@ -1336,7 +1361,7 @@ async function loadBeading() {
       }
     }
 
-    document.getElementById('beading-summary-body').innerHTML = kpiHtml + verdict;
+    document.getElementById('beading-summary-body').innerHTML = kpiHtml + verdict + cityHtml;
 
     // Also re-render the Part Category Summary to include beading row
     renderSummary();
