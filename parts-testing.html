@@ -301,11 +301,7 @@ tr:hover td { background: var(--bg); }
           <option value="Plant">Plant</option>
           <option value="Service Team">Service Team</option>
         </select></div>
-        <div class="fg"><label>Type</label><select id="f-type" onchange="applyFilters()">
-          <option value="Test" selected>Test only</option>
-          <option value="">Test + OEM</option>
-          <option value="OEM">OEM only</option>
-        </select></div>
+        
         <div class="fg"><label>Sort</label><select id="f-sort" onchange="applyFilters()">
           <option value="km_desc">KM on part ↓</option>
           <option value="km_asc">KM on part ↑</option>
@@ -517,17 +513,16 @@ function applyFilters() {
   const part     = document.getElementById('f-part').value;
   const vendor   = document.getElementById('f-vendor').value;
   const status   = document.getElementById('f-status').value;
-  const type     = document.getElementById('f-type').value;
   const fittedBy = document.getElementById('f-fitted-by').value;
   const search   = document.getElementById('search').value.toLowerCase();
   const sort     = document.getElementById('f-sort').value;
 
   filtered = allRows.filter(r => {
+    if (r.type !== 'Test') return false;  // always Test only in raw data
     if (city     && r.city !== city) return false;
     if (part     && r.part_category !== part) return false;
     if (vendor   && r.vendor !== vendor) return false;
     if (status   && r.status !== status) return false;
-    if (type     && r.type !== type) return false;
     if (fittedBy && r.fitted_by !== fittedBy) return false;
     if (search && !r.reg_number.toLowerCase().includes(search) && !r.chassis_number.toLowerCase().includes(search)) return false;
     return true;
