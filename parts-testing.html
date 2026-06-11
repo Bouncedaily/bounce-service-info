@@ -605,7 +605,7 @@ function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
 
 function renderSummary() {
-  const cats = ['Kit Side stand','Rr suspension','Handle lock','Rear Tyre 110/70/12','Rear Suspension','Cone Set','Front brake pad','Rear brake pad','B2B - Throttle Assembly','USB - Charger','Star Throttle'];
+  const cats = [...new Set(allRows.filter(r => r.type === 'Test').map(r => r.part_category))].sort();
   const test = allRows.filter(r => r.type === 'Test');
   const oem  = allRows.filter(r => r.type === 'OEM');
 
@@ -961,7 +961,7 @@ async function renderOemPerf() {
   try {
     const [summary, raw] = await Promise.all([
       sbFetch('oem_parts_perf_cache?select=*'),
-      sbFetch('oem_parts_perf_raw?select=*&status=eq.Replaced&order=deployed_year.desc,km_on_part.desc.nullslast&limit=15000')
+      sbFetch('oem_parts_perf_raw?select=*,current_odo&status=eq.Replaced&order=deployed_year.desc,km_on_part.desc.nullslast&limit=15000')
     ]);
 
     window._oemSummaryAll = summary;
@@ -981,7 +981,7 @@ function mapRawRow(r) {
     odoFit: r.odo_at_fitment, odoRepl: r.odo_at_replacement, kmOnPart: r.km_on_part,
     dateFit: r.date_at_fitment, dateRepl: r.date_at_replacement,
     submType: r.submission_type, status: r.status, deployedYear: r.deployed_year,
-    intervalNo: r.interval_no
+    intervalNo: r.interval_no, currentOdo: r.current_odo
   };
 }
 
@@ -995,7 +995,7 @@ async function fetchRunningForPart(partGroup) {
   window[key] = true;
   try {
     const encoded = encodeURIComponent(partGroup);
-    let url = `oem_parts_perf_raw?select=*&part_group=eq.${encoded}&status=neq.Replaced&order=km_on_part.desc.nullslast&limit=5000`;
+    let url = `oem_parts_perf_raw?select=*,current_odo&part_group=eq.${encoded}&status=neq.Replaced&order=km_on_part.desc.nullslast&limit=5000`;
     if (city) url += `&city=eq.${encodeURIComponent(city)}`;
     if (year) url += `&deployed_year=eq.${encodeURIComponent(year)}`;
     const running = await sbFetch(url);
@@ -1206,7 +1206,7 @@ function _renderOemRawTable(resetPage) {
     <thead><tr>
       <th>Reg No</th><th>Chassis</th><th>Part</th><th>City</th><th>Hub</th>
       <th>JC No</th><th>Odo Fitment</th><th>Odo Replacement</th>
-      <th>KM on part</th><th>Date Fitted</th><th>Date Replaced</th>
+      <th>KM on part</th><th>Current KM</th><th>Date Fitted</th><th>Date Replaced</th>
       <th>Submission</th><th>DMS Cat</th><th>Status</th>
     </tr></thead><tbody>`;
 
@@ -1221,6 +1221,7 @@ function _renderOemRawTable(resetPage) {
       <td>${r.odoFit ? fmt(r.odoFit)+' km' : '—'}</td>
       <td>${r.odoRepl ? fmt(r.odoRepl)+' km' : '—'}</td>
       <td>${r.kmOnPart ? fmt(r.kmOnPart)+' km' : '—'}</td>
+      <td style="color:var(--text2)">${r.currentOdo ? fmt(r.currentOdo)+' km' : '—'}</td>
       <td>${r.dateFit||'—'}</td>
       <td>${r.dateRepl||'—'}</td>
       <td>${r.submType||'—'}</td>
