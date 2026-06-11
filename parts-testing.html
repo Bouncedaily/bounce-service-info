@@ -876,11 +876,12 @@ function goPage(p) {
 
 // ─── EXPORT CSV ──────────────────────────────────────────────
 function exportCSV() {
-  const cols = ['Type','Reg Number','Chassis','Part Category','Part Name','Vendor','City','Hub','Fitted Date','KM at Fitment','Replacement Date','KM at Replacement','KM on Part','Status'];
+  const cols = ['Reg Number','Chassis','Part Category','Vendor','City','Fitted By','Fitted Date','KM at Fitment','Current KM','KM on Part','Replacement Date','KM at Replacement','Status'];
   const rows = filtered.map(r => [
-    r.type, r.reg_number, r.chassis_number, r.part_category, r.part_name,
-    r.vendor, r.city, r.hub, r.fitted_date, r.km_at_fitment,
-    r.replacement_date||'', r.km_at_replacement||'', r.km_on_part, r.status
+    r.reg_number, r.chassis_number, r.part_category,
+    r.vendor, r.city, r.fitted_by||'', r.fitted_date, r.km_at_fitment,
+    r.current_odo||'', r.km_on_part,
+    r.replacement_date||'', r.km_at_replacement||'', r.status
   ]);
   const csv = [cols, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
@@ -892,10 +893,11 @@ function exportCSV() {
 function exportOemCSV() {
   const rows = window._oemRawRows || [];
   if (!rows.length) return;
-  const cols = ['Part','Reg No','Chassis','City','Hub','JC No','ODO Fitment','ODO Replacement','KM on Part','Date Fitted','Date Replaced','Submission','DMS Cat','Status','Deployed Year'];
+  const cols = ['Part','Reg No','Chassis','City','Hub','JC No','ODO Fitment','ODO Replacement','KM on Part','Current KM','Date Fitted','Date Replaced','Submission','DMS Cat','Status','Deployed Year'];
   const data = rows.map(r => [
     r.part, r.reg, r.chassis, r.city, r.hub, r.jcNo||'',
     r.odoFit||'', r.odoRepl||'', r.kmOnPart||'',
+    r.currentOdo||'',
     r.dateFit||'', r.dateRepl||'', r.submType||'', r.dmsCat||'',
     r.status?.startsWith('Running') ? 'Running' : r.intervalNo===1 ? 'OEM Repl' : 'SPD Repl',
     r.deployedYear||''
