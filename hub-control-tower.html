@@ -125,7 +125,8 @@
 
     /* runway */
     .runway-section { margin-top: 16px; }
-    .runway-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; }
+    .runway-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .runway-card { flex: 1 1 160px; max-width: 200px; }
     .runway-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 14px 16px;
@@ -140,7 +141,7 @@
     .runway-good  .rbar { background: #22c55e; }
     .runway-warn  .rbar { background: #f59e0b; }
     .runway-crit  .rbar { background: #ef4444; }
-    .runway-synced { font-size: 10px; color: var(--muted); margin-top: 10px; text-align: right; }
+    .runway-synced { display: none; }
 
     /* inflow breakdown */
     .inflow-section { margin-bottom: 20px; }
