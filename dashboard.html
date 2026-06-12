@@ -690,14 +690,12 @@ load();
   document.querySelectorAll('.sb-item').forEach(el => {
     el.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); });
   });
-  document.addEventListener('DOMContentLoaded', () => {
   const emailEl = document.getElementById('sb-user-email');
   if (emailEl) emailEl.textContent = authGetEmail();
   if (typeof authIsAdmin === 'function' && authIsAdmin()) {
     const adminLink = document.getElementById('admin-link');
     if (adminLink) adminLink.style.display = 'block';
   }
-});
 </script>
 </body>
 </html>
