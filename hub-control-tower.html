@@ -37,7 +37,7 @@
     .btn-refresh:hover { color: var(--text); border-color: var(--text); }
 
     /* ── KPI grid ── */
-    .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 20px; }
     @media(max-width:1100px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
     @media(max-width:640px)  { .kpi-row { grid-template-columns: repeat(2,1fr); } }
 
@@ -282,7 +282,7 @@ async function fetchAll() {
     const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
-    const [fleet, closed, techs, inflow, outflow, runway] = await Promise.all([
+    const [fleet, closed, techs, inflow, outflow, rfdStock, runway] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS'),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
@@ -293,6 +293,8 @@ async function fetchAll() {
         'select=submission_type,hub_name&hub_name=eq.' + hub).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'outflow_today',
         'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => []),
+      sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
+        'select=status&hub_name=eq.' + hub + '&status=eq.RFD').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'runway',
         'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => [])
     ]);
@@ -323,7 +325,7 @@ async function fetchAll() {
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
-    render({ hub: currentHub, total: fleet.length, ages, closedCount, techs: techs.length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat, runway });
+    render({ hub: currentHub, total: fleet.length, ages, closedCount, techs: techs.length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat, runway, rfdStock: rfdStock.length });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -441,6 +443,12 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
         <div class="kl">Avg TAT today</div>
         <div class="kv">${d.avgTat !== null ? d.avgTat : '—'}<span style="font-size:14px;font-weight:400;color:var(--muted)">${d.avgTat !== null ? ' d' : ''}</span></div>
         <div class="ks">OOS → RFD calendar days</div>
+        <div class="kbar"></div>
+      </div>
+      <div class="kpi">
+        <div class="kl">RFD vehicles available</div>
+        <div class="kv">${d.rfdStock}</div>
+        <div class="ks">Ready for deployment now</div>
         <div class="kbar"></div>
       </div>
     </div>
