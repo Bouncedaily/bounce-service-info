@@ -202,9 +202,7 @@ const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const SF_URL   = 'https://jpypnrrjiagscqrucslw.supabase.co';
 const SF_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweXBucnJqaWFnc2NxcnVjc2x3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDU2NDAsImV4cCI6MjA5NDkyMTY0MH0.fesCaEsgS7r4Z6mV5S1-z54etaGNPpYlISdjjcnLfzM';
 
-const PROXY      = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/metabase-proxy';
-const MB_INFLOW  = PROXY + '?card_id=f8e7b9a4-f804-4432-8680-4194c57d1c70';
-const MB_OUTFLOW = PROXY + '?card_id=c3600938-37d7-466e-abc2-4b38237972ee';
+
 
 let currentHub = '', refreshTimer = null, countdownSec = 300;
 
@@ -232,11 +230,7 @@ async function sbGet(base, key, table, qs) {
   return r.json();
 }
 
-async function mbGet(url) {
-  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
-  if (!r.ok) throw new Error('metabase-proxy ' + r.status);
-  return r.json();
-}
+
 
 async function fetchAll() {
   if (!currentHub) return;
@@ -257,8 +251,10 @@ async function fetchAll() {
         'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59'),
       sbGet(SF_URL, SF_KEY, 'attendance',
         'select=status&hub_name=eq.' + hub + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)'),
-      mbGet(MB_INFLOW).catch(() => []),
-      mbGet(MB_OUTFLOW).catch(() => [])
+      sbGet(INFO_URL, INFO_KEY, 'inflow_today',
+        'select=submission_type,hub_name&hub_name=eq.' + hub).catch(() => []),
+      sbGet(INFO_URL, INFO_KEY, 'outflow_today',
+        'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => [])
     ]);
 
     // Aging
@@ -269,19 +265,14 @@ async function fetchAll() {
     // Jobs closed — unique draft_jc_id
     const closedCount = new Set(closed.map(r => r.draft_jc_id).filter(Boolean)).size;
 
-    // Running repair today — filter by hub_name, submission_type, oos_date = today
+    // Running repair today — already filtered by hub in query
     const hubLower = currentHub.toLowerCase();
     const rrCount = inflow.filter(r =>
-      (r.hub_name || '').toLowerCase() === hubLower &&
-      (r.submission_type || '').toLowerCase().includes('running repair') &&
-      (r.oos_date || '').slice(0,10) === today
+      (r.submission_type || '').toLowerCase().includes('running repair')
     ).length;
 
-    // Outflow — filter by hub_name + repaired_datetime = today
-    const hubOutflow = outflow.filter(r =>
-      (r.hub_name || '').toLowerCase() === hubLower &&
-      (r.repaired_datetime || '').slice(0,10) === today
-    );
+    // Outflow — already filtered by hub in query
+    const hubOutflow = outflow;
     const oosRfd = hubOutflow.filter(r => (r.submission_type || '').toUpperCase() === 'OOS').length;
     const pdiRfd = hubOutflow.filter(r => (r.submission_type || '').toUpperCase() === 'PDI').length;
     const totalRfd = hubOutflow.length;
