@@ -170,7 +170,7 @@
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">&#9776;</button>
 <nav class="sidebar" id="sidebar">
-  <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
+  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left" id="sb-arrow"></i></button>
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
     <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
@@ -546,6 +546,33 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
     </div>
   `;
 }
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sb-overlay').classList.add('active');
+  document.getElementById('sb-hamburger').style.display = 'none';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sb-overlay').classList.remove('active');
+  document.getElementById('sb-hamburger').style.display = '';
+}
+function toggleSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const arr = document.getElementById('sb-arrow');
+  sb.classList.toggle('collapsed');
+  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
+  localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
+}
+// Restore sidebar state on load
+(function() {
+  if (localStorage.getItem('sb_collapsed') === '1') {
+    const sb  = document.getElementById('sidebar');
+    const arr = document.getElementById('sb-arrow');
+    if (sb)  sb.classList.add('collapsed');
+    if (arr) arr.className = 'ti ti-chevrons-right';
+  }
+})();
 </script>
 </body>
 </html>
