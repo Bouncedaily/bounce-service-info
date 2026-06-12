@@ -198,24 +198,41 @@ async function rpc(fn, body) {
 
 async function loadData() {
   _page = 1;
-  ['kpi-row','by-part-body','by-sub-body','by-hub-body','repeat-body','bike-summary-body','all-body'].forEach(id => {
+  ['kpi-row','by-part-body','by-sub-body','by-hub-body','repeat-body','all-body'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin:0 auto"></div></div>';
   });
-  _result = await rpc('get_tyre_analysis', {
+  document.getElementById('bike-summary-body').innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin:0 auto"></div></div>';
+  document.getElementById('bike-summary-count').textContent = 'Loading…';
+
+  const params = {
     p_city:  document.getElementById('f-city').value  || null,
     p_part:  document.getElementById('f-part').value  || null,
     p_start: document.getElementById('f-start').value || null,
     p_end:   document.getElementById('f-end').value   || null
-  });
+  };
+
+  // Main dashboard — fast
+  _result = await rpc('get_tyre_analysis', params);
   if (!_result || _result.code || _result.message) {
     const errMsg = _result?.message || 'Failed to load data. Please try again.';
-    ['by-part-body','by-sub-body','by-hub-body','repeat-body','bike-summary-body','all-body'].forEach(id => {
+    ['by-part-body','by-sub-body','by-hub-body','repeat-body','all-body'].forEach(id => {
       document.getElementById(id).innerHTML = `<div class="loading-state" style="padding:20px;color:var(--red)">Error: ${errMsg}</div>`;
     });
     document.getElementById('kpi-row').innerHTML = '';
+    document.getElementById('bike-summary-body').innerHTML = `<div class="loading-state" style="padding:20px;color:var(--red)">Error: ${errMsg}</div>`;
     return;
   }
   renderAll();
+
+  // Bike summary — separate async call, loads after main
+  rpc('get_tyre_bike_summary', params).then(bs => {
+    if (!bs || bs.code || bs.message) {
+      document.getElementById('bike-summary-body').innerHTML = `<div class="loading-state" style="padding:20px;color:var(--red)">Error loading bike summary</div>`;
+      document.getElementById('bike-summary-count').textContent = '—';
+      return;
+    }
+    renderBikeSummary(Array.isArray(bs) ? bs : []);
+  });
 }
 
 
@@ -313,7 +330,6 @@ function renderAll() {
     </tr>`).join('')}</tbody></table>`
     : '<div class="loading-state" style="padding:20px;color:var(--green)">✅ No repeat replacements found</div>';
 
-  renderBikeSummary(_result.bike_summary || []);
   renderAllRows(_result.all_rows || []);
 }
 
