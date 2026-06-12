@@ -16,7 +16,6 @@
     .fg label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
     .fg select,.fg input{padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none}
     .fg select:focus,.fg input:focus{border-color:var(--red)}
-    .btn-load{padding:7px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
     .export-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap}
     .export-btn:hover{color:var(--text);border-color:var(--text)}
     .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
@@ -114,15 +113,15 @@
         </div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>City</label>
-            <select id="hub-city">
+            <select id="hub-city" onchange="loadHub()">
               <option value="">All cities</option>
               <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
             </select>
           </div>
           <div class="fg"><label>Hub</label>
-            <select id="hub-hub"><option value="">All hubs</option></select>
+            <select id="hub-hub" onchange="loadHub()"><option value="">All hubs</option></select>
           </div>
-          <button class="btn-load" onclick="loadHub()"><i class="ti ti-refresh" style="font-size:11px;margin-right:3px"></i>Load</button>
+          <button class="export-btn" onclick="clearFilters('hub')"><i class="ti ti-x" style="font-size:11px;margin-right:3px"></i>Clear</button>
         </div>
         <div class="tbl-wrap"><div id="by-hub-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
       </div>
@@ -137,15 +136,15 @@
         </div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>Hub</label>
-            <select id="rep-hub"><option value="">All hubs</option></select>
+            <select id="rep-hub" onchange="loadRepeats()"><option value="">All hubs</option></select>
           </div>
           <div class="fg"><label>Min Times Replaced</label>
-            <select id="rep-min-times">
+            <select id="rep-min-times" onchange="loadRepeats()">
               <option value="2">2+</option><option value="3">3+</option>
               <option value="4">4+</option><option value="5">5+</option>
             </select>
           </div>
-          <button class="btn-load" onclick="loadRepeats()"><i class="ti ti-refresh" style="font-size:11px;margin-right:3px"></i>Load</button>
+          <button class="export-btn" onclick="clearFilters('rep')"><i class="ti ti-x" style="font-size:11px;margin-right:3px"></i>Clear</button>
         </div>
         <div class="tbl-wrap"><div id="repeat-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
       </div>
@@ -160,16 +159,16 @@
         </div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>City</label>
-            <select id="bs-city">
+            <select id="bs-city" onchange="loadBikeSummary()">
               <option value="">All cities</option>
               <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
             </select>
           </div>
           <div class="fg"><label>Hub</label>
-            <select id="bs-hub"><option value="">All hubs</option></select>
+            <select id="bs-hub" onchange="loadBikeSummary()"><option value="">All hubs</option></select>
           </div>
           <div class="fg"><label>Tyre Bucket</label>
-            <select id="bs-part">
+            <select id="bs-part" onchange="loadBikeSummary()">
               <option value="">All tyres</option>
               <option>Rear Tyre (Energy Ride / 12Inch)</option>
               <option>Rear Tyre 12 Inch (Zoom)</option>
@@ -177,15 +176,15 @@
               <option>Front Tyre 12-Inch</option>
             </select>
           </div>
-          <div class="fg"><label>From</label><input type="date" id="bs-start"/></div>
-          <div class="fg"><label>To</label><input type="date" id="bs-end"/></div>
+          <div class="fg"><label>From</label><input type="date" id="bs-start" onchange="loadBikeSummary()"/></div>
+          <div class="fg"><label>To</label><input type="date" id="bs-end" onchange="loadBikeSummary()"/></div>
           <div class="fg"><label>Min Overall Repl.</label>
-            <input type="number" id="bs-min-repl" placeholder="e.g. 2" min="1" style="width:80px"/>
+            <input type="number" id="bs-min-repl" placeholder="e.g. 2" min="1" style="width:80px" onchange="applyBikeClientFilters()"/>
           </div>
           <div class="fg"><label>Max Overall Repl.</label>
-            <input type="number" id="bs-max-repl" placeholder="e.g. 10" min="1" style="width:80px"/>
+            <input type="number" id="bs-max-repl" placeholder="e.g. 10" min="1" style="width:80px" onchange="applyBikeClientFilters()"/>
           </div>
-          <button class="btn-load" onclick="loadBikeSummary()"><i class="ti ti-refresh" style="font-size:11px;margin-right:3px"></i>Load</button>
+          <button class="export-btn" onclick="clearFilters('bs')"><i class="ti ti-x" style="font-size:11px;margin-right:3px"></i>Clear</button>
         </div>
         <div class="tbl-wrap" id="bike-summary-tbl-wrap"><div id="bike-summary-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         <div class="pg-bar" id="bike-pg-bar" style="display:none">
@@ -205,16 +204,16 @@
         </div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>City</label>
-            <select id="f-city">
+            <select id="f-city" onchange="loadAllReplacements()">
               <option value="">All cities</option>
               <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
             </select>
           </div>
           <div class="fg"><label>Hub</label>
-            <select id="f-hub"><option value="">All hubs</option></select>
+            <select id="f-hub" onchange="applyAllClientFilters()"><option value="">All hubs</option></select>
           </div>
           <div class="fg"><label>Tyre Bucket</label>
-            <select id="f-part">
+            <select id="f-part" onchange="loadAllReplacements()">
               <option value="">All tyres</option>
               <option>Rear Tyre (Energy Ride / 12Inch)</option>
               <option>Rear Tyre 12 Inch (Zoom)</option>
@@ -222,16 +221,16 @@
               <option>Front Tyre 12-Inch</option>
             </select>
           </div>
-          <div class="fg"><label>From</label><input type="date" id="f-start"/></div>
-          <div class="fg"><label>To</label><input type="date" id="f-end"/></div>
+          <div class="fg"><label>From</label><input type="date" id="f-start" onchange="loadAllReplacements()"/></div>
+          <div class="fg"><label>To</label><input type="date" id="f-end" onchange="loadAllReplacements()"/></div>
           <div class="fg"><label>Submission Type</label>
-            <select id="f-sub">
+            <select id="f-sub" onchange="applyAllClientFilters()">
               <option value="">All types</option>
               <option>Wear & Tear</option><option>Running Service</option>
               <option>Bike Exchange</option><option>Paid</option>
             </select>
           </div>
-          <button class="btn-load" onclick="loadAllReplacements()"><i class="ti ti-refresh" style="font-size:11px;margin-right:3px"></i>Load</button>
+          <button class="export-btn" onclick="clearFilters('all')"><i class="ti ti-x" style="font-size:11px;margin-right:3px"></i>Clear</button>
         </div>
         <div class="tbl-wrap" id="all-tbl-wrap"><div id="all-body"><div class="loading-state"><div class="spin"></div>Loading…</div></div></div>
         <div class="pg-bar" id="pg-bar" style="display:none">
@@ -250,10 +249,10 @@ const SB_URL   = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 
 // State
-let _mainResult  = null;  // drives KPIs, by-part, by-sub
+let _mainResult  = null;
 let _hubResult   = null;
 let _repeatResult= null;
-let _bikeRows    = [], _bikePage = 1;
+let _bikeRows    = [], _bikePage = 1, _allBikeRows = [];
 let _allRows     = [], _allPage  = 1;
 const PER_PAGE   = 100;
 
@@ -519,6 +518,7 @@ async function loadBikeSummary() {
   if (!bs || bs.code || bs.message) { err('bike-summary-body', bs?.message); document.getElementById('bike-summary-count').textContent='—'; return; }
 
   let rows = Array.isArray(bs) ? bs : [];
+  _allBikeRows = rows;
 
   // Client-side hub + min/max filters
   const hub    = document.getElementById('bs-hub').value;
@@ -623,7 +623,61 @@ function exportBikeSummary() {
 
 const today = () => new Date().toISOString().slice(0,10);
 
-function openSidebar()  { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
+// ---------- CLEAR FILTERS ----------
+function clearFilters(table) {
+  if (table === 'hub') {
+    document.getElementById('hub-city').value = '';
+    document.getElementById('hub-hub').value  = '';
+    loadHub();
+  } else if (table === 'rep') {
+    document.getElementById('rep-hub').value       = '';
+    document.getElementById('rep-min-times').value = '2';
+    loadRepeats();
+  } else if (table === 'bs') {
+    const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+    document.getElementById('bs-city').value    = '';
+    document.getElementById('bs-hub').value     = '';
+    document.getElementById('bs-part').value    = '';
+    document.getElementById('bs-start').value   = `${y}-${m}-01`;
+    document.getElementById('bs-end').value     = now.toISOString().slice(0,10);
+    document.getElementById('bs-min-repl').value= '';
+    document.getElementById('bs-max-repl').value= '';
+    loadBikeSummary();
+  } else if (table === 'all') {
+    const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+    document.getElementById('f-city').value  = '';
+    document.getElementById('f-hub').value   = '';
+    document.getElementById('f-part').value  = '';
+    document.getElementById('f-start').value = `${y}-${m}-01`;
+    document.getElementById('f-end').value   = now.toISOString().slice(0,10);
+    document.getElementById('f-sub').value   = '';
+    loadAllReplacements();
+  }
+}
+
+// Hub + sub filters are client-side on already-loaded data
+function applyAllClientFilters() {
+  if (!_mainResult?.all_rows) return;
+  _allRows = applyHubFilter(_mainResult.all_rows, document.getElementById('f-hub').value, document.getElementById('f-sub').value);
+  _allPage = 1;
+  renderAllRows();
+}
+
+function applyBikeClientFilters() {
+  if (!_bikeRows.length && !_allBikeRows?.length) return;
+  const minR = parseInt(document.getElementById('bs-min-repl').value) || 0;
+  const maxR = parseInt(document.getElementById('bs-max-repl').value) || Infinity;
+  const hub  = document.getElementById('bs-hub').value;
+  _bikeRows = (_allBikeRows || []).filter(r =>
+    (!hub || r.hub_name === hub) &&
+    r.overall_replacements >= minR &&
+    r.overall_replacements <= maxR
+  );
+  _bikePage = 1;
+  renderBikePage();
+}
+
+  { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('mobile-open'); document.getElementById('sb-overlay').classList.remove('active'); document.getElementById('sb-hamburger').style.display=''; }
 function toggleSidebar() { const sb=document.getElementById('sidebar'); sb.classList.toggle('collapsed'); localStorage.setItem('sb_collapsed',sb.classList.contains('collapsed')?'1':'0'); }
 
