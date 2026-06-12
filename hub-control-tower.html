@@ -295,8 +295,6 @@ async function fetchAll() {
         'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status&hub_name=eq.' + hub + '&status=eq.RFD').catch(() => []),
-      sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        'select=status&hub_name=eq.' + hub + '&status=eq.RFD').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'runway',
         'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => [])
     ]);
