@@ -407,50 +407,64 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
 
   document.getElementById('dashContent').innerHTML = `
     <div class="sec-lbl">Live hub status</div>
-    <div class="kpi-row">
-      <div class="kpi">
-        <div class="kl">Vehicles in workshop</div>
-        <div class="kv">${d.total}</div>
-        <div class="ks">OOS at hub right now</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Jobs closed today</div>
-        <div class="kv">${d.closedCount}</div>
-        <div class="ks">Unique JCs billed</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Technicians available</div>
-        <div class="kv">${d.techs}</div>
-        <div class="ks">Present / checked-in</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">OOS %</div>
-        <div class="kv">${d.oosPercent !== null ? d.oosPercent : '—'}<span style="font-size:14px;font-weight:400;color:var(--muted)">${d.oosPercent !== null ? '%' : ''}</span></div>
-        <div class="ks">OOS of total hub fleet</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Vehicles RFD today</div>
-        <div class="kv">${d.totalRfd}</div>
-        <div class="ks">${d.oosRfd} OOS &nbsp;·&nbsp; ${d.pdiRfd} PDI</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Avg TAT today</div>
-        <div class="kv">${d.avgTat !== null ? d.avgTat : '—'}<span style="font-size:14px;font-weight:400;color:var(--muted)">${d.avgTat !== null ? ' d' : ''}</span></div>
-        <div class="ks">OOS → RFD calendar days</div>
-        <div class="kbar"></div>
-      </div>
-      <div class="kpi">
-        <div class="kl">RFD vehicles available</div>
-        <div class="kv">${d.rfdStock}</div>
-        <div class="ks">Ready for deployment now</div>
-        <div class="kbar"></div>
-      </div>
-    </div>
+    ${(function() {
+      var oosHigh   = d.oosPercent !== null && parseFloat(d.oosPercent) > 4;
+      var minRunway = d.runway.length > 0 ? Math.min.apply(null, d.runway.map(function(r){ return parseFloat(r.runway_days) || 0; })) : 999;
+      var rfdLow    = minRunway < 2;
+      var red = 'style="color:#ef4444"';
+      return '<div class="kpi-row">' +
+
+        '<div class="kpi">' +
+          '<div class="kl">OOS %</div>' +
+          '<div class="kv" ' + (oosHigh ? red : '') + '>' + (d.oosPercent !== null ? d.oosPercent : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.oosPercent !== null ? '%' : '') + '</span></div>' +
+          '<div class="ks">OOS of total hub fleet</div>' +
+          '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Vehicles in workshop</div>' +
+          '<div class="kv" ' + (oosHigh ? red : '') + '>' + d.total + '</div>' +
+          '<div class="ks">OOS at hub right now</div>' +
+          '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Jobs closed today</div>' +
+          '<div class="kv">' + d.closedCount + '</div>' +
+          '<div class="ks">Unique JCs billed</div>' +
+          '<div class="kbar"></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Technicians available</div>' +
+          '<div class="kv">' + d.techs + '</div>' +
+          '<div class="ks">Present / checked-in</div>' +
+          '<div class="kbar"></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Vehicles RFD today</div>' +
+          '<div class="kv">' + d.totalRfd + '</div>' +
+          '<div class="ks">' + d.oosRfd + ' OOS &nbsp;·&nbsp; ' + d.pdiRfd + ' PDI</div>' +
+          '<div class="kbar"></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Avg TAT today</div>' +
+          '<div class="kv">' + (d.avgTat !== null ? d.avgTat : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.avgTat !== null ? ' d' : '') + '</span></div>' +
+          '<div class="ks">OOS → RFD calendar days</div>' +
+          '<div class="kbar"></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">RFD vehicles available</div>' +
+          '<div class="kv" ' + (rfdLow ? red : '') + '>' + d.rfdStock + '</div>' +
+          '<div class="ks">Ready for deployment now</div>' +
+          '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
+        '</div>' +
+
+      '</div>';
+    })()}
 
     <div class="inflow-section">
       <div class="sec-lbl">Inflow today · by submission type</div>
