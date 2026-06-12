@@ -244,7 +244,9 @@ async function fetchAll() {
   startCountdown();
 
   try {
-    const today = new Date().toISOString().slice(0,10);
+    // Use IST date (UTC+5:30) — Metabase data uses IST
+    const nowIST = new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000));
+    const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
     const [fleet, closed, techs, inflow, outflow] = await Promise.all([
