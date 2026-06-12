@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tyre Deep Dive — Bounce</title>
+  <title>Wear &amp; Tear Deep Dive — Bounce</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
   <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
   <script src="auth-guard.js?v=1780722254"></script>
@@ -68,7 +68,7 @@
   <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
   <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
   <a class="sb-item" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre & Brake</span></a>
-  <a class="sb-item active" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
+  <a class="sb-item active" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Wear &amp; Tear Deep Dive</span></a>
   <a class="sb-item" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon"></i><span class="sb-label">Hub Control Tower</span></a>
   <div class="sb-sec">ADMIN</div>
   <a class="sb-item admin-only" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
@@ -83,7 +83,7 @@
 <div class="main">
   <div class="content">
     <div class="wrap">
-      <div class="page-title">Tyre Replacement Deep Dive</div>
+      <div class="page-title">Wear &amp; Tear Deep Dive</div>
       <div class="page-sub">All tyre replacements from JC details — count, cost, repeat replacements, hub & city breakdown</div>
 
       <!-- KPIs driven by All Replacements filters -->
@@ -94,7 +94,7 @@
       <!-- By Tyre Type + By Submission Type (share same filter/data as All Replacements) -->
       <div class="grid-2">
         <div class="card">
-          <div class="card-hd"><h2>By Tyre Type</h2></div>
+          <div class="card-hd"><h2>By Part Type</h2></div>
           <div class="tbl-wrap"><div id="by-part-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         </div>
         <div class="card">
@@ -167,13 +167,22 @@
           <div class="fg"><label>Hub</label>
             <select id="bs-hub" onchange="loadBikeSummary()"><option value="">All hubs</option></select>
           </div>
-          <div class="fg"><label>Tyre Bucket</label>
+          <div class="fg"><label>Part Type</label>
             <select id="bs-part" onchange="loadBikeSummary()">
-              <option value="">All tyres</option>
-              <option>Rear Tyre (Energy Ride / 12Inch)</option>
-              <option>Rear Tyre 12 Inch (Zoom)</option>
-              <option>Front Tyre (Zoom)</option>
-              <option>Front Tyre 12-Inch</option>
+              <option value="">All parts</option>
+              <optgroup label="Tyres">
+                <option>Rear Tyre (Energy Ride / 12Inch)</option>
+                <option>Rear Tyre 12 Inch (Zoom)</option>
+                <option>Front Tyre (Zoom)</option>
+                <option>Front Tyre 12-Inch</option>
+              </optgroup>
+              <optgroup label="Brakes &amp; Wear">
+                <option>Front Brake Pad</option>
+                <option>Rear Brake Pad</option>
+                <option>Cone Set Assy</option>
+                <option>Rr Brake Shoe Set - Drum</option>
+                <option>Fr Brake Shoe Set - Drum</option>
+              </optgroup>
             </select>
           </div>
           <div class="fg"><label>From</label><input type="date" id="bs-start" onchange="loadBikeSummary()"/></div>
@@ -212,13 +221,22 @@
           <div class="fg"><label>Hub</label>
             <select id="f-hub" onchange="applyAllClientFilters()"><option value="">All hubs</option></select>
           </div>
-          <div class="fg"><label>Tyre Bucket</label>
+          <div class="fg"><label>Part Type</label>
             <select id="f-part" onchange="loadAllReplacements()">
-              <option value="">All tyres</option>
-              <option>Rear Tyre (Energy Ride / 12Inch)</option>
-              <option>Rear Tyre 12 Inch (Zoom)</option>
-              <option>Front Tyre (Zoom)</option>
-              <option>Front Tyre 12-Inch</option>
+              <option value="">All parts</option>
+              <optgroup label="Tyres">
+                <option>Rear Tyre (Energy Ride / 12Inch)</option>
+                <option>Rear Tyre 12 Inch (Zoom)</option>
+                <option>Front Tyre (Zoom)</option>
+                <option>Front Tyre 12-Inch</option>
+              </optgroup>
+              <optgroup label="Brakes &amp; Wear">
+                <option>Front Brake Pad</option>
+                <option>Rear Brake Pad</option>
+                <option>Cone Set Assy</option>
+                <option>Rr Brake Shoe Set - Drum</option>
+                <option>Fr Brake Shoe Set - Drum</option>
+              </optgroup>
             </select>
           </div>
           <div class="fg"><label>From</label><input type="date" id="f-start" onchange="loadAllReplacements()"/></div>
@@ -339,7 +357,7 @@ async function loadAllReplacements() {
   const parts = _mainResult.by_part || [];
   const maxP = Math.max(1,...parts.map(p=>p.replacements||0));
   document.getElementById('by-part-body').innerHTML = parts.length ? `
-    <table><thead><tr><th>Tyre Type</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Median KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th></tr></thead>
+    <table><thead><tr><th>Part Type</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Median KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th></tr></thead>
     <tbody>${parts.map(p=>`<tr>
       <td><span class="tag-part">${p.part_group}</span></td>
       <td><div style="display:flex;align-items:center;gap:6px">
@@ -399,7 +417,7 @@ function renderAllRows() {
   document.getElementById('pg-bar').style.display = 'flex';
   document.getElementById('all-body').innerHTML = `
     <table style="font-size:11px"><thead><tr>
-      <th>Reg No</th><th>City</th><th>Hub</th><th>Tyre Bucket</th>
+      <th>Reg No</th><th>City</th><th>Hub</th><th>Part Bucket</th>
       <th>Item Name</th><th>Last Replaced Part</th>
       <th>KM at Last Repl.</th><th>KM at This Repl.</th><th>KM on Part</th>
       <th>Date</th><th>Last Repl. Date</th><th>Sub Type</th><th>Cat</th>
@@ -592,7 +610,7 @@ function exportCSV(filename, cols, rows) {
 function exportAll() {
   if (!_allRows.length) return;
   exportCSV(`all_replacements_${today()}.csv`,
-    ['Reg No','City','Hub','Tyre Bucket','Item Name','Last Replaced Part','KM at Last Repl.','KM at This Repl.','KM on Part','Date','Last Repl. Date','Sub Type','DMS Cat','JC No'],
+    ['Reg No','City','Hub','Part Bucket','Item Name','Last Replaced Part','KM at Last Repl.','KM at This Repl.','KM on Part','Date','Last Repl. Date','Sub Type','DMS Cat','JC No'],
     _allRows.map(r=>[r.reg_number,r.city,r.hub_name,r.part_group,r.item_name,r.last_replaced_part,r.prev_odo||'',r.curr_odo||'',r.km_on_part||'',r.replaced_date?new Date(r.replaced_date).toLocaleDateString('en-IN'):'',r.last_replaced_date?new Date(r.last_replaced_date).toLocaleDateString('en-IN'):'',r.submission_type,r.dms_cat,r.dms_jc_no])
   );
 }
@@ -608,7 +626,7 @@ function exportByHub() {
 function exportRepeats() {
   if (!_repeatResult?.length) return;
   exportCSV(`repeat_replacements_${today()}.csv`,
-    ['Reg No','City','Hub','Tyre Bucket','Times Replaced','Avg KM','Min KM','Max KM','First Date','Last Date','Sub Types'],
+    ['Reg No','City','Hub','Part Bucket','Times Replaced','Avg KM','Min KM','Max KM','First Date','Last Date','Sub Types'],
     _repeatResult.map(r=>[r.reg_number,r.city,r.hub_name,r.part_group,r.times_replaced,r.avg_km||'',r.min_km||'',r.max_km||'',r.first_date,r.last_date,r.sub_types])
   );
 }
