@@ -336,7 +336,7 @@
 
       /* 1 — OOS fleet (vehicles in workshop + aging) */
       const fleet = await sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        `select=bike_status,oos_aging_bucket&hub_name=eq.${hub}&bike_status=eq.oos`);
+        `select=status,oos_aging_bucket&hub_name=eq.${hub}&status=eq.OOS`);
 
       /* 2 — Jobs closed today */
       const closed = await sbGet(INFO_URL, INFO_KEY, 'jc_details',
