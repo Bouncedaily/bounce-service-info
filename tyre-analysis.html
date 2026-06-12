@@ -145,6 +145,11 @@
       </div>
 
       <div class="card">
+        <div class="card-hd"><h2>Bike Level Summary</h2><span class="sub" id="bike-summary-count">—</span></div>
+        <div class="tbl-wrap"><div id="bike-summary-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
+      <div class="card">
         <div class="card-hd"><h2>All Replacements</h2><span class="sub" id="all-count">—</span></div>
         <div class="tbl-wrap" id="all-tbl-wrap"><div id="all-body"><div class="loading-state"><div class="spin"></div>Loading…</div></div></div>
         <div class="pg-bar" id="pg-bar" style="display:none">
@@ -187,7 +192,7 @@ async function rpc(fn, body) {
 
 async function loadData() {
   _page = 1;
-  ['kpi-row','by-part-body','by-sub-body','by-hub-body','repeat-body','all-body'].forEach(id => {
+  ['kpi-row','by-part-body','by-sub-body','by-hub-body','repeat-body','bike-summary-body','all-body'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:16px;height:16px;margin:0 auto"></div></div>';
   });
   _result = await rpc('get_tyre_analysis', {
@@ -293,12 +298,43 @@ function renderAll() {
     </tr>`).join('')}</tbody></table>`
     : '<div class="loading-state" style="padding:20px;color:var(--green)">✅ No repeat replacements found</div>';
 
+  renderBikeSummary(_result.bike_summary || []);
   renderAllRows(_result.all_rows || []);
 }
 
 function fmtTyre(name, bucket) {
   if (!name) return '—';
   return name;
+}
+
+function renderBikeSummary(rows) {
+  const el = document.getElementById('bike-summary-body');
+  const cnt = document.getElementById('bike-summary-count');
+  if (!rows.length) {
+    el.innerHTML = '<div class="loading-state" style="padding:20px">No data</div>';
+    cnt.textContent = '0 bikes';
+    return;
+  }
+  cnt.textContent = `${rows.length.toLocaleString('en-IN')} bikes`;
+  el.innerHTML = `
+    <table><thead><tr>
+      <th>Reg No</th><th>City</th><th>Hub</th>
+      <th>Replacements (Filtered)</th><th>Overall Replacements</th>
+      <th>Current ODO</th><th>Avg ODO / Instance</th>
+      <th>KM This Replacement</th><th>KM at Last Replacement</th><th>KM on Part</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
+      <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
+      <td style="color:var(--text2)">${r.hub_name||'—'}</td>
+      <td style="font-weight:700;color:var(--red)">${fmt(r.filtered_replacements)}</td>
+      <td style="color:var(--text2)">${fmt(r.overall_replacements)}</td>
+      <td style="font-family:var(--mono)">${fmt(r.current_odo)} km</td>
+      <td style="font-family:var(--mono);color:var(--text2)">${fmt(r.avg_odo_per_instance)} km</td>
+      <td style="font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(r.km_this_replacement)} km</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.km_at_last_replacement)} km</td>
+      <td style="font-family:var(--mono);font-weight:600">${fmt(r.km_on_part)} km</td>
+    </tr>`).join('')}</tbody></table>`;
 }
 
 function renderAllRows(rows) {
