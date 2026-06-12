@@ -98,9 +98,9 @@
           <label>Tyre Type</label>
           <select id="f-part" onchange="loadData()">
             <option value="">All tyres</option>
-            <option>Rear Tyre (Energy Ride)</option>
+            <option>Rear Tyre (Energy Ride / 12Inch)</option>
             <option>Rear Tyre 12 Inch (Zoom)</option>
-            <option>Front/Rear Tyre 12Inch (Zoom)</option>
+            <option>Front Tyre (Zoom)</option>
             <option>Front Tyre 12-Inch</option>
           </select>
         </div>
@@ -298,9 +298,6 @@ function renderAll() {
 
 function fmtTyre(name, bucket) {
   if (!name) return '—';
-  if ((name||'').toLowerCase().includes('front/rear')) {
-    return 'Front/Rear Tyre 12Inch (Zoom)';
-  }
   return name;
 }
 
