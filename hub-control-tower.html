@@ -432,49 +432,49 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
         '<div class="kpi">' +
           '<div class="kl">OOS %</div>' +
           '<div class="kv" ' + (oosHigh ? red : '') + '>' + (d.oosPercent !== null ? d.oosPercent : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.oosPercent !== null ? '%' : '') + '</span></div>' +
-          '<div class="ks">OOS of total hub fleet</div>' +
+          '<div class="ks">OOS vehicles</div>' +
           '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
         '<div class="kpi">' +
-          '<div class="kl">Vehicles in workshop</div>' +
+          '<div class="kl">OOS Vehicles</div>' +
           '<div class="kv" ' + (oosHigh ? red : '') + '>' + d.total + '</div>' +
-          '<div class="ks">OOS at hub right now</div>' +
+          '<div class="ks"></div>' +
           '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
         '<div class="kpi">' +
-          '<div class="kl">Jobs closed today</div>' +
+          '<div class="kl">JC closed today</div>' +
           '<div class="kv">' + d.closedCount + '</div>' +
-          '<div class="ks">Unique JCs billed</div>' +
+          '<div class="ks"></div>' +
           '<div class="kbar"></div>' +
         '</div>' +
 
         '<div class="kpi">' +
           '<div class="kl">Technicians available</div>' +
           '<div class="kv">' + d.techs + '</div>' +
-          '<div class="ks">Present / checked-in</div>' +
+          '<div class="ks">Checked-in</div>' +
           '<div class="kbar"></div>' +
         '</div>' +
 
         '<div class="kpi">' +
           '<div class="kl">Vehicles RFD today</div>' +
           '<div class="kv">' + d.totalRfd + '</div>' +
-          '<div class="ks">' + d.oosRfd + ' OOS &nbsp;·&nbsp; ' + d.pdiRfd + ' PDI</div>' +
+          '<div class="ks">' + d.oosRfd + ' OOS · ' + d.pdiRfd + ' PDI</div>' +
           '<div class="kbar"></div>' +
         '</div>' +
 
         '<div class="kpi">' +
           '<div class="kl">Avg TAT today</div>' +
           '<div class="kv">' + (d.avgTat !== null ? d.avgTat : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.avgTat !== null ? ' d' : '') + '</span></div>' +
-          '<div class="ks">OOS → RFD calendar days</div>' +
+          '<div class="ks">OOS → RFD</div>' +
           '<div class="kbar"></div>' +
         '</div>' +
 
         '<div class="kpi">' +
           '<div class="kl">RFD vehicles available</div>' +
           '<div class="kv" ' + (rfdLow ? red : '') + '>' + d.rfdStock + '</div>' +
-          '<div class="ks">Ready for deployment now</div>' +
+          '<div class="ks"></div>' +
           '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
@@ -482,7 +482,7 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
           '<div class="kpi">' +
             '<div class="kl">Parts below MSL</div>' +
             '<div class="kv" ' + (d.mslShorts > 0 ? red : '') + '>' + d.mslShorts + '</div>' +
-            '<div class="ks">Parts shortage count</div>' +
+            '<div class="ks"></div>' +
             '<div class="kbar" ' + (d.mslShorts > 0 ? 'style="background:#ef4444"' : '') + '></div>' +
           '</div>'
         ) : '') +
