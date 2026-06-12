@@ -282,9 +282,11 @@ async function fetchAll() {
     const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
-    const [fleet, closed, techs, inflow, outflow, rfdStock, runway] = await Promise.all([
+    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS').catch(() => []),
+      sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
+        'select=status&hub_name=eq.' + hub).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
         'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'attendance',
@@ -304,14 +306,11 @@ async function fetchAll() {
     const ages = Object.fromEntries(BUCKETS.map(b => [b,0]));
     fleet.forEach(r => { if (ages.hasOwnProperty(r.oos_aging_bucket)) ages[r.oos_aging_bucket]++; });
 
+    // OOS %
+    const oosPercent = totalFleet.length > 0 ? ((fleet.length / totalFleet.length) * 100).toFixed(1) : null;
+
     // Jobs closed — unique draft_jc_id
     const closedCount = new Set(closed.map(r => r.draft_jc_id).filter(Boolean)).size;
-
-    // Running repair today — already filtered by hub in query
-    const hubLower = currentHub.toLowerCase();
-    const rrCount = inflow.filter(r =>
-      (r.submission_type || '').toLowerCase().includes('running repair')
-    ).length;
 
     // Outflow — already filtered by hub in query
     const hubOutflow = outflow;
@@ -325,7 +324,7 @@ async function fetchAll() {
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
-    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, rrCount, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length });
+    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -428,9 +427,9 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
         <div class="kbar"></div>
       </div>
       <div class="kpi">
-        <div class="kl">Running repairs today</div>
-        <div class="kv">${d.rrCount}</div>
-        <div class="ks">Inflow · running repair</div>
+        <div class="kl">OOS %</div>
+        <div class="kv">${d.oosPercent !== null ? d.oosPercent : '—'}<span style="font-size:14px;font-weight:400;color:var(--muted)">${d.oosPercent !== null ? '%' : ''}</span></div>
+        <div class="ks">OOS of total hub fleet</div>
         <div class="kbar"></div>
       </div>
       <div class="kpi">
