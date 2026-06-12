@@ -121,6 +121,25 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .last-upd { font-size: 11px; color: var(--muted); margin-top: 16px; text-align: right; }
     .na-tag { display: inline-block; font-size: 10px; color: var(--muted); background: var(--bg); border: 1px dashed var(--border); padding: 1px 7px; border-radius: 4px; }
+
+    /* runway */
+    .runway-section { margin-top: 16px; }
+    .runway-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; }
+    .runway-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .runway-card .rl { font-size: 10px; text-transform: uppercase; letter-spacing:.06em; color: var(--muted); font-weight:600; margin-bottom:6px; }
+    .runway-card .rv { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height:1; margin-bottom:3px; }
+    .runway-card .rs { font-size: 11px; color: var(--muted); margin-bottom:6px; }
+    .runway-card .rbar { height:3px; border-radius:2px; margin-top:10px; }
+    .runway-good  .rv { color: var(--text); }
+    .runway-warn  .rv { color: #f59e0b; }
+    .runway-crit  .rv { color: #ef4444; }
+    .runway-good  .rbar { background: #22c55e; }
+    .runway-warn  .rbar { background: #f59e0b; }
+    .runway-crit  .rbar { background: #ef4444; }
+    .runway-synced { font-size: 10px; color: var(--muted); margin-top: 10px; text-align: right; }
   </style>
 </head>
 <body>
@@ -244,7 +263,7 @@ async function fetchAll() {
     const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
-    const [fleet, closed, techs, inflow, outflow] = await Promise.all([
+    const [fleet, closed, techs, inflow, outflow, runway] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS'),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
@@ -254,7 +273,9 @@ async function fetchAll() {
       sbGet(INFO_URL, INFO_KEY, 'inflow_today',
         'select=submission_type,hub_name&hub_name=eq.' + hub).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'outflow_today',
-        'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => [])
+        'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => []),
+      sbGet(SF_URL, SF_KEY, 'runway',
+        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => [])
     ]);
 
     // Aging
@@ -283,7 +304,7 @@ async function fetchAll() {
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
-    render({ hub: currentHub, total: fleet.length, ages, closedCount, techs: techs.length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat });
+    render({ hub: currentHub, total: fleet.length, ages, closedCount, techs: techs.length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat, runway });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -302,7 +323,7 @@ function hs(ok, warn) {
   return       { dot:'sd-r', cls:'hs-r', lbl:'Critical' };
 }
 
-function render(d) {
+function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_deployment, runway_days, synced_at}]
   const critical   = d.ages['above 7 days'];
   const stuck3plus = d.ages['3-4 days'] + d.ages['5-7 days'] + d.ages['above 7 days'];
   const critSt     = hs(critical === 0, critical <= 2);
@@ -355,33 +376,22 @@ function render(d) {
 
     <div class="bottom-grid">
       <div>
-        <div class="sec-lbl">Workshop health</div>
-        <div class="health-grid">
-          <div class="hcard">
-            <div class="hl">Jobs closed</div>
-            <div class="hv">${d.closedCount}</div>
-            <div class="ht">Target: ≥ 20 / day</div>
-            <div class="hstatus"><div class="sdot ${jobsSt.dot}"></div><span class="${jobsSt.cls}">${jobsSt.lbl}</span></div>
-          </div>
-          <div class="hcard">
-            <div class="hl">Avg TAT</div>
-            <div class="hv">${d.avgTat !== null ? d.avgTat : '—'}<span>${d.avgTat !== null ? ' days' : ''}</span></div>
-            <div class="ht">Target: &lt; 48 hrs</div>
-            <div class="hstatus"><div class="sdot ${tatSt.dot}"></div><span class="${tatSt.cls}">${tatSt.lbl}</span></div>
-          </div>
-          <div class="hcard">
-            <div class="hl">Vehicles in workshop</div>
-            <div class="hv">${d.total}</div>
-            <div class="ht">All OOS at hub</div>
-            <div class="hstatus"><div class="sdot ${d.total > 0 ? 'sd-a' : 'sd-g'}"></div><span class="${d.total > 0 ? 'hs-a' : 'hs-g'}">${d.total > 0 ? 'Active' : 'Clear'}</span></div>
-          </div>
-          <div class="hcard">
-            <div class="hl">Stuck &gt; 7 days</div>
-            <div class="hv" style="color:${critical > 0 ? '#f87171' : 'inherit'}">${critical}</div>
-            <div class="ht">Target: 0</div>
-            <div class="hstatus"><div class="sdot ${critSt.dot}"></div><span class="${critSt.cls}">${critSt.lbl}</span></div>
-          </div>
+        <div class="sec-lbl">Runway · RFD stock by model</div>
+        <div class="runway-grid" id="runway-grid">
+          ${(d.runway && d.runway.length > 0) ? d.runway.map(r => {
+            const days = parseFloat(r.runway_days) || 0;
+            const cls  = days >= 3 ? 'runway-good' : days >= 1 ? 'runway-warn' : 'runway-crit';
+            return \`<div class="runway-card \${cls}">
+              <div class="rl">\${r.bike_model_name || '—'}</div>
+              <div class="rv">\${days.toFixed(1)}<span style="font-size:12px;font-weight:400;color:var(--muted)"> days</span></div>
+              <div class="rs">RFD: \${r.current_rfd ?? '—'} &nbsp;·&nbsp; Target: \${r.projected_deployment ?? '—'}</div>
+              <div class="rbar"></div>
+            </div>\`;
+          }).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>'}
         </div>
+        ${(d.runway && d.runway.length > 0 && d.runway[0].synced_at) ?
+          \`<div class="runway-synced">Synced daily at 9 AM · Last: \${new Date(d.runway[0].synced_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</div>\`
+          : ''}
       </div>
 
       <div>
