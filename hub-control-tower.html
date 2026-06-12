@@ -44,11 +44,12 @@
     .kpi {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 16px 14px;
+      display: flex; flex-direction: column;
     }
-    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kpi .kv { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
-    .kpi .ks { font-size: 11px; color: var(--muted); }
-    .kpi .kbar { height: 2px; border-radius: 2px; margin-top: 12px; background: var(--border); }
+    .kpi .ks { font-size: 11px; color: var(--muted); flex: 1; }
+    .kpi .kbar { height: 2px; border-radius: 2px; margin-top: 10px; background: var(--border); flex-shrink: 0; }
 
     /* section label */
     .sec-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
