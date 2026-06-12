@@ -299,6 +299,15 @@ async function fetchAll() {
         'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => [])
     ]);
 
+    // Debug — log what each fetch returned
+    console.log('fleet:', Array.isArray(fleet), fleet?.length);
+    console.log('closed:', Array.isArray(closed), closed?.length);
+    console.log('techs:', Array.isArray(techs), techs?.length);
+    console.log('inflow:', Array.isArray(inflow), inflow?.length);
+    console.log('outflow:', Array.isArray(outflow), outflow?.length);
+    console.log('rfdStock:', Array.isArray(rfdStock), rfdStock?.length);
+    console.log('runway:', Array.isArray(runway), runway?.length);
+
     // Aging
     const BUCKETS = ['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
     const ages = Object.fromEntries(BUCKETS.map(b => [b,0]));
