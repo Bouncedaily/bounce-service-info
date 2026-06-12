@@ -323,6 +323,27 @@ function hs(ok, warn) {
   return       { dot:'sd-r', cls:'hs-r', lbl:'Critical' };
 }
 
+function renderRunway(runway) {
+  if (!runway || runway.length === 0)
+    return '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>';
+  return runway.map(function(r) {
+    var days = parseFloat(r.runway_days) || 0;
+    var cls  = days >= 3 ? 'runway-good' : days >= 1 ? 'runway-warn' : 'runway-crit';
+    return '<div class="runway-card ' + cls + '">' +
+      '<div class="rl">' + (r.bike_model_name || '—') + '</div>' +
+      '<div class="rv">' + days.toFixed(1) + '<span style="font-size:12px;font-weight:400;color:var(--muted)"> days</span></div>' +
+      '<div class="rs">RFD: ' + (r.current_rfd != null ? r.current_rfd : '—') + ' &nbsp;·&nbsp; Target: ' + (r.projected_deployment != null ? r.projected_deployment : '—') + '</div>' +
+      '<div class="rbar"></div>' +
+      '</div>';
+  }).join('');
+}
+
+function runwaySyncedAt(runway) {
+  if (!runway || runway.length === 0 || !runway[0].synced_at) return '';
+  var d = new Date(runway[0].synced_at);
+  return '<div class="runway-synced">Synced daily at 9 AM &nbsp;·&nbsp; Last: ' + d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) + '</div>';
+}
+
 function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_deployment, runway_days, synced_at}]
   const critical   = d.ages['above 7 days'];
   const stuck3plus = d.ages['3-4 days'] + d.ages['5-7 days'] + d.ages['above 7 days'];
@@ -378,20 +399,9 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
       <div>
         <div class="sec-lbl">Runway · RFD stock by model</div>
         <div class="runway-grid" id="runway-grid">
-          ${(d.runway && d.runway.length > 0) ? d.runway.map(r => {
-            const days = parseFloat(r.runway_days) || 0;
-            const cls  = days >= 3 ? 'runway-good' : days >= 1 ? 'runway-warn' : 'runway-crit';
-            return \`<div class="runway-card \${cls}">
-              <div class="rl">\${r.bike_model_name || '—'}</div>
-              <div class="rv">\${days.toFixed(1)}<span style="font-size:12px;font-weight:400;color:var(--muted)"> days</span></div>
-              <div class="rs">RFD: \${r.current_rfd ?? '—'} &nbsp;·&nbsp; Target: \${r.projected_deployment ?? '—'}</div>
-              <div class="rbar"></div>
-            </div>\`;
-          }).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>'}
+          ${renderRunway(d.runway)}
         </div>
-        ${(d.runway && d.runway.length > 0 && d.runway[0].synced_at) ?
-          \`<div class="runway-synced">Synced daily at 9 AM · Last: \${new Date(d.runway[0].synced_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</div>\`
-          : ''}
+        ${runwaySyncedAt(d.runway)}
       </div>
 
       <div>
