@@ -340,7 +340,7 @@
 
       /* 2 — Jobs closed today */
       const closed = await sbGet(INFO_URL, INFO_KEY, 'jc_details',
-        `select=hub_name&hub_name=eq.${hub}&end_time=gte.${today}T00:00:00&end_time=lte.${today}T23:59:59`);
+        `select=draft_jc_id&hub_name=eq.${hub}&end_time=gte.${today}T00:00:00&end_time=lte.${today}T23:59:59`);
 
       /* 3 — Technicians available today */
       const techs = await sbGet(SF_URL, SF_KEY, 'attendance',
@@ -355,7 +355,7 @@
         hub:      currentHub,
         total:    fleet.length,
         ages,
-        closed:   closed.length,
+        closed:   new Set(closed.map(r => r.draft_jc_id).filter(Boolean)).size,
         techs:    techs.length,
       });
 
