@@ -37,7 +37,7 @@
     .btn-refresh:hover { color: var(--text); border-color: var(--text); }
 
     /* ── KPI grid ── */
-    .kpi-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-bottom: 20px; }
     @media(max-width:1100px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
     @media(max-width:640px)  { .kpi-row { grid-template-columns: repeat(2,1fr); } }
 
@@ -282,7 +282,7 @@ async function fetchAll() {
     const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
-    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway] = await Promise.all([
+    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
@@ -298,7 +298,9 @@ async function fetchAll() {
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status&hub_name=eq.' + hub + '&status=eq.RFD').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'runway',
-        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => [])
+        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => []),
+      sbGet(INFO_URL, INFO_KEY, 'hub_msl',
+        'select=status&hub_name=eq.' + hub + '&status=ilike.*short*').catch(() => [])
     ]);
 
     // Aging
@@ -324,7 +326,7 @@ async function fetchAll() {
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
-    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length });
+    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts: (msl||[]).length });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -461,6 +463,13 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
           '<div class="kv" ' + (rfdLow ? red : '') + '>' + d.rfdStock + '</div>' +
           '<div class="ks">Ready for deployment now</div>' +
           '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
+        '</div>' +
+
+        '<div class="kpi">' +
+          '<div class="kl">Parts below MSL</div>' +
+          '<div class="kv" ' + (d.mslShorts > 0 ? red : '') + '>' + d.mslShorts + '</div>' +
+          '<div class="ks">Shortage items · synced 9 AM</div>' +
+          '<div class="kbar" ' + (d.mslShorts > 0 ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
       '</div>';
