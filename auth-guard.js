@@ -19,12 +19,12 @@
   // Expose helpers
   window.authGetEmail = () => session.email || '';
   window.authIsAdmin  = () => session.email?.toLowerCase() === ADMIN;
-  window.authPerms    = () => session.permissions || { rmc:true, fleet_km:true, parts_testing:true };
+  window.authPerms    = () => session.permissions || { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true };
   window.authLogout   = () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'login.html'; };
 
   // Apply permissions + sync from DB in background
   document.addEventListener('DOMContentLoaded', () => {
-    const p = session.permissions || { rmc:true, fleet_km:true, parts_testing:true };
+    const p = session.permissions || { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true };
     applyPerms(p);
     const el = document.getElementById('sb-user-email');
     if (el) el.textContent = session.email;
@@ -48,8 +48,12 @@
   });
 
   function applyPerms(p) {
-    if (!p.rmc)           document.querySelectorAll('a[href="dashboard.html"]').forEach(e => e.style.display='none');
-    if (!p.fleet_km)      document.querySelectorAll('a[href="fleet-km.html"]').forEach(e => e.style.display='none');
-    if (!p.parts_testing) document.querySelectorAll('a[href="parts-testing.html"]').forEach(e => e.style.display='none');
+    if (!p.rmc)               document.querySelectorAll('a[href="dashboard.html"]').forEach(e => e.style.display='none');
+    if (!p.fleet_km)          document.querySelectorAll('a[href="fleet-km.html"]').forEach(e => e.style.display='none');
+    if (!p.parts_testing)     document.querySelectorAll('a[href="parts-testing.html"]').forEach(e => e.style.display='none');
+    if (!p.wear_tear)         document.querySelectorAll('a[href="tyre-analysis.html"]').forEach(e => e.style.display='none');
+    if (!p.hub_control_tower) document.querySelectorAll('a[href="hub-control-tower.html"]').forEach(e => e.style.display='none');
+    // Notify index page if open
+    window.dispatchEvent(new Event('auth-perms-updated'));
   }
 })();
