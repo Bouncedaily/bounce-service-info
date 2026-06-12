@@ -125,7 +125,7 @@
 
     /* runway */
     .runway-section { margin-top: 16px; }
-    .runway-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; grid-auto-rows: 1fr; }
+    .runway-grid { display: grid; gap: 10px; }
     .runway-card { min-width: 0; }
     .runway-card {
       background: var(--card); border: 1px solid var(--border);
@@ -386,6 +386,12 @@ function renderInflowBreakdown(inflow) {
 function renderRunway(runway) {
   if (!runway || runway.length === 0)
     return '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>';
+  var count = runway.length;
+  var cols = count <= 2 ? count : count <= 4 ? 2 : count <= 6 ? 3 : 4;
+  setTimeout(function() {
+    var grid = document.getElementById('runway-grid');
+    if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+  }, 0);
   return runway.map(function(r) {
     var days = parseFloat(r.runway_days) || 0;
     var cls  = days >= 3 ? 'runway-good' : days >= 1 ? 'runway-warn' : 'runway-crit';
