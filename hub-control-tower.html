@@ -202,8 +202,9 @@ const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const SF_URL   = 'https://jpypnrrjiagscqrucslw.supabase.co';
 const SF_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweXBucnJqaWFnc2NxcnVjc2x3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDU2NDAsImV4cCI6MjA5NDkyMTY0MH0.fesCaEsgS7r4Z6mV5S1-z54etaGNPpYlISdjjcnLfzM';
 
-const MB_INFLOW  = 'https://metabaselatest-dy7gqwqrma-el.a.run.app/api/public/card/f8e7b9a4-f804-4432-8680-4194c57d1c70/query/json';
-const MB_OUTFLOW = 'https://metabaselatest-dy7gqwqrma-el.a.run.app/api/public/card/c3600938-37d7-466e-abc2-4b38237972ee/query/json';
+const PROXY      = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/metabase-proxy';
+const MB_INFLOW  = PROXY + '?card_id=f8e7b9a4-f804-4432-8680-4194c57d1c70';
+const MB_OUTFLOW = PROXY + '?card_id=c3600938-37d7-466e-abc2-4b38237972ee';
 
 let currentHub = '', refreshTimer = null, countdownSec = 300;
 
@@ -232,8 +233,8 @@ async function sbGet(base, key, table, qs) {
 }
 
 async function mbGet(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('metabase ' + r.status);
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!r.ok) throw new Error('metabase-proxy ' + r.status);
   return r.json();
 }
 
