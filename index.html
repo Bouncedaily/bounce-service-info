@@ -1,16 +1,150 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Bounce Service Info</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);min-height:100vh;font-family:var(--font)}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--card);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand-logo{width:32px;height:32px;border-radius:8px;object-fit:contain}
+    .brand-name{font-size:15px;font-weight:800;color:var(--text)}
+    .brand-name span{color:var(--red)}
+    .user-bar{display:flex;align-items:center;gap:12px}
+    .user-email{font-size:12px;color:var(--muted)}
+    .btn-logout{padding:5px 12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--red);font-size:12px;font-weight:600;cursor:pointer}
+    .btn-logout:hover{background:var(--red);color:#fff}
+    .hero{padding:40px 28px 24px;text-align:center}
+    .hero-title{font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px}
+    .hero-sub{font-size:13px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;padding:0 28px 40px;max-width:1200px;margin:0 auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all .2s;text-decoration:none;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+    .card:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    .card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+    .card-title{font-size:15px;font-weight:700;color:var(--text)}
+    .card-desc{font-size:12px;color:var(--muted);line-height:1.5}
+    .card-arrow{position:absolute;top:20px;right:20px;color:var(--border);font-size:16px;transition:all .2s}
+    .card:hover .card-arrow{color:var(--red);transform:translateX(3px)}
+    .card-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:var(--bg);color:var(--muted);border:1px solid var(--border);width:fit-content}
+    .empty{padding:60px 28px;text-align:center;color:var(--muted)}
+    .empty i{font-size:40px;margin-bottom:12px;display:block;opacity:.3}
+    @media(max-width:600px){.grid{grid-template-columns:1fr;padding:0 16px 32px}.hero{padding:28px 16px 20px}.topbar{padding:12px 16px}}
+  </style>
+</head>
 <body>
-<script>
-  try {
-    const s = JSON.parse(localStorage.getItem('sb_session') || 'null');
-    if (s?.email && s?.access_token && (!s.expires_at || Date.now() < s.expires_at)) {
-      window.location.replace('dashboard.html');
-    } else {
-      window.location.replace('login.html');
+  <div class="topbar">
+    <div class="brand">
+      <img class="brand-logo" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none'" alt="Bounce">
+      <div class="brand-name">Bounce <span>Service Info</span></div>
+    </div>
+    <div class="user-bar">
+      <span class="user-email" id="user-email"></span>
+      <button class="btn-logout" onclick="authLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-title">Welcome back 👋</div>
+    <div class="hero-sub">Select a dashboard to get started</div>
+  </div>
+
+  <div class="grid" id="dashboard-grid">
+    <!-- populated by JS -->
+  </div>
+
+  <script>
+    const DASHBOARDS = [
+      {
+        key: 'rmc',
+        href: 'dashboard.html',
+        title: 'RMC Dashboard',
+        desc: 'Job card analytics, cost breakdown, hub & city performance, OEM comparison.',
+        icon: 'ti ti-chart-bar',
+        color: '#dc2626',
+        bg: '#fef2f2',
+        tag: 'Analytics'
+      },
+      {
+        key: 'fleet_km',
+        href: 'fleet-km.html',
+        title: 'Fleet KM Analysis',
+        desc: 'Odometer bucket cohorts, cost per KM, monthly fleet snapshots.',
+        icon: 'ti ti-motorbike',
+        color: '#2563eb',
+        bg: '#eff6ff',
+        tag: 'Fleet'
+      },
+      {
+        key: 'parts_testing',
+        href: 'parts-testing.html',
+        title: 'Parts Testing',
+        desc: 'OEM vs test part performance comparison, km lifespan analysis.',
+        icon: 'ti ti-test-pipe',
+        color: '#16a34a',
+        bg: '#f0fdf4',
+        tag: 'Parts'
+      },
+      {
+        key: 'wear_tear',
+        href: 'tyre-analysis.html',
+        title: 'Wear & Tear Deep Dive',
+        desc: 'Tyre & brake replacement analysis, repeat replacements, bike-level KM tracking.',
+        icon: 'ti ti-chart-dots',
+        color: '#d97706',
+        bg: '#fffbeb',
+        tag: 'Wear & Tear'
+      },
+      {
+        key: 'hub_control_tower',
+        href: 'hub-control-tower.html',
+        title: 'Hub Control Tower',
+        desc: 'Live hub status, inflow, runway and deployment tracking.',
+        icon: 'ti ti-dashboard',
+        color: '#7c3aed',
+        bg: '#faf5ff',
+        tag: 'Operations'
+      }
+    ];
+
+    function render() {
+      const perms  = (typeof authPerms === 'function') ? authPerms() : {};
+      const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+      const email   = typeof authGetEmail === 'function' ? authGetEmail() : '';
+
+      document.getElementById('user-email').textContent = email;
+
+      const grid = document.getElementById('dashboard-grid');
+      const visible = DASHBOARDS.filter(d => isAdmin || perms[d.key] !== false);
+
+      if (!visible.length) {
+        grid.innerHTML = `<div class="empty"><i class="ti ti-lock"></i>No dashboards assigned to your account.<br>Contact your admin.</div>`;
+        return;
+      }
+
+      grid.innerHTML = visible.map(d => `
+        <a class="card" href="${d.href}">
+          <i class="card-arrow ti ti-arrow-right"></i>
+          <div class="card-icon" style="background:${d.bg};color:${d.color}">
+            <i class="${d.icon}"></i>
+          </div>
+          <div>
+            <div class="card-title">${d.title}</div>
+            <div class="card-desc" style="margin-top:4px">${d.desc}</div>
+          </div>
+          <div class="card-tag">${d.tag}</div>
+        </a>`).join('');
     }
-  } catch(e) {
-    window.location.replace('login.html');
-  }
-</script>
-</body></html>
+
+    // auth-guard runs synchronously, so perms are available immediately
+    render();
+
+    // Re-render after background perm sync (auth-guard updates session async)
+    window.addEventListener('auth-perms-updated', render);
+  </script>
+</body>
+</html>
