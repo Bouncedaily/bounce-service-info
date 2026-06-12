@@ -231,12 +231,8 @@ async function sbGet(base, key, table, qs) {
   return r.json();
 }
 
-async function mbGet(url, today) {
-  const params = [
-    { type: 'date/single', target: ['variable',['template-tag','start_date']], value: today },
-    { type: 'date/single', target: ['variable',['template-tag','end_date']],   value: today }
-  ];
-  const r = await fetch(url + '?parameters=' + encodeURIComponent(JSON.stringify(params)));
+async function mbGet(url) {
+  const r = await fetch(url);
   if (!r.ok) throw new Error('metabase ' + r.status);
   return r.json();
 }
@@ -258,8 +254,8 @@ async function fetchAll() {
         'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59'),
       sbGet(SF_URL, SF_KEY, 'attendance',
         'select=status&hub_name=eq.' + hub + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)'),
-      mbGet(MB_INFLOW, today).catch(() => []),
-      mbGet(MB_OUTFLOW, today).catch(() => [])
+      mbGet(MB_INFLOW).catch(() => []),
+      mbGet(MB_OUTFLOW).catch(() => [])
     ]);
 
     // Aging
@@ -270,24 +266,26 @@ async function fetchAll() {
     // Jobs closed — unique draft_jc_id
     const closedCount = new Set(closed.map(r => r.draft_jc_id).filter(Boolean)).size;
 
-    // Running repair today — filter inflow by hub + submission_type
+    // Running repair today — filter by hub_name, submission_type, oos_date = today
     const hubLower = currentHub.toLowerCase();
     const rrCount = inflow.filter(r =>
-      (r.hub_name || r['Hub Name'] || r['hub_name'] || '').toLowerCase() === hubLower &&
-      (r.submission_type || r['Submission Type'] || '').toLowerCase().includes('running repair')
+      (r.hub_name || '').toLowerCase() === hubLower &&
+      (r.submission_type || '').toLowerCase().includes('running repair') &&
+      (r.oos_date || '').slice(0,10) === today
     ).length;
 
-    // Outflow — filter by hub
+    // Outflow — filter by hub_name + repaired_datetime = today
     const hubOutflow = outflow.filter(r =>
-      (r.hub_name || r['Hub Name'] || r['hub_name'] || '').toLowerCase() === hubLower
+      (r.hub_name || '').toLowerCase() === hubLower &&
+      (r.repaired_datetime || '').slice(0,10) === today
     );
-    const oosRfd = hubOutflow.filter(r => (r.submission_type || r['Submission Type'] || '').toUpperCase() === 'OOS').length;
-    const pdiRfd = hubOutflow.filter(r => (r.submission_type || r['Submission Type'] || '').toUpperCase() === 'PDI').length;
+    const oosRfd = hubOutflow.filter(r => (r.submission_type || '').toUpperCase() === 'OOS').length;
+    const pdiRfd = hubOutflow.filter(r => (r.submission_type || '').toUpperCase() === 'PDI').length;
     const totalRfd = hubOutflow.length;
 
     // Avg TAT — only OOS rows with valid tat
     const tatVals = hubOutflow
-      .map(r => parseFloat(r.oos_to_rfd_tat_days || r['oos_to_rfd_tat_days'] || r['OOS to RFD TAT Days'] || ''))
+      .map(r => parseFloat(r.oos_to_rfd_tat_days || ''))
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
