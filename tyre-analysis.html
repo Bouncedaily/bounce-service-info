@@ -146,7 +146,12 @@
 
       <div class="card">
         <div class="card-hd"><h2>Bike Level Summary</h2><span class="sub" id="bike-summary-count">—</span></div>
-        <div class="tbl-wrap"><div id="bike-summary-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        <div class="tbl-wrap" id="bike-summary-tbl-wrap"><div id="bike-summary-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        <div class="pg-bar" id="bike-pg-bar" style="display:none">
+          <button class="pg-btn" id="bike-pg-prev" onclick="changeBikePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
+          <span id="bike-pg-info" style="color:var(--muted)"></span>
+          <button class="pg-btn" id="bike-pg-next" onclick="changeBikePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
+        </div>
       </div>
 
       <div class="card">
@@ -166,8 +171,9 @@
 const SB_URL   = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 
-let _result = null, _page = 1;
+let _result = null, _page = 1, _bike_rows = [], _bike_page = 1;
 const PER_PAGE = 100;
+const BIKE_PER_PAGE = 100;
 const fmt = n => (n==null||isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-IN');
 const fmtC = n => (n==null||isNaN(n)||n<=0) ? '—' : '₹'+Math.round(n).toLocaleString('en-IN');
 const fmtD = d => d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
@@ -339,14 +345,35 @@ function fmtTyre(name, bucket) {
 }
 
 function renderBikeSummary(rows) {
-  const el = document.getElementById('bike-summary-body');
+  _bike_rows = rows;
+  _bike_page = 1;
+  _renderBikePage();
+}
+
+function _renderBikePage() {
+  const el  = document.getElementById('bike-summary-body');
   const cnt = document.getElementById('bike-summary-count');
-  if (!rows.length) {
+  const pgBar  = document.getElementById('bike-pg-bar');
+  const pgInfo = document.getElementById('bike-pg-info');
+
+  if (!_bike_rows.length) {
     el.innerHTML = '<div class="loading-state" style="padding:20px">No data</div>';
     cnt.textContent = '0 bikes';
+    pgBar.style.display = 'none';
     return;
   }
-  cnt.textContent = `${rows.length.toLocaleString('en-IN')} bikes`;
+
+  const total      = _bike_rows.length;
+  const totalPages = Math.ceil(total / BIKE_PER_PAGE);
+  _bike_page       = Math.min(_bike_page, totalPages);
+  const page       = _bike_rows.slice((_bike_page - 1) * BIKE_PER_PAGE, _bike_page * BIKE_PER_PAGE);
+
+  cnt.textContent = `${total.toLocaleString('en-IN')} bikes`;
+  pgBar.style.display = totalPages > 1 ? 'flex' : 'none';
+  pgInfo.textContent  = `Page ${_bike_page} of ${totalPages}`;
+  document.getElementById('bike-pg-prev').disabled = _bike_page === 1;
+  document.getElementById('bike-pg-next').disabled = _bike_page === totalPages;
+
   el.innerHTML = `
     <table><thead><tr>
       <th>Reg No</th><th>City</th><th>Hub</th>
@@ -354,11 +381,11 @@ function renderBikeSummary(rows) {
       <th>Current ODO</th><th>Avg ODO / Instance</th>
       <th>KM This Replacement</th><th>KM at Last Replacement</th><th>KM on Part</th>
     </tr></thead>
-    <tbody>${rows.map(r=>`<tr>
+    <tbody>${page.map(r=>`<tr>
       <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
       <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
       <td style="color:var(--text2)">${r.hub_name||'—'}</td>
-      <td style="font-weight:700;color:var(--red)">${fmt(r.filtered_replacements)}</td>
+      <td style="font-weight:700;color:${r.filtered_replacements > 0 ? 'var(--red)' : 'var(--muted)'}">${fmt(r.filtered_replacements)}</td>
       <td style="color:var(--text2)">${fmt(r.overall_replacements)}</td>
       <td style="font-family:var(--mono)">${fmt(r.current_odo)} km</td>
       <td style="font-family:var(--mono);color:var(--text2)">${fmt(r.avg_odo_per_instance)} km</td>
@@ -366,6 +393,12 @@ function renderBikeSummary(rows) {
       <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.km_at_last_replacement)} km</td>
       <td style="font-family:var(--mono);font-weight:600">${fmt(r.km_on_part)} km</td>
     </tr>`).join('')}</tbody></table>`;
+}
+
+function changeBikePage(dir) {
+  _bike_page += dir;
+  _renderBikePage();
+  document.getElementById('bike-summary-tbl-wrap').scrollTop = 0;
 }
 
 function renderAllRows(rows) {
