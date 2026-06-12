@@ -439,14 +439,14 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
         '<div class="kpi">' +
           '<div class="kl">OOS Vehicles</div>' +
           '<div class="kv" ' + (oosHigh ? red : '') + '>' + d.total + '</div>' +
-          '<div class="ks"></div>' +
+          '<div class="ks">In workshop</div>' +
           '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
         '<div class="kpi">' +
           '<div class="kl">JC closed today</div>' +
           '<div class="kv">' + d.closedCount + '</div>' +
-          '<div class="ks"></div>' +
+          '<div class="ks">Unique job cards</div>' +
           '<div class="kbar"></div>' +
         '</div>' +
 
@@ -474,7 +474,7 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
         '<div class="kpi">' +
           '<div class="kl">RFD vehicles available</div>' +
           '<div class="kv" ' + (rfdLow ? red : '') + '>' + d.rfdStock + '</div>' +
-          '<div class="ks"></div>' +
+          '<div class="ks">Ready to deploy</div>' +
           '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
@@ -482,7 +482,7 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
           '<div class="kpi">' +
             '<div class="kl">Parts below MSL</div>' +
             '<div class="kv" ' + (d.mslShorts > 0 ? red : '') + '>' + d.mslShorts + '</div>' +
-            '<div class="ks"></div>' +
+            '<div class="ks">Below MSL</div>' +
             '<div class="kbar" ' + (d.mslShorts > 0 ? 'style="background:#ef4444"' : '') + '></div>' +
           '</div>'
         ) : '') +
