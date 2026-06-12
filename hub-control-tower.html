@@ -284,11 +284,11 @@ async function fetchAll() {
 
     const [fleet, closed, techs, inflow, outflow, rfdStock, runway] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS'),
+        'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
-        'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59'),
+        'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'attendance',
-        'select=status&hub_name=eq.' + hub + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)'),
+        'select=status&hub_name=eq.' + hub + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'inflow_today',
         'select=submission_type,hub_name&hub_name=eq.' + hub).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'outflow_today',
@@ -325,7 +325,7 @@ async function fetchAll() {
       .filter(v => !isNaN(v) && v >= 0);
     const avgTat = tatVals.length > 0 ? (tatVals.reduce((a,b) => a+b, 0) / tatVals.length).toFixed(1) : null;
 
-    render({ hub: currentHub, total: fleet.length, ages, closedCount, techs: techs.length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat, runway, rfdStock: rfdStock.length });
+    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, rrCount, totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
