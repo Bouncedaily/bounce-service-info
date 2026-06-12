@@ -89,13 +89,8 @@ async function handleCallback() {
   localStorage.setItem('sb_session', sessionData);
   sessionStorage.setItem('sb_session', sessionData);
 
-  // Redirect to first page user has access to
-  const perms = userData.permissions || { rmc:true, fleet_km:true, parts_testing:true };
-  let landing = 'dashboard.html';
-  if (!perms.rmc && perms.fleet_km) landing = 'fleet-km.html';
-  else if (!perms.rmc && !perms.fleet_km && perms.parts_testing) landing = 'parts-testing.html';
-
-  window.location.replace(landing);
+  // Always redirect to index — index shows only permitted dashboards
+  window.location.replace('index.html');
 }
 
 handleCallback().catch(e => {
