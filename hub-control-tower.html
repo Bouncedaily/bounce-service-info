@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hub Control Tower — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    /* ── page shell ── */
+    .wrap { padding: 24px; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    /* ── topbar controls ── */
+    .ctl-bar {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 20px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; min-width: 180px;
+    }
+    .fg select:focus { border-color: var(--red); }
+    .fg select option { background: var(--card); }
+
+    /* live indicator + refresh */
+    .live-chip {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--muted); margin-left: auto;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34,197,94,.2);
+      animation: livepulse 2s infinite;
+    }
+    @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .countdown { color: #22c55e; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .btn-refresh {
+      padding: 7px 13px; background: transparent; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted); font-size: 12px; cursor: pointer;
+      font-family: inherit; transition: color .15s, border-color .15s;
+    }
+    .btn-refresh:hover { color: var(--text); border-color: var(--text); }
+
+    /* ── KPI row ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: 12px; margin-bottom: 20px; }
+    .kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      position: relative; overflow: hidden;
+    }
+    .kpi::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; border-radius: 12px 12px 0 0;
+    }
+    .kpi.k-blue::after   { background: #3b82f6; }
+    .kpi.k-amber::after  { background: #f59e0b; }
+    .kpi.k-red::after    { background: #ef4444; }
+    .kpi.k-green::after  { background: #22c55e; }
+    .kpi.k-purple::after { background: #8b5cf6; }
+
+    .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .kpi-ico { font-size: 18px; color: var(--muted); }
+    .kbadge {
+      font-size: 9px; font-weight: 700; padding: 2px 6px;
+      border-radius: 20px; letter-spacing: .3px;
+    }
+    .kb-blue   { background: rgba(59,130,246,.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,.25); }
+    .kb-amber  { background: rgba(245,158,11,.12);  color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+    .kb-red    { background: rgba(239,68,68,.12);   color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .kb-green  { background: rgba(34,197,94,.12);   color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+    .kb-purple { background: rgba(139,92,246,.12);  color: #a78bfa; border: 1px solid rgba(139,92,246,.25); }
+
+    .kpi .kl { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .kpi .kv { font-size: 36px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+    .kv.c-blue   { color: #60a5fa; }
+    .kv.c-amber  { color: #fbbf24; }
+    .kv.c-red    { color: #f87171; }
+    .kv.c-green  { color: #4ade80; }
+    .kv.c-purple { color: #a78bfa; }
+    .kv.c-muted  { color: var(--muted); font-size: 22px; font-weight: 600; }
+    .kpi .ks { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .na-tag {
+      display: inline-block; font-size: 10px; color: var(--muted);
+      background: var(--bg); border: 1px dashed var(--border);
+      padding: 1px 7px; border-radius: 4px;
+    }
+
+    /* ── bottom grid ── */
+    .bottom-grid { display: grid; grid-template-columns: 1fr 2.2fr; gap: 16px; }
+    @media(max-width:960px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    /* ── health scorecards ── */
+    .health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hcard {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .hcard .hl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
+    .hcard .hv { font-size: 24px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 2px; }
+    .hcard .hv span { font-size: 13px; font-weight: 400; color: var(--muted); }
+    .hcard .ht { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .hstatus { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; }
+    .sdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .sd-g { background: #22c55e; } .hs-g { color: #4ade80; }
+    .sd-a { background: #f59e0b; } .hs-a { color: #fbbf24; }
+    .sd-r { background: #ef4444; } .hs-r { color: #f87171; }
+
+    /* ── aging panel ── */
+    .aging-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .aging-hdr {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+    }
+    .aging-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .aging-total { font-size: 11px; color: var(--muted); }
+
+    .aging-buckets { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; }
+    @media(max-width:700px) { .aging-buckets { grid-template-columns: repeat(3,1fr); } }
+
+    .ab { border-radius: 10px; padding: 12px 10px; text-align: center; border: 1px solid transparent; }
+    .ab0 { background: rgba(34,197,94,.08);   border-color: rgba(34,197,94,.25); }
+    .ab1 { background: rgba(245,158,11,.08);  border-color: rgba(245,158,11,.25); }
+    .ab2 { background: rgba(249,115,22,.08);  border-color: rgba(249,115,22,.3); }
+    .ab3 { background: rgba(239,68,68,.1);    border-color: rgba(239,68,68,.3); }
+    .ab4 { background: rgba(220,38,38,.15);   border-color: rgba(220,38,38,.5); }
+
+    .ab-range { font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 8px; }
+    .ab0 .ab-range { color: #4ade80; } .ab1 .ab-range { color: #fbbf24; }
+    .ab2 .ab-range { color: #fb923c; } .ab3 .ab-range { color: #f87171; }
+    .ab4 .ab-range { color: #fca5a5; }
+
+    .ab-count { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+    .ab0 .ab-count { color: #4ade80; } .ab1 .ab-count { color: #fbbf24; }
+    .ab2 .ab-count { color: #fb923c; } .ab3 .ab-count { color: #f87171; }
+    .ab4 .ab-count { color: #fca5a5; }
+
+    .ab-pct { font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+    .ab-pill { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 20px; }
+    .ab0 .ab-pill { background: rgba(34,197,94,.15);  color: #4ade80; }
+    .ab1 .ab-pill { background: rgba(245,158,11,.15); color: #fbbf24; }
+    .ab2 .ab-pill { background: rgba(249,115,22,.15); color: #fb923c; }
+    .ab3 .ab-pill { background: rgba(239,68,68,.15);  color: #f87171; }
+    .ab4 .ab-pill { background: rgba(220,38,38,.2);   color: #fca5a5; }
+
+    /* stacked bar */
+    .bar-lbl { font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+    .bar-track { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; display: flex; }
+    .bs { height: 100%; transition: width .5s ease; }
+    .bs0{background:#22c55e;} .bs1{background:#f59e0b;} .bs2{background:#f97316;}
+    .bs3{background:#ef4444;} .bs4{background:#dc2626;}
+
+    .bar-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+    .leg-sq { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* critical alert */
+    .crit-banner {
+      margin-top: 12px; background: rgba(239,68,68,.07);
+      border: 1px solid rgba(239,68,68,.3); border-radius: 8px;
+      padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .crit-icon { font-size: 14px; color: #ef4444; flex-shrink: 0; margin-top: 1px; }
+    .crit-text { font-size: 11px; color: #fca5a5; line-height: 1.6; }
+    .crit-text strong { color: #f87171; font-weight: 700; }
+
+    /* RFD row */
+    .rfd-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    @media(max-width:600px) { .rfd-row { grid-template-columns: 1fr; } }
+    .rfd-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .rfd-ico { font-size: 22px; color: var(--muted); }
+    .rfd-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .rfd-val { font-size: 28px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+    .rfd-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    /* section label */
+    .sec-lbl {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.3px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+    }
+
+    /* loading */
+    .loading-state { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+    .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .last-upd { font-size: 11px; color: var(--muted); margin-top: 16px; text-align: right; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR — identical structure to other pages -->
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
+<nav class="sidebar" id="sidebar">
+  <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
+  <div class="sb-brand">
+    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
+    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
+    <div class="sb-text"><div class="sb-name">Bounce <span>Service Info</span></div></div>
+  </div>
+  <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
+  <a class="sb-item" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre & Brake</span></a>
+  <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
+  <a class="sb-item active" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon"></i><span class="sb-label">Hub Control Tower</span></a>
+  <div class="sb-sec">ADMIN</div>
+  <a class="sb-item admin-only" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
+  <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
+    <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
+  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="content">
+    <div class="wrap">
+
+      <div class="page-title">Hub Control Tower</div>
+      <div class="page-sub">Live operations dashboard — vehicle status, aging & technician availability · auto-refreshes every 5 min</div>
+
+      <!-- CONTROLS -->
+      <div class="ctl-bar">
+        <div class="fg">
+          <label>Hub</label>
+          <select id="hubSelect" onchange="onHubChange()">
+            <option value="">— Select Hub —</option>
+            <optgroup label="Bangalore">
+              <option>Banaswadi</option><option>Bellandur</option><option>Bilekahalli</option>
+              <option>Hebbal</option><option>Hoodi</option><option>HSR Layout</option>
+              <option>Indiqube Alpha</option><option>JP Nagar</option><option>KR Puram</option>
+              <option>Majestic Railway Station</option><option>RR Nagar</option>
+              <option>Yelahanka</option><option>Yeshwanthpur</option>
+            </optgroup>
+            <optgroup label="Hyderabad">
+              <option>Fathe nagar</option><option>Miyapur</option>
+            </optgroup>
+            <optgroup label="NCR">
+              <option>Bounce&lt;&gt;Pronto</option><option>Gurugram</option>
+              <option>Indirapuram</option><option>Indirapuram 2</option>
+              <option>Okhla</option><option>Rohini</option><option>Saket</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="live-chip">
+          <div class="live-dot"></div>
+          <span>Refresh in <span class="countdown" id="countdown">5:00</span></span>
+        </div>
+        <button class="btn-refresh" onclick="fetchAll()">
+          <i class="ti ti-refresh" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i>Refresh now
+        </button>
+      </div>
+
+      <!-- DYNAMIC CONTENT -->
+      <div id="dashContent">
+        <div class="loading-state">
+          <div class="spin"></div>
+          Select a hub to load live data
+        </div>
+      </div>
+
+      <div class="last-upd" id="lastUpd"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Supabase config ── */
+  const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+  const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyMDc2NDgsImV4cCI6MjA2Mjc4MzY0OH0.W6BZpDhqFpBNEpoI_9JiRMqCMjNFqZwpRXIPWfHCYKo';
+
+  const SF_URL  = 'https://jpypnrrjiagscqrucslw.supabase.co';
+  const SF_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweXBucnJqaWFnc2NxcnVjc2x3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTAwNDAsImV4cCI6MjA2MzM4NjA0MH0.GKmQrKYhCrGnRBJTNYXqRLlAUQGWHKkHrqvP5l_Tdlw';
+
+  let currentHub = '';
+  let refreshTimer = null;
+  let countdownSec = 300;
+
+  /* ── countdown ── */
+  function startCountdown() {
+    countdownSec = 300;
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+      countdownSec--;
+      const m = Math.floor(countdownSec / 60);
+      const s = countdownSec % 60;
+      document.getElementById('countdown').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      if (countdownSec <= 0) fetchAll();
+    }, 1000);
+  }
+
+  function onHubChange() {
+    currentHub = document.getElementById('hubSelect').value;
+    if (!currentHub) return;
+    fetchAll();
+  }
+
+  /* ── Supabase REST helper ── */
+  async function sbGet(baseUrl, key, table, qs) {
+    const r = await fetch(`${baseUrl}/rest/v1/${table}?${qs}`, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+    });
+    if (!r.ok) throw new Error(`${table} ${r.status}`);
+    return r.json();
+  }
+
+  /* ── main fetch ── */
+  async function fetchAll() {
+    if (!currentHub) return;
+    document.getElementById('dashContent').innerHTML =
+      '<div class="loading-state"><div class="spin"></div>Loading live data…</div>';
+    startCountdown();
+
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const hub   = encodeURIComponent(currentHub);
+
+      /* 1 — OOS fleet (vehicles in workshop + aging) */
+      const fleet = await sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
+        `select=bike_status,oos_aging_bucket&hub_name=eq.${hub}&bike_status=eq.oos`);
+
+      /* 2 — Jobs closed today */
+      const closed = await sbGet(INFO_URL, INFO_KEY, 'jc_details',
+        `select=hub_name&hub_name=eq.${hub}&end_time=gte.${today}T00:00:00&end_time=lte.${today}T23:59:59`);
+
+      /* 3 — Technicians available today */
+      const techs = await sbGet(SF_URL, SF_KEY, 'attendance',
+        `select=status&hub_name=eq.${hub}&date=eq.${today}&status=in.(present,checked_in,half_day)`);
+
+      /* build aging map */
+      const BUCKETS = ['0 days', '1-2 days', '3-4 days', '5-7 days', 'above 7 days'];
+      const ages = Object.fromEntries(BUCKETS.map(b => [b, 0]));
+      fleet.forEach(r => { if (ages.hasOwnProperty(r.oos_aging_bucket)) ages[r.oos_aging_bucket]++; });
+
+      render({
+        hub:      currentHub,
+        total:    fleet.length,
+        ages,
+        closed:   closed.length,
+        techs:    techs.length,
+      });
+
+      document.getElementById('lastUpd').textContent =
+        `Last refreshed: ${new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`;
+
+    } catch (err) {
+      document.getElementById('dashContent').innerHTML =
+        `<div class="loading-state" style="color:#f87171">
+           <i class="ti ti-alert-triangle" style="font-size:22px;margin-bottom:8px;display:block"></i>
+           Error loading data: ${err.message}
+         </div>`;
+    }
+  }
+
+  /* ── helpers ── */
+  const pct = (n, total) => total > 0 ? Math.round(n / total * 100) : 0;
+
+  function healthStatus(ok, warn) {
+    if (ok)   return { dot:'sd-g', cls:'hs-g', lbl:'Healthy' };
+    if (warn) return { dot:'sd-a', cls:'hs-a', lbl:'Attention' };
+    return       { dot:'sd-r', cls:'hs-r', lbl:'Critical' };
+  }
+
+  /* ── render ── */
+  function render(d) {
+    const total   = d.total;
+    const ages    = d.ages;
+    const critical = ages['above 7 days'];
+    const stuck3plus = ages['3-4 days'] + ages['5-7 days'] + ages['above 7 days'];
+
+    const jobsSt  = healthStatus(d.closed >= 20, d.closed >= 15);
+    const critSt  = healthStatus(critical === 0, critical <= 2);
+    const techSt  = healthStatus(d.techs >= 8, d.techs >= 5);
+
+    const critBanner = critical > 0 ? `
+      <div class="crit-banner">
+        <i class="ti ti-alert-triangle crit-icon"></i>
+        <div class="crit-text">
+          <strong>${critical} vehicle${critical > 1 ? 's' : ''} stuck &gt; 7 days</strong> — Immediate SM review required.
+          ${stuck3plus} vehicles aged 3+ days need escalation today.
+        </div>
+      </div>` : '';
+
+    document.getElementById('dashContent').innerHTML = `
+
+      <!-- KPI CARDS -->
+      <div class="sec-lbl">◉ &nbsp;Live hub status</div>
+      <div class="kpi-row">
+
+        <div class="kpi k-blue">
+          <div class="kpi-top">
+            <i class="ti ti-motorbike kpi-ico"></i>
+            <span class="kbadge kb-blue">OOS</span>
+          </div>
+          <div class="kl">Vehicles in workshop</div>
+          <div class="kv c-blue">${total}</div>
+          <div class="ks">Currently OOS at hub</div>
+        </div>
+
+        <div class="kpi k-amber">
+          <div class="kpi-top">
+            <i class="ti ti-checks kpi-ico"></i>
+            <span class="kbadge kb-amber">Today</span>
+          </div>
+          <div class="kl">Jobs closed today</div>
+          <div class="kv c-amber">${d.closed}</div>
+          <div class="ks">JCs billed as of now</div>
+        </div>
+
+        <div class="kpi k-green">
+          <div class="kpi-top">
+            <i class="ti ti-users kpi-ico"></i>
+            <span class="kbadge kb-green">On floor</span>
+          </div>
+          <div class="kl">Technicians available</div>
+          <div class="kv c-green">${d.techs}</div>
+          <div class="ks">Present / checked-in today</div>
+        </div>
+
+        <div class="kpi k-red">
+          <div class="kpi-top">
+            <i class="ti ti-package-off kpi-ico"></i>
+            <span class="kbadge kb-red">Blocked</span>
+          </div>
+          <div class="kl">Awaiting parts</div>
+          <div class="kv c-muted">—</div>
+          <div class="ks"><span class="na-tag">Coming soon</span></div>
+        </div>
+
+        <div class="kpi k-purple">
+          <div class="kpi-top">
+            <i class="ti ti-refresh-alert kpi-ico"></i>
+            <span class="kbadge kb-purple">Quality</span>
+          </div>
+          <div class="kl">Repeat repairs</div>
+          <div class="kv c-muted">—</div>
+          <div class="ks"><span class="na-tag">Coming soon</span></div>
+        </div>
+
+      </div>
+
+      <!-- RFD ROW -->
+      <div class="sec-lbl">↑ &nbsp;Outflow today</div>
+      <div class="rfd-row">
+        <div class="rfd-card">
+          <i class="ti ti-arrow-up-circle rfd-ico"></i>
+          <div>
+            <div class="rfd-lbl">Vehicles moved to RFD</div>
+            <div class="rfd-val" style="color:var(--muted);font-size:22px">—</div>
+            <div class="rfd-sub"><span class="na-tag">Metabase outflow query — pending</span></div>
+          </div>
+        </div>
+        <div class="rfd-card">
+          <i class="ti ti-clock rfd-ico"></i>
+          <div>
+            <div class="rfd-lbl">Average TAT (closed jobs)</div>
+            <div class="rfd-val" style="color:var(--muted);font-size:22px">—</div>
+            <div class="rfd-sub"><span class="na-tag">Outflow query — pending</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEALTH + AGING -->
+      <div class="bottom-grid">
+
+        <!-- WORKSHOP HEALTH -->
+        <div>
+          <div class="sec-lbl">♥ &nbsp;Workshop health</div>
+          <div class="health-grid">
+
+            <div class="hcard">
+              <div class="hl">Jobs closed</div>
+              <div class="hv">${d.closed}</div>
+              <div class="ht">Target: ≥ 20 / day</div>
+              <div class="hstatus">
+                <div class="sdot ${jobsSt.dot}"></div>
+                <span class="${jobsSt.cls}">${jobsSt.lbl}</span>
+              </div>
+            </div>
+
+            <div class="hcard">
+              <div class="hl">Vehicles in workshop</div>
+              <div class="hv">${total}</div>
+              <div class="ht">All OOS at hub</div>
+              <div class="hstatus">
+                <div class="sdot ${total > 0 ? 'sd-a' : 'sd-g'}"></div>
+                <span class="${total > 0 ? 'hs-a' : 'hs-g'}">${total > 0 ? 'Active' : 'Clear'}</span>
+              </div>
+            </div>
+
+            <div class="hcard">
+              <div class="hl">Technicians today</div>
+              <div class="hv">${d.techs}</div>
+              <div class="ht">Present / checked-in</div>
+              <div class="hstatus">
+                <div class="sdot ${techSt.dot}"></div>
+                <span class="${techSt.cls}">${techSt.lbl}</span>
+              </div>
+            </div>
+
+            <div class="hcard">
+              <div class="hl">Stuck &gt; 7 days</div>
+              <div class="hv" style="color:${critical > 0 ? '#f87171' : '#4ade80'}">${critical}</div>
+              <div class="ht">Target: 0</div>
+              <div class="hstatus">
+                <div class="sdot ${critSt.dot}"></div>
+                <span class="${critSt.cls}">${critSt.lbl}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- VEHICLE AGING -->
+        <div>
+          <div class="aging-panel">
+            <div class="aging-hdr">
+              <div class="aging-title">
+                <i class="ti ti-clock-exclamation" style="color:#ef4444;font-size:16px"></i>
+                Vehicle aging — how many are stuck?
+              </div>
+              <div class="aging-total">${total} OOS · ${d.hub}</div>
+            </div>
+
+            <div class="aging-buckets">
+              <div class="ab ab0">
+                <div class="ab-range">0 days</div>
+                <div class="ab-count">${ages['0 days']}</div>
+                <div class="ab-pct">${pct(ages['0 days'], total)}%</div>
+                <div class="ab-pill">Fresh</div>
+              </div>
+              <div class="ab ab1">
+                <div class="ab-range">1–2 days</div>
+                <div class="ab-count">${ages['1-2 days']}</div>
+                <div class="ab-pct">${pct(ages['1-2 days'], total)}%</div>
+                <div class="ab-pill">Monitor</div>
+              </div>
+              <div class="ab ab2">
+                <div class="ab-range">3–4 days</div>
+                <div class="ab-count">${ages['3-4 days']}</div>
+                <div class="ab-pct">${pct(ages['3-4 days'], total)}%</div>
+                <div class="ab-pill">Escalate</div>
+              </div>
+              <div class="ab ab3">
+                <div class="ab-range">5–7 days</div>
+                <div class="ab-count">${ages['5-7 days']}</div>
+                <div class="ab-pct">${pct(ages['5-7 days'], total)}%</div>
+                <div class="ab-pill">Urgent</div>
+              </div>
+              <div class="ab ab4">
+                <div class="ab-range">&gt; 7 days</div>
+                <div class="ab-count">${ages['above 7 days']}</div>
+                <div class="ab-pct">${pct(ages['above 7 days'], total)}%</div>
+                <div class="ab-pill">Critical</div>
+              </div>
+            </div>
+
+            <div class="bar-lbl">Fleet aging distribution</div>
+            <div class="bar-track">
+              <div class="bs bs0" style="width:${pct(ages['0 days'],total)}%"></div>
+              <div class="bs bs1" style="width:${pct(ages['1-2 days'],total)}%"></div>
+              <div class="bs bs2" style="width:${pct(ages['3-4 days'],total)}%"></div>
+              <div class="bs bs3" style="width:${pct(ages['5-7 days'],total)}%"></div>
+              <div class="bs bs4" style="width:${pct(ages['above 7 days'],total)}%"></div>
+            </div>
+            <div class="bar-legend">
+              <div class="leg"><div class="leg-sq" style="background:#22c55e"></div>0 days (${ages['0 days']})</div>
+              <div class="leg"><div class="leg-sq" style="background:#f59e0b"></div>1–2 days (${ages['1-2 days']})</div>
+              <div class="leg"><div class="leg-sq" style="background:#f97316"></div>3–4 days (${ages['3-4 days']})</div>
+              <div class="leg"><div class="leg-sq" style="background:#ef4444"></div>5–7 days (${ages['5-7 days']})</div>
+              <div class="leg"><div class="leg-sq" style="background:#dc2626"></div>&gt;7 days (${ages['above 7 days']})</div>
+            </div>
+
+            ${critBanner}
+          </div>
+        </div>
+
+      </div>
+    `;
+  }
+</script>
+</body>
+</html>
