@@ -470,11 +470,11 @@ function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_de
           '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
         '</div>' +
 
-        (d.mslShorts !== null ? (
+        (d.mslShorts !== null && d.mslShorts > 0 ? (
           '<div class="kpi">' +
             '<div class="kl">Parts below MSL</div>' +
             '<div class="kv" ' + (d.mslShorts > 0 ? red : '') + '>' + d.mslShorts + '</div>' +
-            '<div class="ks">Shortage items · synced 9 AM</div>' +
+            '<div class="ks">Parts shortage count</div>' +
             '<div class="kbar" ' + (d.mslShorts > 0 ? 'style="background:#ef4444"' : '') + '></div>' +
           '</div>'
         ) : '') +
