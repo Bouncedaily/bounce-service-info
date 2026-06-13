@@ -571,7 +571,7 @@ function toggleSidebar() {
   const sb  = document.getElementById('sidebar');
   const arr = document.getElementById('sb-arrow');
   sb.classList.toggle('collapsed');
-  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
+  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 // Restore state
@@ -580,7 +580,7 @@ function toggleSidebar() {
     const sb  = document.getElementById('sidebar');
     const arr = document.getElementById('sb-arrow');
     if (sb)  sb.classList.add('collapsed');
-    if (arr) arr.className = 'ti ti-chevrons-right';
+    if (arr) arr.className = 'ti ti-layout-sidebar-right';
   }
 })();
 
