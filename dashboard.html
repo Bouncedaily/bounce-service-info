@@ -661,10 +661,11 @@ localStorage.removeItem('sb_session');
 (function(){
   // Default expanded — only collapse if user explicitly toggled it to '1'
   const state = localStorage.getItem('sb_collapsed');
-  if (state === '1') {
+  if (state !== '0') {
     const sb = document.getElementById('sidebar');
-    const btn = document.getElementById('sb-toggle');
-    if (sb) { sb.classList.add('collapsed');  }
+    const arr = document.getElementById('sb-arrow');
+    if (sb)  sb.classList.add('collapsed');
+    if (arr) arr.className = 'ti ti-layout-sidebar';
   }
 })();
 
