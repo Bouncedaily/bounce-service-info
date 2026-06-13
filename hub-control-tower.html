@@ -566,7 +566,7 @@ function toggleSidebar() {
 }
 // Restore sidebar state on load
 (function() {
-  if (localStorage.getItem('sb_collapsed') === '1') {
+  if (localStorage.getItem('sb_collapsed') !== '0') {
     const sb  = document.getElementById('sidebar');
     const arr = document.getElementById('sb-arrow');
     if (sb)  sb.classList.add('collapsed');
