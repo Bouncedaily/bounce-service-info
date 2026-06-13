@@ -200,6 +200,7 @@ th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px
 </nav>
 
 <!-- MAIN -->
+<button class="sb-open-btn" id="sb-open-btn" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><i class="ti ti-menu-2" aria-hidden="true"></i></button>
 <div class="main">
   <div class="page-header">
     <div>
@@ -579,7 +580,8 @@ function toggleSidebar() {
   sb.classList.toggle('collapsed');
   if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  if (stbtn) stbtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
+  const openBtn = document.getElementById('sb-open-btn');
+  if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
 }
 // Restore state
 (function(){
