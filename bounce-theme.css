@@ -428,7 +428,7 @@ button, .btn, .pg-btn, .export-btn, .btn-load {
 }
 .sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
 /* Show only when sidebar is collapsed */
-.sidebar.collapsed ~ .main .sb-open-btn { display: flex; }
+.sidebar.collapsed ~ .sb-open-btn { display: flex; }
 /* Push page content right so button never overlaps text */
 .sidebar.collapsed ~ .main { padding-left: 44px; }
 .sidebar:not(.collapsed) ~ .main { padding-left: 0; }
