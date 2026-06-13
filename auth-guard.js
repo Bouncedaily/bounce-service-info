@@ -19,7 +19,8 @@
   // Expose helpers
   window.authGetEmail = () => session.email || '';
   window.authIsAdmin  = () => session.email?.toLowerCase() === ADMIN;
-  window.authPerms    = () => session.permissions || { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true };
+  const DEFAULT_PERMS = { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true };
+  window.authPerms    = () => Object.assign({}, DEFAULT_PERMS, session.permissions || {});
   window.authLogout   = () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'login.html'; };
 
   // Apply permissions + sync from DB in background
