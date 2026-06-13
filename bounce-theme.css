@@ -78,7 +78,7 @@ body {
   transition: width .22s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
 }
-.sidebar.collapsed { width: 48px; min-width: 48px; }
+.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; }
 
 .sb-brand {
   display: flex; align-items: center; gap: 10px;
@@ -408,3 +408,23 @@ button, .btn, .pg-btn, .export-btn, .btn-load {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Sidebar open button (shown when sidebar is collapsed) ── */
+.sb-open-btn {
+  position: fixed;
+  top: 14px; left: 14px;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 400;
+  box-shadow: 0 1px 6px rgba(0,0,0,.10);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.sidebar:not(.collapsed) ~ .main .sb-open-btn,
+.sidebar:not(.collapsed) + .main .sb-open-btn { display: none; }
