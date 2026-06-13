@@ -56,7 +56,7 @@
 <button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=1780722254"></script>
 <nav class="sidebar" id="sidebar">
-  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left" id="sb-arrow"></i></button>
+  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-layout-sidebar" id="sb-arrow"></i></button>
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
@@ -181,7 +181,7 @@ function toggleSidebar() {
   const sb  = document.getElementById('sidebar');
   const arr = document.getElementById('sb-arrow');
   sb.classList.toggle('collapsed');
-  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
+  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
 }
 
