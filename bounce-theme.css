@@ -29,7 +29,7 @@
   /* Text */
   --text:     #0f172a;
   --text2:    #475569;
-  --muted:    #94a3b8;
+  --muted:    #64748b;
 
   /* Sidebar (always dark) */
   --sb-bg:       #131316;
@@ -378,3 +378,34 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
 .kpi-card .kpi-val { font-size: 22px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 4px; line-height: 1; }
 .kpi-card .kpi-sub { font-size: 11px; color: var(--muted); }
 .kpi-card .kpi-bar { height: 3px; border-radius: 2px; margin-top: 10px; }
+
+/* ── Fix: proper focus outlines (removed outline:none) ── */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+input, select, textarea {
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.12);
+}
+
+/* ── Fix 8: Minimum touch targets ── */
+button, .btn, .pg-btn, .export-btn, .btn-load {
+  min-height: 36px;
+}
+.sb-item {
+  min-height: 36px;
+}
+
+/* ── Fix 9: Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
