@@ -144,15 +144,15 @@ tr:hover td { background: var(--bg); }
 </style>
 </head>
 <body>
-<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
-<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">☰</button>
+<div class="sb-overlay" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=1780722254"></script>
 
 
 
 <!-- SIDEBAR -->
-<nav class="sidebar" id="sb">
-  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-layout-sidebar" id="sb-arrow"></i></button>
+<nav class="sidebar" aria-label="Main navigation" id="sb">
+  <button class="sb-toggle" id="sb-toggle" aria-label="Toggle sidebar" aria-expanded="true" aria-controls="sidebar" onclick="toggleSidebar()"><i class="ti ti-layout-sidebar" id="sb-arrow"></i></button>
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
@@ -172,11 +172,11 @@ tr:hover td { background: var(--bg); }
     <i class="ti ti-test-pipe sb-icon" aria-hidden="true"></i><span class="sb-label">Parts Testing</span>
   </a>
   <a class="sb-item" href="tyre-analysis.html" data-tip="Wear &amp; Tear Deep Dive"><i class="ti ti-chart-dots sb-icon" aria-hidden="true" style="font-size:15px;width:18px;text-align:center;flex-shrink:0"></i><span class="sb-label">Wear &amp; Tear Deep Dive</span></a>
-  <a class="sb-item" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon"></i><span class="sb-label">Hub Control Tower</span></a>
+  <a class="sb-item" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon" aria-hidden="true"></i><span class="sb-label">Hub Control Tower</span></a>
   <div id="admin-link" style="display:none">
     <div class="sb-sec">Admin</div>
     <a class="sb-item" href="admin.html">
-      <i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span>
+      <i class="ti ti-shield sb-icon" aria-hidden="true"></i><span class="sb-label">Admin</span>
     </a>
   </div>
   <div class="sb-spacer"></div>
@@ -909,16 +909,21 @@ function exportOemCSV() {
 
 // ─── SIDEBAR ─────────────────────────────────────────────────
 function openSidebar() {
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) hbtn.setAttribute('aria-expanded','true');
   document.getElementById('sidebar').classList.add('mobile-open');
   document.getElementById('sb-overlay').classList.add('active');
   document.getElementById('sb-hamburger').style.display='none';
 }
 function closeSidebar() {
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) hbtn.setAttribute('aria-expanded','false');
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sb-overlay').classList.remove('active');
   document.getElementById('sb-hamburger').style.display='';
 }
 function toggleSidebar() {
+  const stbtn = document.getElementById('sb-toggle');
   const sb = document.getElementById('sb');
   const arrow = document.getElementById('sb-arrow');
   sb.classList.toggle('collapsed');
