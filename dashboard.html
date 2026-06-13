@@ -116,6 +116,7 @@ tbody tr:last-child td{border-bottom:none}
 </div>
 
 <!-- MAIN -->
+<button class="sb-open-btn" id="sb-open-btn" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><i class="ti ti-menu-2" aria-hidden="true"></i></button>
 <div class="main">
   <div class="content">
 
@@ -659,7 +660,8 @@ function toggleSidebar() {
   sb.classList.toggle('collapsed');
   
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  if (stbtn) stbtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
+  const openBtn = document.getElementById('sb-open-btn');
+  if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
 }
 // Clean up old auth keys
 localStorage.removeItem('sb_session');
