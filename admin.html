@@ -222,11 +222,14 @@ async function loadUsers() {
     const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true};
     const isProt = u.email===ADMIN;
     const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `
-      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.rmc?'checked':''} onchange="setPerm('${u.email}','rmc',this.checked)"> RMC</label>
-      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
-      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>
-      <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.wear_tear?'checked':''} onchange="setPerm('${u.email}','wear_tear',this.checked)"> Wear &amp; Tear</label>
-      <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.hub_control_tower?'checked':''} onchange="setPerm('${u.email}','hub_control_tower',this.checked)"> Hub Tower</label>`;
+      <fieldset style="border:none;padding:0;margin:0">
+        <legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Dashboard Access</legend>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.rmc?'checked':''} onchange="setPerm('${u.email}','rmc',this.checked)"> RMC</label>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.wear_tear?'checked':''} onchange="setPerm('${u.email}','wear_tear',this.checked)"> Wear &amp; Tear</label>
+        <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.hub_control_tower?'checked':''} onchange="setPerm('${u.email}','hub_control_tower',this.checked)"> Hub Tower</label>
+      </fieldset>`;
     return `<tr data-email="${u.email}">
       <td class="user-name" style="font-weight:600">${u.name||'—'}</td>
       <td>${u.email}</td>
