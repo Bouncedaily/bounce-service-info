@@ -161,7 +161,7 @@ if (!sess.email) { window.location.href = 'login.html'; }
   if (el) el.textContent = sess.email || '';
 
   // Sidebar toggle
-  if (localStorage.getItem('sb_collapsed')==='1') {
+  if (localStorage.getItem('sb_collapsed')!=='0') {
     document.getElementById('sidebar').classList.add('collapsed');
     document.getElementById('sb-toggle').textContent='›';
   }
