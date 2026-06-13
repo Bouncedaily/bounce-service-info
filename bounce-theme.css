@@ -78,8 +78,7 @@ body {
   transition: width .22s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
 }
-.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; border-right: none; }
-.sidebar.collapsed + .main { padding-left: 0; }
+.sidebar.collapsed { width: 48px; min-width: 48px; }
 
 .sb-brand {
   display: flex; align-items: center; gap: 10px;
@@ -98,30 +97,16 @@ body {
 .sidebar.collapsed .sb-text { opacity: 0; pointer-events: none; }
 
 .sb-toggle {
-  position: absolute; right: -13px; top: 16px;
-  width: 26px; height: 26px; border-radius: 50%;
+  position: absolute; right: -12px; top: 16px;
+  width: 24px; height: 24px; border-radius: 50%;
   background: var(--card); border: 1px solid var(--border);
-  color: var(--text2); font-size: 13px; cursor: pointer;
+  color: var(--text2); font-size: 12px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   z-index: 300; transition: background .15s, color .15s, border-color .15s;
   box-shadow: 0 1px 4px rgba(0,0,0,.1);
-  flex-shrink: 0;
 }
-.sidebar.collapsed .sb-toggle { display: none; }
 .sb-toggle:hover { background: var(--red); color: #fff; border-color: var(--red); }
-
-/* Floating open button — shown only when sidebar is collapsed */
-.sb-open-btn {
-  position: fixed; left: 12px; top: 12px;
-  width: 34px; height: 34px; border-radius: 8px;
-  background: var(--card); border: 1px solid var(--border);
-  color: var(--text2); font-size: 16px; cursor: pointer;
-  display: none; align-items: center; justify-content: center;
-  z-index: 300; box-shadow: 0 2px 8px rgba(0,0,0,.12);
-  transition: background .15s, color .15s;
-}
-.sidebar.collapsed ~ .main .sb-open-btn { display: flex; }
-.sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.sb-open-btn { display: none; }
 
 .sb-sec {
   padding: 16px 14px 6px; font-size: 9.5px; text-transform: uppercase;
