@@ -106,7 +106,7 @@ tbody tr:last-child td{border-bottom:none}
   </div>
   <div class="sb-spacer"></div>
   <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-user-email"></div>
     <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
   </div>
   <div class="sb-foot">
@@ -140,23 +140,23 @@ tbody tr:last-child td{border-bottom:none}
 
     <!-- FILTERS -->
     <div class="filters">
-      <div class="fl"><span class="fl-l">From</span><input type="date" id="f-start" oninput="updateDatePill()"/></div>
-      <div class="fl"><span class="fl-l">To</span><input type="date" id="f-end" oninput="updateDatePill()"/></div>
+      <div class="fl"><label for="f-start" class="fl-l">From</label><input type="date" id="f-start" oninput="updateDatePill()"/></div>
+      <div class="fl"><label for="f-end" class="fl-l">To</label><input type="date" id="f-end" oninput="updateDatePill()"/></div>
       <span id="date-pill" style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:2px 8px;color:var(--muted);white-space:nowrap;flex-shrink:0">Current month</span>
       <div class="fsep"></div>
-      <div class="fl"><span class="fl-l">City</span>
+      <div class="fl"><label for="f-city" class="fl-l">City</label>
         <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select>
       </div>
-      <div class="fl"><span class="fl-l">Model</span>
+      <div class="fl"><label for="f-model" class="fl-l">Model</label>
         <select id="f-model"><option value="">All Models</option><option>e1+x</option><option>e1+xPRO</option><option>LowSpeed</option></select>
       </div>
-      <div class="fl"><span class="fl-l">Submission</span>
+      <div class="fl"><label for="f-sub" class="fl-l">Submission</label>
         <select id="f-sub"><option value="">All</option><option>Recovery</option><option>Running Repair</option><option>Rider Submission</option><option>Bike Exchange</option></select>
       </div>
-      <div class="fl"><span class="fl-l">Commodity</span>
+      <div class="fl"><label for="f-com" class="fl-l">Commodity</label>
         <select id="f-com"><option value="">All</option><option>Paid MISC</option><option>Wear &amp; Tear</option><option>Accidental Repair</option><option>Warranty</option></select>
       </div>
-      <div class="fl"><span class="fl-l">Type</span>
+      <div class="fl"><label for="f-line" class="fl-l">Type</label>
         <select id="f-line"><option value="">All</option><option value="Part">Part</option><option value="Labour">Labour</option></select>
       </div>
       <button class="clear-btn" onclick="clearF()"><i class="ti ti-x" style="font-size:11px;vertical-align:-1px;margin-right:3px"></i>Clear</button>
@@ -272,12 +272,12 @@ function mk(id,type,data,opts={}){
   ctx.style.display = '';
 
   const defaultScales = (type!=="pie"&&type!=="doughnut"&&!opts.scales) ? {
-    x:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
-    y:{ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
+    x:{ticks:{color:"#64748b",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}},
+    y:{ticks:{color:"#64748b",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
   } : undefined;
   CH[id] = new Chart(ctx,{type,data,options:{
     responsive:true, maintainAspectRatio:true,
-    plugins:{legend:{labels:{color:"#94a3b8",font:{size:9},boxWidth:10}}},
+    plugins:{legend:{labels:{color:"#64748b",font:{size:9},boxWidth:10}}},
     ...(defaultScales ? {scales:defaultScales} : {}),
     ...opts
   }});
@@ -450,7 +450,7 @@ async function load(){
     ]
   },{
     scales:{
-      y: {position:"left",  ticks:{color:"#94a3b8",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"},title:{display:true,text:"Cost (₹)",color:"#94a3b8",font:{size:9}}},
+      y: {position:"left",  ticks:{color:"#64748b",font:{size:9}},grid:{color:"rgba(0,0,0,.05)"},title:{display:true,text:"Cost (₹)",color:"#64748b",font:{size:9}}},
       y1:{position:"right", ticks:{color:"#d97706",font:{size:9}},grid:{drawOnChartArea:false},title:{display:true,text:"Avg/JC",color:"#d97706",font:{size:9}}},
       y2:{position:"right", ticks:{color:"#16a34a",font:{size:9}},grid:{drawOnChartArea:false},title:{display:true,text:"No. JC",color:"#16a34a",font:{size:9}},
           offset:true}
@@ -602,7 +602,7 @@ async function load(){
         }}
       },
       scales:{
-        x:{ticks:{color:"#94a3b8",font:{size:9},callback:v=>fmt(v)},grid:{color:"rgba(0,0,0,.05)"}},
+        x:{ticks:{color:"#64748b",font:{size:9},callback:v=>fmt(v)},grid:{color:"rgba(0,0,0,.05)"}},
         y:{ticks:{color:"#64748b",font:{size:10}}}
       }
     });
