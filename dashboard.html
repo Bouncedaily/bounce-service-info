@@ -666,9 +666,6 @@ localStorage.removeItem('sb_session');
     const sb = document.getElementById('sidebar');
     const btn = document.getElementById('sb-toggle');
     if (sb) { sb.classList.add('collapsed');  }
-  } else if (state === null) {
-    // First visit — ensure expanded, save state
-    localStorage.setItem('sb_collapsed', '0');
   }
 })();
 
