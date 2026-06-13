@@ -78,7 +78,7 @@ body {
   transition: width .22s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
 }
-.sidebar.collapsed { width: 54px; }
+.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; border-right: none; }
 
 .sb-brand {
   display: flex; align-items: center; gap: 10px;
@@ -97,13 +97,15 @@ body {
 .sidebar.collapsed .sb-text { opacity: 0; pointer-events: none; }
 
 .sb-toggle {
-  position: absolute; right: -12px; top: 18px;
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--sb-bg2); border: 1px solid var(--sb-border);
+  position: fixed; left: var(--sw); top: 18px;
+  width: 24px; height: 24px; border-radius: 0 50% 50% 0;
+  background: var(--sb-bg2); border: 1px solid var(--sb-border); border-left: none;
   color: var(--sb-text); font-size: 12px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all .15s; z-index: 10;
+  transition: left .25s; z-index: 200;
 }
+.sidebar.collapsed ~ .main .sb-toggle,
+.sidebar.collapsed + .main .sb-toggle { display: none; }
 .sb-toggle:hover { background: var(--red); color: #fff; border-color: var(--red); }
 
 .sb-sec {
@@ -310,14 +312,7 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
   .wrap, .admin-wrap { padding: 12px !important; }
 }
 
-/* ── ISSUE 1+2: Sidebar toggle — bigger, consistent, flips icon ── */
-.sb-toggle {
-  width: 32px !important; height: 32px !important;
-  right: -16px !important;
-  border-radius: 50% !important;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-}
+/* ── Sidebar toggle icon flip ── */
 .sb-toggle i { transition: transform .22s; }
 .sidebar.collapsed .sb-toggle i { transform: rotate(180deg); }
 
