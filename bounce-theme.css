@@ -98,15 +98,30 @@ body {
 .sidebar.collapsed .sb-text { opacity: 0; pointer-events: none; }
 
 .sb-toggle {
-  position: fixed; left: 12px; top: 12px;
-  width: 32px; height: 32px; border-radius: 8px;
-  background: var(--sb-bg2); border: 1px solid var(--sb-border);
-  color: var(--sb-text); font-size: 15px; cursor: pointer;
+  position: absolute; right: -13px; top: 16px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text2); font-size: 13px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  z-index: 300; transition: background .15s, color .15s;
-  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  z-index: 300; transition: background .15s, color .15s, border-color .15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  flex-shrink: 0;
 }
+.sidebar.collapsed .sb-toggle { display: none; }
 .sb-toggle:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* Floating open button — shown only when sidebar is collapsed */
+.sb-open-btn {
+  position: fixed; left: 12px; top: 12px;
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text2); font-size: 16px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  z-index: 300; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  transition: background .15s, color .15s;
+}
+.sidebar.collapsed ~ .main .sb-open-btn { display: flex; }
+.sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
 
 .sb-sec {
   padding: 16px 14px 6px; font-size: 9.5px; text-transform: uppercase;
@@ -314,7 +329,6 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
 
 /* ── Sidebar toggle icon ── */
 .sb-toggle i { transition: transform .2s; }
-.sidebar:not(.collapsed) .sb-toggle i { transform: rotate(0deg); }
 
 /* ── ISSUE 3: Loading spinner on month change ── */
 .content-loading { 
