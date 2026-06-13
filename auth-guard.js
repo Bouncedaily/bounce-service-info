@@ -39,7 +39,7 @@
         localStorage.clear(); sessionStorage.clear();
         window.location.href = 'login.html'; return;
       }
-      const fresh = rows[0].permissions || p;
+      const fresh = Object.assign({}, DEFAULT_PERMS, rows[0].permissions || {});
       session.permissions = fresh;
       session.role = rows[0].role;
       localStorage.setItem('sb_session', JSON.stringify(session));
