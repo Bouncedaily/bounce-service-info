@@ -228,9 +228,8 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
 .sb-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.6);
+  background: rgba(0,0,0,.5);
   z-index: 99;
-  backdrop-filter: blur(2px);
 }
 .sb-overlay.active { display: block; }
 
