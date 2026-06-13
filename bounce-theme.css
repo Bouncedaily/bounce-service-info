@@ -79,6 +79,7 @@ body {
   overflow: hidden;
 }
 .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; border-right: none; }
+.sidebar.collapsed + .main { padding-left: 0; }
 
 .sb-brand {
   display: flex; align-items: center; gap: 10px;
@@ -97,15 +98,14 @@ body {
 .sidebar.collapsed .sb-text { opacity: 0; pointer-events: none; }
 
 .sb-toggle {
-  position: fixed; left: var(--sw); top: 18px;
-  width: 24px; height: 24px; border-radius: 0 50% 50% 0;
-  background: var(--sb-bg2); border: 1px solid var(--sb-border); border-left: none;
-  color: var(--sb-text); font-size: 12px; cursor: pointer;
+  position: fixed; left: 12px; top: 12px;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--sb-bg2); border: 1px solid var(--sb-border);
+  color: var(--sb-text); font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: left .25s; z-index: 200;
+  z-index: 300; transition: background .15s, color .15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
 }
-.sidebar.collapsed ~ .main .sb-toggle,
-.sidebar.collapsed + .main .sb-toggle { display: none; }
 .sb-toggle:hover { background: var(--red); color: #fff; border-color: var(--red); }
 
 .sb-sec {
@@ -312,9 +312,9 @@ select:focus, input[type=date]:focus, input[type=text]:focus {
   .wrap, .admin-wrap { padding: 12px !important; }
 }
 
-/* ── Sidebar toggle icon flip ── */
-.sb-toggle i { transition: transform .22s; }
-.sidebar.collapsed .sb-toggle i { transform: rotate(180deg); }
+/* ── Sidebar toggle icon ── */
+.sb-toggle i { transition: transform .2s; }
+.sidebar:not(.collapsed) .sb-toggle i { transform: rotate(0deg); }
 
 /* ── ISSUE 3: Loading spinner on month change ── */
 .content-loading { 
