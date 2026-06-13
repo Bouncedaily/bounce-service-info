@@ -79,7 +79,7 @@ tbody tr:last-child td{border-bottom:none}
 <button class="sb-hamburger" id="sb-hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=1780722254"></script>
 
-<nav class="sidebar" aria-label="Main navigation" id="sidebar">
+<nav class="sidebar collapsed" aria-label="Main navigation" id="sidebar">
   <div class="sb-brand">
     <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
@@ -667,13 +667,13 @@ function toggleSidebar() {
 localStorage.removeItem('sb_session');
 // Restore state
 (function(){
-  // Default expanded — only collapse if user explicitly toggled it to '1'
-  const state = localStorage.getItem('sb_collapsed');
-  if (state !== '0') {
-    const sb = document.getElementById('sidebar');
+  // Sidebar starts collapsed by default (class set in HTML)
+  // Only expand if user explicitly opened it before (state === '0')
+  if (localStorage.getItem('sb_collapsed') === '0') {
+    const sb  = document.getElementById('sidebar');
     const arr = document.getElementById('sb-arrow');
-    if (sb)  sb.classList.add('collapsed');
-    if (arr) arr.className = 'ti ti-layout-sidebar';
+    if (sb)  sb.classList.remove('collapsed');
+    if (arr) arr.className = 'ti ti-layout-sidebar-right';
   }
 })();
 
