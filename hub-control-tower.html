@@ -291,22 +291,21 @@ function onCityChange() {
   // Reset hub selection
   hubSel.value = '';
   currentHub = '';
-  // If city selected, load city-level aggregate
-  if (city) {
-    currentHub = '';
-    fetchAll(city);
-  } else {
-    document.getElementById('dashContent').innerHTML = '<div class="loading-state"><div class="spin"></div>Select a city or hub to load live data</div>';
-  }
+  // Load data — city aggregate or all hubs if blank
+  currentHub = '';
+  fetchAll(city || null);
 }
 
 function onHubChange() {
   currentHub = document.getElementById('hubSelect').value;
   if (currentHub) {
     document.getElementById('citySelect').value = '';
-    fetchAll();
+    fetchAll(null);
   }
 }
+
+// Auto-load all hubs on page load
+window.addEventListener('load', function() { fetchAll(null); });
 
 async function sbGet(base, key, table, qs) {
   const r = await fetch(base + '/rest/v1/' + table + '?' + qs, {
@@ -320,7 +319,6 @@ async function sbGet(base, key, table, qs) {
 
 async function fetchAll(city) {
   city = city || null;
-  if (!currentHub && !city) return;
   document.getElementById('dashContent').innerHTML =
     '<div class="loading-state"><div class="spin"></div>Loading live data…</div>';
   startCountdown();
