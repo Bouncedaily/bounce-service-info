@@ -329,6 +329,21 @@ async function fetchAll(city) {
     const today  = nowIST.toISOString().slice(0,10);
     const hub   = encodeURIComponent(currentHub);
 
+    // Build filter based on city or hub selection
+    var hubFilter;
+    var displayName;
+    if (city) {
+      var cityHubs = CITY_HUBS[city] || [];
+      displayName = city;
+      hubFilter = 'hub_name=in.(' + cityHubs.map(function(h){ return encodeURIComponent(h); }).join(',') + ')';
+    } else if (currentHub) {
+      displayName = currentHub;
+      hubFilter = 'hub_name=eq.' + hub;
+    } else {
+      displayName = 'All Hubs';
+      hubFilter = 'hub_name=not.is.null';
+    }
+
     const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&' + hubFilter + '&status=eq.OOS').catch(() => []),
