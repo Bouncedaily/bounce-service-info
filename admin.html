@@ -225,7 +225,7 @@ async function loadUsers() {
   document.getElementById('s-admins').textContent = users.filter(u=>u.role==='admin').length;
 
   document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
-    const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true};
+    const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false};
     const isProt = u.email===ADMIN;
     const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `
       <fieldset style="border:none;padding:0;margin:0">
@@ -234,7 +234,9 @@ async function loadUsers() {
         <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
         <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>
         <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.wear_tear?'checked':''} onchange="setPerm('${u.email}','wear_tear',this.checked)"> Wear &amp; Tear</label>
-        <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.hub_control_tower?'checked':''} onchange="setPerm('${u.email}','hub_control_tower',this.checked)"> Hub Tower</label>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.hub_control_tower?'checked':''} onchange="setPerm('${u.email}','hub_control_tower',this.checked)"> Hub Tower</label>
+        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.msl_dashboard?'checked':''} onchange="setPerm('${u.email}','msl_dashboard',this.checked)"> MSL</label>
+        <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.hub_tv?'checked':''} onchange="setPerm('${u.email}','hub_tv',this.checked)"> Hub TV</label>
       </fieldset>`;
     return `<tr data-email="${u.email}">
       <td class="user-name" style="font-weight:600">${u.name||'—'}</td>
@@ -323,7 +325,7 @@ async function restoreUser(email) {
 async function setPerm(email, key, val) {
   const users = await get(`allowed_users?email=eq.${encodeURIComponent(email)}`);
   if (!users.length) return;
-  const perms = {...(users[0].permissions||{rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true}),[key]:val};
+  const perms = {...(users[0].permissions||{rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false}),[key]:val};
   await rpc('update_user_permissions',{user_email:email,user_permissions:perms});
 }
 
