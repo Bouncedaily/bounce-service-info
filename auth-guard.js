@@ -19,7 +19,7 @@
   // Expose helpers
   window.authGetEmail = () => session.email || '';
   window.authIsAdmin  = () => session.email?.toLowerCase() === ADMIN;
-  const DEFAULT_PERMS = { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true };
+  const DEFAULT_PERMS = { rmc:true, fleet_km:true, parts_testing:true, wear_tear:true, hub_control_tower:true, msl_dashboard:false, hub_tv:false };
   window.authPerms    = () => Object.assign({}, DEFAULT_PERMS, session.permissions || {});
   window.authLogout   = () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'login.html'; };
 
@@ -54,6 +54,8 @@
     if (!p.parts_testing)     document.querySelectorAll('a[href="parts-testing.html"]').forEach(e => e.style.display='none');
     if (!p.wear_tear)         document.querySelectorAll('a[href="tyre-analysis.html"]').forEach(e => e.style.display='none');
     if (!p.hub_control_tower) document.querySelectorAll('a[href="hub-control-tower.html"]').forEach(e => e.style.display='none');
+    if (!p.msl_dashboard)     document.querySelectorAll('a[href="msl-dashboard.html"]').forEach(e => e.style.display='none');
+    if (!p.hub_tv)             document.querySelectorAll('a[href="hub-tv.html"]').forEach(e => e.style.display='none');
     // Notify index page if open
     window.dispatchEvent(new Event('auth-perms-updated'));
   }
