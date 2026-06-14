@@ -100,6 +100,7 @@ body {
 .kb-green { background:rgba(34,197,94,.12);  color:#4ade80; border:1px solid rgba(34,197,94,.25); }
 .kb-blue  { background:rgba(59,130,246,.12); color:#60a5fa; border:1px solid rgba(59,130,246,.25); }
 .kb-amber { background:rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.3); }
+.kb-white { background:rgba(255,255,255,.08); color:#e2eaf4; border:1px solid rgba(255,255,255,.15); }
 
 .kpi-num {
   font-size:52px; font-weight:900; line-height:1;
@@ -255,23 +256,23 @@ body {
 
 <!-- KPI ROW -->
 <div class="kpi-row" id="kpiRow">
-  <div class="kpi k-red">
-    <div class="kpi-top"><div class="kpi-lbl">OOS Vehicles</div><span class="kbadge kb-red">Workshop</span></div>
+  <div class="kpi" id="kpiOos">
+    <div class="kpi-top"><div class="kpi-lbl">OOS Vehicles</div><span class="kbadge" id="badgeOos">Workshop</span></div>
     <div class="kpi-num red" id="kOos">—</div>
     <div class="kpi-sub">In workshop right now</div>
   </div>
-  <div class="kpi k-green">
-    <div class="kpi-top"><div class="kpi-lbl">JC Closed Today</div><span class="kbadge kb-green">Live</span></div>
+  <div class="kpi" id="kpiJc">
+    <div class="kpi-top"><div class="kpi-lbl">JC Closed Today</div><span class="kbadge" id="badgeJc">Live</span></div>
     <div class="kpi-num" id="kJc">—</div>
     <div class="kpi-sub">Unique job cards billed</div>
   </div>
-  <div class="kpi k-blue">
-    <div class="kpi-top"><div class="kpi-lbl">Vehicles RFD Today</div><span class="kbadge kb-blue">Outflow</span></div>
+  <div class="kpi" id="kpiRfd">
+    <div class="kpi-top"><div class="kpi-lbl">Vehicles RFD Today</div><span class="kbadge" id="badgeRfd">Outflow</span></div>
     <div class="kpi-num" id="kRfd">—</div>
     <div class="kpi-sub" id="kRfdSub">— OOS · — PDI · Avg TAT —</div>
   </div>
-  <div class="kpi k-amber">
-    <div class="kpi-top"><div class="kpi-lbl">Technicians</div><span class="kbadge kb-amber">On floor</span></div>
+  <div class="kpi" id="kpiTech">
+    <div class="kpi-top"><div class="kpi-lbl">Technicians</div><span class="kbadge kb-white" id="badgeTech">On floor</span></div>
     <div class="kpi-num" id="kTech">—</div>
     <div class="kpi-sub" id="kTechSub">Checked-in · RFD available: —</div>
   </div>
@@ -375,6 +376,25 @@ async function sb(base, key, table, qs) {
   return r.json();
 }
 
+function setKpi(cardId, badgeId, color, badgeText) {
+  var colors = {
+    green: { border:'var(--green)', num:'#4ade80', badge:'kb-green' },
+    amber: { border:'var(--amber)', num:'#fbbf24', badge:'kb-amber' },
+    red:   { border:'var(--red)',   num:'#f87171', badge:'kb-red'   },
+    white: { border:'#2a3a4a',     num:'#ffffff',  badge:'kb-white' }
+  };
+  var c = colors[color] || colors.white;
+  var card = document.getElementById(cardId);
+  var badge = document.getElementById(badgeId);
+  if (card)  card.style.setProperty('--kpi-color', c.border);
+  if (badge) { badge.className = 'kbadge ' + c.badge; if(badgeText) badge.textContent = badgeText; }
+  // update number colour
+  var num = card ? card.querySelector('.kpi-num') : null;
+  if (num) num.style.color = c.num;
+  // update top border
+  if (card) card.style.borderTop = '3px solid ' + c.border;
+}
+
 async function fetchAll() {
   if (!hub) return;
   startCd();
@@ -419,6 +439,23 @@ async function fetchAll() {
     // KPI 4 — Techs
     document.getElementById('kTech').textContent = techs.length;
     document.getElementById('kTechSub').textContent = `Checked-in · RFD available: ${rfdStock.length}`;
+
+    // Status-based KPI colours
+    // OOS Vehicles — based on OOS%
+    var oosPctVal = oosPct !== null ? parseFloat(oosPct) : 0;
+    var oosColor = oosPctVal <= 4 ? 'green' : oosPctVal <= 7 ? 'amber' : 'red';
+    setKpi('kpiOos', 'badgeOos', oosColor, 'Workshop');
+
+    // JC Closed — ≥20 green, 10-19 amber, <10 red
+    var jcColor = jcCount >= 20 ? 'green' : jcCount >= 10 ? 'amber' : 'red';
+    setKpi('kpiJc', 'badgeJc', jcColor, 'Live');
+
+    // Vehicles RFD — ≥15 green, 5-14 amber, <5 red
+    var rfdColor = outflow.length >= 15 ? 'green' : outflow.length >= 5 ? 'amber' : 'red';
+    setKpi('kpiRfd', 'badgeRfd', rfdColor, 'Outflow');
+
+    // Technicians — always white
+    setKpi('kpiTech', 'badgeTech', 'white', 'On floor');
 
     // Inflow
     const count = (type) => inflow.filter(r=>(r.submission_type||'').toLowerCase().includes(type)).length;
