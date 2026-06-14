@@ -279,19 +279,16 @@ const CITY_HUBS = {
 };
 
 function onCityChange() {
-  const city = document.getElementById('citySelect').value;
-  const hubSel = document.getElementById('hubSelect');
-  // Filter hub dropdown to selected city
-  Array.from(hubSel.options).forEach(opt => {
-    if (!opt.value) { opt.style.display=''; return; }
-    if (!city) { opt.style.display=''; return; }
-    const inCity = CITY_HUBS[city] && CITY_HUBS[city].includes(opt.value);
-    opt.style.display = inCity ? '' : 'none';
+  var city = document.getElementById('citySelect').value;
+  var hubSel = document.getElementById('hubSelect');
+  // Filter hub dropdown to show only hubs in selected city
+  Array.from(hubSel.options).forEach(function(opt) {
+    if (!opt.value) { opt.style.display = ''; return; }
+    if (!city) { opt.style.display = ''; return; }
+    opt.style.display = (CITY_HUBS[city] && CITY_HUBS[city].includes(opt.value)) ? '' : 'none';
   });
-  // Reset hub selection
+  // Reset hub — city view takes over
   hubSel.value = '';
-  currentHub = '';
-  // Load data — city aggregate or all hubs if blank
   currentHub = '';
   fetchAll(city || null);
 }
@@ -299,7 +296,7 @@ function onCityChange() {
 function onHubChange() {
   currentHub = document.getElementById('hubSelect').value;
   if (currentHub) {
-    document.getElementById('citySelect').value = '';
+    // Don't clear city — keep the filter visible but load hub-specific data
     fetchAll(null);
   }
 }
