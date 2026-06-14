@@ -203,15 +203,25 @@
 
       <div class="ctl-bar">
         <div class="fg">
+          <label>City</label>
+          <select id="citySelect" onchange="onCityChange()">
+            <option value="">— All Cities —</option>
+            <option value="Bangalore">Bangalore</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="NCR">NCR</option>
+          </select>
+        </div>
+        <div class="fg">
           <label>Hub</label>
           <select id="hubSelect" onchange="onHubChange()">
             <option value="">— Select Hub —</option>
             <optgroup label="Bangalore">
               <option>Banaswadi</option><option>Bellandur</option><option>Bilekahalli</option>
               <option>Hebbal</option><option>Hoodi</option><option>HSR Layout</option>
-              <option>Indiqube Alpha</option><option>JP Nagar</option><option>KR Puram</option>
+              <option>Indiqube Alpha</option><option>JP Nagar</option>
               <option>Majestic Railway Station</option><option>RR Nagar</option>
-              <option>Yelahanka</option><option>Yeshwanthpur</option>
+              <option>Spaceware Hub</option><option>Yelahanka</option><option>Yeshwanthpur</option>
+              <option>Zolo Triloha</option>
             </optgroup>
             <optgroup label="Hyderabad">
               <option>Fathe nagar</option><option>Miyapur</option>
@@ -261,9 +271,41 @@ function startCountdown() {
   }, 1000);
 }
 
+// City → hubs mapping
+const CITY_HUBS = {
+  'Bangalore': ['Banaswadi','Bellandur','Bilekahalli','Hebbal','Hoodi','HSR Layout','Indiqube Alpha','JP Nagar','Majestic Railway Station','RR Nagar','Spaceware Hub','Yelahanka','Yeshwanthpur','Zolo Triloha'],
+  'Hyderabad': ['Fathe nagar','Miyapur'],
+  'NCR':       ['Gurugram','Indirapuram','Indirapuram 2','Okhla','Rohini','Saket']
+};
+
+function onCityChange() {
+  const city = document.getElementById('citySelect').value;
+  const hubSel = document.getElementById('hubSelect');
+  // Filter hub dropdown to selected city
+  Array.from(hubSel.options).forEach(opt => {
+    if (!opt.value) { opt.style.display=''; return; }
+    if (!city) { opt.style.display=''; return; }
+    const inCity = CITY_HUBS[city] && CITY_HUBS[city].includes(opt.value);
+    opt.style.display = inCity ? '' : 'none';
+  });
+  // Reset hub selection
+  hubSel.value = '';
+  currentHub = '';
+  // If city selected, load city-level aggregate
+  if (city) {
+    currentHub = '';
+    fetchAll(city);
+  } else {
+    document.getElementById('dashContent').innerHTML = '<div class="loading-state"><div class="spin"></div>Select a city or hub to load live data</div>';
+  }
+}
+
 function onHubChange() {
   currentHub = document.getElementById('hubSelect').value;
-  if (currentHub) fetchAll();
+  if (currentHub) {
+    document.getElementById('citySelect').value = '';
+    fetchAll();
+  }
 }
 
 async function sbGet(base, key, table, qs) {
@@ -276,8 +318,9 @@ async function sbGet(base, key, table, qs) {
 
 
 
-async function fetchAll() {
-  if (!currentHub) return;
+async function fetchAll(city) {
+  city = city || null;
+  if (!currentHub && !city) return;
   document.getElementById('dashContent').innerHTML =
     '<div class="loading-state"><div class="spin"></div>Loading live data…</div>';
   startCountdown();
@@ -290,23 +333,23 @@ async function fetchAll() {
 
     const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        'select=status,oos_aging_bucket&hub_name=eq.' + hub + '&status=eq.OOS').catch(() => []),
+        'select=status,oos_aging_bucket&' + hubFilter + '&status=eq.OOS').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        'select=status&hub_name=eq.' + hub).catch(() => []),
+        'select=status&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
-        'select=draft_jc_id&hub_name=eq.' + hub + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
+        'select=draft_jc_id&' + hubFilter + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'attendance',
-        'select=status&hub_name=eq.' + hub + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
+        'select=status&' + hubFilter.replace('hub_name','hub_name') + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'inflow_today',
-        'select=submission_type,hub_name&hub_name=eq.' + hub).catch(() => []),
+        'select=submission_type,hub_name&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'outflow_today',
-        'select=submission_type,hub_name,oos_to_rfd_tat_days&hub_name=eq.' + hub).catch(() => []),
+        'select=submission_type,hub_name,oos_to_rfd_tat_days&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
-        'select=status&hub_name=eq.' + hub + '&status=eq.RFD').catch(() => []),
+        'select=status&' + hubFilter + '&status=eq.RFD').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'runway',
-        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&hub_name=eq.' + hub + '&order=bike_model_name.asc').catch(() => []),
+        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&' + hubFilter + '&order=bike_model_name.asc').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'hub_msl',
-        'select=status&hub_name=eq.' + hub).catch(() => [])
+        'select=status&' + hubFilter).catch(() => [])
     ]);
 
     // Aging
@@ -337,7 +380,7 @@ async function fetchAll() {
     const mslShorts = mslData.length === 0
       ? null  // no data for this hub — hide card
       : mslData.filter(function(r){ return r.status && r.status.toLowerCase().includes('short'); }).length;
-    render({ hub: currentHub, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts });
+    render({ hub: displayName, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
