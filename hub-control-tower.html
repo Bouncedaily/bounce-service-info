@@ -339,7 +339,7 @@ async function fetchAll(city) {
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
         'select=draft_jc_id&' + hubFilter + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
       sbGet(SF_URL, SF_KEY, 'attendance',
-        'select=status&' + hubFilter.replace('hub_name','hub_name') + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
+        'select=status&' + hubFilter + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'inflow_today',
         'select=submission_type,hub_name&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'outflow_today',
