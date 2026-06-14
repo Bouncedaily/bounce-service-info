@@ -328,8 +328,19 @@ function toggleShort() {
 function getFiltered() {
   const cat    = document.getElementById('catSel').value;
   const search = document.getElementById('search').value.toLowerCase();
+
+  // When short-only: include a part if ANY hub has it short
+  var shortPartNames = null;
+  if (showShortOnly) {
+    shortPartNames = new Set(
+      allData.filter(r => (r.status||'').toLowerCase().includes('short'))
+             .map(r => r.part_name || r.part_number || '—')
+    );
+  }
+
   return allData.filter(r => {
-    if (showShortOnly && !(r.status || '').toLowerCase().includes('short')) return false;
+    const partKey = r.part_name || r.part_number || '—';
+    if (showShortOnly && !shortPartNames.has(partKey)) return false;
     if (cat) {
       const prefix = (r.part_number || '').split('-')[0].toUpperCase();
       if (cat === 'C') { if (!['C','1'].includes(prefix[0])) return false; }
@@ -379,15 +390,18 @@ function render() {
   document.getElementById('kHubs').textContent    = allHubs.length;
 
   // ── HEATMAP ──
-  // Build part × hub matrix from filtered data
+  // Build part × hub matrix from ALL data (so OK/Excess cells show correctly)
+  // filtered only controls which part ROWS to display
   const partMap = {};
-  filtered.forEach(r => {
+  allData.forEach(r => {
     const key = r.part_name || r.part_number || '—';
     if (!partMap[key]) partMap[key] = { number: r.part_number, hubs: {} };
     if (r.hub_name) partMap[key].hubs[r.hub_name] = r.status;
   });
+  // Which part names to show — from filtered (respects short-only, category, search)
+  const filteredPartNames = new Set(filtered.map(r => r.part_name || r.part_number || '—'));
 
-  const parts = Object.keys(partMap).sort();
+  const parts = Object.keys(partMap).filter(p => filteredPartNames.has(p)).sort();
   document.getElementById('heatmapSub').textContent =
     parts.length + ' parts · ' + allHubs.length + ' hubs' + (showShortOnly ? ' · short only' : '');
 
