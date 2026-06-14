@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MSL Dashboard — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    .wrap { padding: 24px; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    /* ── controls ── */
+    .ctl-bar {
+      display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select, .fg input {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+    }
+    .fg select:focus, .fg input:focus { border-color: var(--red); }
+    .fg input { min-width: 200px; }
+    .toggle-btn {
+      padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit; border: 1px solid var(--border);
+      background: var(--card); color: var(--muted); transition: all .15s;
+    }
+    .toggle-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
+    .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
+
+    /* ── KPI row ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .kpi .kv { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .kpi .kv.red    { color: #f87171; }
+    .kpi .kv.amber  { color: #fbbf24; }
+    .kpi .kv.green  { color: #4ade80; }
+    .kpi .ks { font-size: 11px; color: var(--muted); }
+    .kpi .kbar { height: 2px; border-radius: 2px; margin-top: 8px; background: var(--border); }
+
+    /* ── bottom grid ── */
+    .bottom-grid { display: grid; grid-template-columns: 2.4fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media(max-width:960px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    /* ── heatmap ── */
+    .heatmap-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .heatmap-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .panel-title { font-size: 12px; font-weight: 700; color: var(--text); }
+    .panel-sub   { font-size: 11px; color: var(--muted); }
+    .heatmap-scroll { overflow-x: auto; overflow-y: auto; max-height: 460px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead { position: sticky; top: 0; z-index: 2; }
+    thead th {
+      background: var(--card); padding: 8px 10px; text-align: center;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th:first-child { text-align: left; min-width: 200px; position: sticky; left: 0; z-index: 3; background: var(--card); }
+    tbody tr:hover { background: rgba(255,255,255,.02); }
+    tbody td {
+      padding: 6px 10px; border-bottom: 1px solid var(--border);
+      text-align: center; vertical-align: middle;
+    }
+    tbody td:first-child {
+      text-align: left; position: sticky; left: 0; z-index: 1;
+      background: var(--card); font-size: 11px; color: var(--text);
+      min-width: 200px; max-width: 240px;
+    }
+    tbody tr:hover td:first-child { background: var(--bg); }
+
+    .cell { display: inline-block; width: 28px; height: 28px; border-radius: 6px; font-size: 10px; font-weight: 700; line-height: 28px; text-align: center; }
+    .cell-short  { background: rgba(239,68,68,.15);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .cell-ok     { background: rgba(34,197,94,.1);   color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
+    .cell-excess { background: rgba(245,158,11,.1);  color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+    .cell-none   { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+    .pn { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+
+    /* ── right panels ── */
+    .right-col { display: flex; flex-direction: column; gap: 16px; }
+    .side-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; flex: 1;
+    }
+    .side-header { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .side-body { padding: 10px 0; overflow-y: auto; max-height: 200px; }
+
+    .hub-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; border-bottom: 1px solid var(--border);
+    }
+    .hub-row:last-child { border-bottom: none; }
+    .hub-name-lbl { font-size: 12px; font-weight: 600; color: var(--text); min-width: 110px; }
+    .hub-bar-wrap { flex: 1; background: var(--bg); height: 6px; border-radius: 3px; overflow: hidden; }
+    .hub-bar-fill { height: 100%; border-radius: 3px; background: #ef4444; }
+    .hub-count { font-size: 11px; color: #f87171; font-weight: 700; min-width: 40px; text-align: right; }
+    .hub-pct   { font-size: 10px; color: var(--muted); min-width: 36px; text-align: right; }
+
+    .part-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px; border-bottom: 1px solid var(--border);
+    }
+    .part-row:last-child { border-bottom: none; }
+    .part-name-lbl { font-size: 11px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .part-hubs { font-size: 11px; color: #f87171; font-weight: 700; white-space: nowrap; }
+    .part-bar-wrap { width: 60px; background: var(--bg); height: 5px; border-radius: 3px; overflow: hidden; }
+    .part-bar-fill { height: 100%; border-radius: 3px; background: #ef4444; }
+
+    /* ── legend ── */
+    .legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+    .leg-sq { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* loading */
+    .loading-state { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+    .spin { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .last-upd { font-size: 11px; color: var(--muted); text-align: right; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<button class="sb-hamburger" id="sb-hamburger" onclick="openSidebar()">&#9776;</button>
+<nav class="sidebar" id="sidebar">
+  <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="ti ti-chevrons-left"></i></button>
+  <div class="sb-brand">
+    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
+    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
+    <div class="sb-text"><div class="sb-name">Bounce <span>Service Info</span></div></div>
+  </div>
+  <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
+  <a class="sb-item" href="tyre-brake.html"><i class="ti ti-circle sb-icon"></i><span class="sb-label">Tyre &amp; Brake</span></a>
+  <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Tyre Deep Dive</span></a>
+  <a class="sb-item" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon"></i><span class="sb-label">Hub Control Tower</span></a>
+  <a class="sb-item" href="hub-tv.html"><i class="ti ti-device-tv sb-icon"></i><span class="sb-label">Hub TV View</span></a>
+  <a class="sb-item active" href="msl-dashboard.html"><i class="ti ti-package sb-icon"></i><span class="sb-label">MSL Dashboard</span></a>
+  <div class="sb-sec">ADMIN</div>
+  <a class="sb-item admin-only" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a>
+  <div class="sb-spacer"></div>
+  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
+    <div id="sb-user-email" style="font-size:11px;color:#94a3b8;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
+  </div>
+  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
+</nav>
+
+<div class="main">
+  <div class="content">
+    <div class="wrap">
+
+      <div class="page-title">MSL Dashboard</div>
+      <div class="page-sub">Minimum Stock Level tracker — parts shortage across hubs · synced daily 9 AM</div>
+
+      <!-- CONTROLS -->
+      <div class="ctl-bar">
+        <div class="fg">
+          <label>Hub</label>
+          <select id="hubSel" onchange="load()">
+            <option value="">All Hubs</option>
+            <option>Banaswadi</option>
+            <option>Bellandur</option>
+            <option>Hebbal</option>
+            <option>Hoodi</option>
+            <option>HSR Layout</option>
+            <option>RR Nagar</option>
+            <option>Yeshwanthpur</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Category</label>
+          <select id="catSel" onchange="render()">
+            <option value="">All Categories</option>
+            <option value="E">E — Electrical</option>
+            <option value="M">M — Mechanical</option>
+            <option value="B">B — Body</option>
+            <option value="R">R — Rubber / Hose</option>
+            <option value="C">C — Consumables / Fasteners</option>
+            <option value="SA">SA — Sub Assembly</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Search part</label>
+          <input type="text" id="search" placeholder="Type part name…" oninput="render()">
+        </div>
+        <button class="toggle-btn active" id="shortOnly" onclick="toggleShort()">
+          <i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Short only
+        </button>
+        <div class="synced-lbl" id="syncedLbl">Synced daily at 9 AM</div>
+      </div>
+
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kl">Parts below MSL</div>
+          <div class="kv red" id="kShort">—</div>
+          <div class="ks" id="kShortSub">unique parts short</div>
+          <div class="kbar" style="background:#ef4444"></div>
+        </div>
+        <div class="kpi">
+          <div class="kl">Excess stock</div>
+          <div class="kv amber" id="kExcess">—</div>
+          <div class="ks">parts above MSL</div>
+          <div class="kbar" style="background:#f59e0b"></div>
+        </div>
+        <div class="kpi">
+          <div class="kl">MSL fulfillment</div>
+          <div class="kv green" id="kFulfill">—</div>
+          <div class="ks">parts OK or excess</div>
+          <div class="kbar" style="background:#22c55e"></div>
+        </div>
+        <div class="kpi">
+          <div class="kl">Hubs tracked</div>
+          <div class="kv" id="kHubs">—</div>
+          <div class="ks">with MSL data</div>
+          <div class="kbar"></div>
+        </div>
+      </div>
+
+      <!-- HEATMAP + RIGHT PANELS -->
+      <div class="bottom-grid">
+
+        <!-- HEATMAP -->
+        <div class="heatmap-panel">
+          <div class="heatmap-header">
+            <div>
+              <div class="panel-title">Parts × Hub heatmap</div>
+              <div class="panel-sub" id="heatmapSub">Loading…</div>
+            </div>
+            <div class="legend">
+              <div class="leg"><div class="leg-sq" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4)"></div>Short</div>
+              <div class="leg"><div class="leg-sq" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)"></div>OK</div>
+              <div class="leg"><div class="leg-sq" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3)"></div>Excess</div>
+              <div class="leg"><div class="leg-sq" style="background:var(--bg);border:1px solid var(--border)"></div>No data</div>
+            </div>
+          </div>
+          <div class="heatmap-scroll">
+            <div id="heatmapTable" class="loading-state"><div class="spin"></div>Loading…</div>
+          </div>
+        </div>
+
+        <!-- RIGHT COL -->
+        <div class="right-col">
+
+          <!-- HUB HEALTH -->
+          <div class="side-panel">
+            <div class="side-header">
+              <div class="panel-title">Hub shortage ranking</div>
+              <div class="panel-sub">Worst → best</div>
+            </div>
+            <div class="side-body" id="hubRanking">
+              <div class="loading-state" style="padding:20px"><div class="spin"></div></div>
+            </div>
+          </div>
+
+          <!-- TOP SHORT PARTS -->
+          <div class="side-panel">
+            <div class="side-header">
+              <div class="panel-title">Parts short in most hubs</div>
+              <div class="panel-sub">Top 10 cross-hub shortages</div>
+            </div>
+            <div class="side-body" id="topParts">
+              <div class="loading-state" style="padding:20px"><div class="spin"></div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="last-upd" id="lastUpd"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+let allData = [];
+let showShortOnly = true;
+
+async function load() {
+  const hub = document.getElementById('hubSel').value;
+  const qs  = hub ? `hub_name=eq.${encodeURIComponent(hub)}` : 'hub_name=not.is.null';
+  const url = `${INFO_URL}/rest/v1/hub_msl?${qs}&order=part_name.asc&limit=5000`;
+  const res = await fetch(url, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
+  allData = await res.json();
+  document.getElementById('lastUpd').textContent = 'Last loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const syncedAt = allData.find(r => r.synced_at);
+  if (syncedAt) {
+    const d = new Date(syncedAt.synced_at);
+    document.getElementById('syncedLbl').textContent = 'Synced: ' + d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  render();
+}
+
+function toggleShort() {
+  showShortOnly = !showShortOnly;
+  const btn = document.getElementById('shortOnly');
+  btn.classList.toggle('active', showShortOnly);
+  render();
+}
+
+function getFiltered() {
+  const cat    = document.getElementById('catSel').value;
+  const search = document.getElementById('search').value.toLowerCase();
+  return allData.filter(r => {
+    if (showShortOnly && !(r.status || '').toLowerCase().includes('short')) return false;
+    if (cat) {
+      const prefix = (r.part_number || '').split('-')[0].toUpperCase();
+      if (cat === 'C') { if (!['C','1'].includes(prefix[0])) return false; }
+      else if (!prefix.startsWith(cat)) return false;
+    }
+    if (search && !(r.part_name || '').toLowerCase().includes(search) && !(r.part_number || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+
+function statusClass(status) {
+  if (!status) return 'cell-none';
+  const s = status.toLowerCase();
+  if (s.includes('short'))  return 'cell-short';
+  if (s.includes('excess')) return 'cell-excess';
+  if (s.includes('ok'))     return 'cell-ok';
+  return 'cell-none';
+}
+
+function statusLabel(status) {
+  if (!status) return '—';
+  const s = status.toLowerCase();
+  if (s.includes('short'))  return 'S';
+  if (s.includes('excess')) return 'E';
+  if (s.includes('ok'))     return 'OK';
+  return '—';
+}
+
+function render() {
+  const filtered = getFiltered();
+
+  // All hubs present in full dataset
+  const allHubs = [...new Set(allData.map(r => r.hub_name).filter(Boolean))].sort();
+
+  // ── KPIs (always from full data for selected hub filter) ──
+  const hubData = allData;
+  const shortRows  = hubData.filter(r => (r.status||'').toLowerCase().includes('short'));
+  const excessRows = hubData.filter(r => (r.status||'').toLowerCase().includes('excess'));
+  const okRows     = hubData.filter(r => (r.status||'').toLowerCase().includes('ok'));
+  const uniqueShortParts = new Set(shortRows.map(r => r.part_name)).size;
+  const uniqueExcess     = new Set(excessRows.map(r => r.part_name)).size;
+  const fulfillPct = hubData.length > 0 ? Math.round((okRows.length + excessRows.length) / hubData.length * 100) : 0;
+
+  document.getElementById('kShort').textContent   = uniqueShortParts;
+  document.getElementById('kExcess').textContent  = uniqueExcess;
+  document.getElementById('kFulfill').textContent = fulfillPct + '%';
+  document.getElementById('kHubs').textContent    = allHubs.length;
+
+  // ── HEATMAP ──
+  // Build part × hub matrix from filtered data
+  const partMap = {};
+  filtered.forEach(r => {
+    const key = r.part_name || r.part_number || '—';
+    if (!partMap[key]) partMap[key] = { number: r.part_number, hubs: {} };
+    if (r.hub_name) partMap[key].hubs[r.hub_name] = r.status;
+  });
+
+  const parts = Object.keys(partMap).sort();
+  document.getElementById('heatmapSub').textContent =
+    parts.length + ' parts · ' + allHubs.length + ' hubs' + (showShortOnly ? ' · short only' : '');
+
+  if (parts.length === 0) {
+    document.getElementById('heatmapTable').innerHTML = '<div class="loading-state" style="color:var(--muted)">No parts match current filters</div>';
+  } else {
+    let html = '<table><thead><tr><th>Part Name</th>';
+    allHubs.forEach(h => { html += `<th>${h.replace(' ', '<br>')}</th>`; });
+    html += '</tr></thead><tbody>';
+    parts.forEach(part => {
+      html += `<tr><td>${part}<span class="pn">${partMap[part].number || ''}</span></td>`;
+      allHubs.forEach(h => {
+        const st = partMap[part].hubs[h];
+        html += `<td><span class="cell ${statusClass(st)}" title="${h}: ${st||'No data'}">${statusLabel(st)}</span></td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('heatmapTable').innerHTML = html;
+  }
+
+  // ── HUB RANKING ──
+  const hubShorts = {};
+  const hubTotals = {};
+  allData.forEach(r => {
+    if (!r.hub_name) return;
+    hubTotals[r.hub_name] = (hubTotals[r.hub_name] || 0) + 1;
+    if ((r.status||'').toLowerCase().includes('short')) {
+      hubShorts[r.hub_name] = (hubShorts[r.hub_name] || 0) + 1;
+    }
+  });
+  const maxShort = Math.max(...Object.values(hubShorts), 1);
+  const hubsSorted = Object.keys(hubTotals).sort((a,b) => (hubShorts[b]||0) - (hubShorts[a]||0));
+
+  document.getElementById('hubRanking').innerHTML = hubsSorted.map(h => {
+    const s = hubShorts[h] || 0;
+    const t = hubTotals[h] || 1;
+    const pct = Math.round(s/t*100);
+    return `<div class="hub-row">
+      <div class="hub-name-lbl">${h}</div>
+      <div class="hub-bar-wrap"><div class="hub-bar-fill" style="width:${Math.round(s/maxShort*100)}%"></div></div>
+      <div class="hub-count">${s}</div>
+      <div class="hub-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  // ── TOP PARTS (short in most hubs) ──
+  const partShortHubs = {};
+  allData.filter(r => (r.status||'').toLowerCase().includes('short')).forEach(r => {
+    const key = r.part_name || r.part_number || '—';
+    if (!partShortHubs[key]) partShortHubs[key] = new Set();
+    if (r.hub_name) partShortHubs[key].add(r.hub_name);
+  });
+  const maxHubs = allHubs.length || 1;
+  const topParts = Object.entries(partShortHubs)
+    .sort((a,b) => b[1].size - a[1].size)
+    .slice(0, 10);
+
+  document.getElementById('topParts').innerHTML = topParts.length === 0
+    ? '<div style="padding:16px;font-size:12px;color:var(--muted)">No shortages found</div>'
+    : topParts.map(([name, hubs]) => `
+      <div class="part-row">
+        <div class="part-name-lbl" title="${name}">${name}</div>
+        <div class="part-bar-wrap"><div class="part-bar-fill" style="width:${Math.round(hubs.size/maxHubs*100)}%"></div></div>
+        <div class="part-hubs">${hubs.size}/${maxHubs} hubs</div>
+      </div>`).join('');
+}
+
+// Load on page open
+load();
+</script>
+</body>
+</html>
