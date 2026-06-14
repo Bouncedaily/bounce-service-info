@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hub Control Tower — TV</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+
+:root {
+  --bg:       #0a0d12;
+  --s1:       #111620;
+  --s2:       #161d2a;
+  --border:   #1e2a3a;
+  --text:     #e2eaf4;
+  --muted:    #5a6a7e;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --orange:   #f97316;
+  --red:      #ef4444;
+  --red2:     #dc2626;
+  --blue:     #3b82f6;
+  --purple:   #8b5cf6;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+.brand { display:flex; align-items:center; gap:12px; }
+.live-dot {
+  width:10px; height:10px; border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 0 3px rgba(34,197,94,.2);
+  animation:pulse 2s infinite; flex-shrink:0;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hub-select {
+  background:var(--s2); border:1px solid var(--border);
+  color:var(--text); font-size:18px; font-weight:700;
+  padding:4px 10px; border-radius:8px; outline:none; cursor:pointer;
+  font-family:inherit;
+}
+.hub-select option { background:var(--s1); }
+.hub-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.topbar-right { display:flex; align-items:center; gap:28px; }
+.oos-wrap { text-align:right; }
+.oos-num { font-size:26px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+.oos-lbl { font-size:11px; color:var(--muted); }
+.clock-wrap { text-align:right; }
+.clock { font-size:28px; font-weight:700; color:var(--blue); font-variant-numeric:tabular-nums; }
+.clock-date { font-size:11px; color:var(--muted); }
+
+/* ── KPI ROW ── */
+.kpi-row {
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  flex-shrink:0;
+}
+.kpi {
+  background:var(--s1); border:1px solid var(--border);
+  border-radius:12px; padding:16px 18px;
+  display:flex; flex-direction:column; gap:4px;
+  position:relative; overflow:hidden;
+}
+.kpi::before {
+  content:''; position:absolute; top:0; left:0; right:0;
+  height:3px; border-radius:12px 12px 0 0;
+}
+.kpi.k-red::before    { background:var(--red); }
+.kpi.k-green::before  { background:var(--green); }
+.kpi.k-blue::before   { background:var(--blue); }
+.kpi.k-amber::before  { background:var(--amber); }
+
+.kpi-top { display:flex; align-items:center; justify-content:space-between; }
+.kpi-lbl { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.kbadge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
+.kb-red   { background:rgba(239,68,68,.12);  color:#f87171; border:1px solid rgba(239,68,68,.3); }
+.kb-green { background:rgba(34,197,94,.12);  color:#4ade80; border:1px solid rgba(34,197,94,.25); }
+.kb-blue  { background:rgba(59,130,246,.12); color:#60a5fa; border:1px solid rgba(59,130,246,.25); }
+.kb-amber { background:rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.3); }
+
+.kpi-num {
+  font-size:64px; font-weight:900; line-height:1;
+  color:#fff; font-variant-numeric:tabular-nums;
+}
+.kpi-num.red   { color:#f87171; }
+.kpi-num.green { color:#4ade80; }
+.kpi-num.amber { color:#fbbf24; }
+.kpi-sub { font-size:13px; color:var(--muted); margin-top:2px; }
+
+/* ── BOTTOM ── */
+.bottom {
+  display:grid;
+  grid-template-columns:1fr 1.9fr;
+  gap:10px;
+  flex:1;
+  min-height:0;
+}
+.left-col { display:flex; flex-direction:column; gap:10px; min-height:0; }
+
+/* ── PANELS ── */
+.panel {
+  background:var(--s1); border:1px solid var(--border);
+  border-radius:12px; padding:14px 16px;
+}
+.panel-title {
+  font-size:10px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--muted); margin-bottom:10px;
+}
+
+/* ── INFLOW ── */
+.inflow-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.inflow-item { background:var(--bg); border-radius:8px; padding:10px 12px; }
+.inflow-type { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:3px; }
+.inflow-num  { font-size:32px; font-weight:900; color:#fff; line-height:1; font-variant-numeric:tabular-nums; }
+.inflow-bar  { height:3px; border-radius:2px; margin-top:8px; }
+
+/* ── RUNWAY ── */
+.runway-row { display:flex; gap:8px; }
+.rw { background:var(--bg); border-radius:8px; padding:10px 12px; flex:1; }
+.rw-model { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--muted); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rw-num { font-size:30px; font-weight:900; line-height:1; margin-bottom:2px; font-variant-numeric:tabular-nums; }
+.rw-good { color:#4ade80; } .rw-warn { color:#fbbf24; } .rw-crit { color:#f87171; }
+.rw-sub  { font-size:10px; color:var(--muted); }
+.rw-bar  { height:3px; border-radius:2px; margin-top:7px; }
+
+/* ── PARTS ── */
+.parts-inner { display:flex; align-items:center; justify-content:space-between; }
+.parts-num { font-size:52px; font-weight:900; color:#f87171; line-height:1; font-variant-numeric:tabular-nums; }
+.parts-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+
+/* ── AGING ── */
+.aging-panel {
+  background:var(--s1); border:1px solid var(--border);
+  border-radius:12px; padding:16px 18px;
+  display:flex; flex-direction:column;
+}
+.aging-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-shrink:0; }
+.aging-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; }
+.aging-count { font-size:12px; color:var(--muted); }
+
+.ag-grid {
+  display:grid; grid-template-columns:repeat(5,1fr); gap:10px;
+  flex:1; min-height:0;
+}
+.ag-card {
+  border-radius:10px; padding:14px 10px; text-align:center;
+  border:1px solid transparent;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+}
+.ag-card.c0 { background:rgba(34,197,94,.08);  border-color:rgba(34,197,94,.25);  border-top:3px solid var(--green); }
+.ag-card.c1 { background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.25); border-top:3px solid var(--amber); }
+.ag-card.c2 { background:rgba(249,115,22,.08); border-color:rgba(249,115,22,.3);  border-top:3px solid var(--orange); }
+.ag-card.c3 { background:rgba(239,68,68,.1);   border-color:rgba(239,68,68,.3);   border-top:3px solid var(--red); }
+.ag-card.c4 { background:rgba(220,38,38,.15);  border-color:rgba(220,38,38,.5);   border-top:3px solid var(--red2); }
+
+.ag-range { font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; }
+.c0 .ag-range{color:#4ade80} .c1 .ag-range{color:#fbbf24} .c2 .ag-range{color:#fb923c} .c3 .ag-range{color:#f87171} .c4 .ag-range{color:#fca5a5}
+
+.ag-num { font-size:64px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+.c0 .ag-num{color:#4ade80} .c1 .ag-num{color:#fbbf24} .c2 .ag-num{color:#fb923c} .c3 .ag-num{color:#f87171} .c4 .ag-num{color:#fca5a5}
+
+.ag-pct { font-size:13px; color:var(--muted); }
+.ag-pill { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; }
+.c0 .ag-pill{background:rgba(34,197,94,.15);color:#4ade80}
+.c1 .ag-pill{background:rgba(245,158,11,.15);color:#fbbf24}
+.c2 .ag-pill{background:rgba(249,115,22,.15);color:#fb923c}
+.c3 .ag-pill{background:rgba(239,68,68,.15);color:#f87171}
+.c4 .ag-pill{background:rgba(220,38,38,.2);color:#fca5a5}
+
+.bar-track { height:10px; background:var(--bg); border-radius:5px; overflow:hidden; display:flex; margin-top:14px; flex-shrink:0; }
+.bs{height:100%} .bs0{background:var(--green)} .bs1{background:var(--amber)} .bs2{background:var(--orange)} .bs3{background:var(--red)} .bs4{background:var(--red2)}
+
+.bar-legend { display:flex; gap:14px; margin-top:8px; flex-wrap:wrap; flex-shrink:0; }
+.leg { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+.leg-sq { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+
+.crit-banner {
+  margin-top:10px; background:rgba(239,68,68,.07);
+  border:1px solid rgba(239,68,68,.3); border-radius:8px;
+  padding:9px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+}
+.crit-text { font-size:12px; color:#fca5a5; line-height:1.5; }
+.crit-text strong { color:#f87171; font-weight:700; }
+
+/* loading */
+.loading { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--muted); font-size:13px; height:100%; }
+.spin { width:16px; height:16px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--blue); animation:spin .7s linear infinite; }
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.na { font-size:12px; color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="live-dot"></div>
+    <div>
+      <select class="hub-select" id="hubSel" onchange="onHub()">
+        <option value="">— Select Hub —</option>
+        <optgroup label="Bangalore">
+          <option>Banaswadi</option><option>Bellandur</option><option>Bilekahalli</option>
+          <option>Hebbal</option><option>Hoodi</option><option>HSR Layout</option>
+          <option>Indiqube Alpha</option><option>JP Nagar</option><option>KR Puram</option>
+          <option>Majestic Railway Station</option><option>RR Nagar</option>
+          <option>Yelahanka</option><option>Yeshwanthpur</option>
+        </optgroup>
+        <optgroup label="Hyderabad">
+          <option>Fathe nagar</option><option>Miyapur</option>
+        </optgroup>
+        <optgroup label="NCR">
+          <option>Bounce&lt;&gt;Pronto</option><option>Gurugram</option>
+          <option>Indirapuram</option><option>Indirapuram 2</option>
+          <option>Okhla</option><option>Rohini</option><option>Saket</option>
+        </optgroup>
+      </select>
+      <div class="hub-sub">Bounce Daily · Hub Control Tower · TV View</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="oos-wrap">
+      <div class="oos-num" id="oosRate">—</div>
+      <div class="oos-lbl">OOS rate</div>
+    </div>
+    <div class="clock-wrap">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="clock-date" id="cdate"></div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI ROW -->
+<div class="kpi-row" id="kpiRow">
+  <div class="kpi k-red">
+    <div class="kpi-top"><div class="kpi-lbl">OOS Vehicles</div><span class="kbadge kb-red">Workshop</span></div>
+    <div class="kpi-num red" id="kOos">—</div>
+    <div class="kpi-sub">In workshop right now</div>
+  </div>
+  <div class="kpi k-green">
+    <div class="kpi-top"><div class="kpi-lbl">JC Closed Today</div><span class="kbadge kb-green">Live</span></div>
+    <div class="kpi-num" id="kJc">—</div>
+    <div class="kpi-sub">Unique job cards billed</div>
+  </div>
+  <div class="kpi k-blue">
+    <div class="kpi-top"><div class="kpi-lbl">Vehicles RFD Today</div><span class="kbadge kb-blue">Outflow</span></div>
+    <div class="kpi-num" id="kRfd">—</div>
+    <div class="kpi-sub" id="kRfdSub">— OOS · — PDI · Avg TAT —</div>
+  </div>
+  <div class="kpi k-amber">
+    <div class="kpi-top"><div class="kpi-lbl">Technicians</div><span class="kbadge kb-amber">On floor</span></div>
+    <div class="kpi-num" id="kTech">—</div>
+    <div class="kpi-sub" id="kTechSub">Checked-in · RFD available: —</div>
+  </div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bottom">
+
+  <!-- LEFT -->
+  <div class="left-col">
+
+    <!-- INFLOW -->
+    <div class="panel">
+      <div class="panel-title">Inflow today</div>
+      <div class="inflow-grid" id="inflowGrid">
+        <div class="inflow-item"><div class="inflow-type">Running Repair</div><div class="inflow-num" id="irr">—</div><div class="inflow-bar" style="background:var(--blue)"></div></div>
+        <div class="inflow-item"><div class="inflow-type">Rider Submission</div><div class="inflow-num" id="irs">—</div><div class="inflow-bar" style="background:var(--purple)"></div></div>
+        <div class="inflow-item"><div class="inflow-type">Recovery</div><div class="inflow-num" id="irc">—</div><div class="inflow-bar" style="background:var(--amber)"></div></div>
+        <div class="inflow-item"><div class="inflow-type">Bike Exchange</div><div class="inflow-num" id="ibe">—</div><div class="inflow-bar" style="background:var(--green)"></div></div>
+      </div>
+    </div>
+
+    <!-- RUNWAY -->
+    <div class="panel">
+      <div class="panel-title">Runway · RFD stock by model</div>
+      <div class="runway-row" id="runwayRow"><div class="na">Loading…</div></div>
+    </div>
+
+    <!-- PARTS -->
+    <div class="panel">
+      <div class="panel-title">Parts below MSL</div>
+      <div class="parts-inner" id="partsInner">
+        <div><div class="parts-num" id="partNum">—</div><div class="parts-sub">Items below minimum stock level</div></div>
+        <i class="ti ti-package-off" style="font-size:40px;color:#1e2a3a" aria-hidden="true"></i>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- AGING -->
+  <div class="aging-panel">
+    <div class="aging-hdr">
+      <div class="aging-title"><i class="ti ti-clock-exclamation" style="color:var(--red);font-size:18px" aria-hidden="true"></i> Vehicle aging — how many are stuck?</div>
+      <div class="aging-count" id="agingCount">— OOS</div>
+    </div>
+    <div class="ag-grid" id="agGrid">
+      <div style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;grid-column:span 5">Select a hub to load data</div>
+    </div>
+    <div class="bar-track" id="agBar" style="margin-top:14px">
+      <div class="bs bs0" style="width:0%"></div>
+      <div class="bs bs1" style="width:0%"></div>
+      <div class="bs bs2" style="width:0%"></div>
+      <div class="bs bs3" style="width:0%"></div>
+      <div class="bs bs4" style="width:0%"></div>
+    </div>
+    <div class="bar-legend">
+      <div class="leg"><div class="leg-sq" style="background:var(--green)"></div>0 days</div>
+      <div class="leg"><div class="leg-sq" style="background:var(--amber)"></div>1–2 days</div>
+      <div class="leg"><div class="leg-sq" style="background:var(--orange)"></div>3–4 days</div>
+      <div class="leg"><div class="leg-sq" style="background:var(--red)"></div>5–7 days</div>
+      <div class="leg"><div class="leg-sq" style="background:var(--red2)"></div>&gt;7 days</div>
+    </div>
+    <div class="crit-banner" id="critBanner" style="display:none">
+      <i class="ti ti-alert-triangle" style="color:var(--red);font-size:15px;flex-shrink:0" aria-hidden="true"></i>
+      <div class="crit-text" id="critText"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const SF_URL   = 'https://jpypnrrjiagscqrucslw.supabase.co';
+const SF_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweXBucnJqaWFnc2NxcnVjc2x3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDU2NDAsImV4cCI6MjA5NDkyMTY0MH0.fesCaEsgS7r4Z6mV5S1-z54etaGNPpYlISdjjcnLfzM';
+
+let hub = '', timer = null, countdown = 300;
+
+// Clock
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  document.getElementById('cdate').textContent = n.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
+tick(); setInterval(tick, 1000);
+
+// Countdown
+function startCd() {
+  countdown = 300; clearInterval(timer);
+  timer = setInterval(() => { countdown--; if(countdown<=0) fetchAll(); }, 1000);
+}
+
+function onHub() {
+  hub = document.getElementById('hubSel').value;
+  if (hub) fetchAll();
+}
+
+async function sb(base, key, table, qs) {
+  const r = await fetch(`${base}/rest/v1/${table}?${qs}`, { headers:{'apikey':key,'Authorization':'Bearer '+key} });
+  if (!r.ok) throw new Error(table+' '+r.status);
+  return r.json();
+}
+
+async function fetchAll() {
+  if (!hub) return;
+  startCd();
+  try {
+    const today = new Date(Date.now() + 5.5*60*60*1000).toISOString().slice(0,10);
+    const h = encodeURIComponent(hub);
+
+    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl] = await Promise.all([
+      sb(INFO_URL,INFO_KEY,'bike_fleet',`select=status,oos_aging_bucket&hub_name=eq.${h}&status=eq.OOS`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'bike_fleet',`select=status&hub_name=eq.${h}`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'jc_details',`select=draft_jc_id&hub_name=eq.${h}&end_time=gte.${today}T00:00:00&end_time=lte.${today}T23:59:59`).catch(()=>[]),
+      sb(SF_URL,SF_KEY,'attendance',`select=status&hub_name=eq.${h}&date=eq.${today}&status=in.(present,checked_in,half_day)`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'inflow_today',`select=submission_type&hub_name=eq.${h}`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'outflow_today',`select=submission_type,oos_to_rfd_tat_days&hub_name=eq.${h}`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'bike_fleet',`select=status&hub_name=eq.${h}&status=eq.RFD`).catch(()=>[]),
+      sb(SF_URL,SF_KEY,'runway',`select=bike_model_name,current_rfd,projected_deployment,runway_days&hub_name=eq.${h}&order=bike_model_name.asc`).catch(()=>[]),
+      sb(INFO_URL,INFO_KEY,'hub_msl',`select=status&hub_name=eq.${h}`).catch(()=>[])
+    ]);
+
+    // OOS %
+    const oosPct = totalFleet.length > 0 ? ((fleet.length / totalFleet.length)*100).toFixed(1) : null;
+    const oosHigh = oosPct !== null && parseFloat(oosPct) > 4;
+    document.getElementById('oosRate').textContent = oosPct !== null ? oosPct+'%' : '—';
+    document.getElementById('oosRate').style.color = oosHigh ? '#f87171' : '#4ade80';
+
+    // KPI 1 — OOS
+    document.getElementById('kOos').textContent = fleet.length;
+    document.getElementById('kOos').className = 'kpi-num' + (oosHigh ? ' red' : '');
+
+    // KPI 2 — JC closed
+    const jcCount = new Set(closed.map(r=>r.draft_jc_id).filter(Boolean)).size;
+    document.getElementById('kJc').textContent = jcCount;
+
+    // KPI 3 — RFD
+    const oosRfd = outflow.filter(r=>(r.submission_type||'').toUpperCase()==='OOS').length;
+    const pdiRfd = outflow.filter(r=>(r.submission_type||'').toUpperCase()==='PDI').length;
+    const tatVals = outflow.map(r=>parseFloat(r.oos_to_rfd_tat_days)).filter(v=>!isNaN(v)&&v>=0);
+    const avgTat = tatVals.length ? (tatVals.reduce((a,b)=>a+b,0)/tatVals.length).toFixed(1) : null;
+    document.getElementById('kRfd').textContent = outflow.length;
+    document.getElementById('kRfdSub').textContent = `${oosRfd} OOS · ${pdiRfd} PDI · Avg TAT ${avgTat||'—'}d`;
+
+    // KPI 4 — Techs
+    document.getElementById('kTech').textContent = techs.length;
+    document.getElementById('kTechSub').textContent = `Checked-in · RFD available: ${rfdStock.length}`;
+
+    // Inflow
+    const count = (type) => inflow.filter(r=>(r.submission_type||'').toLowerCase().includes(type)).length;
+    document.getElementById('irr').textContent = count('running repair');
+    document.getElementById('irs').textContent = count('rider');
+    document.getElementById('irc').textContent = count('recovery');
+    document.getElementById('ibe').textContent = count('bike exchange');
+
+    // Runway
+    const rr = document.getElementById('runwayRow');
+    if (runway.length === 0) {
+      rr.innerHTML = '<div class="na">No runway data for this hub</div>';
+    } else {
+      rr.innerHTML = runway.map(r => {
+        const d = parseFloat(r.runway_days)||0;
+        const cls = d >= 3 ? 'rw-good' : d >= 1 ? 'rw-warn' : 'rw-crit';
+        const bar = d >= 3 ? 'var(--green)' : d >= 1 ? 'var(--amber)' : 'var(--red)';
+        return `<div class="rw">
+          <div class="rw-model">${r.bike_model_name||'—'}</div>
+          <div class="rw-num ${cls}">${d.toFixed(1)}<span style="font-size:13px;font-weight:400;color:var(--muted)"> d</span></div>
+          <div class="rw-sub">RFD: ${r.current_rfd??'—'} · Target: ${r.projected_deployment??'—'}</div>
+          <div class="rw-bar" style="background:${bar}"></div>
+        </div>`;
+      }).join('');
+    }
+
+    // Parts MSL
+    const mslShorts = msl.length === 0 ? null : msl.filter(r=>r.status&&r.status.toLowerCase().includes('short')).length;
+    document.getElementById('partNum').textContent = mslShorts !== null ? mslShorts : '—';
+    document.getElementById('partNum').style.color = (mslShorts && mslShorts > 0) ? '#f87171' : 'var(--muted)';
+
+    // Aging
+    const BUCKETS = ['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
+    const ages = Object.fromEntries(BUCKETS.map(b=>[b,0]));
+    fleet.forEach(r=>{ if(ages.hasOwnProperty(r.oos_aging_bucket)) ages[r.oos_aging_bucket]++; });
+    const total = fleet.length;
+    const pct = n => total > 0 ? Math.round(n/total*100) : 0;
+    const LABELS = ['0 days','1–2 days','3–4 days','5–7 days','> 7 days'];
+    const PILLS  = ['Fresh','Monitor','Escalate','Urgent','Critical'];
+
+    document.getElementById('agingCount').textContent = `${total} OOS · ${hub}`;
+    document.getElementById('agGrid').innerHTML = BUCKETS.map((b,i) => `
+      <div class="ag-card c${i}">
+        <div class="ag-range">${LABELS[i]}</div>
+        <div class="ag-num">${ages[b]}</div>
+        <div class="ag-pct">${pct(ages[b])}%</div>
+        <div class="ag-pill">${PILLS[i]}</div>
+      </div>`).join('');
+
+    // Bar
+    const bar = document.getElementById('agBar');
+    bar.querySelectorAll('.bs').forEach((el,i) => {
+      el.style.width = pct(ages[BUCKETS[i]])+'%';
+    });
+
+    // Critical banner
+    const crit = ages['above 7 days'];
+    const stuck3 = ages['3-4 days']+ages['5-7 days']+ages['above 7 days'];
+    const banner = document.getElementById('critBanner');
+    if (crit > 0) {
+      banner.style.display = 'flex';
+      document.getElementById('critText').innerHTML = `<strong>${crit} vehicle${crit>1?'s':''} stuck &gt; 7 days</strong> — Immediate SM review required. ${stuck3} vehicles aged 3+ days need escalation.`;
+    } else {
+      banner.style.display = 'none';
+    }
+
+  } catch(e) {
+    console.error(e);
+  }
+}
+</script>
+</body>
+</html>
