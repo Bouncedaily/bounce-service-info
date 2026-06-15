@@ -1473,6 +1473,17 @@ async function sbRpc(fn, params) {
   return r.json();
 }
 
+(function(){
+  if (localStorage.getItem('sb_collapsed') === '0') {
+    const sb  = document.getElementById('sidebar');
+    const arr = document.getElementById('sb-arrow');
+    if (sb)  sb.classList.remove('collapsed');
+    if (arr) arr.className = 'ti ti-chevrons-right';
+  } else {
+    const openBtn = document.getElementById('sb-open-btn');
+    if (openBtn) openBtn.style.display = 'flex';
+  }
+})();
 </script>
 </body>
 </html>
