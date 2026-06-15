@@ -302,7 +302,7 @@ function onHubChange() {
 }
 
 // Auto-load all hubs on page load
-window.addEventListener('load', function() { fetchAll(null); });
+document.addEventListener('DOMContentLoaded', function() { try { fetchAll(null); } catch(e) { console.error('fetchAll error:', e); } });
 
 async function sbGet(base, key, table, qs) {
   const r = await fetch(base + '/rest/v1/' + table + '?' + qs, {
@@ -448,6 +448,7 @@ function renderRunway(runway) {
   setTimeout
 
 // ── SIDEBAR ──────────────────────────────────────────────
+try {
 function openSidebar() {
   document.getElementById('sidebar').classList.add('mobile-open');
   const ov = document.getElementById('sb-overlay'); if(ov){ov.classList.add('active');ov.style.display='block';}
@@ -488,6 +489,7 @@ function toggleSidebar() {
     if (openBtn) openBtn.style.display = 'flex';
   }
 })();
+} catch(e) { console.warn("Sidebar init error:", e); }
 // ─────────────────────────────────────────────────────────
 </script>
 </body>
