@@ -477,7 +477,12 @@ load();
       if (sb)  sb.classList.remove('collapsed');
       if (arr) arr.className = 'ti ti-chevrons-right';
     }
-  })();
+  } else {
+    // Sidebar collapsed by default — show open button
+    const openBtn = document.getElementById('sb-open-btn');
+    if (openBtn) openBtn.style.display = 'flex';
+  }
+})();
 </script>
 </body>
 </html>
