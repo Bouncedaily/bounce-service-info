@@ -1320,6 +1320,7 @@ async function loadBeading() {
           <th>Beading Installed</th>
           <th>Avg KM Since Install</th>
           <th>Avg Panel Cost Post Install (if any)</th>
+          <th>OEM Vehicles with Panel Replacement</th>
           <th>Avg Panel Cost Per Vehicle (without beading)</th>
         </tr></thead><tbody>`;
     cityBreakdown.forEach(row => {
@@ -1330,6 +1331,7 @@ async function loadBeading() {
         <td style="font-family:var(--mono);text-align:center">${row.installed_count}</td>
         <td style="font-family:var(--mono)">${row.avg_km_since_install ? fmt(row.avg_km_since_install) + ' km' : '—'}</td>
         <td style="font-family:var(--mono)">₹${row.avg_panel_cost_with_repl ?? '—'}</td>
+        <td style="font-family:var(--mono);text-align:center">${row.oem_vehicles_with_repl ?? '—'}</td>
         <td style="font-family:var(--mono)">₹${row.avg_panel_cost_oem_per_vehicle ?? '—'}</td>
       </tr>`;
     });
