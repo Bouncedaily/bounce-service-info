@@ -75,7 +75,7 @@ tbody tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="sb-overlay" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
+<div class="sb-overlay" style="display:none" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" onclick="openSidebar()">☰</button>
 <script src="auth-guard.js?v=1780722254"></script>
 
@@ -677,13 +677,13 @@ load();
 // ── SIDEBAR ──────────────────────────────────────────────
 function openSidebar() {
   document.getElementById('sidebar').classList.add('mobile-open');
-  document.getElementById('sb-overlay').classList.add('active');
+  const ov = document.getElementById('sb-overlay'); if(ov){ov.classList.add('active');ov.style.display='block';}
   const hbtn = document.getElementById('sb-hamburger');
   if (hbtn) { hbtn.style.display = 'none'; hbtn.setAttribute('aria-expanded','true'); }
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sb-overlay').classList.remove('active');
+  const ov2 = document.getElementById('sb-overlay'); if(ov2){ov2.classList.remove('active');ov2.style.display='none';}
   const hbtn = document.getElementById('sb-hamburger');
   if (hbtn) { hbtn.style.display = ''; hbtn.setAttribute('aria-expanded','false'); }
 }
