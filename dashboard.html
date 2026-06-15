@@ -663,6 +663,8 @@ function toggleSidebar() {
   
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
   const openBtn = document.getElementById('sb-open-btn');
+  if (openBtn) openBtn.style.display = sb.classList.contains('collapsed') ? 'flex' : 'none';
+  const openBtn = document.getElementById('sb-open-btn');
   if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
 }
 // Clean up old auth keys
@@ -676,6 +678,11 @@ localStorage.removeItem('sb_session');
     const arr = document.getElementById('sb-arrow');
     if (sb)  sb.classList.remove('collapsed');
     if (arr) arr.className = 'ti ti-layout-sidebar-right';
+  }
+  } else {
+    // Sidebar collapsed by default — show open button
+    const openBtn = document.getElementById('sb-open-btn');
+    if (openBtn) openBtn.style.display = 'flex';
   }
 })();
 
