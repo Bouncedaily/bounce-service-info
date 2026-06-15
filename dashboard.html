@@ -641,50 +641,13 @@ async function load(){
 }
 
 
-function openSidebar() {
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) hbtn.setAttribute('aria-expanded','true');
-  document.getElementById('sidebar').classList.add('mobile-open');
-  document.getElementById('sb-overlay').classList.add('active');
-  document.getElementById('sb-hamburger').style.display='none';
-}
-function closeSidebar() {
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) hbtn.setAttribute('aria-expanded','false');
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sb-overlay').classList.remove('active');
-  document.getElementById('sb-hamburger').style.display='';
-}
-function toggleSidebar() {
-  const stbtn = document.getElementById('sb-toggle');
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sb-toggle');
-  sb.classList.toggle('collapsed');
-  
-  localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  const openBtn = document.getElementById('sb-open-btn');
-  if (openBtn) openBtn.style.display = sb.classList.contains('collapsed') ? 'flex' : 'none';
-  const openBtn = document.getElementById('sb-open-btn');
-  if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
-}
+
+
+
 // Clean up old auth keys
 localStorage.removeItem('sb_session');
 // Restore state
-(function(){
-  // Sidebar starts collapsed by default (class set in HTML)
-  // Only expand if user explicitly opened it before (state === '0')
-  if (localStorage.getItem('sb_collapsed') === '0') {
-    const sb  = document.getElementById('sidebar');
-    const arr = document.getElementById('sb-arrow');
-    if (sb)  sb.classList.remove('collapsed');
-    if (arr) arr.className = 'ti ti-layout-sidebar-right';
-  }
-  } else {
-    // Sidebar collapsed by default — show open button
-    const openBtn = document.getElementById('sb-open-btn');
-    if (openBtn) openBtn.style.display = 'flex';
-  }
-})();
+
 
 // Script is at end of body — DOM is ready, call directly
 // Use local date (not UTC) to avoid IST timezone shifting date back by 1
@@ -710,6 +673,49 @@ load();
     const adminLink = document.getElementById('admin-link');
     if (adminLink) adminLink.style.display = 'block';
   }
+
+// ── SIDEBAR ──────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sb-overlay').classList.add('active');
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) { hbtn.style.display = 'none'; hbtn.setAttribute('aria-expanded','true'); }
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sb-overlay').classList.remove('active');
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) { hbtn.style.display = ''; hbtn.setAttribute('aria-expanded','false'); }
+}
+function toggleSidebar() {
+  const sb     = document.getElementById('sidebar');
+  const arr    = document.getElementById('sb-arrow');
+  const stbtn  = document.getElementById('sb-toggle');
+  const openBtn= document.getElementById('sb-open-btn');
+  sb.classList.toggle('collapsed');
+  const isCollapsed = sb.classList.contains('collapsed');
+  if (arr)     arr.className = isCollapsed ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
+  if (stbtn)   stbtn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+  if (openBtn) openBtn.style.display = isCollapsed ? 'flex' : 'none';
+  localStorage.setItem('sb_collapsed', isCollapsed ? '1' : '0');
+}
+// Restore sidebar state on load
+(function(){
+  const isCollapsed = localStorage.getItem('sb_collapsed') !== '0';
+  const sb     = document.getElementById('sidebar');
+  const arr    = document.getElementById('sb-arrow');
+  const openBtn= document.getElementById('sb-open-btn');
+  if (!isCollapsed) {
+    if (sb)  sb.classList.remove('collapsed');
+    if (arr) arr.className = 'ti ti-chevrons-left';
+    if (openBtn) openBtn.style.display = 'none';
+  } else {
+    if (sb)  sb.classList.add('collapsed');
+    if (arr) arr.className = 'ti ti-chevrons-right';
+    if (openBtn) openBtn.style.display = 'flex';
+  }
+})();
+// ─────────────────────────────────────────────────────────
 </script>
 </body>
 </html>
