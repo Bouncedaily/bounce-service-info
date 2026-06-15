@@ -427,6 +427,5 @@ button, .btn, .pg-btn, .export-btn, .btn-load {
   transition: background .15s, color .15s, border-color .15s;
 }
 .sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
-/* Show only when sidebar is collapsed — works regardless of DOM position */
-.sidebar.collapsed ~ .sb-open-btn { display: flex; }
+/* Show only when sidebar is collapsed */
 .sidebar.collapsed ~ .main .sb-open-btn { display: flex; }
