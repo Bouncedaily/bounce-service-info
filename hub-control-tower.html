@@ -445,198 +445,50 @@ function renderRunway(runway) {
     return '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>';
   var count = runway.length;
   var cols = count <= 2 ? count : count <= 4 ? 2 : count <= 6 ? 3 : 4;
-  setTimeout(function() {
-    var grid = document.getElementById('runway-grid');
-    if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-  }, 0);
-  return runway.map(function(r) {
-    var days = parseFloat(r.runway_days) || 0;
-    var cls  = days >= 3 ? 'runway-good' : days >= 1 ? 'runway-warn' : 'runway-crit';
-    return '<div class="runway-card ' + cls + '">' +
-      '<div class="rl">' + (r.bike_model_name || '—') + '</div>' +
-      '<div class="rv">' + days.toFixed(1) + '<span style="font-size:12px;font-weight:400;color:var(--muted)"> days</span></div>' +
-      '<div class="rs">RFD: ' + (r.current_rfd != null ? r.current_rfd : '—') + ' &nbsp;·&nbsp; Target: ' + (r.projected_deployment != null ? r.projected_deployment : '—') + '</div>' +
-      '<div class="rbar"></div>' +
-      '</div>';
-  }).join('');
-}
+  setTimeout
 
-function runwaySyncedAt(runway) {
-  if (!runway || runway.length === 0 || !runway[0].synced_at) return '';
-  var d = new Date(runway[0].synced_at);
-  return '<div class="runway-synced">Synced daily at 9 AM &nbsp;·&nbsp; Last: ' + d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) + '</div>';
-}
-
-function render(d) {  // d.runway = [{bike_model_name, current_rfd, projected_deployment, runway_days, synced_at}]
-  const critical   = d.ages['above 7 days'];
-  const stuck3plus = d.ages['3-4 days'] + d.ages['5-7 days'] + d.ages['above 7 days'];
-  const critSt     = hs(critical === 0, critical <= 2);
-  const jobsSt     = hs(d.closedCount >= 20, d.closedCount >= 15);
-  const techSt     = hs(d.techs >= 8, d.techs >= 5);
-  const tatSt      = d.avgTat === null ? {dot:'sd-a',cls:'hs-a',lbl:'No data'} : hs(parseFloat(d.avgTat) < 48, parseFloat(d.avgTat) < 72);
-
-  const critBanner = critical > 0 ? '<div class="crit-banner"><i class="ti ti-alert-triangle crit-icon"></i><div class="crit-text"><strong>' + critical + ' vehicle' + (critical>1?'s':'') + ' stuck &gt; 7 days</strong> — Immediate SM review required. ' + stuck3plus + ' vehicles aged 3+ days need escalation.</div></div>' : '';
-
-  document.getElementById('dashContent').innerHTML = `
-    <div class="sec-lbl">Live hub status</div>
-    ${(function() {
-      var oosHigh   = d.oosPercent !== null && parseFloat(d.oosPercent) > 4;
-      var minRunway = d.runway.length > 0 ? Math.min.apply(null, d.runway.map(function(r){ return parseFloat(r.runway_days) || 0; })) : 999;
-      var rfdLow    = minRunway < 2;
-      var red = 'style="color:#ef4444"';
-      return '<div class="kpi-row">' +
-
-        '<div class="kpi">' +
-          '<div class="kl">OOS %</div>' +
-          '<div class="kv" ' + (oosHigh ? red : '') + '>' + (d.oosPercent !== null ? d.oosPercent : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.oosPercent !== null ? '%' : '') + '</span></div>' +
-          '<div class="ks">OOS vehicles</div>' +
-          '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">OOS Vehicles</div>' +
-          '<div class="kv" ' + (oosHigh ? red : '') + '>' + d.total + '</div>' +
-          '<div class="ks">In workshop</div>' +
-          '<div class="kbar" ' + (oosHigh ? 'style="background:#ef4444"' : '') + '></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">JC closed today</div>' +
-          '<div class="kv">' + d.closedCount + '</div>' +
-          '<div class="ks">Unique job cards</div>' +
-          '<div class="kbar"></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">Technicians available</div>' +
-          '<div class="kv">' + d.techs + '</div>' +
-          '<div class="ks">Checked-in</div>' +
-          '<div class="kbar"></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">Vehicles RFD today</div>' +
-          '<div class="kv">' + d.totalRfd + '</div>' +
-          '<div class="ks">' + d.oosRfd + ' OOS · ' + d.pdiRfd + ' PDI</div>' +
-          '<div class="kbar"></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">Avg TAT today</div>' +
-          '<div class="kv">' + (d.avgTat !== null ? d.avgTat : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted)">' + (d.avgTat !== null ? ' d' : '') + '</span></div>' +
-          '<div class="ks">OOS → RFD</div>' +
-          '<div class="kbar"></div>' +
-        '</div>' +
-
-        '<div class="kpi">' +
-          '<div class="kl">RFD vehicles available</div>' +
-          '<div class="kv" ' + (rfdLow ? red : '') + '>' + d.rfdStock + '</div>' +
-          '<div class="ks">Ready to deploy</div>' +
-          '<div class="kbar" ' + (rfdLow ? 'style="background:#ef4444"' : '') + '></div>' +
-        '</div>' +
-
-        (d.mslShorts !== null && d.mslShorts > 0 ? (
-          '<div class="kpi">' +
-            '<div class="kl">Parts below MSL</div>' +
-            '<div class="kv" ' + (d.mslShorts > 0 ? red : '') + '>' + d.mslShorts + '</div>' +
-            '<div class="ks">Below MSL</div>' +
-            '<div class="kbar" ' + (d.mslShorts > 0 ? 'style="background:#ef4444"' : '') + '></div>' +
-          '</div>'
-        ) : '') +
-
-      '</div>';
-    })()}
-
-    <div class="inflow-section">
-      <div class="sec-lbl">Inflow today · by submission type</div>
-      <div class="inflow-row">
-        ${renderInflowBreakdown(d.inflow)}
-        <div class="inflow-total-label">Total: ${d.inflow.length}</div>
-      </div>
-    </div>
-
-    <div class="bottom-grid">
-      <div>
-        <div class="sec-lbl">Runway · RFD stock by model</div>
-        <div class="runway-grid" id="runway-grid">
-          ${renderRunway(d.runway)}
-        </div>
-        ${runwaySyncedAt(d.runway)}
-      </div>
-
-      <div>
-        <div class="aging-panel">
-          <div class="aging-hdr">
-            <div class="aging-title">
-              <i class="ti ti-clock-exclamation" style="color:#ef4444;font-size:16px"></i>
-              Vehicle aging — how many are stuck?
-            </div>
-            <div class="aging-total">${d.total} OOS · ${d.hub}</div>
-          </div>
-          <div class="aging-buckets">
-            <div class="ab ab0"><div class="ab-range">0 days</div><div class="ab-count">${d.ages['0 days']}</div><div class="ab-pct">${pct(d.ages['0 days'],d.total)}%</div><div class="ab-pill">Fresh</div></div>
-            <div class="ab ab1"><div class="ab-range">1–2 days</div><div class="ab-count">${d.ages['1-2 days']}</div><div class="ab-pct">${pct(d.ages['1-2 days'],d.total)}%</div><div class="ab-pill">Monitor</div></div>
-            <div class="ab ab2"><div class="ab-range">3–4 days</div><div class="ab-count">${d.ages['3-4 days']}</div><div class="ab-pct">${pct(d.ages['3-4 days'],d.total)}%</div><div class="ab-pill">Escalate</div></div>
-            <div class="ab ab3"><div class="ab-range">5–7 days</div><div class="ab-count">${d.ages['5-7 days']}</div><div class="ab-pct">${pct(d.ages['5-7 days'],d.total)}%</div><div class="ab-pill">Urgent</div></div>
-            <div class="ab ab4"><div class="ab-range">&gt; 7 days</div><div class="ab-count">${d.ages['above 7 days']}</div><div class="ab-pct">${pct(d.ages['above 7 days'],d.total)}%</div><div class="ab-pill">Critical</div></div>
-          </div>
-          <div class="bar-lbl">Fleet aging distribution</div>
-          <div class="bar-track">
-            <div class="bs bs0" style="width:${pct(d.ages['0 days'],d.total)}%"></div>
-            <div class="bs bs1" style="width:${pct(d.ages['1-2 days'],d.total)}%"></div>
-            <div class="bs bs2" style="width:${pct(d.ages['3-4 days'],d.total)}%"></div>
-            <div class="bs bs3" style="width:${pct(d.ages['5-7 days'],d.total)}%"></div>
-            <div class="bs bs4" style="width:${pct(d.ages['above 7 days'],d.total)}%"></div>
-          </div>
-          <div class="bar-legend">
-            <div class="leg"><div class="leg-sq" style="background:#22c55e"></div>0 days (${d.ages['0 days']})</div>
-            <div class="leg"><div class="leg-sq" style="background:#f59e0b"></div>1–2 days (${d.ages['1-2 days']})</div>
-            <div class="leg"><div class="leg-sq" style="background:#f97316"></div>3–4 days (${d.ages['3-4 days']})</div>
-            <div class="leg"><div class="leg-sq" style="background:#ef4444"></div>5–7 days (${d.ages['5-7 days']})</div>
-            <div class="leg"><div class="leg-sq" style="background:#dc2626"></div>&gt;7 days (${d.ages['above 7 days']})</div>
-          </div>
-          ${critBanner}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
+// ── SIDEBAR ──────────────────────────────────────────────
 function openSidebar() {
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) hbtn.setAttribute('aria-expanded','true');
   document.getElementById('sidebar').classList.add('mobile-open');
   document.getElementById('sb-overlay').classList.add('active');
-  document.getElementById('sb-hamburger').style.display = 'none';
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) { hbtn.style.display = 'none'; hbtn.setAttribute('aria-expanded','true'); }
 }
 function closeSidebar() {
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) hbtn.setAttribute('aria-expanded','false');
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sb-overlay').classList.remove('active');
-  document.getElementById('sb-hamburger').style.display = '';
+  const hbtn = document.getElementById('sb-hamburger');
+  if (hbtn) { hbtn.style.display = ''; hbtn.setAttribute('aria-expanded','false'); }
 }
 function toggleSidebar() {
-  const stbtn = document.getElementById('sb-toggle');
-  const sb  = document.getElementById('sidebar');
-  const arr = document.getElementById('sb-arrow');
+  const sb     = document.getElementById('sidebar');
+  const arr    = document.getElementById('sb-arrow');
+  const stbtn  = document.getElementById('sb-toggle');
+  const openBtn= document.getElementById('sb-open-btn');
   sb.classList.toggle('collapsed');
-  if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
-  localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  const openBtn = document.getElementById('sb-open-btn');
-  if (openBtn) openBtn.style.display = sb.classList.contains('collapsed') ? 'flex' : 'none';
-  const openBtn = document.getElementById('sb-open-btn');
-  if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
+  const isCollapsed = sb.classList.contains('collapsed');
+  if (arr)     arr.className = isCollapsed ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
+  if (stbtn)   stbtn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+  if (openBtn) openBtn.style.display = isCollapsed ? 'flex' : 'none';
+  localStorage.setItem('sb_collapsed', isCollapsed ? '1' : '0');
 }
 // Restore sidebar state on load
-(function() {
-  if (localStorage.getItem('sb_collapsed') !== '0') {
-    const sb  = document.getElementById('sidebar');
-    const arr = document.getElementById('sb-arrow');
+(function(){
+  const isCollapsed = localStorage.getItem('sb_collapsed') !== '0';
+  const sb     = document.getElementById('sidebar');
+  const arr    = document.getElementById('sb-arrow');
+  const openBtn= document.getElementById('sb-open-btn');
+  if (!isCollapsed) {
+    if (sb)  sb.classList.remove('collapsed');
+    if (arr) arr.className = 'ti ti-chevrons-left';
+    if (openBtn) openBtn.style.display = 'none';
+  } else {
     if (sb)  sb.classList.add('collapsed');
-    if (arr) arr.className = 'ti ti-layout-sidebar-right';
+    if (arr) arr.className = 'ti ti-chevrons-right';
+    if (openBtn) openBtn.style.display = 'flex';
   }
 })();
+// ─────────────────────────────────────────────────────────
 </script>
 </body>
 </html>
