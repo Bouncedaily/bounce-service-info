@@ -472,46 +472,57 @@ function render() {
 load();
   
 
-// ── SIDEBAR ──────────────────────────────────────────────
-function openSidebar() {
-  document.getElementById('sidebar').classList.add('mobile-open');
-  const ov = document.getElementById('sb-overlay'); if(ov){ov.classList.add('active');ov.style.display='block';}
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) { hbtn.style.display = 'none'; hbtn.setAttribute('aria-expanded','true'); }
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  const ov2 = document.getElementById('sb-overlay'); if(ov2){ov2.classList.remove('active');ov2.style.display='none';}
-  const hbtn = document.getElementById('sb-hamburger');
-  if (hbtn) { hbtn.style.display = ''; hbtn.setAttribute('aria-expanded','false'); }
-}
-function toggleSidebar() {
-  const sb     = document.getElementById('sidebar');
-  const arr    = document.getElementById('sb-arrow');
-  const stbtn  = document.getElementById('sb-toggle');
-  const openBtn= document.getElementById('sb-open-btn');
-  sb.classList.toggle('collapsed');
-  const isCollapsed = sb.classList.contains('collapsed');
-  if (arr)     arr.className = isCollapsed ? 'ti ti-chevrons-right' : 'ti ti-chevrons-left';
-  if (stbtn)   stbtn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
-  if (openBtn) openBtn.style.display = isCollapsed ? 'flex' : 'none';
-  localStorage.setItem('sb_collapsed', isCollapsed ? '1' : '0');
-}
-// Restore sidebar state on load
-(function(){
-  const isCollapsed = localStorage.getItem('sb_collapsed') !== '0';
-  const sb     = document.getElementById('sidebar');
-  const arr    = document.getElementById('sb-arrow');
-  const openBtn= document.getElementById('sb-open-btn');
-  if (!isCollapsed) {
-    if (sb)  sb.classList.remove('collapsed');
-    if (arr) arr.className = 'ti ti-chevrons-left';
-    if (openBtn) openBtn.style.display = 'none';
-  } else {
-    if (sb)  sb.classList.add('collapsed');
-    if (arr) arr.className = 'ti ti-chevrons-right';
-    if (openBtn) openBtn.style.display = 'flex';
+
+// ── SIDEBAR CONTROL ──────────────────────────────────────
+(function() {
+  function getSidebar()  { return document.getElementById('sidebar'); }
+  function getArrow()    { return document.getElementById('sb-arrow'); }
+  function getOpenBtn()  { return document.getElementById('sb-open-btn'); }
+  function getHamburger(){ return document.getElementById('sb-hamburger'); }
+  function getOverlay()  { return document.getElementById('sb-overlay'); }
+
+  function setSidebarOpen(open) {
+    var sb = getSidebar(), arr = getArrow(), btn = getOpenBtn();
+    if (!sb) return;
+    if (open) {
+      sb.classList.remove('collapsed');
+      if (arr) arr.className = 'ti ti-chevrons-left';
+      if (btn) btn.style.display = 'none';
+    } else {
+      sb.classList.add('collapsed');
+      if (arr) arr.className = 'ti ti-chevrons-right';
+      if (btn) btn.style.display = 'flex';
+    }
+    localStorage.setItem('sb_collapsed', open ? '0' : '1');
   }
+
+  window.toggleSidebar = function() {
+    var sb = getSidebar();
+    if (!sb) return;
+    setSidebarOpen(sb.classList.contains('collapsed'));
+  };
+
+  window.openSidebar = function() {
+    var sb = getSidebar(), ov = getOverlay(), hb = getHamburger();
+    if (!sb) return;
+    sb.classList.add('mobile-open');
+    if (ov) { ov.style.display = 'block'; ov.classList.add('active'); }
+    if (hb) { hb.style.display = 'none'; hb.setAttribute('aria-expanded','true'); }
+  };
+
+  window.closeSidebar = function() {
+    var sb = getSidebar(), ov = getOverlay(), hb = getHamburger();
+    if (!sb) return;
+    sb.classList.remove('mobile-open');
+    if (ov) { ov.style.display = 'none'; ov.classList.remove('active'); }
+    if (hb) { hb.style.display = ''; hb.setAttribute('aria-expanded','false'); }
+  };
+
+  // Restore state on load
+  var stored = localStorage.getItem('sb_collapsed');
+  // Default collapsed (1) unless user explicitly opened (0)
+  var shouldBeOpen = (stored === '0');
+  setSidebarOpen(shouldBeOpen);
 })();
 // ─────────────────────────────────────────────────────────
 </script>
