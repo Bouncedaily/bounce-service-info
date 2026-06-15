@@ -702,7 +702,9 @@ function closeSidebar() {
   const hbtn = document.getElementById('sb-hamburger');
   if (hbtn) hbtn.setAttribute('aria-expanded','false'); document.getElementById('sidebar').classList.remove('mobile-open'); document.getElementById('sb-overlay').classList.remove('active'); document.getElementById('sb-hamburger').style.display=''; }
 function toggleSidebar() {
-  const stbtn = document.getElementById('sb-toggle'); const sb=document.getElementById('sidebar'); sb.classList.toggle('collapsed'); localStorage.setItem('sb_collapsed',sb.classList.contains('collapsed')?'1':'0'); }
+  const stbtn = document.getElementById('sb-toggle'); const sb=document.getElementById('sidebar'); sb.classList.toggle('collapsed'); localStorage.setItem('sb_collapsed',sb.classList.contains('collapsed')?'1':'0');
+  const openBtn = document.getElementById('sb-open-btn');
+  if (openBtn) openBtn.style.display = sb.classList.contains('collapsed') ? 'flex' : 'none'; }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('sb_collapsed')!=='0') document.getElementById('sidebar').classList.add('collapsed');
