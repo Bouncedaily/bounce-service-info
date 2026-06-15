@@ -78,7 +78,7 @@ body {
   transition: width .22s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
 }
-.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; }
+.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border: none; }
 
 .sb-brand {
   display: flex; align-items: center; gap: 10px;
@@ -427,8 +427,6 @@ button, .btn, .pg-btn, .export-btn, .btn-load {
   transition: background .15s, color .15s, border-color .15s;
 }
 .sb-open-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
-/* Show only when sidebar is collapsed */
+/* Show only when sidebar is collapsed — works regardless of DOM position */
 .sidebar.collapsed ~ .sb-open-btn { display: flex; }
-/* Push page content right so button never overlaps text */
-.sidebar.collapsed ~ .main { padding-left: 44px; }
-.sidebar:not(.collapsed) ~ .main { padding-left: 0; }
+.sidebar.collapsed ~ .main .sb-open-btn { display: flex; }
