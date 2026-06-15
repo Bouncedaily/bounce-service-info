@@ -702,6 +702,20 @@ function applyBikeClientFilters() {
 );
 
 
+// ── Auto-load all tables on page open ──
+(function() {
+  var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+  var monthStart = y+'-'+m+'-01', today = now.toISOString().slice(0,10);
+  document.getElementById('f-start').value  = monthStart;
+  document.getElementById('f-end').value    = today;
+  document.getElementById('bs-start').value = monthStart;
+  document.getElementById('bs-end').value   = today;
+  loadAllReplacements();
+  loadHub();
+  loadRepeats();
+  loadBikeSummary();
+})();
+
 // ── SIDEBAR CONTROL ──────────────────────────────────────
 (function() {
   function getSidebar()  { return document.getElementById('sidebar'); }
