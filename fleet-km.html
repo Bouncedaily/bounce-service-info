@@ -582,6 +582,8 @@ function toggleSidebar() {
   if (arr) arr.className = sb.classList.contains('collapsed') ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
   localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
   const openBtn = document.getElementById('sb-open-btn');
+  if (openBtn) openBtn.style.display = sb.classList.contains('collapsed') ? 'flex' : 'none';
+  const openBtn = document.getElementById('sb-open-btn');
   if (openBtn) openBtn.setAttribute('aria-expanded', sb.classList.contains('collapsed') ? 'false' : 'true');
 }
 // Restore state
