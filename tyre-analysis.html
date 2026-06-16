@@ -330,7 +330,8 @@ async function loadAllReplacements() {
     p_city:  document.getElementById('f-city').value  || null,
     p_part:  document.getElementById('f-part').value  || null,
     p_start: document.getElementById('f-start').value || null,
-    p_end:   document.getElementById('f-end').value   || null
+    p_end:   document.getElementById('f-end').value   || null,
+    p_page:  1
   };
 
   _mainResult = await rpc('get_tyre_analysis', params);
