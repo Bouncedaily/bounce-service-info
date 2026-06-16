@@ -409,7 +409,7 @@ function renderAllRows() {
     document.getElementById('pg-bar').style.display = 'none';
     return;
   }
-  const total = rows.length, totalPages = Math.ceil(total/PER_PAGE);
+  const total = (_result?.summary?.total_rows || rows.length), totalPages = Math.ceil(total/PER_PAGE);
   _allPage = Math.min(_allPage, totalPages);
   const page = rows.slice((_allPage-1)*PER_PAGE, _allPage*PER_PAGE);
   document.getElementById('all-count').textContent = `${total.toLocaleString('en-IN')} replacements`;
@@ -444,8 +444,23 @@ function renderAllRows() {
     </tbody></table>`;
 }
 
-function changePage(dir) {
+async function changePage(dir) {
   _allPage += dir;
+  // Fetch from server with new page
+  const params = {
+    p_city:  document.getElementById('f-city').value  || null,
+    p_part:  document.getElementById('f-part').value  || null,
+    p_start: document.getElementById('f-start').value || null,
+    p_end:   document.getElementById('f-end').value   || null,
+    p_page:  _allPage
+  };
+  spin('all-body');
+  const res = await rpc('get_tyre_analysis', params);
+  if (res && !res.code) {
+    _allRows = applyHubFilter(res.all_rows || [], document.getElementById('f-hub').value, document.getElementById('f-sub').value);
+    // Update total from summary
+    if (res.summary) _result.summary = res.summary;
+  }
   renderAllRows();
   document.getElementById('all-tbl-wrap').scrollTop = 0;
 }
