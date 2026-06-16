@@ -336,7 +336,9 @@ async function loadAllReplacements() {
 
   _mainResult = await rpc('get_tyre_analysis', params);
   if (!_mainResult || _mainResult.code || _mainResult.message) {
-    ['kpi-row','by-part-body','by-sub-body','all-body'].forEach(id => err(id, _mainResult?.message));
+    const errMsg = _mainResult?.message || _mainResult?.code || 'RPC returned null — check console';
+    console.error('loadAllReplacements failed:', _mainResult);
+    ['kpi-row','by-part-body','by-sub-body','all-body'].forEach(id => err(id, errMsg));
     return;
   }
 
@@ -718,16 +720,21 @@ function applyBikeClientFilters() {
 
 // ── Auto-load all tables on page open ──
 (function() {
-  var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
-  var monthStart = y+'-'+m+'-01', today = now.toISOString().slice(0,10);
-  document.getElementById('f-start').value  = monthStart;
-  document.getElementById('f-end').value    = today;
-  document.getElementById('bs-start').value = monthStart;
-  document.getElementById('bs-end').value   = today;
-  loadAllReplacements();
-  loadHub();
-  loadRepeats();
-  loadBikeSummary();
+  try {
+    populateHubDropdowns();
+    var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+    var monthStart = y+'-'+m+'-01', today = now.toISOString().slice(0,10);
+    document.getElementById('f-start').value  = monthStart;
+    document.getElementById('f-end').value    = today;
+    document.getElementById('bs-start').value = monthStart;
+    document.getElementById('bs-end').value   = today;
+    loadAllReplacements();
+    loadHub();
+    loadRepeats();
+    loadBikeSummary();
+  } catch(e) {
+    console.error('Auto-load error:', e);
+  }
 })();
 
 // ── SIDEBAR CONTROL ──────────────────────────────────────
