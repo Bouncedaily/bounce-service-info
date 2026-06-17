@@ -1645,7 +1645,7 @@ tr:hover td { background: var(--bg); }
 const TAB_INITS = {"dashboard": "rmc_load()", "fleet": "fleet_init()", "parts": "parts_loadAll()", "tyre": "tyre_init()", "hub": "hub_fetchAll()", "msl": "msl_init()", "admin": "adm_init()"};
 const initialised = {};
 
-function switchPage(tab) {
+window.switchPage = function switchPage(tab) {
   // Update tab panes — use class only, CSS handles display
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('tab-' + tab);
@@ -2202,6 +2202,7 @@ rmc_load();
 
 window.rmc_load = rmc_load;
 window.rmc_clearF = rmc_clearF;
+window.updateDatePill = updateDatePill;
 })();
 
 /* ====== FLEET ====== */
@@ -3523,6 +3524,8 @@ window.parts_applyFilters = parts_applyFilters;
 window.parts_exportCSV = parts_exportCSV;
 window.parts_exportOemCSV = parts_exportOemCSV;
 window.goPage = goPage;
+window.renderOemPerfFilter = renderOemPerfFilter;
+window.renderOemRaw = renderOemRaw;
 })();
 
 /* ====== TYRE ====== */
@@ -4009,6 +4012,12 @@ window.tyre_exportBikeSummary = tyre_exportBikeSummary;
 window.tyre_exportByHub = tyre_exportByHub;
 window.tyre_changePage = tyre_changePage;
 window.tyre_changeBikePage = tyre_changeBikePage;
+window.applyAllClientFilters = applyAllClientFilters;
+window.applyBikeClientFilters = applyBikeClientFilters;
+window.loadAllReplacements = loadAllReplacements;
+window.loadBikeSummary = loadBikeSummary;
+window.loadHub = loadHub;
+window.loadRepeats = loadRepeats;
 })();
 
 /* ====== HUB ====== */
@@ -4215,6 +4224,8 @@ function renderRunway(runway) {
 
 
 window.hub_fetchAll = hub_fetchAll;
+window.onCityChange = onCityChange;
+window.onHubChange = onHubChange;
 })();
 
 /* ====== MSL ====== */
@@ -4631,6 +4642,7 @@ window.saveUser = saveUser;
 window.loadUsers = loadUsers;
 window.rejectReq = rejectReq;
 window.approveReq = approveReq;
+window.setPerm = setPerm;
 })();
 </script>
 
