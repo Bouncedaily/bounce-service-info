@@ -12,18 +12,28 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 /* ── UNIFIED LAYOUT ── */
-/* ── TAB CONTENT HEIGHTS ── */
-.tab-pane { display:none; height:100vh; overflow-y:auto; }
-.tab-pane.active { display:block; }
+/* ── TAB PANES ── */
+.tab-pane            { display: none !important; }
+.tab-pane.active     { display: block !important; }
+
+/* Tab content scroll */
+.tab-pane > .tab-inner { height: 100vh; overflow-y: auto; }
+
+/* Fleet needs flex column for filter-bar + scroll area */
+#tab-fleet > .tab-inner        { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+#tab-fleet .app-scroll         { flex: 1; overflow-y: auto; }
+
+/* removed */
+/* removed */
 #tab-fleet { overflow:hidden; display:none; }
 #tab-fleet.active { display:flex; flex-direction:column; }
 #tab-fleet .app-scroll { flex:1; overflow-y:auto; }
 
-html,body{height:100%;overflow:hidden;margin:0;padding:0}
-body{display:flex}
-.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;position:relative}
-.tab-pane{display:none;}
-.tab-pane.active{display:block;}
+/* removed */
+/* removed */
+/* removed */
+/* removed */
+/* removed */
 .tab-inner{flex:1;overflow-y:auto;height:100%}
 
 /* fleet-km needs its own scroll wrapper */
