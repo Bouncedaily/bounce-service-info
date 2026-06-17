@@ -1662,9 +1662,17 @@ window.switchPage = function switchPage(tab) {
   history.replaceState(null, '', '#' + tab);
 
   // Init tab on first visit
-  if (!initialised[tab] && TAB_INITS[tab]) {
-    try { eval(TAB_INITS[tab]); } catch(e) { console.error('Tab init error:', tab, e); }
+  if (!initialised[tab]) {
     initialised[tab] = true;
+    try {
+      if (tab === 'dashboard' && window.rmc_load)    window.rmc_load();
+      if (tab === 'fleet'     && window.fleet_init)  window.fleet_init();
+      if (tab === 'parts'     && window.parts_loadAll) window.parts_loadAll();
+      if (tab === 'tyre'      && window.tyre_init)   window.tyre_init();
+      if (tab === 'hub'       && window.hub_fetchAll) window.hub_fetchAll();
+      if (tab === 'msl'       && window.msl_init)    window.msl_init();
+      if (tab === 'admin'     && window.adm_init)    window.adm_init();
+    } catch(e) { console.error('Tab init error:', tab, e); }
   }
 
   // Close sidebar on mobile
@@ -1733,6 +1741,7 @@ window.switchPage = function switchPage(tab) {
   const target = valid.includes(hash) ? hash : 'dashboard';
   
   // Mark dashboard as initialised (it runs on page load via its own script)
+  // dashboard script auto-runs rmc_load(), mark it done
   initialised['dashboard'] = true;
   switchPage(target);
 })();
