@@ -12,11 +12,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 /* ── UNIFIED LAYOUT ── */
+/* ── TAB CONTENT HEIGHTS ── */
+.tab-pane { display:none; height:100vh; overflow-y:auto; }
+.tab-pane.active { display:block; }
+#tab-fleet { overflow:hidden; display:none; }
+#tab-fleet.active { display:flex; flex-direction:column; }
+#tab-fleet .app-scroll { flex:1; overflow-y:auto; }
+
 html,body{height:100%;overflow:hidden;margin:0;padding:0}
 body{display:flex}
 .main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;position:relative}
-.tab-pane{display:none;flex:1;flex-direction:column}
-.tab-pane.active{display:flex}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
 .tab-inner{flex:1;overflow-y:auto;height:100%}
 
 /* fleet-km needs its own scroll wrapper */
@@ -28,8 +35,8 @@ body{display:flex}
 /* ── RMC DASHBOARD PAGE STYLES ── */
 
 /* Main layout */
-.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.content{flex:1;overflow-y:auto;background:var(--bg)}
+
+
 
 /* Hero */
 .hero{padding:20px 24px 12px;background:var(--bg);}
@@ -87,12 +94,13 @@ tbody tr:last-child td{border-bottom:none}
 .bb{width:60px;height:4px;background:var(--border);border-radius:2px;flex-shrink:0}
 .bf{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
 
+
 /* ── FLEET PAGE STYLES ── */
 /* ── FLEET KM ANALYSIS PAGE STYLES ── */
 
 /* Layout */
-html,body{height:100%;overflow:hidden}
-body{display:flex}
+
+
 .app-main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .app-scroll{flex:1;overflow-y:auto}
 
@@ -120,7 +128,7 @@ body{display:flex}
 .topbar-sync{display:flex;align-items:center;justify-content:flex-end;padding:8px 24px;background:var(--card);border-bottom:1px solid var(--border);gap:12px;flex-shrink:0}
 
 /* Main content padding */
-.main{padding:20px 24px;background:var(--bg)}
+
 .page-title{font-size:20px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:10px}
 .page-sub{color:var(--muted);font-size:12px;margin-bottom:20px;margin-top:4px}
 
@@ -189,8 +197,9 @@ th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px
 .page-btn:hover{border-color:var(--red);color:var(--red)}
 .page-btn:disabled{opacity:.3;cursor:default}
 
+
 /* ── PARTS PAGE STYLES ── */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100vh; }
+
 .topbar {
   padding: 0 20px; height: 56px; min-height: 56px;
   display: flex; align-items: center; justify-content: space-between;
@@ -199,7 +208,7 @@ th:nth-child(2){position:sticky;left:95px;z-index:11 !important;border-right:1px
 }
 .topbar h1 { font-size: 15px; font-weight: 700; color: var(--text); }
 .topbar .meta { font-size: 11px; color: var(--text-muted, #64748b); margin-top: 1px; }
-.content { flex: 1; overflow-y: auto; padding: 18px 24px; }
+
 
 /* Filter bar */
 .filter-bar {
@@ -267,8 +276,8 @@ tr:hover td { background: var(--bg); }
 .tab-bar { display:flex; gap:4px; padding:12px 20px 0; background:var(--bg); border-bottom:1px solid var(--border); flex-shrink:0; }
 .tab-btn { padding:8px 16px; font-size:13px; font-weight:600; border:none; background:none; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s,border-color .15s; }
 .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
-.tab-pane { display:none; }
-.tab-pane.active { display:block; }
+
+
 
 /* Raw table controls */
 .raw-controls {
@@ -325,6 +334,7 @@ tr:hover td { background: var(--bg); }
 }
 .export-btn:hover { border-color: var(--red); color: var(--red); }
 
+
 /* ── TYRE PAGE STYLES ── */
 .wrap{padding:24px}
     .page-title{font-size:20px;font-weight:800;color:var(--text)}
@@ -369,6 +379,7 @@ tr:hover td { background: var(--bg); }
     .sub-rs{background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:10px}
     .sub-be{background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 6px;font-size:10px}
     .sub-pd{background:#faf5ff;color:#6b21a8;border-radius:4px;padding:1px 6px;font-size:10px}
+
 
 /* ── HUB PAGE STYLES ── */
 .wrap { padding: 24px; }
@@ -527,6 +538,7 @@ tr:hover td { background: var(--bg); }
     .inflow-bar-fill { height: 100%; border-radius: 2px; }
     .inflow-total-label { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; padding-left: 16px; flex-shrink: 0; }
 
+
 /* ── MSL PAGE STYLES ── */
 .wrap { padding: 24px; }
     .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
@@ -657,10 +669,11 @@ tr:hover td { background: var(--bg); }
     @keyframes spin { to { transform: rotate(360deg); } }
     .last-upd { font-size: 11px; color: var(--muted); text-align: right; margin-top: 12px; }
 
+
 /* ── ADMIN PAGE STYLES ── */
 .wrap{padding:24px;max-width:960px}
-    .main{flex:1;overflow-y:auto;height:100vh}
-    .content{min-height:100%}
+    
+    
     .ptitle{font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px}
     .psub{font-size:13px;color:var(--muted);margin-bottom:24px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
@@ -940,7 +953,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-parts" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-parts" class="inner-tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="topbar">
     <div>
@@ -964,7 +977,7 @@ tr:hover td { background: var(--bg); }
   <div class="content">
 
     <!-- TAB: TEST VS OEM -->
-    <div class="tab-pane active" id="tab-test-oem">
+    <div class="inner-tab-pane active" id="tab-test-oem">
 
     <!-- FILTER BAR -->
     <!-- KPI ROW -->
@@ -1072,7 +1085,7 @@ tr:hover td { background: var(--bg); }
     </div><!-- /tab-pane test-oem -->
 
     <!-- TAB: OEM PARTS PERFORMANCE -->
-    <div class="tab-pane" id="tab-oem-perf">
+    <div class="inner-tab-pane" id="tab-oem-perf">
     <div class="card">
       <div class="card-hd">
         <h2>OEM Parts Performance</h2>
@@ -1159,7 +1172,7 @@ tr:hover td { background: var(--bg); }
     </div><!-- /tab-pane oem-perf -->
 
     <!-- TAB: BEADING ANALYSIS -->
-    <div class="tab-pane" id="tab-beading">
+    <div class="inner-tab-pane" id="tab-beading">
       <div class="section-title" style="margin-bottom:12px">Beading Analysis — Test vs OEM</div>
       <div id="beading-summary-body"><div class="loading"><div class="spin"></div> Loading…</div></div>
       <div class="section-title" style="margin:20px 0 12px">Raw Data — Beading Bikes</div>
@@ -1627,14 +1640,20 @@ tr:hover td { background: var(--bg); }
 
 <script>
 // ── TAB SWITCHING ──────────────────────────────────────────────────────────
-const TAB_INITS = {"dashboard": "rmc_load()", "fleet": "fleet_populateMonths(); fleet_load(\"all_time\")", "parts": "parts_loadAll()", "tyre": "tyre_loadAllReplacements()", "hub": "hub_fetchAll()", "msl": "msl_load()", "admin": "adm_init()"};
+const TAB_INITS = {"dashboard": "rmc_load()", "fleet": "fleet_init()", "parts": "parts_loadAll()", "tyre": "tyre_init()", "hub": "hub_fetchAll()", "msl": "msl_init()", "admin": "adm_init()"};
 const initialised = {};
 
 function switchPage(tab) {
   // Update tab panes
-  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
   const pane = document.getElementById('tab-' + tab);
-  if (pane) pane.style.display = 'flex';
+  if (pane) {
+    pane.style.display = 'block';
+    pane.classList.add('active');
+  }
 
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(a => {
@@ -1828,7 +1847,8 @@ function rmc_clearF(){
   document.getElementById('f-start').value = month1;
   document.getElementById('f-end').value   = today;
   ["f-city","f-model","f-sub","f-com","f-line"].forEach(id=>document.getElementById(id).value="");
-  rmc_load();
+  // Dashboard loads immediately as default tab
+  setTimeout(function() { try { rmc_load(); } catch(e) { console.error('RMC init:', e); } }, 0);
 }
 
 async function rmc_fetchAll(){
@@ -2466,9 +2486,11 @@ function fleet_exportCSV(){
 // Restore state
 
 
-// ── INIT ──
-fleet_populateMonths();
-fleet_load('all_time');
+// ── INIT deferred to tab activation ──
+  window.fleet_init = function() {
+    fleet_populateMonths();
+    fleet_load('all_time');
+  };
 
 
 
@@ -3952,8 +3974,8 @@ function applyBikeClientFilters() {
   { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
 
 
-// ── Auto-tyre_load all tables on page open ──
-(function() {
+// ── tyre_init: called on first tab visit ──
+window.tyre_init = function() {
   try {
     populateHubDropdowns();
     var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
@@ -3967,9 +3989,9 @@ function applyBikeClientFilters() {
     loadRepeats();
     loadBikeSummary();
   } catch(e) {
-    console.error('Auto-tyre_load error:', e);
+    console.error('tyre_init error:', e);
   }
-})();
+};
 
 
 
@@ -4356,8 +4378,8 @@ function render() {
       </div>`).join('');
 }
 
-// Load on page open
-msl_load();
+// Load deferred to tab activation
+window.msl_init = function() { msl_load(); };
   
 
 
@@ -4378,7 +4400,7 @@ if (!sess.email) { window.location.href = 'login.html'; }
 
 // Close sidebar on nav link click (mobile)
     });
-  document.addEventListener('DOMContentLoaded', () => {
+  window.adm_init = function() {
   const el = document.getElementById('sb-user-email');
   if (el) el.textContent = sess.email || '';
 
@@ -4393,7 +4415,7 @@ if (!sess.email) { window.location.href = 'login.html'; }
     const openBtn = document.getElementById('sb-open-btn');
     if (openBtn) openBtn.style.display = 'flex';
   }
-});
+};
 
 
 
