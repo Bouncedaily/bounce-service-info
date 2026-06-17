@@ -2972,14 +2972,13 @@ function parts_exportOemCSV() {
 
 
 
-// ─── INIT ─────────────────────────────────────────────────────
-parts_loadAll();
+// ─── INIT deferred to tab activation via TAB_INITS ─────────────
 
 
 // ── Tab switching ──
 function parts_switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['test-oem','oem-perf','beading'][i] === tab));
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-'+tab));
+  document.querySelectorAll('#tab-parts .inner-tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-'+tab));
   if (tab === 'oem-perf' && !window._oemPerfLoaded) {
     window._oemPerfLoaded = true;
     renderOemPerf();
@@ -3338,7 +3337,7 @@ async function loadBeading() {
   document.getElementById('beading-summary-body').innerHTML = '<div class="loading"><div class="spin"></div> Loading…</div>';
   document.getElementById('beading-raw-body').innerHTML     = '<div class="loading"><div class="spin"></div> Loading…</div>';
   try {
-    const res = await sbRpc('get_beading_analysis', {});
+    const res = await sbRpc2('get_beading_analysis', {});
     const data = res?.[0]?.get_beading_analysis || res;
     const summary       = data.summary        || {};
     const cityBreakdown = data.city_breakdown  || [];
@@ -3497,7 +3496,7 @@ function renderBeadingRaw() {
   document.getElementById('beading-raw-body').innerHTML = html;
 }
 
-async function sbRpc(fn, params) {
+async function sbRpc2(fn, params) {
   const r = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
     method: 'POST',
     headers: { ...HEADS, 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -3517,7 +3516,7 @@ async function sbRpc(fn, params) {
 /* ====== TYRE ====== */
 (function(){
 
-const SB_URL   = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const tyre_SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 
 // State
@@ -3552,7 +3551,7 @@ function populateHubDropdowns() {
 
 async function rpc(fn, body) {
   try {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    const r = await fetch(`${tyre_SB_URL}/rest/v1/rpc/${fn}`, {
       method:'POST',
       headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
       body: JSON.stringify(body)
