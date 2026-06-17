@@ -796,18 +796,18 @@ tr:hover td { background: var(--bg); }
 
     <!-- FILTERS -->
     <div class="filters">
-      <div class="fl"><label for="f-start" class="fl-l">From</label><input type="date" id="f-start" oninput="updateDatePill()"/></div>
-      <div class="fl"><label for="f-end" class="fl-l">To</label><input type="date" id="f-end" oninput="updateDatePill()"/></div>
+      <div class="fl"><label for="dashboard-f-start" class="fl-l">From</label><input type="date" id="dashboard-f-start" oninput="updateDatePill()"/></div>
+      <div class="fl"><label for="dashboard-f-end" class="fl-l">To</label><input type="date" id="dashboard-f-end" oninput="updateDatePill()"/></div>
       <span id="date-pill" style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:2px 8px;color:var(--muted);white-space:nowrap;flex-shrink:0">Current month</span>
       <div class="fsep"></div>
-      <div class="fl"><label for="f-city" class="fl-l">City</label>
-        <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select>
+      <div class="fl"><label for="dashboard-f-city" class="fl-l">City</label>
+        <select id="dashboard-f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select>
       </div>
       <div class="fl"><label for="f-model" class="fl-l">Model</label>
         <select id="f-model"><option value="">All Models</option><option>e1+x</option><option>e1+xPRO</option><option>LowSpeed</option></select>
       </div>
-      <div class="fl"><label for="f-sub" class="fl-l">Submission</label>
-        <select id="f-sub"><option value="">All</option><option>Recovery</option><option>Running Repair</option><option>Rider Submission</option><option>Bike Exchange</option></select>
+      <div class="fl"><label for="dashboard-f-sub" class="fl-l">Submission</label>
+        <select id="dashboard-f-sub"><option value="">All</option><option>Recovery</option><option>Running Repair</option><option>Rider Submission</option><option>Bike Exchange</option></select>
       </div>
       <div class="fl"><label for="f-com" class="fl-l">Commodity</label>
         <select id="f-com"><option value="">All</option><option>Paid MISC</option><option>Wear &amp; Tear</option><option>Accidental Repair</option><option>Warranty</option></select>
@@ -845,7 +845,7 @@ tr:hover td { background: var(--bg); }
       <div>
         <div class="sh">Hub Detail</div>
         <div class="tbl-box">
-          <div class="tbl-hdr"><span class="thl">Hub-wise RMC Breakdown</span><span id="hub-count" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span></div>
+          <div class="tbl-hdr"><span class="thl">Hub-wise RMC Breakdown</span><span id="dashboard-hub-count" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span></div>
           <div class="tw" id="hub-tbl"><div class="loading"><div class="spin"></div>Loading...</div></div>
         </div>
       </div>
@@ -946,7 +946,7 @@ tr:hover td { background: var(--bg); }
       </table>
     </div>
     <div class="pagination">
-      <span id="page-info"></span>
+      <span id="fleet-page-info"></span>
       <button class="page-btn" id="btn-prev" onclick="fleet_changePage(-1)"><i class="ti ti-chevron-left" style="font-size:11px;vertical-align:-1px"></i> Prev</button>
       <button class="page-btn" id="btn-next" onclick="fleet_changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
     </div>
@@ -1034,14 +1034,14 @@ tr:hover td { background: var(--bg); }
         <span class="sub" id="raw-count">—</span>
       </div>
       <div class="raw-controls" style="align-items:flex-end">
-        <div class="fg"><label>Search</label><input type="text" id="search" placeholder="Reg / chassis…" oninput="applyFilters()" /></div>
-        <div class="fg"><label>City</label><select id="f-city" onchange="applyFilters()">
+        <div class="fg"><label>Search</label><input type="text" id="parts-search" placeholder="Reg / chassis…" oninput="applyFilters()" /></div>
+        <div class="fg"><label>City</label><select id="parts-f-city" onchange="applyFilters()">
           <option value="">All cities</option>
           <option>Bangalore</option>
           <option>NCR</option>
           <option>Hyderabad</option>
         </select></div>
-        <div class="fg"><label>Part</label><select id="f-part" onchange="applyFilters()">
+        <div class="fg"><label>Part</label><select id="parts-f-part" onchange="applyFilters()">
           <option value="">All parts</option>
           <option>Kit Side stand</option>
           <option>Rr suspension</option>
@@ -1076,7 +1076,7 @@ tr:hover td { background: var(--bg); }
           <option value="fitted_asc">Fitted date ↑</option>
         </select></div>
         <button class="export-btn" onclick="parts_exportCSV()"><i class="ti ti-table-export" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>Export CSV</button>
-        <span class="page-info" id="page-info"></span>
+        <span class="page-info" id="parts-page-info"></span>
       </div>
       <div class="table-scroll"><div id="raw-body">
         <div class="loading"><div class="spin"></div> Loading data…</div>
@@ -1232,7 +1232,7 @@ tr:hover td { background: var(--bg); }
       <!-- By Hub -->
       <div class="card">
         <div class="card-hd">
-          <h2>By Hub</h2><span class="sub" id="hub-count">—</span>
+          <h2>By Hub</h2><span class="sub" id="tyre-hub-count">—</span>
           <div class="card-hd-actions">
             <button class="export-btn" onclick="tyre_exportByHub()"><i class="ti ti-table-export" style="font-size:12px;vertical-align:-1px;margin-right:3px"></i>Export CSV</button>
           </div>
@@ -1339,7 +1339,7 @@ tr:hover td { background: var(--bg); }
         </div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>City</label>
-            <select id="f-city" onchange="loadAllReplacements()">
+            <select id="tyre-f-city" onchange="loadAllReplacements()">
               <option value="">All cities</option>
               <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
             </select>
@@ -1348,7 +1348,7 @@ tr:hover td { background: var(--bg); }
             <select id="f-hub" onchange="applyAllClientFilters()"><option value="">All hubs</option></select>
           </div>
           <div class="fg"><label>Part Type</label>
-            <select id="f-part" onchange="loadAllReplacements()">
+            <select id="tyre-f-part" onchange="loadAllReplacements()">
               <option value="">All parts</option>
               <optgroup label="Tyres">
                 <option>Rear Tyre (Energy Ride / 12Inch)</option>
@@ -1365,10 +1365,10 @@ tr:hover td { background: var(--bg); }
               </optgroup>
             </select>
           </div>
-          <div class="fg"><label>From</label><input type="date" id="f-start" onchange="loadAllReplacements()"/></div>
-          <div class="fg"><label>To</label><input type="date" id="f-end" onchange="loadAllReplacements()"/></div>
+          <div class="fg"><label>From</label><input type="date" id="tyre-f-start" onchange="loadAllReplacements()"/></div>
+          <div class="fg"><label>To</label><input type="date" id="tyre-f-end" onchange="loadAllReplacements()"/></div>
           <div class="fg"><label>Submission Type</label>
-            <select id="f-sub" onchange="applyAllClientFilters()">
+            <select id="tyre-f-sub" onchange="applyAllClientFilters()">
               <option value="">All types</option>
               <option>Wear & Tear</option><option>Running Service</option>
               <option>Bike Exchange</option><option>Paid</option>
@@ -1439,7 +1439,7 @@ tr:hover td { background: var(--bg); }
       <div id="dashContent">
         <div class="loading-state"><div class="spin"></div>Select a hub to load live data</div>
       </div>
-      <div class="last-upd" id="lastUpd"></div>
+      <div class="last-upd" id="hub-lastUpd"></div>
     </div>
   </div>
 </div>
@@ -1481,7 +1481,7 @@ tr:hover td { background: var(--bg); }
         </div>
         <div class="fg">
           <label>Search part</label>
-          <input type="text" id="search" placeholder="Type part name…" oninput="render()">
+          <input type="text" id="msl-search" placeholder="Type part name…" oninput="render()">
         </div>
         <button class="toggle-btn active" id="shortOnly" onclick="msl_toggleShort()">
           <i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Short only
@@ -1567,7 +1567,7 @@ tr:hover td { background: var(--bg); }
         </div>
       </div>
 
-      <div class="last-upd" id="lastUpd"></div>
+      <div class="last-upd" id="msl-lastUpd"></div>
 
     </div>
   </div>
@@ -1829,8 +1829,8 @@ function onFilterChange(){
 });
 
 function updateDatePill() {
-  const s = document.getElementById('f-start').value;
-  const e = document.getElementById('f-end').value;
+  const s = document.getElementById('dashboard-f-start').value;
+  const e = document.getElementById('dashboard-f-end').value;
   const pill = document.getElementById('date-pill');
   if (!pill) return;
   pill.style.display = (s || e) ? 'none' : '';
@@ -1840,16 +1840,16 @@ function rmc_clearF(){
   const today = new Date().toISOString().slice(0,10);
   const jan1  = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10);
   const month1 = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
-  document.getElementById('f-start').value = month1;
-  document.getElementById('f-end').value   = today;
+  document.getElementById('dashboard-f-start').value = month1;
+  document.getElementById('dashboard-f-end').value   = today;
   ["f-city","f-model","f-sub","f-com","f-line"].forEach(id=>document.getElementById(id).value="");
   // Dashboard loads immediately as default tab
   setTimeout(function() { try { rmc_load(); } catch(e) { console.error('RMC init:', e); } }, 0);
 }
 
 async function rmc_fetchAll(){
-  const startVal = document.getElementById("f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const endVal   = document.getElementById("f-end").value   || localDate(new Date());
+  const startVal = document.getElementById("dashboard-f-start").value || localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const endVal   = document.getElementById("dashboard-f-end").value   || localDate(new Date());
 
   // Guard: invalid date range
   if (startVal && endVal && startVal > endVal) {
@@ -1863,8 +1863,8 @@ async function rmc_fetchAll(){
   const body = {
     p_start: startVal,
     p_end:   endVal,
-    p_city:  document.getElementById("f-city").value  || null,
-    p_sub:   document.getElementById("f-sub").value   || null,
+    p_city:  document.getElementById("dashboard-f-city").value  || null,
+    p_sub:   document.getElementById("dashboard-f-sub").value   || null,
     p_com:   document.getElementById("f-com").value   || null,
     p_line:  document.getElementById("f-line").value  || null,
     p_model: document.getElementById("f-model").value || null,
@@ -1937,8 +1937,8 @@ async function rmc_load(){
     return `<span style="font-size:11px;color:${col};font-weight:600">${sign} ${Math.abs(pct).toFixed(1)}%</span>`;
   };
 
-  const s = document.getElementById("f-start").value;
-  const e = document.getElementById("f-end").value;
+  const s = document.getElementById("dashboard-f-start").value;
+  const e = document.getElementById("dashboard-f-end").value;
   document.getElementById("row-badge").textContent  = `${jcs.toLocaleString()} JCs`;
   document.getElementById("date-badge").textContent = `${s} → ${e}`;
   document.getElementById("sync-lbl").textContent = `Synced · ${new Date().toLocaleTimeString()}`;
@@ -2072,7 +2072,7 @@ async function rmc_load(){
   });
 
   // Hub table
-  document.getElementById("hub-count").textContent = `${by_hub.length} hubs`;
+  document.getElementById("dashboard-hub-count").textContent = `${by_hub.length} hubs`;
   const maxC = Math.max(...by_hub.map(r=>r.total_cost||0));
   const hubChg = (curr, prev) => {
     if (!prev || !curr) return '<span style="color:var(--muted);font-size:10px">—</span>';
@@ -2189,8 +2189,8 @@ function localDate(d) {
 const _now    = new Date();
 const _today  = localDate(_now);
 const _month1 = localDate(new Date(_now.getFullYear(), _now.getMonth(), 1));
-document.getElementById('f-start').value = _month1;
-document.getElementById('f-end').value   = _today;
+document.getElementById('dashboard-f-start').value = _month1;
+document.getElementById('dashboard-f-end').value   = _today;
 rmc_load();
 // Close sidebar on nav link click (mobile)
     });
@@ -2439,7 +2439,7 @@ function fleet_renderDetail() {
   const total=detailData.length, pages=Math.max(1,Math.ceil(total/PER_PAGE));
   pg=Math.min(pg,pages);
   document.getElementById('detail-badge').textContent=total.toLocaleString('en-IN')+' bikes';
-  document.getElementById('page-info').textContent='Page '+pg+' of '+pages;
+  document.getElementById('fleet-page-info').textContent='Page '+pg+' of '+pages;
   document.getElementById('btn-prev').disabled=pg<=1;
   document.getElementById('btn-next').disabled=pg>=pages;
   const tbody=document.getElementById('detail-body'); tbody.innerHTML='';
@@ -2596,12 +2596,12 @@ async function parts_loadAll() {
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
 function parts_applyFilters() {
-  const city    = document.getElementById('f-city').value;
-  const part     = document.getElementById('f-part').value;
+  const city    = document.getElementById('parts-f-city').value;
+  const part     = document.getElementById('parts-f-part').value;
   const vendor   = document.getElementById('f-vendor').value;
   const status   = document.getElementById('f-status').value;
   const fittedBy = document.getElementById('f-fitted-by').value;
-  const search   = document.getElementById('search').value.toLowerCase();
+  const search   = document.getElementById('parts-search').value.toLowerCase();
   const sort     = document.getElementById('f-sort').value;
 
   filtered = allRows.filter(r => {
@@ -2845,7 +2845,7 @@ function renderRaw() {
   const page  = filtered.slice(start, end);
 
   document.getElementById('raw-count').textContent = total.toLocaleString() + ' vehicles';
-  document.getElementById('page-info').textContent = `${start+1}–${end} of ${total.toLocaleString()}`;
+  document.getElementById('parts-page-info').textContent = `${start+1}–${end} of ${total.toLocaleString()}`;
 
   if (!page.length) {
     document.getElementById('raw-body').innerHTML = '<div class="loading">No records match the current filters.</div>';
@@ -3578,10 +3578,10 @@ async function loadAllReplacements() {
   document.getElementById('pg-bar').style.display = 'none';
 
   const params = {
-    p_city:  document.getElementById('f-city').value  || null,
-    p_part:  document.getElementById('f-part').value  || null,
-    p_start: document.getElementById('f-start').value || null,
-    p_end:   document.getElementById('f-end').value   || null,
+    p_city:  document.getElementById('tyre-f-city').value  || null,
+    p_part:  document.getElementById('tyre-f-part').value  || null,
+    p_start: document.getElementById('tyre-f-start').value || null,
+    p_end:   document.getElementById('tyre-f-end').value   || null,
     p_page:  1
   };
 
@@ -3643,7 +3643,7 @@ async function loadAllReplacements() {
     </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
 
   // All rows with hub filter applied client-side
-  _allRows = applyHubFilter(_mainResult.all_rows || [], document.getElementById('f-hub').value, document.getElementById('f-sub').value);
+  _allRows = applyHubFilter(_mainResult.all_rows || [], document.getElementById('f-hub').value, document.getElementById('tyre-f-sub').value);
   _allPage = 1;
   renderAllRows();
 }
@@ -3702,16 +3702,16 @@ async function tyre_changePage(dir) {
   _allPage += dir;
   // Fetch from server with new page
   const params = {
-    p_city:  document.getElementById('f-city').value  || null,
-    p_part:  document.getElementById('f-part').value  || null,
-    p_start: document.getElementById('f-start').value || null,
-    p_end:   document.getElementById('f-end').value   || null,
+    p_city:  document.getElementById('tyre-f-city').value  || null,
+    p_part:  document.getElementById('tyre-f-part').value  || null,
+    p_start: document.getElementById('tyre-f-start').value || null,
+    p_end:   document.getElementById('tyre-f-end').value   || null,
     p_page:  _allPage
   };
   spin('all-body');
   const res = await rpc('get_tyre_analysis', params);
   if (res && !res.code) {
-    _allRows = applyHubFilter(res.all_rows || [], document.getElementById('f-hub').value, document.getElementById('f-sub').value);
+    _allRows = applyHubFilter(res.all_rows || [], document.getElementById('f-hub').value, document.getElementById('tyre-f-sub').value);
     // Update total from summary
     if (res.summary) _result.summary = res.summary;
   }
@@ -3722,7 +3722,7 @@ async function tyre_changePage(dir) {
 // ---------- BY HUB ----------
 async function loadHub() {
   spin('by-hub-body');
-  document.getElementById('hub-count').textContent = '—';
+  document.getElementById('tyre-hub-count').textContent = '—';
   const params = {
     p_city:  document.getElementById('hub-city').value || null,
     p_part:  null, p_start: null, p_end: null
@@ -3734,7 +3734,7 @@ async function loadHub() {
   const hubFilter = document.getElementById('hub-hub').value;
   if (hubFilter) hubs = hubs.filter(h => h.hub_name === hubFilter);
 
-  document.getElementById('hub-count').textContent = `${hubs.length} hubs`;
+  document.getElementById('tyre-hub-count').textContent = `${hubs.length} hubs`;
   const maxH = Math.max(1,...hubs.map(h=>h.replacements||0));
   _hubResult = hubs;
   document.getElementById('by-hub-body').innerHTML = hubs.length ? `
@@ -3934,12 +3934,12 @@ function tyre_clearFilters(table) {
     loadBikeSummary();
   } else if (table === 'all') {
     const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
-    document.getElementById('f-city').value  = '';
+    document.getElementById('tyre-f-city').value  = '';
     document.getElementById('f-hub').value   = '';
-    document.getElementById('f-part').value  = '';
-    document.getElementById('f-start').value = `${y}-${m}-01`;
-    document.getElementById('f-end').value   = now.toISOString().slice(0,10);
-    document.getElementById('f-sub').value   = '';
+    document.getElementById('tyre-f-part').value  = '';
+    document.getElementById('tyre-f-start').value = `${y}-${m}-01`;
+    document.getElementById('tyre-f-end').value   = now.toISOString().slice(0,10);
+    document.getElementById('tyre-f-sub').value   = '';
     loadAllReplacements();
   }
 }
@@ -3947,7 +3947,7 @@ function tyre_clearFilters(table) {
 // Hub + sub filters are client-side on already-loaded data
 function applyAllClientFilters() {
   if (!_mainResult?.all_rows) return;
-  _allRows = applyHubFilter(_mainResult.all_rows, document.getElementById('f-hub').value, document.getElementById('f-sub').value);
+  _allRows = applyHubFilter(_mainResult.all_rows, document.getElementById('f-hub').value, document.getElementById('tyre-f-sub').value);
   _allPage = 1;
   renderAllRows();
 }
@@ -3975,8 +3975,8 @@ window.tyre_init = function() {
     populateHubDropdowns();
     var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
     var monthStart = y+'-'+m+'-01', today = now.toISOString().slice(0,10);
-    document.getElementById('f-start').value  = monthStart;
-    document.getElementById('f-end').value    = today;
+    document.getElementById('tyre-f-start').value  = monthStart;
+    document.getElementById('tyre-f-end').value    = today;
     document.getElementById('bs-start').value = monthStart;
     document.getElementById('bs-end').value   = today;
     loadAllReplacements();
@@ -4137,7 +4137,7 @@ async function hub_fetchAll(city) {
       : mslData.filter(function(r){ return r.status && r.status.toLowerCase().includes('short'); }).length;
     render({ hub: displayName, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts });
 
-    document.getElementById('lastUpd').textContent =
+    document.getElementById('hub-lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
 
   } catch(err) {
@@ -4212,7 +4212,7 @@ async function msl_load() {
   const url = `${INFO_URL}/rest/v1/hub_msl?${qs}&order=part_name.asc&limit=5000`;
   const res = await fetch(url, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
   allData = await res.json();
-  document.getElementById('lastUpd').textContent = 'Last loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  document.getElementById('msl-lastUpd').textContent = 'Last loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const syncedAt = allData.find(r => r.synced_at);
   if (syncedAt) {
     const d = new Date(syncedAt.synced_at);
@@ -4230,7 +4230,7 @@ function msl_toggleShort() {
 
 function getFiltered() {
   const cat    = document.getElementById('catSel').value;
-  const search = document.getElementById('search').value.toLowerCase();
+  const search = document.getElementById('msl-search').value.toLowerCase();
 
   // When short-only: include a part if ANY hub has it short
   var shortPartNames = null;
