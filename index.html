@@ -779,7 +779,7 @@ tr:hover td { background: var(--bg); }
   <button class="sb-open-btn" id="sb-open-btn" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><i class="ti ti-menu-2" aria-hidden="true"></i></button>
 
 
-<div id="tab-dashboard" class="tab-pane" style="display:block;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-dashboard" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="content">
 
@@ -875,7 +875,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-fleet" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-fleet" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="page-header">
     <div>
@@ -963,7 +963,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-parts" class="inner-tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-parts" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="topbar">
     <div>
@@ -1213,7 +1213,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-tyre" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-tyre" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="content">
     <div class="wrap">
@@ -1396,7 +1396,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-hub" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-hub" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="content">
     <div class="wrap">
@@ -1452,7 +1452,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-msl" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-msl" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="content">
     <div class="wrap">
@@ -1581,7 +1581,7 @@ tr:hover td { background: var(--bg); }
   </div>
 </div>
 
-<div id="tab-admin" class="tab-pane" style="display:none;flex:1;overflow-y:auto;height:calc(100vh - 0px)">
+<div id="tab-admin" class="tab-pane" style="flex:1;overflow-y:auto;height:calc(100vh - 0px)">
   <div class="tab-inner" style="height:100%;overflow-y:auto">
 <div class="content">
     <div class="wrap">
@@ -1654,16 +1654,10 @@ const TAB_INITS = {"dashboard": "rmc_load()", "fleet": "fleet_init()", "parts": 
 const initialised = {};
 
 function switchPage(tab) {
-  // Update tab panes
-  document.querySelectorAll('.tab-pane').forEach(p => {
-    p.style.display = 'none';
-    p.classList.remove('active');
-  });
+  // Update tab panes — use class only, CSS handles display
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('tab-' + tab);
-  if (pane) {
-    pane.style.display = 'block';
-    pane.classList.add('active');
-  }
+  if (pane) pane.classList.add('active');
 
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(a => {
