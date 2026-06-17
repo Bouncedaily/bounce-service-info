@@ -362,8 +362,7 @@ async function fetchAll(city) {
         'select=submission_type,hub_name,oos_to_rfd_tat_days&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status&' + hubFilter + '&status=eq.RFD').catch(() => []),
-      sbGet(SF_URL, SF_KEY, 'runway',
-        'select=bike_model_name,current_rfd,projected_deployment,runway_days,synced_at&' + hubFilter + '&order=bike_model_name.asc').catch(() => []),
+      Promise.resolve([]),
       sbGet(INFO_URL, INFO_KEY, 'hub_msl',
         'select=status&' + hubFilter).catch(() => [])
     ]);
@@ -462,10 +461,7 @@ function render(d) {
     '<div class="inflow-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px">' +
     renderInflowBreakdown(d.inflow) + '</div></div>';
 
-  // Runway
-  var runwayHtml = d.runway && d.runway.length > 0 ?
-    '<div class="hcard" style="margin-top:14px"><div class="hl">Fleet Runway</div>' +
-    renderRunway(d.runway) + '</div>' : '';
+  var runwayHtml = '';
 
   // Hub title
   var titleHtml = '<div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">' +
