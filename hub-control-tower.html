@@ -415,6 +415,65 @@ function hs(ok, warn) {
   return       { dot:'sd-r', cls:'hs-r', lbl:'Critical' };
 }
 
+
+function render(d) {
+  var BUCKETS = ['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
+  var BUCKET_COLORS = {'0 days':'#22c55e','1-2 days':'#86efac','3-4 days':'#fbbf24','5-7 days':'#f97316','above 7 days':'#ef4444'};
+
+  // KPI row
+  var oosPct = d.oosPercent !== null ? d.oosPercent + '%' : '—';
+  var oosColor = d.oosPercent !== null ? (parseFloat(d.oosPercent) > 20 ? '#ef4444' : parseFloat(d.oosPercent) > 10 ? '#f97316' : '#22c55e') : 'var(--text)';
+
+  var kpis = [
+    { l:'OOS Bikes',    v: d.total,         s: oosPct + ' of fleet',   color: oosColor },
+    { l:'RFD Stock',    v: d.rfdStock,       s: 'ready to deploy',      color: 'var(--text)' },
+    { l:'JCs Closed',   v: d.closedCount,   s: 'today',                color: 'var(--text)' },
+    { l:'Technicians',  v: d.techs,          s: 'present today',        color: 'var(--text)' },
+    { l:'Inflow',       v: d.inflow.length,  s: 'bikes today',          color: 'var(--text)' },
+    { l:'RFD Today',    v: d.totalRfd,       s: d.oosRfd + ' OOS + ' + d.pdiRfd + ' PDI', color: 'var(--text)' },
+    { l:'Avg TAT',      v: d.avgTat !== null ? d.avgTat + 'd' : '—', s: 'OOS→RFD',      color: 'var(--text)' },
+    { l:'MSL Shorts',   v: d.mslShorts !== null ? d.mslShorts : '—', s: 'parts short',  color: d.mslShorts > 0 ? '#ef4444' : '#22c55e' },
+  ];
+
+  var kpiHtml = '<div class="kpi-row">' + kpis.map(function(k) {
+    return '<div class="kpi"><div class="kl">' + k.l + '</div>' +
+           '<div class="kv" style="color:' + k.color + '">' + k.v + '</div>' +
+           '<div class="ks">' + k.s + '</div></div>';
+  }).join('') + '</div>';
+
+  // Aging buckets
+  var agingHtml = '<div class="aging-panel"><div class="aging-hdr">' +
+    '<div class="aging-title"><i class="ti ti-clock" style="color:#f97316"></i> OOS Aging</div>' +
+    '<div class="aging-total">' + d.total + ' total OOS</div></div>' +
+    '<div class="aging-buckets">' +
+    BUCKETS.map(function(b) {
+      var count = d.ages[b] || 0;
+      var pct2  = d.total > 0 ? Math.round(count/d.total*100) : 0;
+      var color = BUCKET_COLORS[b];
+      return '<div class="ab"><div class="ab-range">' + b + '</div>' +
+             '<div class="ab-count" style="color:' + color + '">' + count + '</div>' +
+             '<div class="ab-pct">' + pct2 + '%</div>' +
+             '<div class="bar-track"><div class="bar-lbl" style="width:' + pct2 + '%;background:' + color + ';height:3px;border-radius:2px"></div></div>' +
+             '</div>';
+    }).join('') + '</div></div>';
+
+  // Inflow breakdown
+  var inflowHtml = '<div class="hcard" style="margin-top:14px"><div class="hl">Inflow Breakdown</div>' +
+    '<div class="inflow-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px">' +
+    renderInflowBreakdown(d.inflow) + '</div></div>';
+
+  // Runway
+  var runwayHtml = d.runway && d.runway.length > 0 ?
+    '<div class="hcard" style="margin-top:14px"><div class="hl">Fleet Runway</div>' +
+    renderRunway(d.runway) + '</div>' : '';
+
+  // Hub title
+  var titleHtml = '<div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">' +
+    '<i class="ti ti-building" style="color:#e63946"></i>' + d.hub + '</div>';
+
+  document.getElementById('dashContent').innerHTML = titleHtml + kpiHtml + agingHtml + inflowHtml + runwayHtml;
+}
+
 function renderInflowBreakdown(inflow) {
   var types = ['Running Repair', 'Rider Submission', 'Recovery', 'Bike Exchange'];
   var colors = { 'Running Repair': '#3b82f6', 'Rider Submission': '#8b5cf6', 'Recovery': '#f59e0b', 'Bike Exchange': '#22c55e' };
@@ -449,9 +508,17 @@ function renderInflowBreakdown(inflow) {
 function renderRunway(runway) {
   if (!runway || runway.length === 0)
     return '<div style="font-size:12px;color:var(--muted);padding:8px">No runway data for this hub</div>';
-  var count = runway.length;
-  var cols = count <= 2 ? count : count <= 4 ? 2 : count <= 6 ? 3 : 4;
-  setTimeout
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px">' +
+    runway.map(function(r) {
+      var days = r.runway_days;
+      var color = days === null ? '#94a3b8' : days < 3 ? '#ef4444' : days < 7 ? '#f97316' : '#22c55e';
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px">' +
+        '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">' + (r.bike_model_name||'—') + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + color + '">' + (days !== null ? days + 'd' : '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--muted)">RFD: ' + (r.current_rfd||0) + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+}
 
 
 // ── SIDEBAR CONTROL ──────────────────────────────────────
