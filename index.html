@@ -2199,6 +2199,8 @@ rmc_load();
 
 
 
+window.rmc_load = rmc_load;
+window.rmc_clearF = rmc_clearF;
 })();
 
 /* ====== FLEET ====== */
@@ -2491,6 +2493,8 @@ function fleet_exportCSV(){
 
 
 
+window.fleet_exportCSV = fleet_exportCSV;
+window.fleet_changePage = fleet_changePage;
 })();
 
 /* ====== PARTS ====== */
@@ -3511,6 +3515,13 @@ async function sbRpc2(fn, params) {
 
 
 
+window.parts_loadAll = parts_loadAll;
+window.parts_switchTab = parts_switchTab;
+window.renderBeadingRaw = renderBeadingRaw;
+window.parts_applyFilters = parts_applyFilters;
+window.parts_exportCSV = parts_exportCSV;
+window.parts_exportOemCSV = parts_exportOemCSV;
+window.goPage = goPage;
 })();
 
 /* ====== TYRE ====== */
@@ -3990,6 +4001,13 @@ window.tyre_init = function() {
 
 
 
+window.tyre_clearFilters = tyre_clearFilters;
+window.tyre_exportAll = tyre_exportAll;
+window.tyre_exportRepeats = tyre_exportRepeats;
+window.tyre_exportBikeSummary = tyre_exportBikeSummary;
+window.tyre_exportByHub = tyre_exportByHub;
+window.tyre_changePage = tyre_changePage;
+window.tyre_changeBikePage = tyre_changeBikePage;
 })();
 
 /* ====== HUB ====== */
@@ -4195,6 +4213,7 @@ function renderRunway(runway) {
 
 
 
+window.hub_fetchAll = hub_fetchAll;
 })();
 
 /* ====== MSL ====== */
@@ -4380,6 +4399,7 @@ window.msl_init = function() { msl_load(); };
 
 
 
+window.msl_toggleShort = msl_toggleShort;
 })();
 
 /* ====== ADMIN ====== */
@@ -4602,6 +4622,14 @@ loadUsers(); loadRequests(); loadActivity();
 
 
 
+window.adm_addUser = adm_addUser;
+window.revokeUser = revokeUser;
+window.restoreUser = restoreUser;
+window.editUser = editUser;
+window.saveUser = saveUser;
+window.loadUsers = loadUsers;
+window.rejectReq = rejectReq;
+window.approveReq = approveReq;
 })();
 
 
