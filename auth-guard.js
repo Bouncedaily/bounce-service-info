@@ -49,13 +49,24 @@
   });
 
   function applyPerms(p) {
-    if (!p.rmc)               document.querySelectorAll('a[href="dashboard.html"]').forEach(e => e.style.display='none');
-    if (!p.fleet_km)          document.querySelectorAll('a[href="fleet-km.html"]').forEach(e => e.style.display='none');
-    if (!p.parts_testing)     document.querySelectorAll('a[href="parts-testing.html"]').forEach(e => e.style.display='none');
-    if (!p.wear_tear)         document.querySelectorAll('a[href="tyre-analysis.html"]').forEach(e => e.style.display='none');
-    if (!p.hub_control_tower) document.querySelectorAll('a[href="hub-control-tower.html"]').forEach(e => e.style.display='none');
-    if (!p.msl_dashboard)     document.querySelectorAll('a[href="msl-dashboard.html"]').forEach(e => e.style.display='none');
-    if (!p.hub_tv)             document.querySelectorAll('a[href="hub-tv.html"]').forEach(e => e.style.display='none');
+    // Hide sidebar items by data-tab (unified index.html)
+    const hideTab = (tab) => document.querySelectorAll(`.sb-item[data-tab="${tab}"]`).forEach(e => e.style.display='none');
+    if (!p.rmc)               hideTab('dashboard');
+    if (!p.fleet_km)          hideTab('fleet');
+    if (!p.parts_testing)     hideTab('parts');
+    if (!p.wear_tear)         hideTab('tyre');
+    if (!p.hub_control_tower) hideTab('hub');
+    if (!p.msl_dashboard)     hideTab('msl');
+    if (!p.hub_tv)             hideTab('hub-tv');
+    // Also support old-style href links (individual pages still in repo)
+    const hideHref = (href) => document.querySelectorAll(`a[href="${href}"]`).forEach(e => e.style.display='none');
+    if (!p.rmc)               hideHref('dashboard.html');
+    if (!p.fleet_km)          hideHref('fleet-km.html');
+    if (!p.parts_testing)     hideHref('parts-testing.html');
+    if (!p.wear_tear)         hideHref('tyre-analysis.html');
+    if (!p.hub_control_tower) hideHref('hub-control-tower.html');
+    if (!p.msl_dashboard)     hideHref('msl-dashboard.html');
+    if (!p.hub_tv)             hideHref('hub-tv.html');
     // Notify index page if open
     window.dispatchEvent(new Event('auth-perms-updated'));
   }
