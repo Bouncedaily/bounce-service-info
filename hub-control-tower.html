@@ -303,7 +303,7 @@ function onHubChange() {
 
 // Auto-load all hubs on page load
 // Auto-load on page open — script at end of body so DOM is ready
-try { fetchAll(null); } catch(e) { console.error('fetchAll error:', e); }
+document.addEventListener('DOMContentLoaded', function() { try { fetchAll(null); } catch(e) { console.error('fetchAll error:', e); } });
 
 async function sbGet(base, key, table, qs) {
   const r = await fetch(base + '/rest/v1/' + table + '?' + qs, {
