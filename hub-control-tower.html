@@ -303,7 +303,12 @@ function onHubChange() {
 
 // Auto-load all hubs on page load
 // Auto-load on page open — script at end of body so DOM is ready
-document.addEventListener('DOMContentLoaded', function() { try { fetchAll(null); } catch(e) { console.error('fetchAll error:', e); } });
+document.addEventListener('DOMContentLoaded', function() { 
+  fetchAll(null).catch(function(e) {
+    document.getElementById('dashContent').innerHTML =
+      '<div style="padding:20px;color:#f87171;font-size:13px"><strong>Init error:</strong> ' + e.message + '</div>';
+  });
+});
 
 async function sbGet(base, key, table, qs) {
   const r = await fetch(base + '/rest/v1/' + table + '?' + qs, {
@@ -398,7 +403,7 @@ async function fetchAll(city) {
 
   } catch(err) {
     document.getElementById('dashContent').innerHTML =
-      '<div class="loading-state" style="color:#f87171"><i class="ti ti-alert-triangle" style="font-size:22px;margin-bottom:8px;display:block"></i>Error loading data: ' + err.message + '</div>';
+      '<div class="loading-state" style="color:#f87171;font-size:13px"><strong>Error:</strong> ' + err.message + '<br><pre style="font-size:11px;text-align:left;margin-top:8px;white-space:pre-wrap">' + (err.stack||'') + '</pre></div>';
   }
 }
 
