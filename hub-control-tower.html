@@ -347,7 +347,7 @@ async function fetchAll(city) {
       hubFilter = 'hub_name=not.is.null';
     }
 
-    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl] = await Promise.all([
+    const [fleet, totalFleet, closed, techs, inflow, outflow, rfdStock, runway, msl, quality] = await Promise.all([
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
         'select=status,oos_aging_bucket&' + hubFilter + '&status=eq.OOS').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'bike_fleet',
@@ -364,7 +364,16 @@ async function fetchAll(city) {
         'select=status&' + hubFilter + '&status=eq.RFD').catch(() => []),
       Promise.resolve([]),
       sbGet(INFO_URL, INFO_KEY, 'hub_msl',
-        'select=status&' + hubFilter).catch(() => [])
+        'select=status&' + hubFilter).catch(() => []),
+      (function() {
+        // Current week start (Monday IST)
+        var d = new Date(nowIST);
+        var day = d.getDay();
+        d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+        var wk = d.toISOString().slice(0,10);
+        return sbGet(INFO_URL, INFO_KEY, 'rr_quality_events',
+          'select=hub_name,submission_type,is_1day_repeat,is_3day_repeat,is_7day_repeat&week_start_date=eq.' + wk + '&' + hubFilter).catch(() => []);
+      })()
     ]);
 
     // Aging
@@ -395,7 +404,7 @@ async function fetchAll(city) {
     const mslShorts = mslData.length === 0
       ? null  // no data for this hub — hide card
       : mslData.filter(function(r){ return r.status && r.status.toLowerCase().includes('short'); }).length;
-    render({ hub: displayName, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts });
+    render({ hub: displayName, total: (fleet||[]).length, ages, closedCount, techs: (techs||[]).length, oosPercent, inflow: (inflow||[]), totalRfd, oosRfd, pdiRfd, avgTat, runway: (runway||[]), rfdStock: (rfdStock||[]).length, mslShorts, quality: (quality||[]) });
 
     document.getElementById('lastUpd').textContent =
       'Last refreshed: ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -467,7 +476,8 @@ function render(d) {
   var titleHtml = '<div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">' +
     '<i class="ti ti-building" style="color:#e63946"></i>' + d.hub + '</div>';
 
-  document.getElementById('dashContent').innerHTML = titleHtml + kpiHtml + agingHtml + inflowHtml + runwayHtml;
+  var qualityHtml = renderQuality(d.quality);
+  document.getElementById('dashContent').innerHTML = titleHtml + kpiHtml + agingHtml + inflowHtml + qualityHtml + runwayHtml;
 }
 
 function renderInflowBreakdown(inflow) {
@@ -499,6 +509,40 @@ function renderInflowBreakdown(inflow) {
       '</div>';
   });
   return items.join('');
+}
+
+function renderQuality(quality) {
+  if (!quality || quality.length === 0)
+    return '<div class="hcard" style="margin-top:14px"><div class="hl"><i class="ti ti-star" style="color:#f59e0b;margin-right:6px"></i>Service Quality — This Week</div><div style="font-size:12px;color:var(--muted);padding:8px 0">No quality events this week ✓</div></div>';
+
+  var total    = quality.length;
+  var rep1d    = quality.reduce(function(s,r){ return s + (r.is_1day_repeat||0); }, 0);
+  var rep3d    = quality.reduce(function(s,r){ return s + (r.is_3day_repeat||0); }, 0);
+  var rrCount  = quality.filter(function(r){ return r.submission_type === 'Running Repair'; }).length;
+  var beCount  = quality.filter(function(r){ return r.submission_type === 'Bike Exchange'; }).length;
+
+  var color1d = rep1d === 0 ? '#22c55e' : rep1d <= 3 ? '#f59e0b' : '#ef4444';
+  var color3d = rep3d === 0 ? '#22c55e' : rep3d <= 10 ? '#f59e0b' : '#ef4444';
+  var colorTotal = total === 0 ? '#22c55e' : total <= 15 ? '#f59e0b' : '#ef4444';
+
+  var kpis = [
+    { l: 'Total Repeats', v: total,  color: colorTotal, s: 'this week' },
+    { l: '1-Day Repeats', v: rep1d,  color: color1d,    s: 'came back next day' },
+    { l: '3-Day Repeats', v: rep3d,  color: color3d,    s: 'within 3 days' },
+    { l: 'Running Repair', v: rrCount, color: 'var(--text)', s: 'repeat RRs' },
+    { l: 'Bike Exchange',  v: beCount, color: 'var(--text)', s: 'repeat exchanges' },
+  ];
+
+  var kpiHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:10px">' +
+    kpis.map(function(k) {
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px">' +
+        '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">' + k.l + '</div>' +
+        '<div style="font-size:22px;font-weight:800;color:' + k.color + ';line-height:1">' + k.v + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + k.s + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+
+  return '<div class="hcard" style="margin-top:14px"><div class="hl"><i class="ti ti-star" style="color:#f59e0b;margin-right:6px"></i>Service Quality — This Week</div>' + kpiHtml + '</div>';
 }
 
 function renderRunway(runway) {
