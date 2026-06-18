@@ -597,37 +597,8 @@ async function checkAllowedUser(email) {
 }
 
 async function initAuth() {
-  // Handle Supabase magic link callback (URL has #access_token=...)
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (!error && data?.session?.user?.email) {
-        const email = data.session.user.email;
-        const role  = await checkAllowedUser(email);
-        if (role) {
-          saveSess(email, role);
-          // Clean URL
-          history.replaceState(null, '', window.location.pathname + window.location.search);
-          showApp();
-          return;
-        } else {
-          showLoginMsg('err', 'Access denied. Your email is not authorised. Please request access from an admin.');
-          await supabase.auth.signOut();
-          showLogin();
-          return;
-        }
-      }
-    } catch(e) {}
-  }
-
-  // Check existing session
-  const sess = getSess();
-  if (sess && sess.email) {
-    showApp();
-  } else {
-    showLogin();
-  }
+  // Auth disabled — open directly
+  showApp();
 }
 
 function showLogin() {
