@@ -729,10 +729,7 @@ function closeSidebar() {
   setSidebarOpen(stored === '0');
 })();
 
-// ═══════════════════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════════════════
-initAuth();
+// (initAuth called after DASHBOARDS defined in next script block)
 </script>
 
 <!-- DASHBOARD TEMPLATE STRINGS -->
@@ -755,6 +752,10 @@ const DASHBOARDS = {
   'admin':     DASH_ADMIN,
   'oos':       DASH_OOS
 };
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT — must run after DASHBOARDS is defined
+// ═══════════════════════════════════════════════════════════════════════════
+initAuth();
 </script>
 
 </body>
