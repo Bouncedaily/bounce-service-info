@@ -625,7 +625,7 @@ function showApp() {
   }
   // Restore last view from hash
   const hash = window.location.hash.replace('#', '');
-  const validViews = ['home','dashboard','fleet','parts','tyre','hub','msl','admin'];
+  const validViews = ['home','dashboard','fleet','parts','tyre','hub','msl','admin','oos'];
   if (hash && validViews.includes(hash)) {
     showView(hash, false);
   }
