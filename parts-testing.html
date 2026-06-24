@@ -643,9 +643,9 @@ function renderSummary() {
     const oRepl  = oRows.filter(r => r.status === 'Replaced');
     const oRepair = oRows.reduce((s,r) => s + (r.repair_count||0), 0);
 
-    // Running KM — avg current_odo for active bikes, km_on_part for replaced
-    const tAvg = tRows.length ? avg(tRows.map(r => r.status === 'Replaced' ? r.km_on_part : (r.current_odo || r.km_on_part)).filter(v => v > 0)) : 0;
-    const oAvg = oRows.length ? avg(oRows.map(r => r.status === 'Replaced' ? r.km_on_part : (r.current_odo || r.km_on_part)).filter(v => v > 0)) : 0;
+    // Running KM — avg km_on_part for running (not yet replaced) bikes only
+    const tAvg = avg(tRows.filter(r => r.status !== 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
+    const oAvg = avg(oRows.filter(r => r.status !== 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
     // Verdict — replaced only on both sides (true failure KM)
     const tReplAvg = tRepl.length ? avg(tRepl.map(r=>r.km_on_part)) : 0;
     const oReplAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
