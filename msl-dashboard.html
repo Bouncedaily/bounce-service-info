@@ -88,7 +88,7 @@
     }
     tbody tr:hover td:first-child { background: var(--bg); }
 
-    .cell { display: inline-block; width: 28px; height: 28px; border-radius: 6px; font-size: 10px; font-weight: 700; line-height: 28px; text-align: center; }
+    .cell { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 28px; padding: 0 5px; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center; }
     .cell-short  { background: rgba(239,68,68,.15);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
     .cell-ok     { background: rgba(34,197,94,.1);   color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
     .cell-excess { background: rgba(245,158,11,.1);  color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
@@ -349,7 +349,8 @@ function getFiltered() {
   });
 }
 
-function statusClass(status) {
+function statusClass(cell) {
+  const status = (cell && typeof cell === 'object') ? cell.status : cell;
   if (!status) return 'cell-none';
   const s = status.toLowerCase();
   if (s.includes('short'))  return 'cell-short';
@@ -358,12 +359,12 @@ function statusClass(status) {
   return 'cell-none';
 }
 
-function statusLabel(status) {
-  if (!status) return '—';
-  const s = status.toLowerCase();
-  if (s.includes('short'))  return 'S';
-  if (s.includes('excess')) return 'E';
-  if (s.includes('ok'))     return 'OK';
+function statusLabel(cell) {
+  if (!cell) return '—';
+  if (typeof cell === 'object') {
+    const qty = (cell.qty != null) ? Math.round(Number(cell.qty)) : null;
+    return qty != null ? qty : '?';
+  }
   return '—';
 }
 
@@ -394,7 +395,7 @@ function render() {
   allData.forEach(r => {
     const key = r.part_name || r.part_number || '—';
     if (!partMap[key]) partMap[key] = { number: r.part_number, hubs: {} };
-    if (r.hub_name) partMap[key].hubs[r.hub_name] = r.status;
+    if (r.hub_name) partMap[key].hubs[r.hub_name] = { status: r.status, qty: r.closing_stock };
   });
   // Which part names to show — from filtered (respects short-only, category, search)
   const filteredPartNames = new Set(filtered.map(r => r.part_name || r.part_number || '—'));
@@ -413,7 +414,7 @@ function render() {
       html += `<tr><td>${part}<span class="pn">${partMap[part].number || ''}</span></td>`;
       allHubs.forEach(h => {
         const st = partMap[part].hubs[h];
-        html += `<td><span class="cell ${statusClass(st)}" title="${h}: ${st||'No data'}">${statusLabel(st)}</span></td>`;
+        html += `<td><span class="cell ${statusClass(st)}" title="${h}: ${st?.status||'No data'} (qty: ${st?.qty??'—'})">${statusLabel(st)}</span></td>`;
       });
       html += '</tr>';
     });
