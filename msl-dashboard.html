@@ -360,11 +360,13 @@ function statusClass(cell) {
 }
 
 function statusLabel(cell) {
-  if (!cell) return '—';
-  if (typeof cell === 'object') {
-    const qty = (cell.qty != null) ? Math.round(Number(cell.qty)) : null;
-    return qty != null ? qty : '?';
-  }
+  if (!cell || !cell.status) return '—';
+  const s     = cell.status.toLowerCase();
+  const stock = (cell.stock != null) ? parseInt(cell.stock) : null;
+  const msl   = (cell.msl   != null) ? parseInt(cell.msl)   : null;
+  if (s.includes('short'))  return (stock != null && msl != null) ? String(stock - msl) : '—';
+  if (s.includes('excess')) return stock != null ? String(stock) : '—';
+  if (s.includes('ok'))     return stock != null ? String(stock) : 'OK';
   return '—';
 }
 
@@ -395,7 +397,7 @@ function render() {
   allData.forEach(r => {
     const key = r.part_name || r.part_number || '—';
     if (!partMap[key]) partMap[key] = { number: r.part_number, hubs: {} };
-    if (r.hub_name) partMap[key].hubs[r.hub_name] = { status: r.status, qty: r.closing_stock };
+    if (r.hub_name) partMap[key].hubs[r.hub_name] = { status: r.status, stock: r.closing_stock, msl: r.msl_qty };
   });
   // Which part names to show — from filtered (respects short-only, category, search)
   const filteredPartNames = new Set(filtered.map(r => r.part_name || r.part_number || '—'));
