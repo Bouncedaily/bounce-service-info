@@ -137,6 +137,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .last-upd { font-size: 11px; color: var(--muted); text-align: right; margin-top: 12px; }
   </style>
+<!-- cache-bust: 1782368393 -->
 </head>
 <body>
 
@@ -360,15 +361,17 @@ function statusClass(cell) {
 }
 
 function statusLabel(cell) {
-  if (!cell || !cell.status) return '—';
-  const s     = cell.status.toLowerCase();
-  const stock = (cell.stock != null) ? parseInt(cell.stock) : null;
-  const msl   = (cell.msl   != null) ? parseInt(cell.msl)   : null;
+  if (!cell) return '—';
+  const status = typeof cell === 'object' ? (cell.status || '') : (cell || '');
+  const s      = status.toLowerCase();
+  const stock  = cell.stock != null ? parseInt(cell.stock) : null;
+  const msl    = cell.msl   != null ? parseInt(cell.msl)   : null;
   if (s.includes('short'))  return (stock != null && msl != null) ? String(stock - msl) : '—';
   if (s.includes('excess')) return stock != null ? String(stock) : '—';
   if (s.includes('ok'))     return stock != null ? String(stock) : 'OK';
   return '—';
 }
+
 
 function render() {
   const filtered = getFiltered();
