@@ -145,37 +145,26 @@ function checkEmail() {
   if (!email) { showMsg('email', 'Enter your email.', 'err'); return; }
   if (email.indexOf('@bounceshare.com') === -1) { showMsg('email', 'Only @bounceshare.com emails allowed.', 'err'); return; }
   setBusy('btn-email', true, 'Checking...');
-  fetch(SB + '/rest/v1/allowed_users?email=eq.' + encodeURIComponent(email) + '&select=role,needs_reset,is_active,permissions', {
-    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+  currentEmail = email;
+  // Probe if password exists
+  fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: '___probe___' })
   })
   .then(function(r) { return r.json(); })
-  .then(function(rows) {
-    if (!rows || !rows.length || !rows[0].is_active) {
-      showMsg('email', 'Email not registered. Contact admin.', 'err');
-      setBusy('btn-email', false, 'Continue');
-      return;
+  .then(function(d) {
+    setBusy('btn-email', false, 'Continue');
+    if (d.error_code === 'invalid_credentials') {
+      // User exists and has password — show sign in
+      document.getElementById('signin-sub').textContent = email;
+      showStep('step-signin');
+    } else {
+      // No account yet — show create password
+      document.getElementById('create-title').textContent = 'Create your password';
+      document.getElementById('create-sub').textContent = 'Set a password for ' + email;
+      showStep('step-create');
     }
-    currentEmail = email;
-    // Probe if password exists by attempting sign-in with dummy password
-    return fetch(SB + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: '___probe___' })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var needsReset = rows[0].needs_reset;
-      var hasPassword = (d.error_code === 'invalid_credentials');
-      if (!hasPassword || needsReset) {
-        document.getElementById('create-title').textContent = needsReset ? 'Reset your password' : 'Create your password';
-        document.getElementById('create-sub').textContent = needsReset ? 'Admin reset your password. Set a new one.' : 'Set a password for ' + email;
-        showStep('step-create');
-      } else {
-        document.getElementById('signin-sub').textContent = email;
-        showStep('step-signin');
-      }
-      setBusy('btn-email', false, 'Continue');
-    });
   })
   .catch(function(e) {
     showMsg('email', 'Error: ' + e.message, 'err');
