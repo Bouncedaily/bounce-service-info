@@ -531,9 +531,6 @@ let currentSession = null;
 function getSess() {
   try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e) { return {}; }
 }
-function saveSess(email, role) {
-  localStorage.setItem('sb_session', JSON.stringify({ email, role }));
-}
 function clearSess() {
   localStorage.removeItem('sb_session');
 }
@@ -583,8 +580,16 @@ async function checkAllowedUser(email) {
 }
 
 async function initAuth() {
-  // Auth disabled — open directly
-  showApp();
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (sess.access_token && sess.expires_at > Date.now()) {
+      showApp();
+    } else {
+      window.location.replace('login.html');
+    }
+  } catch(e) {
+    window.location.replace('login.html');
+  }
 }
 
 function showLogin() {
