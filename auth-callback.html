@@ -1,103 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Signing in…</title>
-  <style>
-    body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-    .card{background:#fff;border-radius:20px;padding:40px 36px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.12)}
-    img{width:52px;height:52px;border-radius:14px;margin:0 auto 16px}
-    h2{font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px}
-    p{font-size:13px;color:#64748b}
-    .spin{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#dc2626;border-radius:50%;animation:spin .8s linear infinite;margin:16px auto}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .err{color:#dc2626;font-size:13px;margin-top:12px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Setting up your account…</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;background:#0f1117;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.card{background:#1e2330;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px 36px;width:100%;max-width:400px;text-align:center}
+.logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px}
+.logo-icon{width:36px;height:36px;background:#e63946;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.logo-icon i{color:#fff;font-size:18px}
+h2{font-size:20px;font-weight:800;color:#fff;margin-bottom:8px}
+.sub{font-size:13px;color:#64748b;margin-bottom:28px}
+label{display:block;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;text-align:left}
+.pw-wrap{position:relative;margin-bottom:16px}
+.pw-wrap input{width:100%;padding:11px 40px 11px 14px;background:#0f1117;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#fff;font-size:14px;outline:none}
+.pw-wrap input:focus{border-color:#e63946}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer}
+.btn{width:100%;padding:12px;background:#e63946;border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.msg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
+.msg.ok{background:#052e16;border:1px solid #166534;color:#4ade80;display:block}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
 <div class="card">
-  <img src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none'">
-  <h2>Signing you in…</h2>
-  <div class="spin"></div>
-  <p id="msg">Please wait</p>
-  <div class="err" id="err"></div>
+  <div class="logo">
+    <div class="logo-icon"><i class="ti ti-brand-battery"></i></div>
+  </div>
+  <h2 id="title">Set your password</h2>
+  <p class="sub" id="subtitle">Choose a password for your Bounce Service Info account.</p>
+  <div class="msg" id="msg"></div>
+  <div id="form-area">
+    <label>New Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="pw1" placeholder="At least 8 characters"/>
+      <button class="pw-toggle" onclick="togglePw('pw1','ic1')"><i class="ti ti-eye" id="ic1"></i></button>
+    </div>
+    <label>Confirm Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="pw2" placeholder="Repeat password"/>
+      <button class="pw-toggle" onclick="togglePw('pw2','ic2')"><i class="ti ti-eye" id="ic2"></i></button>
+    </div>
+    <button class="btn" id="btn" onclick="setPassword()">Set Password & Sign In</button>
+  </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <script>
-const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 
-const sb = supabase.createClient(SB_URL, ANON_KEY);
-
-async function handleCallback() {
-  let session = null;
-
-  const hash   = window.location.hash;
-  const search = window.location.search;
-
-  if (hash && hash.includes('access_token')) {
-    const p  = new URLSearchParams(hash.substring(1));
-    const at = p.get('access_token');
-    const rt = p.get('refresh_token');
-    if (at) {
-      const { data, error } = await sb.auth.setSession({ access_token: at, refresh_token: rt || '' });
-      if (error) console.error('setSession error:', error.message);
-      session = data?.session;
-    }
-  } else if (search && search.includes('code=')) {
-    const { data, error } = await sb.auth.exchangeCodeForSession(window.location.href);
-    if (error) console.error('exchangeCode error:', error.message);
-    session = data?.session;
-  }
-
-  if (!session) {
-    document.getElementById('err').textContent = 'Sign-in link expired or invalid. Redirecting…';
-    document.getElementById('msg').textContent = '';
-    setTimeout(() => window.location.replace('login.html'), 2000);
-    return;
-  }
-
-  const email = session.user.email?.toLowerCase();
-  document.getElementById('msg').textContent = 'Checking access…';
-
-  const { data: userData } = await sb
-    .from('allowed_users')
-    .select('email,role,name,permissions,is_active')
-    .eq('email', email)
-    .eq('is_active', true)
-    .single();
-
-  if (!userData) {
-    document.getElementById('err').textContent = 'Access denied. Contact nithish@bounceshare.com';
-    document.getElementById('msg').textContent = '';
-    await sb.auth.signOut();
-    setTimeout(() => window.location.replace('login.html'), 2000);
-    return;
-  }
-
-  try { await sb.rpc('log_login_activity', { user_email: email, user_ip: navigator.userAgent.substring(0, 100) }); } catch(e) {}
-
-  const sessionData = JSON.stringify({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-    email: session.user.email,
-    role: userData.role,
-    name: userData.name,
-    permissions: userData.permissions || { rmc:true, fleet_km:true, parts_testing:true },
-    expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000)
-  });
-  localStorage.setItem('sb_session', sessionData);
-  sessionStorage.setItem('sb_session', sessionData);
-
-  // Always redirect to index — index shows only permitted dashboards
-  window.location.replace('index.html');
+function togglePw(id, iconId) {
+  const inp = document.getElementById(id);
+  const icon = document.getElementById(iconId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  icon.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
 }
 
-handleCallback().catch(e => {
-  console.error('Auth error:', e);
-  document.getElementById('err').textContent = 'Error: ' + e.message;
-  setTimeout(() => window.location.replace('login.html'), 2000);
-});
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text; el.className = 'msg ' + type;
+}
+
+// Exchange the token from URL hash
+let accessToken = null;
+(async function() {
+  const hash   = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  accessToken  = params.get('access_token');
+  const type   = params.get('type'); // invite or recovery
+
+  if (!accessToken) {
+    showMsg('Invalid or expired link. Please contact admin.', 'err');
+    document.getElementById('form-area').style.display = 'none';
+    return;
+  }
+
+  if (type === 'recovery') {
+    document.getElementById('title').textContent = 'Reset your password';
+    document.getElementById('subtitle').textContent = 'Choose a new password for your account.';
+  }
+})();
+
+async function setPassword() {
+  const pw1 = document.getElementById('pw1').value;
+  const pw2 = document.getElementById('pw2').value;
+  const btn  = document.getElementById('btn');
+
+  if (pw1.length < 8) return showMsg('Password must be at least 8 characters.', 'err');
+  if (pw1 !== pw2)    return showMsg('Passwords do not match.', 'err');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Setting password…';
+
+  try {
+    const res = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password: pw1 })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to set password');
+
+    // Store session
+    const session = {
+      access_token:  accessToken,
+      email:         data.email,
+      expires_at:    Date.now() + 24 * 60 * 60 * 1000
+    };
+    localStorage.setItem('sb_session', JSON.stringify(session));
+    showMsg('Password set! Redirecting…', 'ok');
+    setTimeout(() => window.location.replace('index.html'), 1500);
+  } catch(e) {
+    showMsg(e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Set Password & Sign In';
+  }
+}
 </script>
 </body>
 </html>
