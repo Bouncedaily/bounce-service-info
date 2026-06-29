@@ -8,7 +8,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.card{background:#1e2330;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px 36px;width:100%;max-width:380px}
+.card{background:#1e2330;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px 36px;width:100%;max-width:400px}
 .logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .logo-icon{width:36px;height:36px;background:#e63946;border-radius:9px;display:flex;align-items:center;justify-content:center}
 .logo-icon i{color:#fff;font-size:18px}
@@ -17,23 +17,24 @@ h2{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
 .sub{font-size:13px;color:#64748b;margin-bottom:28px}
 label{display:block;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
 input{width:100%;padding:11px 14px;background:#0f1117;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#fff;font-size:14px;outline:none;transition:border .15s;margin-bottom:16px}
-input:focus{border-color:#e63946}
-input::placeholder{color:#475569}
+input:focus{border-color:#e63946}input::placeholder{color:#475569}
 .pw-wrap{position:relative;margin-bottom:16px}
-.pw-wrap input{margin-bottom:0}
-.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px;padding:4px}
+.pw-wrap input{margin-bottom:0;padding-right:40px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px}
 .pw-toggle:hover{color:#94a3b8}
 .btn{width:100%;padding:12px;background:#e63946;border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:4px}
-.btn:hover{background:#c1121f}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:hover{background:#c1121f}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sec{width:100%;padding:10px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#94a3b8;font-size:13px;cursor:pointer;margin-top:8px}
+.btn-sec:hover{border-color:rgba(255,255,255,.2);color:#fff}
 .msg{display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
 .msg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
 .msg.ok{background:#052e16;border:1px solid #166534;color:#4ade80;display:block}
-.forgot{text-align:center;margin-top:16px}
-.forgot a{font-size:12px;color:#475569;text-decoration:none}
-.forgot a:hover{color:#94a3b8}
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:6px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.step{display:none}.step.active{display:block}
+.back-link{text-align:center;margin-top:12px;font-size:12px}
+.back-link a{color:#475569;text-decoration:none;cursor:pointer}.back-link a:hover{color:#94a3b8}
+.hint{font-size:11px;color:#475569;margin-top:6px;margin-bottom:16px}
 </style>
 </head>
 <body>
@@ -42,97 +43,156 @@ input::placeholder{color:#475569}
     <div class="logo-icon"><i class="ti ti-brand-battery"></i></div>
     <div class="logo-text">Bounce <span>Service Info</span></div>
   </div>
-  <h2>Welcome back</h2>
-  <p class="sub">Sign in with your Bounce work account</p>
-  <div class="msg" id="msg"></div>
-  <label>Work Email</label>
-  <input type="email" id="email" placeholder="you@bounceshare.com" autocomplete="email"/>
-  <label>Password</label>
-  <div class="pw-wrap">
-    <input type="password" id="password" placeholder="Your password" autocomplete="current-password"/>
-    <button class="pw-toggle" type="button" onclick="togglePw()" id="pw-btn"><i class="ti ti-eye" id="pw-icon"></i></button>
+
+  <!-- Step 1: Email -->
+  <div class="step active" id="step-email">
+    <h2>Welcome</h2>
+    <p class="sub">Enter your Bounce work email to continue.</p>
+    <div class="msg" id="msg-email"></div>
+    <label>Work Email</label>
+    <input type="email" id="email" placeholder="you@bounceshare.com" autocomplete="email"/>
+    <button class="btn" id="btn-email" onclick="checkEmail()">Continue</button>
   </div>
-  <button class="btn" id="btn" onclick="signIn()">Sign In</button>
-  <div class="forgot"><a href="forgot.html">Forgot password?</a></div>
+
+  <!-- Step 2a: Sign In (has password) -->
+  <div class="step" id="step-signin">
+    <h2>Sign In</h2>
+    <p class="sub" id="signin-sub"></p>
+    <div class="msg" id="msg-signin"></div>
+    <label>Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="password" placeholder="Your password" autocomplete="current-password"/>
+      <button class="pw-toggle" onclick="togglePw('password','pw-icon')"><i class="ti ti-eye" id="pw-icon"></i></button>
+    </div>
+    <button class="btn" id="btn-signin" onclick="signIn()">Sign In</button>
+    <div class="back-link"><a onclick="goBack()">← Use a different email</a></div>
+  </div>
+
+  <!-- Step 2b: Create Password (first time or reset) -->
+  <div class="step" id="step-create">
+    <h2 id="create-title">Create your password</h2>
+    <p class="sub" id="create-sub">Set a password for your account.</p>
+    <div class="msg" id="msg-create"></div>
+    <label>New Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="pw-new" placeholder="At least 8 characters"/>
+      <button class="pw-toggle" onclick="togglePw('pw-new','pw-new-icon')"><i class="ti ti-eye" id="pw-new-icon"></i></button>
+    </div>
+    <p class="hint">Min 8 characters</p>
+    <label>Confirm Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="pw-confirm" placeholder="Repeat password"/>
+      <button class="pw-toggle" onclick="togglePw('pw-confirm','pw-confirm-icon')"><i class="ti ti-eye" id="pw-confirm-icon"></i></button>
+    </div>
+    <button class="btn" id="btn-create" onclick="createPassword()">Set Password & Sign In</button>
+    <div class="back-link"><a onclick="goBack()">← Use a different email</a></div>
+  </div>
 </div>
 
 <script>
-const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const EDGE    = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
+let currentEmail = '';
 
-function togglePw() {
-  const inp = document.getElementById('password');
-  const icon = document.getElementById('pw-icon');
-  if (inp.type === 'password') {
-    inp.type = 'text';
-    icon.className = 'ti ti-eye-off';
-  } else {
-    inp.type = 'password';
-    icon.className = 'ti ti-eye';
-  }
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
+function showMsg(stepId, text, type) {
+  const el = document.getElementById('msg-' + stepId);
+  el.textContent = text; el.className = 'msg ' + type;
+}
+function togglePw(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const ic  = document.getElementById(iconId);
+  inp.type  = inp.type === 'password' ? 'text' : 'password';
+  ic.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
+}
+function setLoading(btnId, loading, text) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span>' + text : text;
+}
+function goBack() { showStep('step-email'); }
 
-function showMsg(text, type) {
-  const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = 'msg ' + type;
+async function checkEmail() {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  if (!email) return showMsg('email', 'Enter your email.', 'err');
+  if (!email.endsWith('@bounceshare.com')) return showMsg('email', 'Only @bounceshare.com emails are allowed.', 'err');
+  setLoading('btn-email', true, 'Checking…');
+  try {
+    const res  = await fetch(EDGE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'check', email }) });
+    const data = await res.json();
+    if (!data.allowed) { showMsg('email', 'Your email is not registered. Contact admin.', 'err'); setLoading('btn-email', false, 'Continue'); return; }
+    currentEmail = email;
+    if (!data.has_password || data.needs_reset) {
+      document.getElementById('create-title').textContent = data.needs_reset ? 'Reset your password' : 'Create your password';
+      document.getElementById('create-sub').textContent   = data.needs_reset ? 'Admin has reset your password. Set a new one.' : `Welcome! Set a password for ${email}`;
+      showStep('step-create');
+    } else {
+      document.getElementById('signin-sub').textContent = email;
+      showStep('step-signin');
+    }
+  } catch(e) { showMsg('email', 'Network error. Try again.', 'err'); }
+  setLoading('btn-email', false, 'Continue');
 }
 
 async function signIn() {
-  const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
-  const btn      = document.getElementById('btn');
-
-  if (!email) return showMsg('Please enter your email.', 'err');
-  if (!email.endsWith('@bounceshare.com')) return showMsg('Only @bounceshare.com emails are allowed.', 'err');
-  if (!password) return showMsg('Please enter your password.', 'err');
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Signing in…';
-
+  if (!password) return showMsg('signin', 'Enter your password.', 'err');
+  setLoading('btn-signin', true, 'Signing in…');
   try {
-    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+    const res  = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: currentEmail, password })
     });
     const data = await res.json();
-
-    if (!res.ok) {
-      showMsg(data.error_description || data.msg || 'Invalid email or password.', 'err');
-      btn.disabled = false;
-      btn.textContent = 'Sign In';
-      return;
-    }
-
-    // Store session with 1-day expiry
-    const session = {
-      access_token:  data.access_token,
-      refresh_token: data.refresh_token,
-      email:         data.user?.email,
-      expires_at:    Date.now() + 24 * 60 * 60 * 1000
-    };
-    localStorage.setItem('sb_session', JSON.stringify(session));
+    if (!res.ok) { showMsg('signin', data.error_description || 'Invalid password.', 'err'); setLoading('btn-signin', false, 'Sign In'); return; }
+    saveSession(data.access_token, data.refresh_token, currentEmail);
     window.location.replace('index.html');
-  } catch(e) {
-    showMsg('Network error. Please try again.', 'err');
-    btn.disabled = false;
-    btn.textContent = 'Sign In';
-  }
+  } catch(e) { showMsg('signin', 'Network error.', 'err'); setLoading('btn-signin', false, 'Sign In'); }
 }
 
-// Check if already logged in
+async function createPassword() {
+  const pw1 = document.getElementById('pw-new').value;
+  const pw2 = document.getElementById('pw-confirm').value;
+  if (pw1.length < 8) return showMsg('create', 'Password must be at least 8 characters.', 'err');
+  if (pw1 !== pw2)    return showMsg('create', 'Passwords do not match.', 'err');
+  setLoading('btn-create', true, 'Setting password…');
+  try {
+    const res  = await fetch(EDGE, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'create_password', email: currentEmail, password: pw1 }) });
+    const data = await res.json();
+    if (!res.ok || data.error) { showMsg('create', data.error || 'Failed.', 'err'); setLoading('btn-create', false, 'Set Password & Sign In'); return; }
+    saveSession(data.access_token, data.refresh_token, currentEmail);
+    window.location.replace('index.html');
+  } catch(e) { showMsg('create', 'Network error.', 'err'); setLoading('btn-create', false, 'Set Password & Sign In'); }
+}
+
+function saveSession(access, refresh, email) {
+  localStorage.setItem('sb_session', JSON.stringify({
+    access_token: access, refresh_token: refresh,
+    email, expires_at: Date.now() + 24 * 60 * 60 * 1000
+  }));
+}
+
+// If already logged in, redirect
 (function() {
   try {
-    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
-    if (sess.access_token && sess.expires_at > Date.now()) {
-      window.location.replace('index.html');
-    }
+    const s = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (s.access_token && s.expires_at > Date.now()) window.location.replace('index.html');
   } catch(e) {}
 })();
 
-// Enter key support
-document.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const active = document.querySelector('.step.active')?.id;
+  if (active === 'step-email')  checkEmail();
+  if (active === 'step-signin') signIn();
+  if (active === 'step-create') createPassword();
+});
 </script>
 </body>
 </html>
