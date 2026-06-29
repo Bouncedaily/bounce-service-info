@@ -583,7 +583,44 @@ async function initAuth() {
   try {
     const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
     if (sess.access_token && sess.expires_at > Date.now()) {
-      showApp();
+      // If session missing role, fetch it then show app
+      if (!sess.role && sess.email) {
+        fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(sess.email) + '&select=role,permissions', {
+          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(rows) {
+          if (rows && rows[0]) {
+            sess.role = rows[0].role;
+            sess.permissions = rows[0].permissions;
+            localStorage.setItem('sb_session', JSON.stringify(sess));
+          }
+          showApp();
+        })
+        .catch(function() { showApp(); });
+      } else {
+        showApp();
+      }
+    } else if (sess.refresh_token) {
+      // Try to refresh
+      fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: sess.refresh_token })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.access_token) {
+          var newSess = { access_token: d.access_token, refresh_token: d.refresh_token,
+            email: d.user && d.user.email, role: sess.role, permissions: sess.permissions,
+            expires_at: Date.now() + 86400000 };
+          localStorage.setItem('sb_session', JSON.stringify(newSess));
+          showApp();
+        } else {
+          window.location.replace('login.html');
+        }
+      })
+      .catch(function() { window.location.replace('login.html'); });
     } else {
       window.location.replace('login.html');
     }
