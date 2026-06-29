@@ -114,7 +114,16 @@ function setBusy(id, busy, label) {
   b.innerHTML = busy ? '<span class="spinner"></span>' + label : label;
 }
 function goBack() { showStep('step-email'); }
+function logLogin(email) {
+  fetch(EFN, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ action: 'log_login', email: email, user_agent: navigator.userAgent })
+  }).catch(function() {}); // fire and forget
+}
+
 function saveSession(tok, ref, em) {
+  logLogin(em); // log activity
   // Fetch role from allowed_users and store with session
   fetch(SB + '/rest/v1/allowed_users?email=eq.' + encodeURIComponent(em) + '&select=role,permissions', {
     headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
