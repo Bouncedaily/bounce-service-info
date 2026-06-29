@@ -653,6 +653,8 @@ function showApp() {
   const validViews = ['home','dashboard','fleet','parts','tyre','hub','msl','admin','oos'];
   if (hash && validViews.includes(hash)) {
     showView(hash, false);
+  } else {
+    showView('home', false);
   }
 }
 
@@ -718,7 +720,8 @@ function loadDashboard(key) {
 window.addEventListener('message', function(ev) {
   if (!ev.data) return;
   if (ev.data.type === 'logout') {
-    signOut();
+    // Only sign out if user explicitly triggered it (not from iframe auto-check)
+    if (ev.data.explicit) signOut();
   }
   // auth-required ignored — portal handles auth
 });
