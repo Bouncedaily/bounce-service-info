@@ -131,21 +131,32 @@ async function checkEmail() {
   if (!email.endsWith('@bounceshare.com')) return showMsg('email', 'Only @bounceshare.com emails are allowed.', 'err');
   setLoading('btn-email', true, 'Checking...');
   try {
-    var res  = await fetch(EDGE, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({action: 'check', email: email})
+    // Query allowed_users directly
+    var res = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(email) + '&select=permissions,role,needs_reset,is_active', {
+      headers: {'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs'}
     });
-    var data = await res.json();
-    if (!data.allowed) {
+    var rows = await res.json();
+    if (!rows || !rows.length || !rows[0].is_active) {
       showMsg('email', 'Your email is not registered. Contact admin.', 'err');
       setLoading('btn-email', false, 'Continue');
       return;
     }
+    var user = rows[0];
     currentEmail = email;
-    if (!data.has_password || data.needs_reset) {
-      document.getElementById('create-title').textContent = data.needs_reset ? 'Reset your password' : 'Create your password';
-      document.getElementById('create-sub').textContent   = data.needs_reset ? 'Admin reset your password. Set a new one.' : 'Welcome! Set a password for ' + email;
+    // Try signing in with a blank password to check if user has password set
+    // Actually just check if sign-in with wrong password gives invalid_credentials vs user_not_found
+    var checkRes = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, password: '__check_only__'})
+    });
+    var checkData = await checkRes.json();
+    // invalid_credentials = user exists but wrong password = has password
+    // user_not_found OR same = no password set yet
+    var hasPassword = (checkData.error_code === 'invalid_credentials');
+    if (!hasPassword || user.needs_reset) {
+      document.getElementById('create-title').textContent = user.needs_reset ? 'Reset your password' : 'Create your password';
+      document.getElementById('create-sub').textContent   = user.needs_reset ? 'Admin reset your password. Set a new one.' : 'Welcome! Set a password for ' + email;
       showStep('step-create');
     } else {
       document.getElementById('signin-sub').textContent = email;
@@ -156,7 +167,7 @@ async function checkEmail() {
   }
   setLoading('btn-email', false, 'Continue');
   } catch(fatal) {
-    showMsg('email', 'Fatal error: ' + fatal.message, 'err');
+    showMsg('email', 'Fatal: ' + fatal.message, 'err');
   }
 }
 
