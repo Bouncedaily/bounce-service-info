@@ -146,23 +146,22 @@ function checkEmail() {
   if (email.indexOf('@bounceshare.com') === -1) { showMsg('email', 'Only @bounceshare.com emails allowed.', 'err'); return; }
   setBusy('btn-email', true, 'Checking...');
   currentEmail = email;
-  // Probe if password exists
-  fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=password', {
+  // Use Edge Function to check if user has password set
+  fetch('https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user', {
     method: 'POST',
-    headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email, password: '___probe___' })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'check', email: email })
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
     setBusy('btn-email', false, 'Continue');
-    if (d.error_code === 'invalid_credentials') {
-      // User exists and has password — show sign in
+    // d.has_password = true means user exists in Supabase auth with a password
+    if (d.has_password && !d.needs_reset) {
       document.getElementById('signin-sub').textContent = email;
       showStep('step-signin');
     } else {
-      // No account yet — show create password
-      document.getElementById('create-title').textContent = 'Create your password';
-      document.getElementById('create-sub').textContent = 'Set a password for ' + email;
+      document.getElementById('create-title').textContent = d.needs_reset ? 'Reset your password' : 'Create your password';
+      document.getElementById('create-sub').textContent   = d.needs_reset ? 'Admin reset your password. Set a new one.' : 'Set a password for ' + email;
       showStep('step-create');
     }
   })
