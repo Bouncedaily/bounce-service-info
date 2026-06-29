@@ -12,25 +12,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .logo-icon{width:36px;height:36px;background:#e63946;border-radius:9px;display:flex;align-items:center;justify-content:center}
 .logo-icon i{color:#fff;font-size:18px}
-.logo-text{font-size:16px;font-weight:700;color:#fff}.logo-text span{color:#e63946}
+.logo-text{font-size:16px;font-weight:700;color:#fff}
+.logo-text span{color:#e63946}
 h2{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
 .sub{font-size:13px;color:#64748b;margin-bottom:28px}
 label{display:block;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
 input{width:100%;padding:11px 14px;background:#0f1117;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#fff;font-size:14px;outline:none;transition:border .15s;margin-bottom:16px}
-input:focus{border-color:#e63946}input::placeholder{color:#475569}
+input:focus{border-color:#e63946}
+input::placeholder{color:#475569}
 .pw-wrap{position:relative;margin-bottom:16px}
 .pw-wrap input{margin-bottom:0;padding-right:40px}
 .pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px}
 .btn{width:100%;padding:12px;background:#e63946;border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
-.btn:hover{background:#c1121f}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:hover{background:#c1121f}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .msg{display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
 .msg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
 .msg.ok{background:#052e16;border:1px solid #166534;color:#4ade80;display:block}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.step{display:none}.step.active{display:block}
+.step{display:none}
+.step.active{display:block}
 .back-link{text-align:center;margin-top:12px;font-size:12px}
-.back-link a{color:#475569;text-decoration:none;cursor:pointer}.back-link a:hover{color:#94a3b8}
+.back-link a{color:#475569;text-decoration:none;cursor:pointer}
 .hint{font-size:11px;color:#475569;margin-top:-10px;margin-bottom:12px}
 </style>
 </head>
@@ -41,7 +45,6 @@ input:focus{border-color:#e63946}input::placeholder{color:#475569}
     <div class="logo-text">Bounce <span>Service Info</span></div>
   </div>
 
-  <!-- Step 1: Email -->
   <div class="step active" id="step-email">
     <h2>Welcome</h2>
     <p class="sub">Enter your Bounce work email to continue.</p>
@@ -51,7 +54,6 @@ input:focus{border-color:#e63946}input::placeholder{color:#475569}
     <button class="btn" id="btn-email" onclick="checkEmail()">Continue</button>
   </div>
 
-  <!-- Step 2a: Sign In -->
   <div class="step" id="step-signin">
     <h2>Sign In</h2>
     <p class="sub" id="signin-sub"></p>
@@ -61,11 +63,10 @@ input:focus{border-color:#e63946}input::placeholder{color:#475569}
       <input type="password" id="password" placeholder="Your password" autocomplete="current-password"/>
       <button class="pw-toggle" onclick="togglePw('password','pw-icon')"><i class="ti ti-eye" id="pw-icon"></i></button>
     </div>
-    <button class="btn" id="btn-signin" onclick="signIn()">Sign In</button>
+    <button class="btn" id="btn-signin" onclick="doSignIn()">Sign In</button>
     <div class="back-link"><a onclick="goBack()">Use a different email</a></div>
   </div>
 
-  <!-- Step 2b: Create Password -->
   <div class="step" id="step-create">
     <h2 id="create-title">Create your password</h2>
     <p class="sub" id="create-sub">Set a password for your account.</p>
@@ -87,167 +88,158 @@ input:focus{border-color:#e63946}input::placeholder{color:#475569}
 </div>
 
 <script>
-window.onerror = function(msg, src, line, col, err) {
-  var el = document.getElementById('msg-email');
-  if (el) { el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')'; el.className = 'msg err'; }
-  return false;
-};
-var SB_URL =  + SB_URL + ;
-var SB_KEY =  + SB_KEY + ;
-var EDGE   =  + EDGE + ;
+var SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var EFN = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
 var currentEmail = '';
 
 function showStep(id) {
-  document.querySelectorAll('.step').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
 }
 function showMsg(step, text, type) {
   var el = document.getElementById('msg-' + step);
-  el.textContent = text; el.className = 'msg ' + type;
+  el.textContent = text;
+  el.className = 'msg ' + type;
 }
-function togglePw(inputId, iconId) {
-  var inp = document.getElementById(inputId);
-  var ic  = document.getElementById(iconId);
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  ic.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
+function togglePw(inp, icon) {
+  var i = document.getElementById(inp);
+  var ic = document.getElementById(icon);
+  i.type = i.type === 'password' ? 'text' : 'password';
+  ic.className = i.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
 }
-function setLoading(btnId, loading, text) {
-  var btn = document.getElementById(btnId);
-  btn.disabled = loading;
-  btn.innerHTML = loading ? '<span class="spinner"></span>' + text : text;
+function setBusy(id, busy, label) {
+  var b = document.getElementById(id);
+  b.disabled = busy;
+  b.innerHTML = busy ? '<span class="spinner"></span>' + label : label;
 }
 function goBack() { showStep('step-email'); }
-function saveSession(access, refresh, email) {
+function saveSession(tok, ref, em) {
   localStorage.setItem('sb_session', JSON.stringify({
-    access_token: access, refresh_token: refresh,
-    email: email, expires_at: Date.now() + 24 * 60 * 60 * 1000
+    access_token: tok, refresh_token: ref,
+    email: em, expires_at: Date.now() + 86400000
   }));
 }
 
-async function checkEmail() {
-  try {
+function checkEmail() {
   var email = document.getElementById('email').value.trim().toLowerCase();
-  if (!email) return showMsg('email', 'Enter your email.', 'err');
-  if (!email.endsWith('@bounceshare.com')) return showMsg('email', 'Only @bounceshare.com emails are allowed.', 'err');
-  setLoading('btn-email', true, 'Checking...');
-  try {
-    // Query allowed_users directly
-    var res = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(email) + '&select=permissions,role,needs_reset,is_active', {
-      headers: {'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs'}
-    });
-    var rows = await res.json();
+  if (!email) { showMsg('email', 'Enter your email.', 'err'); return; }
+  if (email.indexOf('@bounceshare.com') === -1) { showMsg('email', 'Only @bounceshare.com emails allowed.', 'err'); return; }
+  setBusy('btn-email', true, 'Checking...');
+  fetch(SB + '/rest/v1/allowed_users?email=eq.' + encodeURIComponent(email) + '&select=role,needs_reset,is_active,permissions', {
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(rows) {
     if (!rows || !rows.length || !rows[0].is_active) {
-      showMsg('email', 'Your email is not registered. Contact admin.', 'err');
-      setLoading('btn-email', false, 'Continue');
+      showMsg('email', 'Email not registered. Contact admin.', 'err');
+      setBusy('btn-email', false, 'Continue');
       return;
     }
-    var user = rows[0];
     currentEmail = email;
-    // Try signing in with a blank password to check if user has password set
-    // Actually just check if sign-in with wrong password gives invalid_credentials vs user_not_found
-    var checkRes = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=password', {
+    // Probe if password exists by attempting sign-in with dummy password
+    return fetch(SB + '/auth/v1/token?grant_type=password', {
       method: 'POST',
-      headers: {'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json'},
-      body: JSON.stringify({email: email, password: '__check_only__'})
+      headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: '___probe___' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var needsReset = rows[0].needs_reset;
+      var hasPassword = (d.error_code === 'invalid_credentials');
+      if (!hasPassword || needsReset) {
+        document.getElementById('create-title').textContent = needsReset ? 'Reset your password' : 'Create your password';
+        document.getElementById('create-sub').textContent = needsReset ? 'Admin reset your password. Set a new one.' : 'Set a password for ' + email;
+        showStep('step-create');
+      } else {
+        document.getElementById('signin-sub').textContent = email;
+        showStep('step-signin');
+      }
+      setBusy('btn-email', false, 'Continue');
     });
-    var checkData = await checkRes.json();
-    // invalid_credentials = user exists but wrong password = has password
-    // user_not_found OR same = no password set yet
-    var hasPassword = (checkData.error_code === 'invalid_credentials');
-    if (!hasPassword || user.needs_reset) {
-      document.getElementById('create-title').textContent = user.needs_reset ? 'Reset your password' : 'Create your password';
-      document.getElementById('create-sub').textContent   = user.needs_reset ? 'Admin reset your password. Set a new one.' : 'Welcome! Set a password for ' + email;
-      showStep('step-create');
-    } else {
-      document.getElementById('signin-sub').textContent = email;
-      showStep('step-signin');
-    }
-  } catch(e) {
-    showMsg('email', 'Network error: ' + e.message, 'err');
-  }
-  setLoading('btn-email', false, 'Continue');
-  } catch(fatal) {
-    showMsg('email', 'Fatal: ' + fatal.message, 'err');
-  }
+  })
+  .catch(function(e) {
+    showMsg('email', 'Error: ' + e.message, 'err');
+    setBusy('btn-email', false, 'Continue');
+  });
 }
 
-async function signIn() {
-  var password = document.getElementById('password').value;
-  if (!password) return showMsg('signin', 'Enter your password.', 'err');
-  setLoading('btn-signin', true, 'Signing in...');
-  try {
-    var res  = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {'apikey': SB_KEY, 'Content-Type': 'application/json'},
-      body: JSON.stringify({email: currentEmail, password: password})
-    });
-    var data = await res.json();
-    if (!res.ok) {
-      showMsg('signin', data.error_description || 'Invalid password.', 'err');
-      setLoading('btn-signin', false, 'Sign In');
+function doSignIn() {
+  var pw = document.getElementById('password').value;
+  if (!pw) { showMsg('signin', 'Enter your password.', 'err'); return; }
+  setBusy('btn-signin', true, 'Signing in...');
+  fetch(SB + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: currentEmail, password: pw })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error || !d.access_token) {
+      showMsg('signin', d.error_description || 'Invalid password.', 'err');
+      setBusy('btn-signin', false, 'Sign In');
       return;
     }
-    saveSession(data.access_token, data.refresh_token, currentEmail);
+    saveSession(d.access_token, d.refresh_token, currentEmail);
     window.location.replace('index.html');
-  } catch(e) {
-    showMsg('signin', 'Network error.', 'err');
-    setLoading('btn-signin', false, 'Sign In');
-  }
+  })
+  .catch(function(e) {
+    showMsg('signin', 'Error: ' + e.message, 'err');
+    setBusy('btn-signin', false, 'Sign In');
+  });
 }
 
-async function createPassword() {
+function createPassword() {
   var pw1 = document.getElementById('pw-new').value;
   var pw2 = document.getElementById('pw-confirm').value;
-  if (pw1.length < 8) return showMsg('create', 'Password must be at least 8 characters.', 'err');
-  if (pw1 !== pw2)    return showMsg('create', 'Passwords do not match.', 'err');
-  setLoading('btn-create', true, 'Setting password...');
-  try {
-    var res  = await fetch(EDGE, {
+  if (pw1.length < 8) { showMsg('create', 'Password must be at least 8 characters.', 'err'); return; }
+  if (pw1 !== pw2) { showMsg('create', 'Passwords do not match.', 'err'); return; }
+  setBusy('btn-create', true, 'Setting password...');
+  fetch(EFN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'create_password', email: currentEmail, password: pw1 })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { showMsg('create', d.error, 'err'); setBusy('btn-create', false, 'Set Password and Sign In'); return; }
+    return fetch(SB + '/auth/v1/token?grant_type=password', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({action: 'create_password', email: currentEmail, password: pw1})
+      headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentEmail, password: pw1 })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(sd) {
+      if (!sd.access_token) {
+        showMsg('create', 'Password created! Please sign in.', 'ok');
+        setTimeout(function() { showStep('step-signin'); }, 1500);
+        setBusy('btn-create', false, 'Set Password and Sign In');
+        return;
+      }
+      saveSession(sd.access_token, sd.refresh_token, currentEmail);
+      window.location.replace('index.html');
     });
-    var data = await res.json();
-    if (!res.ok || data.error) {
-      showMsg('create', data.error || 'Failed to set password.', 'err');
-      setLoading('btn-create', false, 'Set Password and Sign In');
-      return;
-    }
-    var signRes = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {'apikey': SB_KEY, 'Content-Type': 'application/json'},
-      body: JSON.stringify({email: currentEmail, password: pw1})
-    });
-    var sd = await signRes.json();
-    if (!signRes.ok) {
-      showMsg('create', 'Password created! Please sign in now.', 'ok');
-      setTimeout(function(){ showStep('step-signin'); }, 1500);
-      setLoading('btn-create', false, 'Set Password and Sign In');
-      return;
-    }
-    saveSession(sd.access_token, sd.refresh_token, currentEmail);
-    window.location.replace('index.html');
-  } catch(e) {
-    showMsg('create', 'Network error. Try again.', 'err');
-    setLoading('btn-create', false, 'Set Password and Sign In');
-  }
+  })
+  .catch(function(e) {
+    showMsg('create', 'Error: ' + e.message, 'err');
+    setBusy('btn-create', false, 'Set Password and Sign In');
+  });
 }
 
-// If already logged in redirect
-(function(){
+(function() {
   try {
     var s = JSON.parse(localStorage.getItem('sb_session') || '{}');
-    if (s.access_token && s.expires_at > Date.now()) window.location.replace('index.html');
+    if (s.access_token && s.expires_at > Date.now()) { window.location.replace('index.html'); }
   } catch(e) {}
 })();
 
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
-  var active = document.querySelector('.step.active');
-  if (!active) return;
-  if (active.id === 'step-email')  checkEmail();
-  if (active.id === 'step-signin') signIn();
-  if (active.id === 'step-create') createPassword();
+  var a = document.querySelector('.step.active');
+  if (!a) return;
+  if (a.id === 'step-email')  checkEmail();
+  if (a.id === 'step-signin') doSignIn();
+  if (a.id === 'step-create') createPassword();
 });
 </script>
 </body>
