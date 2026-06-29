@@ -115,10 +115,29 @@ function setBusy(id, busy, label) {
 }
 function goBack() { showStep('step-email'); }
 function saveSession(tok, ref, em) {
-  localStorage.setItem('sb_session', JSON.stringify({
-    access_token: tok, refresh_token: ref,
-    email: em, expires_at: Date.now() + 86400000
-  }));
+  // Fetch role from allowed_users and store with session
+  fetch(SB + '/rest/v1/allowed_users?email=eq.' + encodeURIComponent(em) + '&select=role,permissions', {
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(rows) {
+    var role = rows && rows[0] ? rows[0].role : 'viewer';
+    var perms = rows && rows[0] ? rows[0].permissions : {};
+    localStorage.setItem('sb_session', JSON.stringify({
+      access_token: tok, refresh_token: ref,
+      email: em, role: role, permissions: perms,
+      expires_at: Date.now() + 86400000
+    }));
+    window.location.replace('index.html');
+  })
+  .catch(function() {
+    localStorage.setItem('sb_session', JSON.stringify({
+      access_token: tok, refresh_token: ref,
+      email: em, role: 'viewer', permissions: {},
+      expires_at: Date.now() + 86400000
+    }));
+    window.location.replace('index.html');
+  });
 }
 
 function checkEmail() {
@@ -181,7 +200,6 @@ function doSignIn() {
       return;
     }
     saveSession(d.access_token, d.refresh_token, currentEmail);
-    window.location.replace('index.html');
   })
   .catch(function(e) {
     showMsg('signin', 'Error: ' + e.message, 'err');
@@ -217,7 +235,6 @@ function createPassword() {
         return;
       }
       saveSession(sd.access_token, sd.refresh_token, currentEmail);
-      window.location.replace('index.html');
     });
   })
   .catch(function(e) {
