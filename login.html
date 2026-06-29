@@ -162,11 +162,26 @@ async function createPassword() {
   if (pw1 !== pw2)    return showMsg('create', 'Passwords do not match.', 'err');
   setLoading('btn-create', true, 'Setting password…');
   try {
+    // Step 1: Set password via edge function
     const res  = await fetch(EDGE, { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ action:'create_password', email: currentEmail, password: pw1 }) });
     const data = await res.json();
-    if (!res.ok || data.error) { showMsg('create', data.error || 'Failed.', 'err'); setLoading('btn-create', false, 'Set Password & Sign In'); return; }
-    saveSession(data.access_token, data.refresh_token, currentEmail);
+    if (!res.ok || data.error) { showMsg('create', data.error || 'Failed to set password.', 'err'); setLoading('btn-create', false, 'Set Password & Sign In'); return; }
+
+    // Step 2: Sign in directly from browser with the new password
+    const signRes = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentEmail, password: pw1 })
+    });
+    const sd = await signRes.json();
+    if (!signRes.ok) {
+      showMsg('create', 'Password created! Please sign in.', 'ok');
+      setTimeout(() => showStep('step-signin'), 1500);
+      setLoading('btn-create', false, 'Set Password & Sign In');
+      return;
+    }
+    saveSession(sd.access_token, sd.refresh_token, currentEmail);
     window.location.replace('index.html');
   } catch(e) { showMsg('create', 'Network error.', 'err'); setLoading('btn-create', false, 'Set Password & Sign In'); }
 }
