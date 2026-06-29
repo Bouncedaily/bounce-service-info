@@ -87,6 +87,11 @@ input:focus{border-color:#e63946}input::placeholder{color:#475569}
 </div>
 
 <script>
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('msg-email');
+  if (el) { el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')'; el.className = 'msg err'; }
+  return false;
+};
 var SB_URL =  + SB_URL + ;
 var SB_KEY =  + SB_KEY + ;
 var EDGE   =  + EDGE + ;
@@ -120,6 +125,7 @@ function saveSession(access, refresh, email) {
 }
 
 async function checkEmail() {
+  try {
   var email = document.getElementById('email').value.trim().toLowerCase();
   if (!email) return showMsg('email', 'Enter your email.', 'err');
   if (!email.endsWith('@bounceshare.com')) return showMsg('email', 'Only @bounceshare.com emails are allowed.', 'err');
@@ -146,9 +152,12 @@ async function checkEmail() {
       showStep('step-signin');
     }
   } catch(e) {
-    showMsg('email', 'Network error. Try again.', 'err');
+    showMsg('email', 'Network error: ' + e.message, 'err');
   }
   setLoading('btn-email', false, 'Continue');
+  } catch(fatal) {
+    showMsg('email', 'Fatal error: ' + fatal.message, 'err');
+  }
 }
 
 async function signIn() {
