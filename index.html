@@ -607,6 +607,7 @@ async function initAuth() {
               var al = document.getElementById('sb-admin-sec'); if(al) al.style.display='';
               var al2 = document.getElementById('sb-admin-link'); if(al2) al2.style.display='';
             }
+            applyPermissions(sess.permissions, sess.role);
           }
         }).catch(function(){});
       }
@@ -643,6 +644,35 @@ function showLoginMsg(type, text) {
   msg.textContent = text;
 }
 
+function applyPermissions(perms, role) {
+  if (role === 'admin' || !perms) return; // admin sees everything
+  const map = {
+    'dashboard': 'rmc', 'fleet': 'fleet_km', 'parts': 'parts_testing',
+    'tyre': 'wear_tear', 'hub': 'hub_control_tower', 'msl': 'msl_dashboard', 'oos': 'oos'
+  };
+  document.querySelectorAll('.sb-item[data-view]').forEach(function(el) {
+    const view = el.getAttribute('data-view');
+    const key  = map[view];
+    if (key && perms[key] === false) {
+      el.style.display = 'none';
+    }
+  });
+  // Also hide the corresponding home dashboard cards
+  const cardMap = {
+    'dashboard': 'rmc', 'fleet': 'fleet_km', 'parts': 'parts_testing',
+    'tyre': 'wear_tear', 'hub': 'hub_control_tower', 'msl': 'msl_dashboard', 'oos': 'oos'
+  };
+  document.querySelectorAll('.dash-card[onclick]').forEach(function(el) {
+    const onclick = el.getAttribute('onclick') || '';
+    const match = onclick.match(/showView\('(\w+)'\)/);
+    if (match) {
+      const view = match[1];
+      const key  = cardMap[view];
+      if (key && perms[key] === false) el.style.display = 'none';
+    }
+  });
+}
+
 function showApp() {
   const sess = getSess();
   document.getElementById('view-login').style.display = 'none';
@@ -656,6 +686,8 @@ function showApp() {
     document.getElementById('sb-admin-link').style.display = '';
     document.getElementById('home-admin-card').style.display = '';
   }
+  // Apply dashboard permissions to sidebar + home cards
+  applyPermissions(sess.permissions, sess.role);
   // Restore last view from hash
   const hash = window.location.hash.replace('#', '');
   const validViews = ['home','dashboard','fleet','parts','tyre','hub','msl','admin','oos'];
