@@ -759,13 +759,13 @@ async function initAuth() {
       })() };
           localStorage.setItem('sb_session', JSON.stringify(ns));
           showApp();
-        } else { window.location.replace('login.html'); }
-      }).catch(function(){ window.location.replace('login.html'); });
+        } else { showLogin(); }
+      }).catch(function(){ showLogin(); });
     } else {
-      window.location.replace('login.html');
+      showLogin();
     }
   } catch(e) {
-    window.location.replace('login.html');
+    showLogin();
   }
 }
 function showLogin() {
