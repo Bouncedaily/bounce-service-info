@@ -621,7 +621,7 @@ async function initAuth() {
         if (d.access_token) {
           var ns = { access_token: d.access_token, refresh_token: d.refresh_token,
             email: d.user && d.user.email, role: sess.role, permissions: sess.permissions,
-            expires_at: Date.now() + 86400000 };
+            expires_at: Date.now() + 2592000000 };
           localStorage.setItem('sb_session', JSON.stringify(ns));
           showApp();
         } else { window.location.replace('login.html'); }
