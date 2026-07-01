@@ -354,21 +354,148 @@ input[type=date] { min-width: 130px; }
 <div id="view-login" style="display:none">
   <div class="login-card">
     <div class="login-logo">
-      <div class="login-logo-icon"><i class="ti ti-brand-battery" style="color:#fff;font-size:20px"></i></div>
+      <div class="login-logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg></div>
       <div class="login-logo-text">Bounce <span>Service Info</span></div>
     </div>
-    <div class="login-title">Sign in</div>
-    <div class="login-sub">Internal analytics dashboard</div>
-    <label class="login-label">Email address</label>
-    <input type="email" class="login-input" id="login-email" placeholder="you@bounceshare.com"
-      onkeydown="if(event.key==='Enter')sendMagicLink()">
-    <button class="login-btn" id="login-btn" onclick="sendMagicLink()">
-      <i class="ti ti-send" style="font-size:15px"></i> Send magic link
-    </button>
-    <div class="login-msg" id="login-msg"></div>
-    <div class="login-footer">Magic link · No password needed</div>
+    <!-- Step 1: Email -->
+    <div id="ls-email">
+      <div class="login-title">Welcome</div>
+      <div class="login-sub">Enter your Bounce work email to continue.</div>
+      <label class="login-label">Work Email</label>
+      <input type="email" class="login-input" id="li-email" placeholder="you@bounceshare.com" onkeydown="if(event.key==='Enter')liCheckEmail()">
+      <div class="login-msg" id="li-msg-email"></div>
+      <button class="login-btn" id="li-btn-email" onclick="liCheckEmail()">Continue</button>
+    </div>
+    <!-- Step 2a: Sign in with password -->
+    <div id="ls-signin" style="display:none">
+      <div class="login-title">Sign In</div>
+      <div class="login-sub" id="li-sub-signin"></div>
+      <label class="login-label">Password</label>
+      <input type="password" class="login-input" id="li-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')liSignIn()">
+      <div class="login-msg" id="li-msg-signin"></div>
+      <button class="login-btn" id="li-btn-signin" onclick="liSignIn()">Sign In</button>
+      <div class="login-footer" style="margin-top:10px"><a href="#" onclick="liShowEmail();return false" style="color:var(--muted);font-size:11px">← Use different email</a></div>
+    </div>
+    <!-- Step 2b: Create password -->
+    <div id="ls-create" style="display:none">
+      <div class="login-title">Create Password</div>
+      <div class="login-sub">Set a password for your account.</div>
+      <label class="login-label">New Password</label>
+      <input type="password" class="login-input" id="li-pw1" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')document.getElementById('li-pw2').focus()">
+      <label class="login-label" style="margin-top:10px">Confirm Password</label>
+      <input type="password" class="login-input" id="li-pw2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')liCreatePw()">
+      <div class="login-msg" id="li-msg-create"></div>
+      <button class="login-btn" id="li-btn-create" onclick="liCreatePw()">Set Password & Sign In</button>
+    </div>
   </div>
 </div>
+<script>
+var EDGE_FN = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
+var SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var liEmail = '';
+
+function liShowEmail() {
+  document.getElementById('ls-email').style.display='';
+  document.getElementById('ls-signin').style.display='none';
+  document.getElementById('ls-create').style.display='none';
+  document.getElementById('li-msg-email').textContent='';
+}
+
+function liMsg(id, txt, type) {
+  var el = document.getElementById(id);
+  el.textContent = txt;
+  el.style.color = type==='err' ? '#ef4444' : '#22c55e';
+}
+
+function liSetBusy(btnId, busy, label) {
+  var btn = document.getElementById(btnId);
+  btn.disabled = busy;
+  btn.textContent = label;
+}
+
+function liCheckEmail() {
+  var email = document.getElementById('li-email').value.trim().toLowerCase();
+  if (!email) { liMsg('li-msg-email','Enter your email.','err'); return; }
+  if (!email.endsWith('@bounceshare.com')) { liMsg('li-msg-email','Only @bounceshare.com emails allowed.','err'); return; }
+  liEmail = email;
+  liSetBusy('li-btn-email', true, 'Checking...');
+  fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'check', email: liEmail})
+  }).then(function(r){return r.json();}).then(function(d){
+    liSetBusy('li-btn-email', false, 'Continue');
+    if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+    if (d.has_password) {
+      document.getElementById('li-sub-signin').textContent = liEmail;
+      document.getElementById('ls-email').style.display='none';
+      document.getElementById('ls-signin').style.display='';
+      document.getElementById('li-pw').focus();
+    } else {
+      document.getElementById('ls-email').style.display='none';
+      document.getElementById('ls-create').style.display='';
+      document.getElementById('li-pw1').focus();
+    }
+  }).catch(function(){ liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Network error. Try again.','err'); });
+}
+
+function liSignIn() {
+  var pw = document.getElementById('li-pw').value;
+  if (!pw) { liMsg('li-msg-signin','Enter your password.','err'); return; }
+  liSetBusy('li-btn-signin', true, 'Signing in...');
+  fetch(SB_URL+'/auth/v1/token?grant_type=password', {
+    method:'POST', headers:{'apikey':ANON_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({email:liEmail,password:pw})
+  }).then(function(r){return r.json();}).then(function(d){
+    liSetBusy('li-btn-signin',false,'Sign In');
+    if (!d.access_token) { liMsg('li-msg-signin','Incorrect password.','err'); return; }
+    liSaveSession(d.access_token, d.refresh_token, liEmail);
+  }).catch(function(){ liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error.','err'); });
+}
+
+function liCreatePw() {
+  var pw1 = document.getElementById('li-pw1').value;
+  var pw2 = document.getElementById('li-pw2').value;
+  if (pw1.length < 8) { liMsg('li-msg-create','Minimum 8 characters.','err'); return; }
+  if (pw1 !== pw2) { liMsg('li-msg-create','Passwords do not match.','err'); return; }
+  liSetBusy('li-btn-create', true, 'Creating...');
+  fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'create_password', email:liEmail, password:pw1})
+  }).then(function(r){return r.json();}).then(function(d){
+    if (!d.success) { liSetBusy('li-btn-create',false,'Set Password & Sign In'); liMsg('li-msg-create',d.error||'Failed.','err'); return; }
+    // Now sign in with the new password
+    return fetch(SB_URL+'/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{'apikey':ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email:liEmail,password:pw1})
+    }).then(function(r){return r.json();}).then(function(d2){
+      liSetBusy('li-btn-create',false,'Set Password & Sign In');
+      if (!d2.access_token) { liMsg('li-msg-create','Account created. Please sign in.','ok'); return; }
+      liSaveSession(d2.access_token, d2.refresh_token, liEmail);
+    });
+  }).catch(function(){ liSetBusy('li-btn-create',false,'Set Password & Sign In'); liMsg('li-msg-create','Network error.','err'); });
+}
+
+function liSaveSession(tok, ref, em) {
+  fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'log_login',email:em,user_agent:navigator.userAgent})
+  });
+  fetch(SB_URL+'/rest/v1/allowed_users?email=eq.'+encodeURIComponent(em)+'&select=role,permissions', {
+    headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+tok}
+  }).then(function(r){return r.json();}).then(function(rows){
+    var role = rows&&rows[0]?rows[0].role:'viewer';
+    var perms = rows&&rows[0]?rows[0].permissions:{};
+    // Expire at 23:59 IST tonight
+    var now = new Date();
+    var istNow = new Date(now.getTime() + 5.5*60*60*1000);
+    var endOfDay = new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate(),18,29,0));
+    if (now > endOfDay) endOfDay.setDate(endOfDay.getDate()+1);
+    var sess = {access_token:tok,refresh_token:ref,email:em,role:role,permissions:perms,expires_at:endOfDay.getTime()};
+    localStorage.setItem('sb_session', JSON.stringify(sess));
+    try { sessionStorage.setItem('sb_session_bak', JSON.stringify(sess)); } catch(e) {}
+    document.getElementById('view-login').style.display='none';
+    showApp();
+  });
+}
+</script>
 
 <!-- ═══════════════ APP SHELL ═══════════════ -->
 <div id="app" style="display:flex">
