@@ -720,8 +720,10 @@ async function initAuth() {
       showApp();
       // Backup session in sessionStorage for hard refresh
       try { sessionStorage.setItem('sb_session_bak', localStorage.getItem('sb_session')); } catch(e) {}
-      // Enrich with role if missing (background)
-      if (!sess.role && sess.email) {
+      // Always re-fetch role/permissions from DB (not just when role is missing) —
+      // ensures admin permission changes take effect on the user's next page load
+      // instead of waiting for the cached session to expire at end of day.
+      if (sess.email) {
         fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(sess.email) + '&select=role,permissions', {
           headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs' }
         }).then(function(r){return r.json();}).then(function(rows){
