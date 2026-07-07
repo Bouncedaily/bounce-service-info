@@ -621,19 +621,25 @@ function renderSummary() {
   if (!maxKm) maxKm = 10000;
 
   let html = `<table>
-    <thead><tr>
-      <th style="width:18%">Part category</th>
-      <th style="width:9%">Vendor</th>
-      <th style="width:8%">Test bikes</th>
-      <th style="width:8%">Test repl.</th>
-      <th style="width:7%">Test repair</th>
-      <th style="width:8%">OEM bikes</th>
-      <th style="width:8%">OEM repl.</th>
-      <th style="width:7%">OEM repair</th>
-      <th style="width:16%">Running KM</th>
-      <th style="width:16%">Avg KM (Replaced)</th>
-      <th style="width:13%">Verdict</th>
-    </tr></thead><tbody>`;
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:18%">Part category</th>
+        <th rowspan="2" style="width:9%">Vendor</th>
+        <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">Test</th>
+        <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">OEM</th>
+        <th rowspan="2" style="width:16%">Running KM</th>
+        <th rowspan="2" style="width:16%">Avg KM (Replaced)</th>
+        <th rowspan="2" style="width:13%">Verdict</th>
+      </tr>
+      <tr>
+        <th style="width:8%;border-left:1px solid var(--border)">Bikes</th>
+        <th style="width:8%">Repl.</th>
+        <th style="width:7%">Repair</th>
+        <th style="width:8%;border-left:1px solid var(--border)">Bikes</th>
+        <th style="width:8%">Repl.</th>
+        <th style="width:7%">Repair</th>
+      </tr>
+    </thead><tbody>`;
 
   cats.forEach(cat => {
     const tRows  = test.filter(r => r.part_category === cat);
