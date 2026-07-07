@@ -481,13 +481,14 @@ function normalise(r) {
     km_at_replacement: r.km_at_replacement,
     km_on_part: +(r.km_on_part) || 0,
     current_odo: r.current_odo ? +r.current_odo : null,
-    status: r.status
+    status: r.status,
+    repair_count: +(r.repair_count) || 0
   };
 }
 
 async function fetchPage(offset, limit) {
   const res = await fetch(
-    SB_URL + `/rest/v1/parts_dashboard_cache?select=row_type,chassis_number,reg_number,part_category,part_name,vendor,city,hub,fitted_by,fitted_date,km_at_fitment,replacement_date,km_at_replacement,km_on_part,status,current_odo&order=id&offset=${offset}&limit=${limit}`,
+    SB_URL + `/rest/v1/parts_dashboard_cache?select=row_type,chassis_number,reg_number,part_category,part_name,vendor,city,hub,fitted_by,fitted_date,km_at_fitment,replacement_date,km_at_replacement,km_on_part,status,current_odo,repair_count&order=id&offset=${offset}&limit=${limit}`,
     { headers: { ...HEADS, 'Accept': 'application/json', 'Range-Unit': 'items', 'Range': `${offset}-${offset+limit-1}` } }
   );
   if (!res.ok) throw new Error(await res.text());
