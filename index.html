@@ -712,7 +712,13 @@ async function initAuth() {
     var stored = localStorage.getItem('sb_session');
     if (!stored || stored === '{}') {
       var bak = sessionStorage.getItem('sb_session_bak');
-      if (bak && bak !== '{}') { localStorage.setItem('sb_session', bak); }
+      if (bak && bak !== '{}') {
+        var bakSess = JSON.parse(bak);
+        // Only restore backup if not expired
+        if (bakSess.expires_at && bakSess.expires_at > Date.now()) {
+          localStorage.setItem('sb_session', bak);
+        }
+      }
     }
     var sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
     if (sess.access_token && sess.expires_at > Date.now()) {
@@ -817,6 +823,18 @@ function applyPermissions(perms, role) {
     }
   });
 }
+
+// Check expiry every minute and auto sign-out
+setInterval(function() {
+  var sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+  if (sess.access_token && sess.expires_at && sess.expires_at < Date.now()) {
+    clearSess();
+    document.getElementById('dash-iframe').srcdoc = '';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('view-login').style.display = '';
+    document.getElementById('login-msg') && (document.getElementById('login-msg').textContent = 'Session expired. Please sign in again.');
+  }
+}, 60000);
 
 function showApp() {
   const sess = getSess();
