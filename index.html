@@ -488,7 +488,7 @@ function liSaveSession(tok, ref, em) {
     var istNow = new Date(now.getTime() + 5.5*60*60*1000);
     var endOfDay = new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate(),18,29,0));
     if (now > endOfDay) endOfDay.setDate(endOfDay.getDate()+1);
-    var sess = {access_token:tok,refresh_token:ref,email:em,role:role,permissions:perms,expires_at:endOfDay.getTime()};
+    var sess = {access_token:tok,refresh_token:ref,email:em,role:role,permissions:perms,expires_at:endOfDay.getTime(),issued_at:Date.now()};
     localStorage.setItem('sb_session', JSON.stringify(sess));
     try { sessionStorage.setItem('sb_session_bak', JSON.stringify(sess)); } catch(e) {}
     document.getElementById('view-login').style.display='none';
@@ -655,8 +655,17 @@ function liSaveSession(tok, ref, em) {
 // ═══════════════════════════════════════════════════════════════════════════
 let currentSession = null;
 
+const FORCE_SIGNOUT_AFTER = 1783492823723; // updated 2026-07-08 06:40 IST
 function getSess() {
-  try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e) { return {}; }
+  try {
+    var s = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    // Force sign-out if session was created before the forced signout timestamp
+    if (s.access_token && (!s.issued_at || s.issued_at < FORCE_SIGNOUT_AFTER)) {
+      localStorage.removeItem('sb_session');
+      return {};
+    }
+    return s;
+  } catch(e) { return {}; }
 }
 function clearSess() {
   localStorage.removeItem('sb_session');
