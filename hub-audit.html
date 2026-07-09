@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 19</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 20</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -369,13 +369,13 @@ function cpUI(c){
   const isCount=c.mode==='count', isNum=c.mode==='numeric';
   let control='';
   if(isCount){
-    control=`<div class="count-in"><span class="muted">Provided</span><input type="number" id="prov-${c.id}"><span class="muted">Available</span><input type="number" id="avail-${c.id}"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
+    control=`<div class="count-in"><span class="muted">Provided</span><input type="number" id="prov-${c.id}"><span class="muted">Available</span><input type="number" id="avail-${c.id}"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }else if(isNum){
-    control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
+    control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }else{
     control=`<div class="opts" data-cp="${c.id}">
       <div class="opt ok" data-v="OK">OK</div><div class="opt ng" data-v="NG">NG</div>
-      <div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
+      <div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }
   const tags=(c.tags&&c.tags.length)?`<div class="tags hidden" id="tags-${c.id}">${c.tags.map(t=>`<span class="tag" data-tag="${t.id}">${esc(t.tag_label)}</span>`).join('')}</div>`:'';
   const sev=c.severity&&c.severity!=='Medium'?`<span class="pill" style="background:#fef2f2;color:#dc2626;margin-left:6px">${esc(c.severity)}</span>`:'';
