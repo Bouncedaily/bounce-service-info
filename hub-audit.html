@@ -142,10 +142,31 @@ const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI
 const TEMPLATE_ID='00000000-0000-0000-0000-000000000001';
 
 function sess(){try{return JSON.parse(localStorage.getItem('sb_session')||'{}')}catch(e){return{}}}
-function token(){return sess().access_token||ANON}
+let _token=null;
+function jwtPayload(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return null}}
+function tokenExpired(t){const p=jwtPayload(t);return !p||!p.exp||(p.exp*1000-Date.now())<60000;}
+async function refreshToken(){
+  const s=sess(); if(!s.refresh_token) return null;
+  try{
+    const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+    if(!r.ok) return null;
+    const d=await r.json();
+    const ns={access_token:d.access_token,refresh_token:d.refresh_token,email:(d.user&&d.user.email)||s.email,role:s.role,permissions:s.permissions,expires_at:Date.now()+24*60*60*1000};
+    localStorage.setItem('sb_session',JSON.stringify(ns));
+    _token=d.access_token; return d.access_token;
+  }catch(e){return null}
+}
+async function ensureToken(){
+  const s=sess(); let t=s.access_token;
+  if(!t) return null;
+  if(tokenExpired(t)){ t=await refreshToken(); }
+  _token=t||s.access_token; return _token;
+}
+function token(){return _token||sess().access_token||ANON}
 function hdr(extra){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},extra||{})}
 async function api(path,opts){
-  const r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{}));
+  let r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{}));
+  if(r.status===401){ const nt=await refreshToken(); if(nt){ r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{})); } }
   const t=await r.text();
   let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
   if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
@@ -174,6 +195,8 @@ function riskBandFor(rs){
 
 async function init(){
   document.getElementById('who').textContent=sess().email||'';
+  const tk=await ensureToken();
+  if(!tk){ document.getElementById('home-msg').textContent='Your session expired. Please sign out and sign in again.'; document.getElementById('start-btn').disabled=true; document.getElementById('recent').innerHTML=''; return; }
   try{
     const em=encodeURIComponent(sess().email||'');
     const rows=await api('auditors?select=id,name,can_audit,is_admin,hub_id&email=eq.'+em);
