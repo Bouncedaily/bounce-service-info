@@ -420,25 +420,33 @@ function liCheckEmail() {
   if (!email.endsWith('@bounceshare.com')) { liMsg('li-msg-email','Only @bounceshare.com emails allowed.','err'); return; }
   liEmail = email;
   liSetBusy('li-btn-email', true, 'Checking...');
-  fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'check', email: liEmail})
-  }).then(function(r){return r.json();}).then(function(d){
-    try {
-      liSetBusy('li-btn-email', false, 'Continue');
-      if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
-      liRole = d.role || 'viewer'; liPerms = d.permissions || {};
-      if (d.has_password) {
-        document.getElementById('li-sub-signin').textContent = liEmail;
-        document.getElementById('ls-email').style.display='none';
-        document.getElementById('ls-signin').style.display='';
-        document.getElementById('li-pw').focus();
-      } else {
-        document.getElementById('ls-email').style.display='none';
-        document.getElementById('ls-create').style.display='';
-        document.getElementById('li-pw1').focus();
-      }
-    } catch(err) { liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Error: '+err.message,'err'); }
-  }).catch(function(e){ liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Network error. Try again.','err'); });
+  var ctrl = new AbortController();
+  setTimeout(function(){ ctrl.abort(); }, 10000);
+  fetch(EDGE_FN, {method:'POST',
+    headers:{'Content-Type':'application/json','apikey':ANON_KEY},
+    body: JSON.stringify({action:'check', email: liEmail}),
+    signal: ctrl.signal
+  }).then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(d){
+    liSetBusy('li-btn-email', false, 'Continue');
+    if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+    liRole = d.role || 'viewer'; liPerms = d.permissions || {};
+    if (d.has_password) {
+      document.getElementById('li-sub-signin').textContent = liEmail;
+      document.getElementById('ls-email').style.display='none';
+      document.getElementById('ls-signin').style.display='';
+      document.getElementById('li-pw').focus();
+    } else {
+      document.getElementById('ls-email').style.display='none';
+      document.getElementById('ls-create').style.display='';
+      document.getElementById('li-pw1').focus();
+    }
+  }).catch(function(e){
+    liSetBusy('li-btn-email',false,'Continue');
+    liMsg('li-msg-email', e.name==='AbortError' ? 'Request timed out. Try again.' : 'Error: '+(e.message||'Try again.'), 'err');
+  });
 }
 
 function liSignIn() {
