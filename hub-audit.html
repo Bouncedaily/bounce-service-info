@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hub Audit</title>
+<style>
+:root{
+  --red:#f53b3b;--blue:#2563eb;--blue-light:#eff6ff;--green:#16a34a;--amber:#d97706;
+  --purple:#7c3aed;--teal:#0891b2;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;
+  --text:#0f172a;--muted:#64748b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:0}
+.sub{color:var(--muted);font-size:12px;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+label{font-size:12px;color:var(--muted);font-weight:600}
+select,input,textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff}
+textarea{min-height:60px;resize:vertical}
+.btn{border:none;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--purple);color:#fff}
+.btn-ghost{background:#eef2f7;color:var(--text)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.sec{border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;background:#fff}
+.sec-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;background:#fafbfe}
+.sec-head b{font-size:14px}
+.sec-body{padding:6px 14px 14px;display:none}
+.sec.open .sec-body{display:block}
+.cp{padding:12px 0;border-bottom:1px solid #f1f4f9}
+.cp:last-child{border-bottom:none}
+.cp-label{font-weight:600;margin-bottom:8px}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opt{padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600}
+.opt.ok.on{background:var(--green);color:#fff;border-color:var(--green)}
+.opt.ng.on{background:var(--red);color:#fff;border-color:var(--red)}
+.opt.na.on{background:#94a3b8;color:#fff;border-color:#94a3b8}
+.opt.nc.on{background:#cbd5e1;color:#334155;border-color:#cbd5e1}
+.tags{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}
+.tag{padding:5px 10px;border:1px dashed #cbd5e1;border-radius:999px;font-size:12px;cursor:pointer;background:#fff}
+.tag.on{background:var(--blue-light);border-color:var(--blue);color:var(--blue);border-style:solid}
+.obs{margin-top:9px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.metric{background:#fafbfe;border:1px solid var(--border);border-radius:10px;padding:10px}
+.metric .v{font-size:18px;font-weight:700}
+.metric .l{font-size:11px;color:var(--muted)}
+.scorebar{position:sticky;top:0;z-index:5;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.score-num{font-size:24px;font-weight:800}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #f1f4f9;font-size:13px}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+.count-in{display:flex;gap:8px;align-items:center;max-width:320px}
+.count-in input{width:90px}
+.entry{border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px}
+.hidden{display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;z-index:50;opacity:0;transition:.2s}
+.toast.show{opacity:1}
+.err{color:var(--red);font-size:12px;margin-top:6px}
+.addbtn{background:#eef2f7;border:1px dashed #cbd5e1;border-radius:9px;padding:9px;width:100%;cursor:pointer;font-weight:600;color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="between" style="margin-bottom:14px">
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily</div></div>
+    <div id="who" class="muted" style="font-size:12px"></div>
+  </div>
+
+  <!-- HOME -->
+  <div id="view-home">
+    <div class="card">
+      <div class="between">
+        <div><b>Start a new audit</b><div class="sub">Pick a hub to begin the 10-section checklist</div></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1;min-width:200px"><label>Hub</label><select id="hub-select"></select></div>
+        <button class="btn btn-primary" id="start-btn" style="align-self:flex-end">Start audit</button>
+      </div>
+      <div id="home-msg" class="err"></div>
+    </div>
+    <div class="card">
+      <b>Recent audits</b>
+      <div id="recent" style="margin-top:10px" class="muted">Loading…</div>
+    </div>
+  </div>
+
+  <!-- AUDIT -->
+  <div id="view-audit" class="hidden">
+    <div class="scorebar">
+      <div><div class="score-num" id="sb-score">—</div><div class="l muted">Overall score</div></div>
+      <div><span class="pill" id="sb-rating">—</span><div class="l muted" style="margin-top:4px">Rating</div></div>
+      <div><span class="pill" id="sb-risk">—</span><div class="l muted" style="margin-top:4px">Risk</div></div>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" id="back-btn">← Back</button>
+    </div>
+
+    <div class="card">
+      <div class="between">
+        <div><b id="au-hub"></b><div class="sub" id="au-date"></div></div>
+      </div>
+      <div class="grid" id="metrics" style="margin-top:12px"></div>
+    </div>
+
+    <div id="sections"></div>
+
+    <div class="card">
+      <label>Overall comments</label>
+      <textarea id="overall-comments" placeholder="Anything noteworthy about this visit…"></textarea>
+    </div>
+
+    <div class="card" id="capa-card">
+      <div class="between"><b>Corrective Action (CAPA)</b><span class="pill" style="background:#fef2f2;color:var(--red)" id="capa-why"></span></div>
+      <div class="sub" id="capa-note" style="margin:6px 0 10px"></div>
+      <div id="capa-list"></div>
+      <button class="addbtn" id="add-capa">+ Add CAPA item</button>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div style="flex:1"><label>Hub in-charge name (acknowledgement)</label><input id="ack-name" placeholder="Name of hub in-charge present"></div>
+      </div>
+      <label class="row" style="margin-top:10px;gap:8px;cursor:pointer"><input type="checkbox" id="ack-chk" style="width:auto"> Hub in-charge has reviewed and acknowledges this audit</label>
+    </div>
+
+    <div class="between" style="margin-bottom:40px">
+      <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="submit-btn">Submit audit</button>
+    </div>
+    <div id="submit-err" class="err" style="text-align:right;margin-bottom:30px"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const TEMPLATE_ID='00000000-0000-0000-0000-000000000001';
+
+function sess(){try{return JSON.parse(localStorage.getItem('sb_session')||'{}')}catch(e){return{}}}
+function token(){return sess().access_token||ANON}
+function hdr(extra){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},extra||{})}
+async function api(path,opts){
+  const r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{}));
+  const t=await r.text();
+  let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
+  if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
+  return d;
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+let ME=null, CFG={}, HUBS=[], TEMPLATE=[], STATE=null;
+
+// ---- config-driven scoring helpers ----
+function ratingFor(score){
+  const t=CFG.rating_thresholds||{excellent:90,good:75,needs_improvement:60};
+  if(score>=t.excellent)return['Excellent','#16a34a'];
+  if(score>=t.good)return['Good','#d97706'];
+  if(score>=t.needs_improvement)return['Needs Improvement','#f97316'];
+  return['Critical','#dc2626'];
+}
+function riskBandFor(rs){
+  const b=CFG.risk_bands||{low_max:4,medium_max:9,high_max:19};
+  if(rs<=b.low_max)return['Low','#16a34a'];
+  if(rs<=b.medium_max)return['Medium','#d97706'];
+  if(rs<=b.high_max)return['High','#f97316'];
+  return['Critical','#dc2626'];
+}
+
+async function init(){
+  document.getElementById('who').textContent=sess().email||'';
+  try{
+    const em=encodeURIComponent(sess().email||'');
+    const rows=await api('auditors?select=id,name,can_audit,is_admin,hub_id&email=eq.'+em);
+    ME=rows&&rows[0];
+  }catch(e){}
+  // config
+  try{(await api('app_config?select=key,value')).forEach(r=>CFG[r.key]=r.value)}catch(e){}
+  // hubs
+  try{HUBS=await api('hubs?select=id,name,city,hub_type&is_active=eq.true&order=city.asc,name.asc')}catch(e){HUBS=[]}
+  const sel=document.getElementById('hub-select');
+  sel.innerHTML=HUBS.map(h=>`<option value="${h.id}">${esc(h.name)} — ${esc(h.city)}</option>`).join('');
+  if(!ME||!ME.can_audit){
+    document.getElementById('home-msg').textContent='Your account is not enabled for auditing (need an auditors row with can_audit). Ask an admin.';
+    document.getElementById('start-btn').disabled=true;
+  }
+  // template
+  try{
+    const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
+    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng&order=sort_order.asc');
+    const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
+    TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
+  }catch(e){toast('Failed to load checklist: '+e.message)}
+  loadRecent();
+}
+
+async function loadRecent(){
+  try{
+    const rows=await api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&order=created_at.desc&limit=10');
+    const hubName=id=>{const h=HUBS.find(x=>x.id===id);return h?h.name:'—'};
+    if(!rows.length){document.getElementById('recent').innerHTML='<span class="muted">No audits yet.</span>';return}
+    document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th></tr></thead><tbody>'+
+      rows.map(r=>`<tr><td>${esc(r.audit_number||'—')}</td><td>${esc(hubName(r.hub_id))}</td><td>${esc(r.audit_date||'')}</td><td>${r.overall_score!=null?Math.round(r.overall_score):'—'}</td><td>${esc(r.rating||'—')}</td><td>${esc(r.status)}</td></tr>`).join('')+'</tbody></table>';
+  }catch(e){document.getElementById('recent').innerHTML='<span class="err">'+esc(e.message)+'</span>'}
+}
+
+// ---- audit form ----
+async function startAudit(hubId){
+  const hub=HUBS.find(h=>h.id===hubId); if(!hub)return;
+  STATE={hub,responses:{},technicians:[],vehicleNg:[],capa:[]};
+  document.getElementById('view-home').classList.add('hidden');
+  document.getElementById('view-audit').classList.remove('hidden');
+  document.getElementById('au-hub').textContent=hub.name+' · '+hub.city;
+  document.getElementById('au-date').textContent=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  window.scrollTo(0,0);
+  // metrics
+  const md=document.getElementById('metrics'); md.innerHTML='<span class="muted">Loading context…</span>';
+  try{
+    const m=(await api('live_hub_metrics?hub_id=eq.'+hubId))[0];
+    const cells=[['OOS %',m&&m.oos_percent],['Running repair',m&&m.running_repair_count],['Open job cards',m&&m.open_job_cards],['Pending >7d',m&&m.bikes_pending_over_7_days],['Technicians',m&&m.technician_count],['Capacity %',m&&m.capacity_utilization_pct]];
+    md.innerHTML=cells.map(c=>`<div class="metric"><div class="v">${c[1]==null?'—':c[1]}</div><div class="l">${c[0]}</div></div>`).join('');
+  }catch(e){md.innerHTML='<span class="muted">No pre-audit metrics for this hub.</span>'}
+  renderSections();
+  recompute();
+}
+
+function renderSections(){
+  const wrap=document.getElementById('sections'); wrap.innerHTML='';
+  TEMPLATE.forEach((s,i)=>{
+    const sec=document.createElement('div'); sec.className='sec'+(i===0?' open':'');
+    let body='';
+    if(s.name==='Technician Skill Level'){ body=techUI(); }
+    else if(s.name==='Vehicle-Level NG Points'){ body=vehicleUI(); }
+    else if(!s.checkpoints.length){ body='<div class="muted" style="padding:8px 0">No checkpoints.</div>'; }
+    else { body=s.checkpoints.map(cpUI).join(''); }
+    sec.innerHTML=`<div class="sec-head"><b>${i+1}. ${esc(s.name)}</b><span class="muted" id="secct-${s.id}"></span></div><div class="sec-body">${body}</div>`;
+    sec.querySelector('.sec-head').onclick=()=>sec.classList.toggle('open');
+    wrap.appendChild(sec);
+  });
+  // wire checkpoint controls
+  TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>wireCp(c)));
+  wireTech(); wireVehicle();
+  updateSectionCounts();
+}
+
+function cpUI(c){
+  const isCount=c.mode==='count', isNum=c.mode==='numeric';
+  let control='';
+  if(isCount){
+    control=`<div class="count-in"><span class="muted">Provided</span><input type="number" id="prov-${c.id}"><span class="muted">Available</span><input type="number" id="avail-${c.id}"><span class="pill" id="der-${c.id}"></span></div>`;
+  }else if(isNum){
+    control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div>`;
+  }else{
+    control=`<div class="opts" data-cp="${c.id}">
+      <div class="opt ok" data-v="OK">OK</div><div class="opt ng" data-v="NG">NG</div>
+      <div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
+  }
+  const tags=(c.tags&&c.tags.length)?`<div class="tags hidden" id="tags-${c.id}">${c.tags.map(t=>`<span class="tag" data-tag="${t.id}">${esc(t.tag_label)}</span>`).join('')}</div>`:'';
+  const sev=c.severity&&c.severity!=='Medium'?`<span class="pill" style="background:#fef2f2;color:#dc2626;margin-left:6px">${esc(c.severity)}</span>`:'';
+  return `<div class="cp" id="cp-${c.id}"><div class="cp-label">${esc(c.label)}${sev}</div>${control}${tags}<div class="obs hidden" id="obswrap-${c.id}"><textarea id="obs-${c.id}" placeholder="Observation (required for NG)"></textarea></div></div>`;
+}
+
+function wireCp(c){
+  const st={response:null,tags:[],observation:'',numeric_value:null,count_provided:null,count_available:null};
+  STATE.responses[c.id]=st;
+  if(c.mode==='count'||c.mode==='numeric'){
+    const der=()=>{
+      let ng=false,has=false;
+      if(c.mode==='count'){
+        const p=parseFloat(document.getElementById('prov-'+c.id).value),a=parseFloat(document.getElementById('avail-'+c.id).value);
+        if(!isNaN(p)&&!isNaN(a)){has=true;st.count_provided=p;st.count_available=a;const tol=(c.threshold_config&&(c.threshold_config.tolerance_units||0))||0;ng=(a-p)>tol;}
+      }else{
+        const v=parseFloat(document.getElementById('num-'+c.id).value);
+        if(!isNaN(v)){has=true;st.numeric_value=v;const t=c.threshold_config||{};ng=(t.min!=null&&v<t.min)||(t.max!=null&&v>t.max);}
+      }
+      st.response=has?(ng?'NG':'OK'):null;
+      const badge=document.getElementById('der-'+c.id);
+      badge.textContent=has?st.response:''; badge.style.background=has?(ng?'#fef2f2':'#f0fdf4'):''; badge.style.color=has?(ng?'#dc2626':'#16a34a'):'';
+      document.getElementById('obswrap-'+c.id).classList.toggle('hidden',st.response!=='NG');
+      recompute();
+    };
+    ['prov','avail','num'].forEach(p=>{const el=document.getElementById(p+'-'+c.id);if(el)el.oninput=der});
+  }else{
+    const opts=document.querySelector('.opts[data-cp="'+c.id+'"]');
+    opts.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{
+      st.response=o.dataset.v;
+      opts.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));
+      const tg=document.getElementById('tags-'+c.id), ob=document.getElementById('obswrap-'+c.id);
+      if(tg)tg.classList.toggle('hidden',st.response!=='NG');
+      ob.classList.toggle('hidden',st.response!=='NG');
+      recompute();
+    });
+  }
+  const tg=document.getElementById('tags-'+c.id);
+  if(tg)tg.querySelectorAll('.tag').forEach(t=>t.onclick=()=>{
+    const id=t.dataset.tag,i=st.tags.indexOf(id);
+    if(i>=0)st.tags.splice(i,1);else st.tags.push(id);
+    t.classList.toggle('on');
+  });
+  const ob=document.getElementById('obs-'+c.id); if(ob)ob.oninput=()=>st.observation=ob.value;
+}
+
+// technician + vehicle NG
+function techUI(){return '<div id="tech-list"></div><button class="addbtn" id="add-tech">+ Add technician</button>'}
+function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add vehicle NG</button>'}
+function wireTech(){const b=document.getElementById('add-tech');if(b)b.onclick=()=>{STATE.technicians.push({technician_name:'',status:null,observation:''});renderTech()}}
+function wireVehicle(){const b=document.getElementById('add-veh');if(b)b.onclick=()=>{STATE.vehicleNg.push({vehicle_number:'',ng_part:'Rubber Stoppers',observation:''});renderVeh();recompute()}}
+function renderTech(){
+  const l=document.getElementById('tech-list');
+  l.innerHTML=STATE.technicians.map((t,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Technician</label><input value="${esc(t.technician_name)}" oninput="STATE.technicians[${i}].technician_name=this.value"></div><div style="width:160px"><label>Status</label><select onchange="STATE.technicians[${i}].status=this.value"><option value="">—</option><option${t.status==='Competent'?' selected':''}>Competent</option><option${t.status==='Needs Training'?' selected':''}>Needs Training</option></select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.technicians[${i}].observation=this.value">${esc(t.observation)}</textarea></div></div>`).join('');
+}
+function renderVeh(){
+  const parts=['Rubber Stoppers','Brake stay rod','Brake hose routing','Other'];
+  const l=document.getElementById('veh-list');
+  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>NG part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div></div>`).join('');
+}
+
+// CAPA
+function renderCapa(){
+  const l=document.getElementById('capa-list');
+  l.innerHTML=STATE.capa.map((c,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Finding</label><input value="${esc(c.finding)}" oninput="STATE.capa[${i}].finding=this.value"></div><div style="width:150px"><label>Due date</label><input type="date" value="${esc(c.due_date||'')}" oninput="STATE.capa[${i}].due_date=this.value"></div></div><div style="margin-top:8px"><label>Action</label><textarea oninput="STATE.capa[${i}].action=this.value">${esc(c.action)}</textarea></div></div>`).join('');
+}
+document.getElementById('add-capa').onclick=()=>{STATE.capa.push({finding:'',action:'',due_date:''});renderCapa()};
+
+// scoring
+function recompute(){
+  let ok=0,ng=0,risk=0,critNg=false,vehNg=STATE.vehicleNg.length>0;
+  const weights=CFG.risk_weights||{Critical:5,Medium:2,Low:1};
+  const secCounts={};
+  TEMPLATE.forEach(s=>{secCounts[s.id]={ok:0,ng:0};s.checkpoints.forEach(c=>{
+    const st=STATE.responses[c.id]; if(!st)return;
+    if(st.response==='OK'){ok++;secCounts[s.id].ok++}
+    else if(st.response==='NG'){ng++;secCounts[s.id].ng++;risk+=(weights[c.severity]||2);if(c.severity==='Critical')critNg=true}
+  })});
+  const denom=ok+ng, score=denom?Math.round(ok/denom*1000)/10:0;
+  const [rt,rc]=ratingFor(score),[rb,rbc]=riskBandFor(risk);
+  document.getElementById('sb-score').textContent=denom?score:'—';
+  const sr=document.getElementById('sb-rating');sr.textContent=denom?rt:'—';sr.style.background=denom?rc:'#eee';sr.style.color=denom?'#fff':'#888';
+  const rk=document.getElementById('sb-risk');rk.textContent=denom?rb+' ('+risk+')':'—';rk.style.background=denom?rbc:'#eee';rk.style.color=denom?'#fff':'#888';
+  STATE._score=score;STATE._rating=rt;STATE._risk=risk;STATE._riskBand=rb;
+  // CAPA gate
+  const need=(denom&&score<75)||critNg||vehNg;
+  STATE._capaNeeded=need;
+  const why=need?((denom&&score<75?'Score < 75':critNg?'Critical NG':'Vehicle NG'))+' → CAPA required':'';
+  document.getElementById('capa-why').textContent=why;
+  document.getElementById('capa-why').style.display=need?'':'none';
+  document.getElementById('capa-note').textContent=need?'A corrective action is mandatory before you can submit.':'Optional unless a trigger fires (score < 75, a Critical NG, or any vehicle NG).';
+  updateSectionCounts(secCounts);
+}
+function updateSectionCounts(sc){
+  TEMPLATE.forEach(s=>{const el=document.getElementById('secct-'+s.id);if(!el)return;
+    if(s.name==='Technician Skill Level'){el.textContent=STATE&&STATE.technicians.length?STATE.technicians.length+' entries':'';return}
+    if(s.name==='Vehicle-Level NG Points'){el.textContent=STATE&&STATE.vehicleNg.length?STATE.vehicleNg.length+' NG':'';return}
+    const c=sc&&sc[s.id];if(c)el.textContent=(c.ok+c.ng)?`${c.ok} OK · ${c.ng} NG`:'';
+  });
+}
+
+// submit
+async function submitAudit(){
+  const err=document.getElementById('submit-err'); err.textContent='';
+  // validate NG observations
+  for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
+    if(st&&st.response==='NG'&&!(st.observation&&st.observation.trim())){err.textContent='Add an observation for every NG (e.g. "'+c.label+'").';return}}}
+  if(STATE._capaNeeded){
+    const valid=STATE.capa.filter(c=>c.finding&&c.finding.trim()&&c.action&&c.action.trim());
+    if(!valid.length){err.textContent='This audit needs at least one CAPA (finding + action) before submitting.';return}
+  }
+  const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='Submitting…';
+  try{
+    const snapshot={rating_thresholds:CFG.rating_thresholds,risk_weights:CFG.risk_weights,risk_bands:CFG.risk_bands};
+    const now=new Date().toISOString();
+    const audit=(await api('audits',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({
+      hub_id:STATE.hub.id,auditor_id:ME.id,template_version_id:TEMPLATE_ID,
+      status:'Submitted',started_at:now,submitted_at:now,last_synced_at:now,synced:true,
+      overall_score:STATE._score,rating:STATE._rating,risk_score:STATE._risk,risk_band:STATE._riskBand,
+      scoring_config_snapshot:snapshot,overall_comments:document.getElementById('overall-comments').value||null,
+      hub_incharge_ack:document.getElementById('ack-chk').checked,hub_incharge_name:document.getElementById('ack-name').value||null,
+      submitted_in_hours:inHours(),location_verified:null
+    })}))[0];
+    const aid=audit.id;
+    // responses
+    const resp=[];const respMeta=[];
+    TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(!st||!st.response)return;
+      resp.push({audit_id:aid,checkpoint_id:c.id,response:st.response,numeric_value:st.numeric_value,count_provided:st.count_provided,count_available:st.count_available,observation:st.observation||null});
+    }));
+    if(resp.length){
+      const saved=await api('audit_responses',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(resp)});
+      // tags
+      const tagRows=[];
+      saved.forEach(r=>{const st=STATE.responses[r.checkpoint_id];if(st&&st.tags)st.tags.forEach(tid=>tagRows.push({response_id:r.id,checkpoint_tag_id:tid}))});
+      if(tagRows.length)await api('audit_response_tags',{method:'POST',body:JSON.stringify(tagRows)});
+    }
+    // technicians
+    const techs=STATE.technicians.filter(t=>t.technician_name&&t.technician_name.trim()).map(t=>({audit_id:aid,technician_name:t.technician_name,status:t.status||null,observation:t.observation||null}));
+    if(techs.length)await api('technician_audit_entries',{method:'POST',body:JSON.stringify(techs)});
+    // vehicle NG
+    const vngs=STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).map(v=>({audit_id:aid,vehicle_number:v.vehicle_number,ng_part:v.ng_part,observation:v.observation||null}));
+    if(vngs.length)await api('vehicle_ng_entries',{method:'POST',body:JSON.stringify(vngs)});
+    // CAPA
+    const capas=STATE.capa.filter(c=>c.finding&&c.finding.trim()).map(c=>({audit_id:aid,finding:c.finding,action:c.action||null,due_date:c.due_date||null,status:'Open'}));
+    if(capas.length)await api('capa_items',{method:'POST',body:JSON.stringify(capas)});
+
+    toast('Audit submitted ✓');
+    goHome();loadRecent();
+  }catch(e){err.textContent='Submit failed: '+e.message}
+  btn.disabled=false;btn.textContent='Submit audit';
+}
+function inHours(){
+  try{const s=(CFG.working_hours_start||'09:00'),e=(CFG.working_hours_end||'19:00');
+    const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const hm=now.getHours()*60+now.getMinutes();
+    const p=x=>parseInt(x.split(':')[0])*60+parseInt(x.split(':')[1]);
+    return hm>=p(s)&&hm<=p(e);
+  }catch(e){return null}
+}
+function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
+
+document.getElementById('start-btn').onclick=()=>{const id=document.getElementById('hub-select').value;if(id)startAudit(id)};
+document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Unsaved entries will be lost.'))goHome()};
+document.getElementById('cancel-btn').onclick=()=>{if(confirm('Cancel this audit? Nothing will be saved.'))goHome()};
+document.getElementById('submit-btn').onclick=submitAudit;
+
+init();
+</script>
+</body>
+</html>
