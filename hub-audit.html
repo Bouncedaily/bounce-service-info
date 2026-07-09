@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 9</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 10</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -299,8 +299,8 @@ async function startAudit(hubId){
   const md=document.getElementById('metrics'); md.innerHTML='<span class="muted">Loading context…</span>';
   try{
     const m=(await api('live_hub_metrics?hub_id=eq.'+hubId))[0];
-    const cells=[['OOS %',m&&m.oos_percent],['Running repair',m&&m.running_repair_count],['Open job cards',m&&m.open_job_cards],['Pending >7d',m&&m.bikes_pending_over_7_days],['Technicians',m&&m.technician_count],['Capacity %',m&&m.capacity_utilization_pct]];
-    md.innerHTML=cells.map(c=>`<div class="metric"><div class="v">${c[1]==null?'—':c[1]}</div><div class="l">${c[0]}</div></div>`).join('');
+    const cells=[['OOS %',m&&m.oos_percent],['Running repair',m&&m.running_repair_count],['Open job cards',m&&m.open_job_cards],['Pending >7d',m&&m.bikes_pending_over_7_days],['Technicians',m&&m.technician_count],['Capacity %',m&&m.capacity_utilization_pct]].filter(c=>c[1]!=null&&c[1]!=='');
+    md.innerHTML=cells.length?cells.map(c=>`<div class="metric"><div class="v">${c[1]}</div><div class="l">${c[0]}</div></div>`).join(''):'<span class="muted">No pre-audit metrics for this hub.</span>';
   }catch(e){md.innerHTML='<span class="muted">No pre-audit metrics for this hub.</span>'}
   renderSections();
   recompute();
