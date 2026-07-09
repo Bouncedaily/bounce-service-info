@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 17</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 18</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -387,7 +387,7 @@ function wireCp(c){
       let ng=false,has=false;
       if(c.mode==='count'){
         const p=parseFloat(document.getElementById('prov-'+c.id).value),a=parseFloat(document.getElementById('avail-'+c.id).value);
-        if(!isNaN(p)&&!isNaN(a)){has=true;st.count_provided=p;st.count_available=a;const tol=(c.threshold_config&&(c.threshold_config.tolerance_units||0))||0;ng=(a-p)>tol;}
+        if(!isNaN(p)&&!isNaN(a)){has=true;st.count_provided=p;st.count_available=a;const tol=(c.threshold_config&&(c.threshold_config.tolerance_units||0))||0;ng=Math.abs(p-a)>tol;}
       }else{
         const v=parseFloat(document.getElementById('num-'+c.id).value);
         if(!isNaN(v)){has=true;st.numeric_value=v;const t=c.threshold_config||{};ng=(t.min!=null&&v<t.min)||(t.max!=null&&v>t.max);}
