@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 11</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 12</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -388,13 +388,13 @@ function wireCp(c){
 function techUI(){return '<div id="tech-list"></div><button class="addbtn" id="add-tech">+ Add technician</button>'}
 function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add vehicle NG</button>'}
 function wireTech(){const b=document.getElementById('add-tech');if(b)b.onclick=()=>{STATE.technicians.push({technician_name:'',status:null,observation:''});renderTech()}}
-function wireVehicle(){const b=document.getElementById('add-veh');if(b)b.onclick=()=>{STATE.vehicleNg.push({vehicle_number:'',ng_part:'Rubber Stoppers',observation:'',photos:[]});renderVeh();recompute()}}
+function wireVehicle(){const b=document.getElementById('add-veh');if(b)b.onclick=()=>{STATE.vehicleNg.push({vehicle_number:'',ng_part:'Structural damage',observation:'',photos:[]});renderVeh();recompute()}}
 function renderTech(){
   const l=document.getElementById('tech-list');
   l.innerHTML=STATE.technicians.map((t,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Technician</label><input value="${esc(t.technician_name)}" oninput="STATE.technicians[${i}].technician_name=this.value"></div><div style="width:160px"><label>Status</label><select onchange="STATE.technicians[${i}].status=this.value"><option value="">—</option><option${t.status==='Competent'?' selected':''}>Competent</option><option${t.status==='Needs Training'?' selected':''}>Needs Training</option></select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.technicians[${i}].observation=this.value">${esc(t.observation)}</textarea></div></div>`).join('');
 }
 function renderVeh(){
-  const parts=['Rubber Stoppers','Brake stay rod','Brake hose routing','Other'];
+  const parts=['Structural damage','Electrical fault','Missing part','Oil leak','No number plate','Side stand welding'];
   const l=document.getElementById('veh-list');
   l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>NG part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
   STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
