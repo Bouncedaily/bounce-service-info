@@ -68,7 +68,19 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily</div></div>
-    <div id="who" class="muted" style="font-size:12px"></div>
+    <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
+  </div>
+
+  <div id="view-login" class="hidden">
+    <div class="card" style="max-width:380px;margin:40px auto">
+      <b>Sign in</b>
+      <div class="sub" style="margin-bottom:12px">Use your Bounce Daily account</div>
+      <label>Email</label><input id="li-email" type="email" autocomplete="username">
+      <div style="height:8px"></div>
+      <label>Password</label><input id="li-pass" type="password" autocomplete="current-password">
+      <div id="li-err" class="err"></div>
+      <button class="btn btn-primary" id="li-btn" style="width:100%;margin-top:12px">Sign in</button>
+    </div>
   </div>
 
   <!-- HOME -->
@@ -196,7 +208,9 @@ function riskBandFor(rs){
 async function init(){
   document.getElementById('who').textContent=sess().email||'';
   const tk=await ensureToken();
-  if(!tk){ document.getElementById('home-msg').textContent='Your session expired. Please sign out and sign in again.'; document.getElementById('start-btn').disabled=true; document.getElementById('recent').innerHTML=''; return; }
+  if(!tk){ showLogin(); return; }
+  document.getElementById('view-login').classList.add('hidden');
+  document.getElementById('signout').style.display=(window.self===window.top)?'':'none';
   try{
     const em=encodeURIComponent(sess().email||'');
     const rows=await api('auditors?select=id,name,can_audit,is_admin,hub_id&email=eq.'+em);
@@ -447,6 +461,28 @@ document.getElementById('start-btn').onclick=()=>{const id=document.getElementBy
 document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Unsaved entries will be lost.'))goHome()};
 document.getElementById('cancel-btn').onclick=()=>{if(confirm('Cancel this audit? Nothing will be saved.'))goHome()};
 document.getElementById('submit-btn').onclick=submitAudit;
+
+function showLogin(){document.getElementById('view-login').classList.remove('hidden');document.getElementById('view-home').classList.add('hidden');document.getElementById('view-audit').classList.add('hidden');document.getElementById('signout').style.display='none';document.getElementById('who').textContent='';}
+async function doLogin(){
+  const em=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pass').value;
+  const errEl=document.getElementById('li-err');errEl.textContent='';
+  const btn=document.getElementById('li-btn');btn.disabled=true;btn.textContent='Signing in…';
+  try{
+    const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':ANON,'Content-Type':'application/json'},body:JSON.stringify({email:em,password:pw})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error_description||d.msg||d.error||'Login failed');
+    localStorage.setItem('sb_session',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token,email:(d.user&&d.user.email)||em,expires_at:Date.now()+24*60*60*1000}));
+    _token=d.access_token;
+    document.getElementById('view-login').classList.add('hidden');
+    document.getElementById('view-home').classList.remove('hidden');
+    ME=null;CFG={};HUBS=[];TEMPLATE=[];
+    init();
+  }catch(e){errEl.textContent=e.message}
+  btn.disabled=false;btn.textContent='Sign in';
+}
+function signOut(){localStorage.removeItem('sb_session');_token=null;showLogin();}
+document.getElementById('li-btn').onclick=doLogin;
+document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 init();
 </script>

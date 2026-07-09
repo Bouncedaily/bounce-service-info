@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hub Audit Dashboard</title>
+<style>
+:root{--red:#f53b3b;--blue:#2563eb;--blue-light:#eff6ff;--green:#16a34a;--amber:#d97706;--purple:#7c3aed;--teal:#0891b2;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;--text:#0f172a;--muted:#64748b;}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.wrap{max-width:1100px;margin:0 auto;padding:18px}
+h1{font-size:18px;margin:0}
+.sub{color:var(--muted);font-size:12px;margin-top:2px}
+.between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+.kpi .v{font-size:26px;font-weight:800;line-height:1.1}
+.kpi .l{font-size:12px;color:var(--muted);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 10px;font-size:14px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #f1f4f9;font-size:13px}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.muted{color:var(--muted)}
+.btn{border:none;border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer;background:var(--purple);color:#fff;text-decoration:none;display:inline-block;font-size:13px}
+.err{color:var(--red);font-size:13px}
+.right{text-align:right}
+.bars{display:flex;gap:8px;flex-wrap:wrap}
+.bar{background:#fafbfe;border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12px}
+.bar b{font-size:16px;display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="between">
+    <div><h1>Hub Audit Dashboard</h1><div class="sub">Network performance · CAPAs · flagged submissions</div></div>
+    <a class="btn" href="https://bouncedaily.github.io/bounce-service-info/hub-audit.html" target="_blank" rel="noopener">Open capture app ↗</a>
+  </div>
+  <div id="err" class="err"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card"><h3>Hub scorecards</h3><div id="scorecards" class="muted">Loading…</div></div>
+  <div class="card"><h3>CAPA tracker</h3><div id="capa-aging" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted">Loading…</div></div>
+  <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted">Loading…</div></div>
+  <div class="card"><h3>Recent audits</h3><div id="recent" class="muted">Loading…</div></div>
+</div>
+
+<script>
+const SB_URL='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+function sess(){try{return JSON.parse(localStorage.getItem('sb_session')||'{}')}catch(e){return{}}}
+let _token=null;
+function jwtP(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return null}}
+function expd(t){const p=jwtP(t);return !p||!p.exp||(p.exp*1000-Date.now())<60000;}
+async function refreshToken(){const s=sess();if(!s.refresh_token)return null;try{const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});if(!r.ok)return null;const d=await r.json();localStorage.setItem('sb_session',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token,email:(d.user&&d.user.email)||s.email,expires_at:Date.now()+864e5}));_token=d.access_token;return d.access_token;}catch(e){return null}}
+async function ensureToken(){const s=sess();let t=s.access_token;if(!t)return null;if(expd(t))t=await refreshToken();_token=t||s.access_token;return _token;}
+function token(){return _token||sess().access_token||ANON}
+async function api(p){let r=await fetch(SB_URL+'/rest/v1/'+p,{headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit'}});if(r.status===401){const nt=await refreshToken();if(nt)r=await fetch(SB_URL+'/rest/v1/'+p,{headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit'}});}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function ratingColor(r){return{'Excellent':'#16a34a','Good':'#d97706','Needs Improvement':'#f97316','Critical':'#dc2626'}[r]||'#94a3b8'}
+function bandColor(b){return{'Low':'#16a34a','Medium':'#d97706','High':'#f97316','Critical':'#dc2626'}[b]||'#94a3b8'}
+function daysAgo(d){if(!d)return null;return Math.floor((Date.now()-new Date(d).getTime())/864e5)}
+function fmtDate(d){return d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}):'—'}
+
+async function load(){
+  const tk=await ensureToken();
+  if(!tk){document.getElementById('err').textContent='Session expired — please sign in to the dashboard again.';return;}
+  let hubs=[],audits=[],capas=[],auditors=[];
+  try{
+    hubs=await api('hubs?select=id,name,city,hub_type,audit_cadence_days,is_active&order=city.asc,name.asc');
+    audits=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at&status=eq.Submitted&order=submitted_at.desc');
+    capas=await api('capa_items?select=id,audit_id,finding,status,due_date,created_at,owner_id&order=created_at.desc');
+    auditors=await api('auditors?select=id,name');
+  }catch(e){document.getElementById('err').textContent='Load error: '+e.message;}
+  const hubById=Object.fromEntries(hubs.map(h=>[h.id,h]));
+  const audById=Object.fromEntries(audits.map(a=>[a.id,a]));
+  const audName=id=>{const a=auditors.find(x=>x.id===id);return a?a.name:'—'};
+
+  // latest audit per hub
+  const latest={};audits.forEach(a=>{if(!latest[a.hub_id])latest[a.hub_id]=a;});
+  const latestList=Object.values(latest);
+  const netScore=latestList.length?Math.round(latestList.reduce((s,a)=>s+(+a.overall_score||0),0)/latestList.length*10)/10:null;
+  const activeHubs=hubs.filter(h=>h.is_active!==false);
+  // coverage: hubs audited within cadence window
+  let covered=0;activeHubs.forEach(h=>{const a=latest[h.id];if(a){const cad=h.audit_cadence_days||30;if(daysAgo(a.audit_date)<=cad)covered++;}});
+  const coverage=activeHubs.length?Math.round(covered/activeHubs.length*100):0;
+  const critical=latestList.filter(a=>a.risk_band==='Critical'||a.risk_band==='High'||a.rating==='Critical').length;
+  const openCapas=capas.filter(c=>c.status!=='Closed');
+  const today=new Date();today.setHours(0,0,0,0);
+  const overdueCapas=openCapas.filter(c=>c.due_date&&new Date(c.due_date)<today);
+
+  document.getElementById('kpis').innerHTML=[
+    ['Network score',netScore==null?'—':netScore,'avg of latest audit per hub'],
+    ['Audit coverage',coverage+'%',covered+' of '+activeHubs.length+' hubs in cadence'],
+    ['High/Critical risk',critical,'hubs at latest audit'],
+    ['Open CAPAs',openCapas.length,overdueCapas.length+' overdue'],
+    ['Audits submitted',audits.length,'all time']
+  ].map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div><div class="l" style="color:#94a3b8">${k[2]}</div></div>`).join('');
+
+  // scorecards
+  const rows=activeHubs.map(h=>{const a=latest[h.id];const cad=h.audit_cadence_days||30;const overdue=!a||daysAgo(a.audit_date)>cad;
+    return `<tr><td>${esc(h.name)}</td><td>${esc(h.city)}</td>
+      <td>${a?Math.round(a.overall_score):'—'}</td>
+      <td>${a?`<span class="pill" style="background:${ratingColor(a.rating)};color:#fff">${esc(a.rating)}</span>`:'—'}</td>
+      <td>${a?`<span class="pill" style="background:${bandColor(a.risk_band)};color:#fff">${esc(a.risk_band)}</span>`:'—'}</td>
+      <td>${a?fmtDate(a.audit_date):'never'}</td>
+      <td>${overdue?'<span class="pill" style="background:#fef2f2;color:#dc2626">Due</span>':'<span class="pill" style="background:#f0fdf4;color:#16a34a">OK</span>'}</td></tr>`;}).join('');
+  document.getElementById('scorecards').innerHTML=activeHubs.length?`<table><thead><tr><th>Hub</th><th>City</th><th>Score</th><th>Rating</th><th>Risk</th><th>Last audit</th><th>Cadence</th></tr></thead><tbody>${rows}</tbody></table>`:'<span class="muted">No hubs.</span>';
+
+  // CAPA aging
+  const buckets={'0-7':0,'8-15':0,'16-30':0,'30+':0};
+  openCapas.forEach(c=>{const d=daysAgo(c.created_at)||0;if(d<=7)buckets['0-7']++;else if(d<=15)buckets['8-15']++;else if(d<=30)buckets['16-30']++;else buckets['30+']++;});
+  document.getElementById('capa-aging').innerHTML=Object.entries(buckets).map(([k,v])=>`<div class="bar"><b>${v}</b>${k} days</div>`).join('');
+  document.getElementById('capa').innerHTML=openCapas.length?`<table><thead><tr><th>Finding</th><th>Hub</th><th>Owner</th><th>Status</th><th>Due</th><th>Age</th></tr></thead><tbody>${openCapas.map(c=>{const a=audById[c.audit_id];const h=a&&hubById[a.hub_id];const od=c.due_date&&new Date(c.due_date)<today;return `<tr><td>${esc(c.finding)}</td><td>${esc(h?h.name:'—')}</td><td>${esc(audName(c.owner_id))}</td><td><span class="pill" style="background:${od?'#fef2f2':'#eff6ff'};color:${od?'#dc2626':'#2563eb'}">${od?'Overdue':esc(c.status)}</span></td><td>${fmtDate(c.due_date)}</td><td>${daysAgo(c.created_at)}d</td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No open CAPAs. 🎉</span>';
+
+  // flagged
+  const flagged=audits.filter(a=>(a.location_verified===false||a.submitted_in_hours===false)&&!a.flag_reviewed);
+  document.getElementById('flagged').innerHTML=flagged.length?`<table><thead><tr><th>Hub</th><th>Auditor</th><th>Date</th><th>Flag</th></tr></thead><tbody>${flagged.map(a=>{const h=hubById[a.hub_id];const fl=[];if(a.location_verified===false)fl.push('Geo');if(a.submitted_in_hours===false)fl.push('Out-of-hours');return `<tr><td>${esc(h?h.name:'—')}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td><span class="pill" style="background:#fffbeb;color:#d97706">${fl.join(' + ')}</span></td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No unreviewed flagged submissions.</span>';
+
+  // recent
+  document.getElementById('recent').innerHTML=audits.length?`<table><thead><tr><th>Hub</th><th>Auditor</th><th>Date</th><th>Score</th><th>Rating</th><th>Risk</th></tr></thead><tbody>${audits.slice(0,15).map(a=>{const h=hubById[a.hub_id];return `<tr><td>${esc(h?h.name:'—')}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td>${Math.round(a.overall_score)}</td><td>${esc(a.rating)}</td><td>${esc(a.risk_band)}</td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No audits submitted yet.</span>';
+}
+load();
+</script>
+</body>
+</html>
