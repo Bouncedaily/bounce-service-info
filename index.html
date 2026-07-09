@@ -423,20 +423,22 @@ function liCheckEmail() {
   fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({action:'check', email: liEmail})
   }).then(function(r){return r.json();}).then(function(d){
-    liSetBusy('li-btn-email', false, 'Continue');
-    if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
-    liRole = d.role || 'viewer'; liPerms = d.permissions || {};
-    if (d.has_password) {
-      document.getElementById('li-sub-signin').textContent = liEmail;
-      document.getElementById('ls-email').style.display='none';
-      document.getElementById('ls-signin').style.display='';
-      document.getElementById('li-pw').focus();
-    } else {
-      document.getElementById('ls-email').style.display='none';
-      document.getElementById('ls-create').style.display='';
-      document.getElementById('li-pw1').focus();
-    }
-  }).catch(function(){ liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Network error. Try again.','err'); });
+    try {
+      liSetBusy('li-btn-email', false, 'Continue');
+      if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+      liRole = d.role || 'viewer'; liPerms = d.permissions || {};
+      if (d.has_password) {
+        document.getElementById('li-sub-signin').textContent = liEmail;
+        document.getElementById('ls-email').style.display='none';
+        document.getElementById('ls-signin').style.display='';
+        document.getElementById('li-pw').focus();
+      } else {
+        document.getElementById('ls-email').style.display='none';
+        document.getElementById('ls-create').style.display='';
+        document.getElementById('li-pw1').focus();
+      }
+    } catch(err) { liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Error: '+err.message,'err'); }
+  }).catch(function(e){ liSetBusy('li-btn-email',false,'Continue'); liMsg('li-msg-email','Network error. Try again.','err'); });
 }
 
 function liSignIn() {
