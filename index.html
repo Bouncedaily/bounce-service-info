@@ -393,7 +393,7 @@ input[type=date] { min-width: 130px; }
 var EDGE_FN = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
 var SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-var liEmail = '';
+var liEmail = ''; var liRole = 'viewer'; var liPerms = {};
 
 function liShowEmail() {
   document.getElementById('ls-email').style.display='';
@@ -425,6 +425,7 @@ function liCheckEmail() {
   }).then(function(r){return r.json();}).then(function(d){
     liSetBusy('li-btn-email', false, 'Continue');
     if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+    liRole = d.role || 'viewer'; liPerms = d.permissions || {};
     if (d.has_password) {
       document.getElementById('li-sub-signin').textContent = liEmail;
       document.getElementById('ls-email').style.display='none';
@@ -442,14 +443,14 @@ function liSignIn() {
   var pw = document.getElementById('li-pw').value;
   if (!pw) { liMsg('li-msg-signin','Enter your password.','err'); return; }
   liSetBusy('li-btn-signin', true, 'Signing in...');
-  fetch(SB_URL+'/auth/v1/token?grant_type=password', {
-    method:'POST', headers:{'apikey':ANON_KEY,'Content-Type':'application/json'},
-    body: JSON.stringify({email:liEmail,password:pw})
+  fetch(EDGE_FN, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'signin', email:liEmail, password:pw})
   }).then(function(r){return r.json();}).then(function(d){
     liSetBusy('li-btn-signin',false,'Sign In');
-    if (!d.access_token) { liMsg('li-msg-signin','Incorrect password.','err'); return; }
-    liSaveSession(d.access_token, d.refresh_token, liEmail);
-  }).catch(function(){ liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error.','err'); });
+    if (!d.success || !d.access_token) { liMsg('li-msg-signin', d.error||'Incorrect password.','err'); return; }
+    liSaveSession(d.access_token, d.refresh_token, liEmail, liRole, liPerms);
+  }).catch(function(e){ liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error. Try again.','err'); });
 }
 
 function liCreatePw() {
@@ -474,37 +475,23 @@ function liCreatePw() {
   }).catch(function(){ liSetBusy('li-btn-create',false,'Set Password & Sign In'); liMsg('li-msg-create','Network error.','err'); });
 }
 
-function liSaveSession(tok, ref, em) {
-  // Log login async (fire and forget)
+function liSaveSession(tok, ref, em, role, perms) {
+  role  = role  || 'viewer';
+  perms = perms || {};
+  // Log login async
   fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({action:'log_login',email:em,user_agent:navigator.userAgent})
   }).catch(function(){});
-  // Fetch permissions and save session
-  fetch(SB_URL+'/rest/v1/allowed_users?email=eq.'+encodeURIComponent(em)+'&select=role,permissions', {
-    headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+tok}
-  }).then(function(r){ return r.json(); }).then(function(rows){
-    var role  = rows&&rows[0] ? rows[0].role        : 'viewer';
-    var perms = rows&&rows[0] ? rows[0].permissions : {};
-    var now = new Date();
-    var istNow = new Date(now.getTime() + 5.5*60*60*1000);
-    var endOfDay = new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate(),18,29,0));
-    if (now > endOfDay) endOfDay.setDate(endOfDay.getDate()+1);
-    var sess = {access_token:tok,refresh_token:ref,email:em,role:role,permissions:perms,expires_at:endOfDay.getTime(),issued_at:Date.now()};
-    localStorage.setItem('sb_session', JSON.stringify(sess));
-    try { sessionStorage.setItem('sb_session_bak', JSON.stringify(sess)); } catch(e) {}
-    document.getElementById('view-login').style.display='none';
-    showApp();
-  }).catch(function(err){
-    // Even if permissions fetch fails, save basic session and show app
-    var now = new Date();
-    var istNow = new Date(now.getTime() + 5.5*60*60*1000);
-    var endOfDay = new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate(),18,29,0));
-    if (now > endOfDay) endOfDay.setDate(endOfDay.getDate()+1);
-    var sess = {access_token:tok,refresh_token:ref,email:em,role:'viewer',permissions:{},expires_at:endOfDay.getTime(),issued_at:Date.now()};
-    localStorage.setItem('sb_session', JSON.stringify(sess));
-    document.getElementById('view-login').style.display='none';
-    showApp();
-  });
+  // Compute expiry at 11:59 PM IST
+  var now = new Date();
+  var istNow = new Date(now.getTime() + 5.5*60*60*1000);
+  var endOfDay = new Date(Date.UTC(istNow.getUTCFullYear(),istNow.getUTCMonth(),istNow.getUTCDate(),18,29,0));
+  if (now > endOfDay) endOfDay.setDate(endOfDay.getDate()+1);
+  var sess = {access_token:tok,refresh_token:ref,email:em,role:role,permissions:perms,expires_at:endOfDay.getTime(),issued_at:Date.now()};
+  localStorage.setItem('sb_session', JSON.stringify(sess));
+  try { sessionStorage.setItem('sb_session_bak', JSON.stringify(sess)); } catch(e) {}
+  document.getElementById('view-login').style.display='none';
+  showApp();
 }
 </script>
 
