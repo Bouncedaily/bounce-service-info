@@ -462,16 +462,9 @@ function liCreatePw() {
   fetch(EDGE_FN, {method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({action:'create_password', email:liEmail, password:pw1})
   }).then(function(r){return r.json();}).then(function(d){
-    if (!d.success) { liSetBusy('li-btn-create',false,'Set Password & Sign In'); liMsg('li-msg-create',d.error||'Failed.','err'); return; }
-    // Now sign in with the new password
-    return fetch(SB_URL+'/auth/v1/token?grant_type=password', {
-      method:'POST', headers:{'apikey':ANON_KEY,'Content-Type':'application/json'},
-      body: JSON.stringify({email:liEmail,password:pw1})
-    }).then(function(r){return r.json();}).then(function(d2){
-      liSetBusy('li-btn-create',false,'Set Password & Sign In');
-      if (!d2.access_token) { liMsg('li-msg-create','Account created. Please sign in.','ok'); return; }
-      liSaveSession(d2.access_token, d2.refresh_token, liEmail);
-    });
+    liSetBusy('li-btn-create',false,'Set Password & Sign In');
+    if (!d.success || !d.access_token) { liMsg('li-msg-create',d.error||'Failed. Try again.','err'); return; }
+    liSaveSession(d.access_token, d.refresh_token, liEmail, d.role, d.permissions);
   }).catch(function(){ liSetBusy('li-btn-create',false,'Set Password & Sign In'); liMsg('li-msg-create','Network error.','err'); });
 }
 
