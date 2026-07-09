@@ -432,6 +432,7 @@ function liCheckEmail() {
   }).then(function(d){
     liSetBusy('li-btn-email', false, 'Continue');
     if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+    liMsg('li-msg-email','DEBUG: allowed='+d.allowed+' has_pw='+d.has_password,'err');
     liRole = d.role || 'viewer'; liPerms = d.permissions || {};
     if (d.has_password) {
       document.getElementById('li-sub-signin').textContent = liEmail;
