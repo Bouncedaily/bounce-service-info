@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 15</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 16</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -97,7 +97,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 
   <!-- HOME -->
   <div id="view-home">
-    <div class="card">
+    <div class="card" id="start-card">
       <div class="between">
         <div><b>Start a new audit</b><div class="sub">Pick a hub to begin the 10-section checklist</div></div>
       </div>
@@ -113,7 +113,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
       <button class="btn btn-ghost" id="open-capa-btn">Open</button></div>
     </div>
     <div class="card">
-      <b>Recent audits</b>
+      <b>Completed audit scores</b>
       <div id="recent" style="margin-top:10px" class="muted">Loading…</div>
     </div>
   </div>
@@ -283,8 +283,7 @@ async function init(){
   function fillHubs(){const c=citySel.value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('hub-select').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
   citySel.onchange=fillHubs; fillHubs();
   if(!ME||!ME.can_audit){
-    document.getElementById('home-msg').textContent='Your account is not enabled for auditing (need an auditors row with can_audit). Ask an admin.';
-    document.getElementById('start-btn').disabled=true;
+    const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
   }
   // template
   try{
@@ -298,7 +297,7 @@ async function init(){
 
 async function loadRecent(){
   try{
-    const rows=await api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&order=created_at.desc&limit=10');
+    const rows=await api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&status=eq.Submitted&order=created_at.desc&limit=15');
     const hubName=id=>{const h=HUBS.find(x=>x.id===id);return h?h.name:'—'};
     if(!rows.length){document.getElementById('recent').innerHTML='<span class="muted">No audits yet.</span>';return}
     document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th></tr></thead><tbody>'+
