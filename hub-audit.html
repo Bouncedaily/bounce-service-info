@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 10</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 11</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -312,9 +312,9 @@ function renderSections(){
     const sec=document.createElement('div'); sec.className='sec'+(i===0?' open':'');
     let body='';
     if(s.name==='Technician Skill Level'){ body=techUI(); }
-    else if(s.name==='Vehicle-Level NG Points'){ body=vehicleUI(); }
-    else if(!s.checkpoints.length){ body='<div class="muted" style="padding:8px 0">No checkpoints.</div>'; }
-    else { body=s.checkpoints.map(cpUI).join(''); }
+    else { body = s.checkpoints.length ? s.checkpoints.map(cpUI).join('') : ''; }
+    if(s.name==='RFD Audit'){ body += '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #e5e9f0"><div class="cp-label">Vehicle-Level NG Points</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific NG parts found during RFD</div>' + vehicleUI() + '</div>'; }
+    if(!body){ body='<div class="muted" style="padding:8px 0">No checkpoints.</div>'; }
     sec.innerHTML=`<div class="sec-head"><b>${i+1}. ${esc(s.name)}</b><span class="muted" id="secct-${s.id}"></span></div><div class="sec-body">${body}</div>`;
     sec.querySelector('.sec-head').onclick=()=>sec.classList.toggle('open');
     wrap.appendChild(sec);
