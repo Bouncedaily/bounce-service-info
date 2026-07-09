@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 6</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 7</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -102,7 +102,8 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
         <div><b>Start a new audit</b><div class="sub">Pick a hub to begin the 10-section checklist</div></div>
       </div>
       <div class="row" style="margin-top:12px">
-        <div style="flex:1;min-width:200px"><label>Hub</label><select id="hub-select"></select></div>
+        <div style="flex:1;min-width:130px"><label>City</label><select id="city-select"></select></div>
+        <div style="flex:1;min-width:170px"><label>Hub</label><select id="hub-select"></select></div>
         <button class="btn btn-primary" id="start-btn" style="align-self:flex-end">Start audit</button>
       </div>
       <div id="home-msg" class="err"></div>
@@ -255,8 +256,11 @@ async function init(){
   try{(await api('app_config?select=key,value')).forEach(r=>CFG[r.key]=r.value)}catch(e){}
   // hubs
   try{HUBS=await api('hubs?select=id,name,city,hub_type&is_active=eq.true&order=city.asc,name.asc')}catch(e){HUBS=[]}
-  const sel=document.getElementById('hub-select');
-  sel.innerHTML=HUBS.map(h=>`<option value="${h.id}">${esc(h.name)} — ${esc(h.city)}</option>`).join('');
+  const cities=[...new Set(HUBS.map(h=>h.city))].sort();
+  const citySel=document.getElementById('city-select');
+  citySel.innerHTML=cities.map(c=>`<option>${esc(c)}</option>`).join('');
+  function fillHubs(){const c=citySel.value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('hub-select').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
+  citySel.onchange=fillHubs; fillHubs();
   if(!ME||!ME.can_audit){
     document.getElementById('home-msg').textContent='Your account is not enabled for auditing (need an auditors row with can_audit). Ask an admin.';
     document.getElementById('start-btn').disabled=true;
