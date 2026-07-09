@@ -69,6 +69,10 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 .thumb{display:inline-flex;align-items:center;gap:5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:3px 8px;font-size:12px}
 .thumb.up{background:#fff7ed;border-color:#fed7aa}.thumb.er{background:#fef2f2;border-color:#fecaca}
 .thumb i{cursor:pointer;color:#dc2626;font-style:normal;font-weight:700}
+.rv-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:90;display:none;align-items:flex-start;justify-content:center;padding:14px;overflow:auto}
+.rv-modal.show{display:flex}
+.rv-card{background:#fff;border-radius:14px;max-width:640px;width:100%;padding:18px;margin:auto}
+.rv-issue{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f1f4f9;font-size:13px}
 .cam-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 .cam-modal.show{display:flex}
 .cam-modal video{max-width:100%;max-height:62vh;border-radius:12px;background:#000}
@@ -79,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 18</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 19</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -174,11 +178,12 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 
     <div class="between" style="margin-bottom:40px">
       <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="submit-btn">Submit audit</button>
+      <button class="btn btn-primary" id="submit-btn">Review &amp; submit</button>
     </div>
     <div id="submit-err" class="err" style="text-align:right;margin-bottom:30px"></div>
   </div>
 </div>
+<div class="rv-modal" id="rv-modal"><div class="rv-card" id="rv-card"></div></div>
 <div class="cam-modal" id="cam-modal">
   <video id="cam-video" autoplay playsinline muted></video>
   <div class="cam-actions">
@@ -364,9 +369,9 @@ function cpUI(c){
   const isCount=c.mode==='count', isNum=c.mode==='numeric';
   let control='';
   if(isCount){
-    control=`<div class="count-in"><span class="muted">Provided</span><input type="number" id="prov-${c.id}"><span class="muted">Available</span><input type="number" id="avail-${c.id}"><span class="pill" id="der-${c.id}"></span></div>`;
+    control=`<div class="count-in"><span class="muted">Provided</span><input type="number" id="prov-${c.id}"><span class="muted">Available</span><input type="number" id="avail-${c.id}"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }else if(isNum){
-    control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div>`;
+    control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt na" data-v="NA">NA</div><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }else{
     control=`<div class="opts" data-cp="${c.id}">
       <div class="opt ok" data-v="OK">OK</div><div class="opt ng" data-v="NG">NG</div>
@@ -384,6 +389,7 @@ function wireCp(c){
   STATE.responses[c.id]=st;
   if(c.mode==='count'||c.mode==='numeric'){
     const der=()=>{
+      if(st.manual)return;
       let ng=false,has=false;
       if(c.mode==='count'){
         const p=parseFloat(document.getElementById('prov-'+c.id).value),a=parseFloat(document.getElementById('avail-'+c.id).value);
@@ -398,7 +404,9 @@ function wireCp(c){
       document.getElementById('obswrap-'+c.id).classList.toggle('hidden',st.response!=='NG');
       recompute();
     };
-    ['prov','avail','num'].forEach(p=>{const el=document.getElementById(p+'-'+c.id);if(el)el.oninput=der});
+    const optsC=document.querySelector('.opts[data-cp="'+c.id+'"]');
+    ['prov','avail','num'].forEach(p=>{const el=document.getElementById(p+'-'+c.id);if(el)el.oninput=()=>{st.manual=false;if(optsC)optsC.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));der();};});
+    if(optsC)optsC.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{st.manual=true;st.response=o.dataset.v;st.count_provided=null;st.count_available=null;st.numeric_value=null;optsC.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));const b=document.getElementById('der-'+c.id);if(b)b.textContent='';const p=document.getElementById('prov-'+c.id),a=document.getElementById('avail-'+c.id),nn=document.getElementById('num-'+c.id);if(p)p.value='';if(a)a.value='';if(nn)nn.value='';document.getElementById('obswrap-'+c.id).classList.add('hidden');recompute();});
   }else{
     const opts=document.querySelector('.opts[data-cp="'+c.id+'"]');
     opts.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{
@@ -424,8 +432,11 @@ function wireCp(c){
 
 // technician + vehicle NG
 function reflectCp(c,st){
-  if(c.mode==='count'){const p=document.getElementById('prov-'+c.id),a=document.getElementById('avail-'+c.id);let touched=false;if(st.count_provided!=null&&p){p.value=st.count_provided;touched=true;}if(st.count_available!=null&&a){a.value=st.count_available;touched=true;}if(touched&&a)a.dispatchEvent(new Event('input'));}
-  else if(c.mode==='numeric'){const n=document.getElementById('num-'+c.id);if(st.numeric_value!=null&&n){n.value=st.numeric_value;n.dispatchEvent(new Event('input'));}}
+  if(c.mode==='count'||c.mode==='numeric'){
+    if(st.manual){const oc=document.querySelector('.opts[data-cp="'+c.id+'"]');if(oc)oc.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x.dataset.v===st.response));}
+    else if(c.mode==='count'){const p=document.getElementById('prov-'+c.id),a=document.getElementById('avail-'+c.id);let t=false;if(st.count_provided!=null&&p){p.value=st.count_provided;t=true;}if(st.count_available!=null&&a){a.value=st.count_available;t=true;}if(t&&a)a.dispatchEvent(new Event('input'));}
+    else{const n=document.getElementById('num-'+c.id);if(st.numeric_value!=null&&n){n.value=st.numeric_value;n.dispatchEvent(new Event('input'));}}
+  }
   else if(st.response){const opts=document.querySelector('.opts[data-cp="'+c.id+'"]');if(opts)opts.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x.dataset.v===st.response));}
   const tg=document.getElementById('tags-'+c.id);if(tg){tg.querySelectorAll('.tag').forEach(t=>t.classList.toggle('on',(st.tags||[]).indexOf(t.dataset.tag)>=0));tg.classList.toggle('hidden',st.response!=='NG');}
   const ob=document.getElementById('obs-'+c.id);if(ob&&st.observation)ob.value=st.observation;
@@ -489,12 +500,47 @@ function updateSectionCounts(sc){
   });
 }
 
+// review before submit
+function openReview(){
+  recompute();
+  const issues=[]; const secRows=[];
+  TEMPLATE.forEach(s=>{ if(!s.checkpoints.length)return; let so=0,sn=0;
+    s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];
+      if(st&&st.response==='OK')so++; else if(st&&st.response==='NG')sn++;
+      const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));
+      const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));
+      if(!hasPhoto||missObs)issues.push({label:c.label,photo:hasPhoto,obs:!missObs});
+    });
+    secRows.push({name:s.name,ok:so,ng:sn});
+  });
+  const capaValid=STATE.capa.filter(c=>c.finding&&c.finding.trim()&&c.action&&c.action.trim()).length>0;
+  const capaBlock=STATE._capaNeeded&&!capaValid;
+  const blocking=issues.length>0||capaBlock;
+  const card=document.getElementById('rv-card');
+  card.innerHTML=`<div class="between"><b>Review &amp; submit</b><button class="btn btn-ghost" id="rv-close">Close</button></div>
+    <div class="row" style="gap:18px;margin:12px 0"><div><div class="score-num">${STATE._score||0}</div><div class="l muted">Score</div></div>
+      <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._rating||'—')}</span><div class="l muted" style="margin-top:4px">Rating</div></div>
+      <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._riskBand||'—')} (${STATE._risk||0})</span><div class="l muted" style="margin-top:4px">Risk</div></div></div>
+    <div class="cp-label">Sections</div>
+    <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} NG</td></tr>`).join('')}</tbody></table>
+    <div class="cp-label" style="margin-top:14px">Evidence completeness</div>
+    ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every NG has an observation ✓</div>'}
+    ${capaBlock?'<div class="err" style="margin-top:10px">A CAPA (finding + action) is required before you can submit.</div>':''}
+    <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>Confirm &amp; submit</button>
+    ${blocking?'<div class="sub" style="text-align:center;margin-top:6px">Resolve the ⚠ items to enable submit</div>':''}`;
+  document.getElementById('rv-modal').classList.add('show');
+  document.getElementById('rv-close').onclick=()=>document.getElementById('rv-modal').classList.remove('show');
+  const cf=document.getElementById('rv-confirm'); if(cf&&!blocking)cf.onclick=()=>{document.getElementById('rv-modal').classList.remove('show');submitAudit();};
+}
 // submit
 async function submitAudit(){
   const err=document.getElementById('submit-err'); err.textContent='';
   // validate NG observations
   for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
     if(st&&st.response==='NG'&&!(st.observation&&st.observation.trim())){err.textContent='Add an observation for every NG (e.g. "'+c.label+'").';return}}}
+  // photo mandatory for every question
+  for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
+    if(!(st&&st.photos&&st.photos.some(p=>p.path))){err.textContent='Photo required for every question — missing on "'+c.label+'".';return}}}
   if(STATE._capaNeeded){
     const valid=STATE.capa.filter(c=>c.finding&&c.finding.trim()&&c.action&&c.action.trim());
     if(!valid.length){err.textContent='This audit needs at least one CAPA (finding + action) before submitting.';return}
@@ -566,7 +612,7 @@ document.getElementById('start-btn').onclick=()=>{const id=document.getElementBy
 (function(){const va=document.getElementById('view-audit');if(va){va.addEventListener('input',scheduleSave);va.addEventListener('change',scheduleSave);va.addEventListener('click',scheduleSave);}})();
 document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Your progress is saved — you can resume it later.'))goHome()};
 document.getElementById('cancel-btn').onclick=()=>{if(confirm('Discard this audit? Saved progress will be deleted.')){clearDraft();goHome();}};
-document.getElementById('submit-btn').onclick=submitAudit;
+document.getElementById('submit-btn').onclick=openReview;
 
 // ---- Open CAPAs (post-submission action + closure) ----
 let CAPAS=[];
