@@ -68,6 +68,11 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 .thumb{display:inline-flex;align-items:center;gap:5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:3px 8px;font-size:12px}
 .thumb.up{background:#fff7ed;border-color:#fed7aa}.thumb.er{background:#fef2f2;border-color:#fecaca}
 .thumb i{cursor:pointer;color:#dc2626;font-style:normal;font-weight:700}
+.cam-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.cam-modal.show{display:flex}
+.cam-modal video{max-width:100%;max-height:62vh;border-radius:12px;background:#000}
+.cam-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.cam-actions .btn{min-width:104px}
 </style>
 </head>
 <body>
@@ -152,6 +157,16 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
     <div id="submit-err" class="err" style="text-align:right;margin-bottom:30px"></div>
   </div>
 </div>
+<div class="cam-modal" id="cam-modal">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <div class="cam-actions">
+    <button class="btn btn-primary" id="cam-capture">Capture</button>
+    <button class="btn btn-ghost" id="cam-switch">Switch camera</button>
+    <button class="btn btn-ghost" id="cam-file">Upload file</button>
+    <button class="btn btn-ghost" id="cam-close">Cancel</button>
+  </div>
+  <input type="file" accept="image/*" id="cam-input" hidden>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -192,12 +207,19 @@ async function api(path,opts){
 }
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-async function compressImg(file){try{const img=await createImageBitmap(file);const max=1600;let w=img.width,h=img.height;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);return await new Promise(res=>cv.toBlob(res,'image/jpeg',0.8));}catch(e){return file;}}
+function uid(){return (crypto.randomUUID&&crypto.randomUUID())||(Date.now()+'-'+Math.random().toString(36).slice(2));}
+function fileToJpeg(file){return new Promise(res=>{const url=URL.createObjectURL(file);const img=new Image();const done=b=>{URL.revokeObjectURL(url);res(b||file)};const to=setTimeout(()=>done(file),7000);img.onload=()=>{clearTimeout(to);try{const max=1600;let w=img.naturalWidth,h=img.naturalHeight;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);cv.toBlob(b=>done(b),'image/jpeg',0.85);}catch(e){done(file)}};img.onerror=()=>{clearTimeout(to);done(file)};img.src=url;});}
+const cam={stream:null,facing:'environment',cb:null};
+async function startCam(){stopCam();const v=document.getElementById('cam-video');try{cam.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:cam.facing},audio:false});v.srcObject=cam.stream;}catch(e){document.getElementById('cam-input').click();}}
+function stopCam(){if(cam.stream){cam.stream.getTracks().forEach(t=>t.stop());cam.stream=null;}}
+function closeCam(){stopCam();const v=document.getElementById('cam-video');if(v)v.srcObject=null;document.getElementById('cam-modal').classList.remove('show');}
+function openCamera(cb){cam.cb=cb;document.getElementById('cam-modal').classList.add('show');if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){startCam();}else{document.getElementById('cam-input').click();}}
+function grabFrame(){const v=document.getElementById('cam-video');let w=v.videoWidth,h=v.videoHeight;if(!w||!h){toast('Camera not ready yet');return;}const max=1600;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(v,0,0,w,h);const cb=cam.cb;cam.cb=null;cv.toBlob(b=>{closeCam();if(cb)cb(b);},'image/jpeg',0.85);}
 function geo(){return new Promise(res=>{if(!navigator.geolocation)return res(null);navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),()=>res(null),{timeout:4000,maximumAge:60000});});}
-async function uploadPhoto(blob,path){await ensureToken();const r=await fetch(SB_URL+'/storage/v1/object/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'image/jpeg','x-upsert':'true'},body:blob});if(!r.ok)throw new Error('upload '+r.status);return path;}
+async function uploadPhoto(blob,path){await ensureToken();const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),30000);try{const r=await fetch(SB_URL+'/storage/v1/object/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'image/jpeg','x-upsert':'true'},body:blob,signal:ctrl.signal});if(!r.ok){let tx='';try{tx=await r.text()}catch(e){}throw new Error(tx||('HTTP '+r.status));}return path;}catch(e){if(e.name==='AbortError')throw new Error('timed out');throw e;}finally{clearTimeout(to);}}
 function renderThumbs(el,arr){el.innerHTML='';arr.forEach((p,i)=>{const sp=document.createElement('span');sp.className='thumb'+(p.uploading?' up':'')+(p.error?' er':'');sp.textContent=p.uploading?'⏳ …':(p.error?'⚠ retry':'✓ photo');if(!p.uploading){const x=document.createElement('i');x.textContent='✕';x.onclick=()=>{arr.splice(i,1);renderThumbs(el,arr)};sp.appendChild(x);}el.appendChild(sp);});}
-function attachPhoto(btn,input,thumbs,arr,prefix){if(!btn)return;btn.onclick=()=>input.click();input.onchange=async()=>{const files=Array.from(input.files||[]);input.value='';for(const file of files){const ph={path:null,capturedAt:new Date().toISOString(),lat:null,lng:null,uploading:true};arr.push(ph);renderThumbs(thumbs,arr);try{const g=await geo();if(g){ph.lat=g.lat;ph.lng=g.lng;}const blob=await compressImg(file);const path=STATE.localId+'/'+prefix+'/'+((crypto.randomUUID&&crypto.randomUUID())||Date.now()+'-'+Math.random().toString(36).slice(2))+'.jpg';await uploadPhoto(blob,path);ph.path=path;ph.uploading=false;}catch(e){ph.error=true;ph.uploading=false;toast('Photo upload failed — tap ✕ and retry');}renderThumbs(thumbs,arr);}};}
-function photoRowHtml(id){return '<div class="photorow"><button type="button" class="photo-btn" id="pbtn-'+id+'">📷 Photo</button><input type="file" accept="image/*" capture="environment" id="pin-'+id+'" multiple hidden><span class="thumbs" id="pthumb-'+id+'"></span></div>';}
+function attachPhoto(btn,thumbs,arr,prefix){if(!btn)return;btn.onclick=()=>openCamera(async(blob)=>{if(!blob)return;const ph={path:null,capturedAt:new Date().toISOString(),lat:null,lng:null,uploading:true};arr.push(ph);renderThumbs(thumbs,arr);try{const g=await geo();if(g){ph.lat=g.lat;ph.lng=g.lng;}const path=STATE.localId+'/'+prefix+'/'+uid()+'.jpg';await uploadPhoto(blob,path);ph.path=path;ph.uploading=false;}catch(e){ph.error=true;ph.uploading=false;toast('Upload failed: '+e.message);}renderThumbs(thumbs,arr);});}
+function photoRowHtml(id){return '<div class="photorow"><button type="button" class="photo-btn" id="pbtn-'+id+'">📷 Photo</button><span class="thumbs" id="pthumb-'+id+'"></span></div>';}
 
 let ME=null, CFG={}, HUBS=[], TEMPLATE=[], STATE=null;
 
@@ -353,7 +375,7 @@ function wireCp(c){
   });
   const ob=document.getElementById('obs-'+c.id); if(ob)ob.oninput=()=>st.observation=ob.value;
   st.photos=[];
-  attachPhoto(document.getElementById('pbtn-'+c.id),document.getElementById('pin-'+c.id),document.getElementById('pthumb-'+c.id),st.photos,'cp/'+c.id);
+  attachPhoto(document.getElementById('pbtn-'+c.id),document.getElementById('pthumb-'+c.id),st.photos,'cp/'+c.id);
 }
 
 // technician + vehicle NG
@@ -368,8 +390,8 @@ function renderTech(){
 function renderVeh(){
   const parts=['Rubber Stoppers','Brake stay rod','Brake hose routing','Other'];
   const l=document.getElementById('veh-list');
-  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>NG part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><input type="file" accept="image/*" capture="environment" multiple hidden data-vin="${i}"><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
-  STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),inp=l.querySelector('[data-vin="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,inp,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
+  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>NG part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
+  STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
 }
 
 // CAPA
@@ -511,6 +533,12 @@ async function doLogin(){
 function signOut(){localStorage.removeItem('sb_session');_token=null;showLogin();}
 document.getElementById('li-btn').onclick=doLogin;
 document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+document.getElementById('cam-capture').onclick=grabFrame;
+document.getElementById('cam-switch').onclick=()=>{cam.facing=cam.facing==='environment'?'user':'environment';startCam();};
+document.getElementById('cam-file').onclick=()=>document.getElementById('cam-input').click();
+document.getElementById('cam-close').onclick=()=>{cam.cb=null;closeCam();};
+document.getElementById('cam-input').onchange=async()=>{const inp=document.getElementById('cam-input');const fl=Array.from(inp.files||[]);inp.value='';if(!fl.length){return;}const cb=cam.cb;cam.cb=null;const blob=await fileToJpeg(fl[0]);closeCam();if(cb)cb(blob);};
 
 init();
 </script>
