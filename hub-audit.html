@@ -79,7 +79,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 14</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 15</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -109,9 +109,29 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
       <div id="home-msg" class="err"></div>
     </div>
     <div class="card">
+      <div class="between"><div><b>Open CAPAs</b><div class="sub">Act on &amp; close corrective actions for your hub</div></div>
+      <button class="btn btn-ghost" id="open-capa-btn">Open</button></div>
+    </div>
+    <div class="card">
       <b>Recent audits</b>
       <div id="recent" style="margin-top:10px" class="muted">Loading…</div>
     </div>
+  </div>
+
+  <!-- CAPA -->
+  <div id="view-capa" class="hidden">
+    <div class="scorebar" style="justify-content:space-between">
+      <b>Open CAPAs</b>
+      <button class="btn btn-ghost" id="capa-back">← Back</button>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;min-width:130px"><label>City</label><select id="capa-city"></select></div>
+        <div style="flex:1;min-width:170px"><label>Hub</label><select id="capa-hub"></select></div>
+        <button class="btn btn-primary" id="capa-load" style="align-self:flex-end">Show</button>
+      </div>
+    </div>
+    <div id="capa-list-view"></div>
   </div>
 
   <!-- AUDIT -->
@@ -512,14 +532,77 @@ function inHours(){
     return hm>=p(s)&&hm<=p(e);
   }catch(e){return null}
 }
-function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
+function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-capa').classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
 
 document.getElementById('start-btn').onclick=()=>{const id=document.getElementById('hub-select').value;if(id)startAudit(id)};
 document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Unsaved entries will be lost.'))goHome()};
 document.getElementById('cancel-btn').onclick=()=>{if(confirm('Cancel this audit? Nothing will be saved.'))goHome()};
 document.getElementById('submit-btn').onclick=submitAudit;
 
-function showLogin(){document.getElementById('view-login').classList.remove('hidden');document.getElementById('view-home').classList.add('hidden');document.getElementById('view-audit').classList.add('hidden');document.getElementById('signout').style.display='none';document.getElementById('who').textContent='';}
+// ---- Open CAPAs (post-submission action + closure) ----
+let CAPAS=[];
+function fillCapaHubs(){const c=document.getElementById('capa-city').value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('capa-hub').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
+function showCapaView(){
+  document.getElementById('view-home').classList.add('hidden');
+  document.getElementById('view-capa').classList.remove('hidden');
+  const cities=[...new Set(HUBS.map(h=>h.city))].sort();
+  const cc=document.getElementById('capa-city');
+  cc.innerHTML=cities.map(c=>`<option>${esc(c)}</option>`).join('');
+  if(ME&&ME.hub_id){const mh=HUBS.find(h=>h.id===ME.hub_id);if(mh){cc.value=mh.city;fillCapaHubs();document.getElementById('capa-hub').value=mh.id;}else fillCapaHubs();}
+  else fillCapaHubs();
+  loadCapas(); window.scrollTo(0,0);
+}
+async function loadCapas(){
+  const hubId=document.getElementById('capa-hub').value;
+  const el=document.getElementById('capa-list-view');
+  if(!hubId){el.innerHTML='';return;}
+  el.innerHTML='<div class="card muted">Loading…</div>';
+  try{
+    CAPAS=await api('capa_items?select=id,finding,action,owner_id,due_date,status,created_at,closure_remark,audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&status=neq.Closed&order=created_at.desc');
+    CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;});
+    renderCapaCards();
+  }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}
+}
+function renderCapaCards(){
+  const el=document.getElementById('capa-list-view');
+  if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
+  el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
+    <div class="cp-label">${esc(c.finding)}</div>
+    <div class="sub" style="margin-bottom:8px">${c.action?('Action: '+esc(c.action)+' · '):''}${c.due_date?('Due '+esc(c.due_date)):'no due date'}</div>
+    <label>Status</label>
+    <select id="cst-${i}"><option${c._status==='Open'?' selected':''}>Open</option><option value="In Progress"${c._status==='In Progress'?' selected':''}>In Progress</option><option${c._status==='Closed'?' selected':''}>Closed</option></select>
+    <div style="margin-top:8px"><label>Closure remark (required to close)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
+    <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Closure photo</button><span class="thumbs" id="cth-${i}"></span></div>
+    <button class="btn btn-primary" id="csave-${i}" style="margin-top:10px">Save</button>
+    <div class="err" id="cerr-${i}"></div>
+  </div>`).join('');
+  CAPAS.forEach((c,i)=>{
+    document.getElementById('cst-'+i).onchange=e=>c._status=e.target.value;
+    document.getElementById('crem-'+i).oninput=e=>c._remark=e.target.value;
+    document.getElementById('cph-'+i).onclick=()=>{const th=document.getElementById('cth-'+i);openCamera(async(blob)=>{if(!blob)return;th.textContent='⏳ uploading…';try{const path='capa/'+c.id+'/'+uid()+'.jpg';await uploadPhoto(blob,path);c._photo=path;th.textContent='✓ closure photo';}catch(e){th.textContent='⚠ '+e.message;}});};
+    document.getElementById('csave-'+i).onclick=()=>saveCapa(i);
+  });
+}
+async function saveCapa(i){
+  const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
+  const body={status:c._status};
+  if(c._status==='Closed'){
+    if(!c._remark.trim()){err.textContent='Add a closure remark to close this CAPA.';return;}
+    if(!c._photo){err.textContent='Add a closure photo to close this CAPA.';return;}
+    body.closure_remark=c._remark; body.closed_by=ME&&ME.id; body.closed_at=new Date().toISOString(); body.closure_photo_url=c._photo;
+  }else{ body.closure_remark=c._remark||null; }
+  const btn=document.getElementById('csave-'+i);btn.disabled=true;btn.textContent='Saving…';
+  try{
+    await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    toast('CAPA updated'); loadCapas();
+  }catch(e){err.textContent='Save failed: '+e.message; btn.disabled=false; btn.textContent='Save';}
+}
+document.getElementById('open-capa-btn').onclick=showCapaView;
+document.getElementById('capa-back').onclick=goHome;
+document.getElementById('capa-load').onclick=loadCapas;
+document.getElementById('capa-city').onchange=fillCapaHubs;
+
+function showLogin(){document.getElementById('view-login').classList.remove('hidden');document.getElementById('view-home').classList.add('hidden');document.getElementById('view-audit').classList.add('hidden');var vc=document.getElementById('view-capa');if(vc)vc.classList.add('hidden');document.getElementById('signout').style.display='none';document.getElementById('who').textContent='';}
 async function doLogin(){
   const em=document.getElementById('li-email').value.trim(),pw=document.getElementById('li-pass').value;
   const errEl=document.getElementById('li-err');errEl.textContent='';
