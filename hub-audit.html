@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 24</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 25</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -672,6 +672,7 @@ function renderCapaCards(){
 async function saveCapa(i){
   const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
   const body={status:c._status, action:c._action||null, due_date:c._due||null};
+  if((c._status==='In Progress'||c._status==='Closed')&&!(c._action&&c._action.trim())){err.textContent='Add the action (what will be done) before moving it forward.';return;}
   if(c._status==='Closed'){
     if(!c._remark.trim()){err.textContent='Add a closure remark to close this CAPA.';return;}
     if(!c._photo){err.textContent='Add a closure photo to close this CAPA.';return;}
