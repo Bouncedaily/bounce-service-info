@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 34 -->
+<!-- app build 35 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -346,7 +346,7 @@ async function startAudit(hubId,draft){
   // metrics
   const md=document.getElementById('metrics'); md.innerHTML='<span class="muted">Loading context…</span>';
   try{
-    const m=(await api('live_hub_metrics?hub_id=eq.'+hubId))[0];
+    const m=(await api('live_hub_metrics?hub_id=eq.'+hubId))[0]; STATE.metrics=m;
     const cells=[['OOS %',m&&m.oos_percent],['Running repair',m&&m.running_repair_count],['Open job cards',m&&m.open_job_cards],['Pending >7d',m&&m.bikes_pending_over_7_days],['Technicians',m&&m.technician_count],['Capacity %',m&&m.capacity_utilization_pct]].filter(c=>c[1]!=null&&c[1]!=='');
     md.innerHTML=cells.length?cells.map(c=>`<div class="metric"><div class="v">${c[1]}</div><div class="l">${c[0]}</div></div>`).join(''):'<span class="muted">No pre-audit metrics for this hub.</span>';
   }catch(e){md.innerHTML='<span class="muted">No pre-audit metrics for this hub.</span>'}
@@ -394,7 +394,12 @@ function cpUI(c){
   const tags=(c.tags&&c.tags.length)?`<div class="tags hidden" id="tags-${c.id}">${c.tags.map(t=>`<span class="tag" data-tag="${t.id}">${esc(t.tag_label)}</span>`).join('')}</div>`:'';
   const sev=c.severity&&c.severity!=='Medium'?`<span class="pill" style="background:#fef2f2;color:#dc2626;margin-left:6px">${esc(c.severity)}</span>`:'';
   const vehBlock=/any issue is observed/i.test(c.label)?'<div id="vehng-block" class="hidden" style="margin:10px 0 4px;padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#fafbfe"><div class="cp-label">Vehicle-Level Issues</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific issues found</div>'+vehicleUI()+'</div>':'';
-  return `<div class="cp" id="cp-${c.id}"><div class="cp-label">${esc(c.label)}${sev}</div>${control}${tags}<div class="obs hidden" id="obswrap-${c.id}"><textarea id="obs-${c.id}" placeholder="Observation (required for Issue, optional for OK)"></textarea></div>${photoRowHtml(c.id)}</div>${vehBlock}`;
+  let liveHint='';
+  if(STATE&&STATE.metrics){
+    if(/RFD vehicles match between system and physical/i.test(c.label)&&STATE.metrics.rfd_count!=null)liveHint='<div class="sub" style="margin:2px 0 6px;color:var(--blue)">System shows '+STATE.metrics.rfd_count+' RFD vehicles — verify vs physical</div>';
+    else if(/OOS vehicles match between system and physical/i.test(c.label)&&STATE.metrics.oos_count!=null)liveHint='<div class="sub" style="margin:2px 0 6px;color:var(--blue)">System shows '+STATE.metrics.oos_count+' OOS vehicles — verify vs physical</div>';
+  }
+  return `<div class="cp" id="cp-${c.id}"><div class="cp-label">${esc(c.label)}${sev}</div>${liveHint}${control}${tags}<div class="obs hidden" id="obswrap-${c.id}"><textarea id="obs-${c.id}" placeholder="Observation (required for Issue, optional for OK)"></textarea></div>${photoRowHtml(c.id)}</div>${vehBlock}`;
 }
 
 function wireCp(c){
