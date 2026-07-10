@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 20</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 21</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -256,6 +256,11 @@ function scheduleSave(){clearTimeout(_saveT);_saveT=setTimeout(saveDraft,600);}
 function saveDraft(){ if(!STATE)return; try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hubId:STATE.hub.id,localId:STATE.localId,responses:STATE.responses,technicians:STATE.technicians,vehicleNg:STATE.vehicleNg,capa:STATE.capa,overallComments:(document.getElementById('overall-comments')||{}).value||'',ackName:(document.getElementById('ack-name')||{}).value||'',ackChk:!!(document.getElementById('ack-chk')||{}).checked,savedAt:Date.now()})); }catch(e){} }
 function getDraft(){ try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){return null;} }
 function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
+let CP_BY_ID={};
+const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
+function roleLabel(r){return ROLE_LBL[r]||r||'—';}
+function ownerText(cpId){const cp=CP_BY_ID[cpId];if(!cp)return 'Owner: pick a question';const or=cp.owner_role;if(!or)return 'Owner: —';const p=STATE&&STATE.hubPeople&&STATE.hubPeople[or];return p?('Owner: '+p.name+' ('+roleLabel(or)+')'):('Owner: '+roleLabel(or)+' — no one assigned at this hub yet');}
+function renderCapaOwner(i){const el=document.getElementById('capa-owner-'+i);if(el)el.textContent=ownerText(STATE.capa[i]._cpId);}
 
 // ---- config-driven scoring helpers ----
 function ratingFor(score){
@@ -299,9 +304,10 @@ async function init(){
   // template
   try{
     const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
-    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng&order=sort_order.asc');
+    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,owner_role&order=sort_order.asc');
     const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
     TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
+    CP_BY_ID={};TEMPLATE.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
   }catch(e){toast('Failed to load checklist: '+e.message)}
   loadRecent();
   const draft=getDraft();
@@ -324,6 +330,8 @@ async function startAudit(hubId,draft){
   STATE={hub,localId:(draft&&draft.localId)||uid(),responses:(draft&&draft.responses)||{},technicians:(draft&&draft.technicians)||[],vehicleNg:(draft&&draft.vehicleNg)||[],capa:(draft&&draft.capa)||[]};
   Object.values(STATE.responses).forEach(st=>{st.photos=(st.photos||[]).filter(p=>p&&p.path);});
   STATE.vehicleNg.forEach(v=>{v.photos=(v.photos||[]).filter(p=>p&&p.path);});
+  STATE.hubPeople={};
+  try{(await api('auditors?select=id,name,role&is_active=eq.true&hub_id=eq.'+hubId)).forEach(p=>{if(!STATE.hubPeople[p.role])STATE.hubPeople[p.role]={id:p.id,name:p.name};});}catch(e){}
   document.getElementById('view-home').classList.add('hidden');
   document.getElementById('view-audit').classList.remove('hidden');
   document.getElementById('au-hub').textContent=hub.name+' · '+hub.city;
@@ -462,7 +470,7 @@ function renderVeh(){
 // CAPA
 function renderCapa(){
   const l=document.getElementById('capa-list');
-  l.innerHTML=STATE.capa.map((c,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Finding</label><input value="${esc(c.finding)}" oninput="STATE.capa[${i}].finding=this.value"></div><div style="width:150px"><label>Due date</label><input type="date" value="${esc(c.due_date||'')}" oninput="STATE.capa[${i}].due_date=this.value"></div></div><div style="margin-top:8px"><label>Action</label><textarea oninput="STATE.capa[${i}].action=this.value">${esc(c.action)}</textarea></div></div>`).join('');
+  l.innerHTML=STATE.capa.map((c,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Finding</label><input value="${esc(c.finding)}" oninput="STATE.capa[${i}].finding=this.value"></div><div style="width:150px"><label>Due date</label><input type="date" value="${esc(c.due_date||'')}" oninput="STATE.capa[${i}].due_date=this.value"></div></div><div style="margin-top:8px"><label>Action</label><textarea oninput="STATE.capa[${i}].action=this.value">${esc(c.action)}</textarea></div><div style="margin-top:8px"><label>Question / area this applies to (sets owner)</label><select onchange="STATE.capa[${i}]._cpId=this.value;renderCapaOwner(${i})"><option value="">— select —</option>${TEMPLATE.map(s=>`<optgroup label="${esc(s.name)}">${s.checkpoints.map(cp=>`<option value="${cp.id}"${c._cpId===cp.id?' selected':''}>${esc(cp.label)}</option>`).join('')}</optgroup>`).join('')}</select><div class="sub" id="capa-owner-${i}">${ownerText(c._cpId)}</div></div></div>`).join('');
 }
 document.getElementById('add-capa').onclick=()=>{STATE.capa.push({finding:'',action:'',due_date:''});renderCapa()};
 
@@ -587,7 +595,7 @@ async function submitAudit(){
       if(vph.length)await api('vehicle_ng_photos',{method:'POST',body:JSON.stringify(vph)});
     }
     // CAPA
-    const capas=STATE.capa.filter(c=>c.finding&&c.finding.trim()).map(c=>({audit_id:aid,finding:c.finding,action:c.action||null,due_date:c.due_date||null,status:'Open'}));
+    const capas=STATE.capa.filter(c=>c.finding&&c.finding.trim()).map(c=>{const cp=CP_BY_ID[c._cpId];const or=cp?cp.owner_role:null;const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;return {audit_id:aid,finding:c.finding,action:c.action||null,due_date:c.due_date||null,status:'Open',owner_role:or,owner_id:person?person.id:null};});
     if(capas.length)await api('capa_items',{method:'POST',body:JSON.stringify(capas)});
 
     // flip to Submitted once all children are written (RLS allows child writes only while In Progress)
@@ -633,7 +641,7 @@ async function loadCapas(){
   if(!hubId){el.innerHTML='';return;}
   el.innerHTML='<div class="card muted">Loading…</div>';
   try{
-    CAPAS=await api('capa_items?select=id,finding,action,owner_id,due_date,status,created_at,closure_remark,audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&status=neq.Closed&order=created_at.desc');
+    CAPAS=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&status=neq.Closed&order=created_at.desc');
     CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;});
     renderCapaCards();
   }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}
@@ -644,6 +652,7 @@ function renderCapaCards(){
   el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
     <div class="cp-label">${esc(c.finding)}</div>
     <div class="sub" style="margin-bottom:8px">${c.action?('Action: '+esc(c.action)+' · '):''}${c.due_date?('Due '+esc(c.due_date)):'no due date'}</div>
+    <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
     <label>Status</label>
     <select id="cst-${i}"><option${c._status==='Open'?' selected':''}>Open</option><option value="In Progress"${c._status==='In Progress'?' selected':''}>In Progress</option><option${c._status==='Closed'?' selected':''}>Closed</option></select>
     <div style="margin-top:8px"><label>Closure remark (required to close)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
