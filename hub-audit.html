@@ -81,7 +81,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 27 -->
+<!-- app build 28 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -166,13 +166,6 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
     <div class="card">
       <label>Overall comments</label>
       <textarea id="overall-comments" placeholder="Anything noteworthy about this visit…"></textarea>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div style="flex:1"><label>Hub Manager name (acknowledgement)</label><input id="ack-name" placeholder="Name of hub in-charge present"></div>
-      </div>
-      <label class="row" style="margin-top:10px;gap:8px;cursor:pointer"><input type="checkbox" id="ack-chk" style="width:auto"> Hub Manager has reviewed and acknowledges this audit</label>
     </div>
 
     <div class="between" style="margin-bottom:40px">
@@ -260,6 +253,7 @@ function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
 const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
+function agingLine(c){const day=86400000;const opened=c.created_at?Math.floor((Date.now()-new Date(c.created_at).getTime())/day):0;let due='';if(c.due_date){const d=Math.ceil((new Date(c.due_date).getTime()-Date.now())/day);due=d<0?(' · <span style=\"color:var(--red);font-weight:700\">overdue '+(-d)+'d</span>'):(' · due in '+d+'d');}return 'Open '+opened+'d'+due;}
 function dueFor(sev){const m=(CFG.capa_due_days_by_severity)||{Critical:3,Medium:7,Low:15};const d=(m[sev]!=null)?m[sev]:7;const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
 function rfdOwnerRole(){let r=null;TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{if(/any issue is observed/i.test(c.label))r=c.owner_role;}));return r;}
 function ownerText(cpId){const cp=CP_BY_ID[cpId];if(!cp)return 'Owner: pick a question';const or=cp.owner_role;if(!or)return 'Owner: —';const p=STATE&&STATE.hubPeople&&STATE.hubPeople[or];return p?('Owner: '+p.name+' ('+roleLabel(or)+')'):('Owner: '+roleLabel(or)+' — no one assigned at this hub yet');}
@@ -331,6 +325,7 @@ async function loadRecent(){
 async function startAudit(hubId,draft){
   const hub=HUBS.find(h=>h.id===hubId); if(!hub)return;
   STATE={hub,localId:(draft&&draft.localId)||uid(),responses:(draft&&draft.responses)||{},technicians:(draft&&draft.technicians)||[],vehicleNg:(draft&&draft.vehicleNg)||[],capa:(draft&&draft.capa)||[]};
+  STATE._collapsed=new Set();
   Object.values(STATE.responses).forEach(st=>{st.photos=(st.photos||[]).filter(p=>p&&p.path);});
   STATE.vehicleNg.forEach(v=>{v.photos=(v.photos||[]).filter(p=>p&&p.path);});
   STATE.hubPeople={};
@@ -493,11 +488,22 @@ function recompute(){
   updateSectionCounts(secCounts);
   scheduleSave();
 }
-function updateSectionCounts(sc){
+function updateSectionCounts(){
   TEMPLATE.forEach(s=>{const el=document.getElementById('secct-'+s.id);if(!el)return;
     if(s.name==='Technician Skill Level'){el.textContent=STATE&&STATE.technicians.length?STATE.technicians.length+' entries':'';return}
-    if(s.name==='Vehicle-Level NG Points'){el.textContent=STATE&&STATE.vehicleNg.length?STATE.vehicleNg.length+' NG':'';return}
-    const c=sc&&sc[s.id];if(c)el.textContent=(c.ok+c.ng)?`${c.ok} OK · ${c.ng} NG`:'';
+    const cps=s.checkpoints||[];
+    if(!cps.length){el.textContent='';return}
+    let answered=0,ok=0,ng=0;
+    cps.forEach(cp=>{const st=STATE.responses[cp.id];if(st&&st.response){answered++;if(st.response==='OK')ok++;else if(st.response==='NG')ng++;}});
+    const complete=answered===cps.length;
+    const sec=el.closest('.sec');
+    if(complete){
+      el.innerHTML='<span style="color:#16a34a;font-weight:700">✓ Done</span>';
+      if(STATE._collapsed&&!STATE._collapsed.has(s.id)){if(sec)sec.classList.remove('open');STATE._collapsed.add(s.id);}
+    }else{
+      el.textContent=answered?(ok+' OK · '+ng+' Issue'):'';
+      if(STATE._collapsed)STATE._collapsed.delete(s.id);
+    }
   });
 }
 
@@ -529,6 +535,10 @@ function openReview(){
     ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every issue has an observation ✓</div>'}
     <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
     ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No NGs — no CAPAs needed.</div>'}
+    <div class="cp-label" style="margin-top:14px">Acknowledgement</div>
+    <label style="font-size:12px;color:var(--muted);font-weight:600">Hub Manager name</label>
+    <input id="ack-name" placeholder="Name of hub manager present">
+    <label class="row" style="margin-top:8px;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="ack-chk" style="width:auto"> Hub Manager has reviewed and acknowledges this audit</label>
     <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>Confirm &amp; submit</button>
     ${blocking?'<div class="sub" style="text-align:center;margin-top:6px">Resolve the ⚠ items to enable submit</div>':''}`;
   document.getElementById('rv-modal').classList.add('show');
@@ -655,6 +665,7 @@ function renderCapaCards(){
   if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
   el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
     <div class="cp-label">${esc(c.finding)}</div>
+    <div class="sub" style="margin-bottom:6px">${agingLine(c)}</div>
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
     <label>Action (what will be done)</label><textarea id="cact-${i}" placeholder="Corrective action">${esc(c._action||'')}</textarea>
     <div style="margin-top:8px"><label>Due date</label><input type="date" id="cdue-${i}" value="${esc(c._due||'')}"></div>
