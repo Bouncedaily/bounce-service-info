@@ -23,7 +23,7 @@ label{font-size:12px;color:var(--muted);font-weight:600}
 select,input,textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff}
 textarea{min-height:60px;resize:vertical}
 .btn{border:none;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer}
-.btn-primary{background:var(--purple);color:#fff}
+.btn-primary{background:var(--red);color:#fff}
 .btn-ghost{background:#eef2f7;color:var(--text)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .muted{color:var(--muted)}
@@ -62,9 +62,9 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;z-index:50;opacity:0;transition:.2s}
 .toast.show{opacity:1}
 .err{color:var(--red);font-size:12px;margin-top:6px}
-.addbtn{background:#eef2f7;border:1px dashed #cbd5e1;border-radius:9px;padding:9px;width:100%;cursor:pointer;font-weight:600;color:var(--purple)}
+.addbtn{background:#fff1f1;border:1px dashed #f7caca;border-radius:9px;padding:9px;width:100%;cursor:pointer;font-weight:600;color:var(--red)}
 .photorow{margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.photo-btn{background:#eef2f7;border:1px solid var(--border);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--purple)}
+.photo-btn{background:#fff1f1;border:1px solid #f7caca;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--red)}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap}
 .thumb{display:inline-flex;align-items:center;gap:5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:3px 8px;font-size:12px}
 .thumb.up{background:#fff7ed;border-color:#fed7aa}.thumb.er{background:#fef2f2;border-color:#fecaca}
@@ -83,12 +83,16 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 25</div></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="https://bouncedaily.in/logo%20%20(1).png" alt="Bounce" style="height:34px;width:auto" onerror="this.style.display='none'">
+      <div><h1>Hub <span style="color:var(--red)">Audit</span></h1><div class="sub">Physical hub audits · Bounce Daily · build 26</div></div>
+    </div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
   <div id="view-login" class="hidden">
     <div class="card" style="max-width:380px;margin:40px auto">
+      <div style="text-align:center;margin-bottom:12px"><img src="https://bouncedaily.in/logo%20%20(1).png" alt="Bounce" style="height:44px" onerror="this.style.display='none'"></div>
       <b>Sign in</b>
       <div class="sub" style="margin-bottom:12px">Use your Bounce Daily account</div>
       <label>Email</label><input id="li-email" type="email" autocomplete="username">
