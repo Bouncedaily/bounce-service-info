@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 22</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 23</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -218,8 +218,10 @@ async function ensureToken(){
 function token(){return _token||sess().access_token||ANON}
 function hdr(extra){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},extra||{})}
 async function api(path,opts){
-  let r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{}));
-  if(r.status===401){ const nt=await refreshToken(); if(nt){ r=await fetch(SB_URL+'/rest/v1/'+path,Object.assign({headers:hdr((opts&&opts.headers)||{})},opts||{})); } }
+  opts=opts||{};
+  const go=()=>fetch(SB_URL+'/rest/v1/'+path,Object.assign({},opts,{headers:hdr(opts.headers||{})}));
+  let r=await go();
+  if(r.status===401){ const nt=await refreshToken(); if(nt) r=await go(); }
   const t=await r.text();
   let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
   if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
