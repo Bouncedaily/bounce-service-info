@@ -42,6 +42,7 @@ textarea{min-height:60px;resize:vertical}
 .opt.ng.on{background:var(--red);color:#fff;border-color:var(--red)}
 .opt.na.on{background:#94a3b8;color:#fff;border-color:#94a3b8}
 .opt.nc.on{background:#cbd5e1;color:#334155;border-color:#cbd5e1}
+.opt.sopt.on{background:#334155;color:#fff;border-color:#334155}
 .tags{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}
 .tag{padding:5px 10px;border:1px dashed #cbd5e1;border-radius:999px;font-size:12px;cursor:pointer;background:#fff}
 .tag.on{background:var(--blue-light);border-color:var(--blue);color:var(--blue);border-style:solid}
@@ -81,7 +82,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 28 -->
+<!-- app build 29 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -253,6 +254,10 @@ function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
 const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
+const APPROVER_ROLES=['regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
+function isApprover(){return !!(ME&&(ME.is_admin||APPROVER_ROLES.indexOf(ME.role)>=0));}
+async function signedUrl(path){try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
+async function loadSignedImg(elId,path){const u=await signedUrl(path);const el=document.getElementById(elId);if(el&&u)el.innerHTML='<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:130px;border-radius:8px;border:1px solid var(--border)"></a>';}
 function agingLine(c){const day=86400000;const opened=c.created_at?Math.floor((Date.now()-new Date(c.created_at).getTime())/day):0;let due='';if(c.due_date){const d=Math.ceil((new Date(c.due_date).getTime()-Date.now())/day);due=d<0?(' · <span style=\"color:var(--red);font-weight:700\">overdue '+(-d)+'d</span>'):(' · due in '+d+'d');}return 'Open '+opened+'d'+due;}
 function dueFor(sev){const m=(CFG.capa_due_days_by_severity)||{Critical:3,Medium:7,Low:15};const d=(m[sev]!=null)?m[sev]:7;const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
 function rfdOwnerRole(){let r=null;TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{if(/any issue is observed/i.test(c.label))r=c.owner_role;}));return r;}
@@ -654,7 +659,7 @@ async function loadCapas(){
     const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
     const counts={Open:0,'In Progress':0,Closed:0};
     all.forEach(c=>{if(counts[c.status]==null)counts[c.status]=0;counts[c.status]++;});
-    if(sum)sum.innerHTML=`<div class="metric" style="flex:1"><div class="v">${counts.Open||0}</div><div class="l">Open</div></div><div class="metric" style="flex:1"><div class="v">${counts['In Progress']||0}</div><div class="l">In Progress</div></div><div class="metric" style="flex:1"><div class="v">${counts.Closed||0}</div><div class="l">Completed</div></div>`;
+    if(sum)sum.innerHTML=`<div class="metric" style="flex:1"><div class="v">${counts.Open||0}</div><div class="l">Open</div></div><div class="metric" style="flex:1"><div class="v">${counts['In Progress']||0}</div><div class="l">In Progress</div></div><div class="metric" style="flex:1"><div class="v">${counts['Pending Verification']||0}</div><div class="l">Verification</div></div><div class="metric" style="flex:1"><div class="v">${counts.Closed||0}</div><div class="l">Completed</div></div>`;
     CAPAS=all.filter(c=>c.status!=='Closed');
     CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;c._action=c.action||'';c._due=c.due_date||'';});
     renderCapaCards();
@@ -663,42 +668,62 @@ async function loadCapas(){
 function renderCapaCards(){
   const el=document.getElementById('capa-list-view');
   if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
+  const appr=isApprover();
   el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
     <div class="cp-label">${esc(c.finding)}</div>
-    <div class="sub" style="margin-bottom:6px">${agingLine(c)}</div>
+    <div class="sub" style="margin-bottom:6px">${agingLine(c)}${c.status==='Pending Verification'?' · <span style="color:#d97706;font-weight:700">Pending verification</span>':''}</div>
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
     <label>Action (what will be done)</label><textarea id="cact-${i}" placeholder="Corrective action">${esc(c._action||'')}</textarea>
     <div style="margin-top:8px"><label>Due date</label><input type="date" id="cdue-${i}" value="${esc(c._due||'')}"></div>
     <label style="display:block;margin-top:8px">Status</label>
-    <select id="cst-${i}"><option${c._status==='Open'?' selected':''}>Open</option><option value="In Progress"${c._status==='In Progress'?' selected':''}>In Progress</option><option${c._status==='Closed'?' selected':''}>Closed</option></select>
-    <div style="margin-top:8px"><label>Closure remark (required to close)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
-    <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Closure photo</button><span class="thumbs" id="cth-${i}"></span></div>
+    <div class="opts" id="cstp-${i}"><div class="opt sopt ${c._status==='Open'?'on':''}" data-s="Open">Open</div><div class="opt sopt ${c._status==='In Progress'?'on':''}" data-s="In Progress">In Progress</div><div class="opt sopt ${c._status==='Pending Verification'?'on':''}" data-s="Pending Verification">Verification</div></div>
+    <div style="margin-top:8px"><label>Fix remark (required for verification)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
+    <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Fix photo</button><span class="thumbs" id="cth-${i}"></span></div>
+    <div id="cfimg-${i}" style="margin-top:8px"></div>
     <button class="btn btn-primary" id="csave-${i}" style="margin-top:10px">Save</button>
+    ${appr&&c.status==='Pending Verification'?`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e5e9f0"><div class="sub">Verify the fix, then:</div><div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-primary" id="capp-${i}">Approve &amp; close</button><button class="btn btn-ghost" id="cback-${i}">Send back</button></div></div>`:''}
     <div class="err" id="cerr-${i}"></div>
   </div>`).join('');
   CAPAS.forEach((c,i)=>{
-    document.getElementById('cst-'+i).onchange=e=>c._status=e.target.value;
+    document.getElementById('cstp-'+i).querySelectorAll('.opt').forEach(o=>o.onclick=()=>{c._status=o.dataset.s;document.getElementById('cstp-'+i).querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));});
     document.getElementById('cact-'+i).oninput=e=>c._action=e.target.value;
     document.getElementById('cdue-'+i).oninput=e=>c._due=e.target.value;
     document.getElementById('crem-'+i).oninput=e=>c._remark=e.target.value;
-    document.getElementById('cph-'+i).onclick=()=>{const th=document.getElementById('cth-'+i);openCamera(async(blob)=>{if(!blob)return;th.textContent='⏳ uploading…';try{const path='capa/'+c.id+'/'+uid()+'.jpg';await uploadPhoto(blob,path);c._photo=path;th.textContent='✓ closure photo';}catch(e){th.textContent='⚠ '+e.message;}});};
+    document.getElementById('cph-'+i).onclick=()=>{const th=document.getElementById('cth-'+i);openCamera(async(blob)=>{if(!blob)return;th.textContent='⏳ uploading…';try{const path='capa/'+c.id+'/'+uid()+'.jpg';await uploadPhoto(blob,path);c._photo=path;th.textContent='✓ fix photo';loadSignedImg('cfimg-'+i,path);}catch(e){th.textContent='⚠ '+e.message;}});};
     document.getElementById('csave-'+i).onclick=()=>saveCapa(i);
+    const ap=document.getElementById('capp-'+i);if(ap)ap.onclick=()=>approveCapa(i);
+    const bk=document.getElementById('cback-'+i);if(bk)bk.onclick=()=>sendBackCapa(i);
+    if(c.closure_photo_url)loadSignedImg('cfimg-'+i,c.closure_photo_url);
   });
 }
 async function saveCapa(i){
   const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
   const body={status:c._status, action:c._action||null, due_date:c._due||null};
-  if((c._status==='In Progress'||c._status==='Closed')&&!(c._action&&c._action.trim())){err.textContent='Add the action (what will be done) before moving it forward.';return;}
-  if(c._status==='Closed'){
-    if(!c._remark.trim()){err.textContent='Add a closure remark to close this CAPA.';return;}
-    if(!c._photo){err.textContent='Add a closure photo to close this CAPA.';return;}
-    body.closure_remark=c._remark; body.closed_by=ME&&ME.id; body.closed_at=new Date().toISOString(); body.closure_photo_url=c._photo;
+  if((c._status==='In Progress'||c._status==='Pending Verification')&&!(c._action&&c._action.trim())){err.textContent='Add the action before moving it forward.';return;}
+  if(c._status==='Pending Verification'){
+    if(!c._remark.trim()){err.textContent='Add a fix remark before sending for verification.';return;}
+    if(!(c._photo||c.closure_photo_url)){err.textContent='Add a fix photo before sending for verification.';return;}
+    body.closure_remark=c._remark; if(c._photo)body.closure_photo_url=c._photo;
   }
   const btn=document.getElementById('csave-'+i);btn.disabled=true;btn.textContent='Saving…';
   try{
     await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
     toast('CAPA updated'); loadCapas();
   }catch(e){err.textContent='Save failed: '+e.message; btn.disabled=false; btn.textContent='Save';}
+}
+async function approveCapa(i){
+  const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
+  try{
+    await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({status:'Closed',closed_by:ME&&ME.id,closed_at:new Date().toISOString()})});
+    toast('Approved & closed'); loadCapas();
+  }catch(e){err.textContent='Approve failed: '+e.message;}
+}
+async function sendBackCapa(i){
+  const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
+  try{
+    await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({status:'In Progress'})});
+    toast('Sent back to In Progress'); loadCapas();
+  }catch(e){err.textContent='Send back failed: '+e.message;}
 }
 document.getElementById('open-capa-btn').onclick=showCapaView;
 document.getElementById('capa-back').onclick=goHome;
