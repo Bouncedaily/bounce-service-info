@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
-<title>Hub Audit</title>
+<title>Bounce Daily Hub Audit</title>
 <style>
 :root{
   --red:#f53b3b;--blue:#2563eb;--blue-light:#eff6ff;--green:#16a34a;--amber:#d97706;
@@ -81,11 +81,12 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
+<!-- app build 27 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
       <img src="https://bouncedaily.in/logo%20%20(1).png" alt="Bounce" style="height:34px;width:auto" onerror="this.style.display='none'">
-      <div><h1>Hub <span style="color:var(--red)">Audit</span></h1><div class="sub">Physical hub audits · Bounce Daily · build 26</div></div>
+      <div><h1>Bounce Daily Hub <span style="color:var(--red)">Audit</span></h1><div class="sub">Physical hub audits · Bounce Daily</div></div>
     </div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
@@ -169,9 +170,9 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 
     <div class="card">
       <div class="row">
-        <div style="flex:1"><label>Hub in-charge name (acknowledgement)</label><input id="ack-name" placeholder="Name of hub in-charge present"></div>
+        <div style="flex:1"><label>Hub Manager name (acknowledgement)</label><input id="ack-name" placeholder="Name of hub in-charge present"></div>
       </div>
-      <label class="row" style="margin-top:10px;gap:8px;cursor:pointer"><input type="checkbox" id="ack-chk" style="width:auto"> Hub in-charge has reviewed and acknowledges this audit</label>
+      <label class="row" style="margin-top:10px;gap:8px;cursor:pointer"><input type="checkbox" id="ack-chk" style="width:auto"> Hub Manager has reviewed and acknowledges this audit</label>
     </div>
 
     <div class="between" style="margin-bottom:40px">
@@ -260,7 +261,7 @@ let CP_BY_ID={};
 const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
 function dueFor(sev){const m=(CFG.capa_due_days_by_severity)||{Critical:3,Medium:7,Low:15};const d=(m[sev]!=null)?m[sev]:7;const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
-function rfdOwnerRole(){let r=null;TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{if(/any NG point is observed/i.test(c.label))r=c.owner_role;}));return r;}
+function rfdOwnerRole(){let r=null;TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{if(/any issue is observed/i.test(c.label))r=c.owner_role;}));return r;}
 function ownerText(cpId){const cp=CP_BY_ID[cpId];if(!cp)return 'Owner: pick a question';const or=cp.owner_role;if(!or)return 'Owner: —';const p=STATE&&STATE.hubPeople&&STATE.hubPeople[or];return p?('Owner: '+p.name+' ('+roleLabel(or)+')'):('Owner: '+roleLabel(or)+' — no one assigned at this hub yet');}
 function renderCapaOwner(i){const el=document.getElementById('capa-owner-'+i);if(el)el.textContent=ownerText(STATE.capa[i]._cpId);}
 
@@ -297,8 +298,8 @@ async function init(){
   try{HUBS=await api('hubs?select=id,name,city,hub_type&is_active=eq.true&order=city.asc,name.asc')}catch(e){HUBS=[]}
   const cities=[...new Set(HUBS.map(h=>h.city))].sort();
   const citySel=document.getElementById('city-select');
-  citySel.innerHTML=cities.map(c=>`<option>${esc(c)}</option>`).join('');
-  function fillHubs(){const c=citySel.value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('hub-select').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
+  citySel.innerHTML='<option value="">— Select city —</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
+  function fillHubs(){const c=citySel.value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('hub-select').innerHTML='<option value="">— Select hub —</option>'+hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
   citySel.onchange=fillHubs; fillHubs();
   if(!ME||!ME.can_audit){
     const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
@@ -306,7 +307,7 @@ async function init(){
   // template
   try{
     const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
-    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,owner_role&order=sort_order.asc');
+    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,owner_role&active_to=is.null&order=sort_order.asc');
     const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
     TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
     CP_BY_ID={};TEMPLATE.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
@@ -384,13 +385,13 @@ function cpUI(c){
     control=`<div class="count-in"><input type="number" id="num-${c.id}" placeholder="value"><span class="pill" id="der-${c.id}"></span></div><div class="opts" data-cp="${c.id}" style="margin-top:8px"><div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }else{
     control=`<div class="opts" data-cp="${c.id}">
-      <div class="opt ok" data-v="OK">OK</div><div class="opt ng" data-v="NG">NG</div>
+      <div class="opt ok" data-v="OK">OK</div><div class="opt ng" data-v="NG">Issue</div>
       <div class="opt nc" data-v="Not Checked">Not checked</div></div>`;
   }
   const tags=(c.tags&&c.tags.length)?`<div class="tags hidden" id="tags-${c.id}">${c.tags.map(t=>`<span class="tag" data-tag="${t.id}">${esc(t.tag_label)}</span>`).join('')}</div>`:'';
   const sev=c.severity&&c.severity!=='Medium'?`<span class="pill" style="background:#fef2f2;color:#dc2626;margin-left:6px">${esc(c.severity)}</span>`:'';
-  const vehBlock=/any NG point is observed/i.test(c.label)?'<div id="vehng-block" class="hidden" style="margin:10px 0 4px;padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#fafbfe"><div class="cp-label">Vehicle-Level NG Points</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific NG parts found</div>'+vehicleUI()+'</div>':'';
-  return `<div class="cp" id="cp-${c.id}"><div class="cp-label">${esc(c.label)}${sev}</div>${control}${tags}<div class="obs hidden" id="obswrap-${c.id}"><textarea id="obs-${c.id}" placeholder="Observation (required for NG)"></textarea></div>${photoRowHtml(c.id)}</div>${vehBlock}`;
+  const vehBlock=/any issue is observed/i.test(c.label)?'<div id="vehng-block" class="hidden" style="margin:10px 0 4px;padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#fafbfe"><div class="cp-label">Vehicle-Level Issues</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific issues found</div>'+vehicleUI()+'</div>':'';
+  return `<div class="cp" id="cp-${c.id}"><div class="cp-label">${esc(c.label)}${sev}</div>${control}${tags}<div class="obs hidden" id="obswrap-${c.id}"><textarea id="obs-${c.id}" placeholder="Observation (required for Issue, optional for OK)"></textarea></div>${photoRowHtml(c.id)}</div>${vehBlock}`;
 }
 
 function wireCp(c){
@@ -411,7 +412,7 @@ function wireCp(c){
       st.response=has?(ng?'NG':'OK'):null;
       const badge=document.getElementById('der-'+c.id);
       badge.textContent=has?st.response:''; badge.style.background=has?(ng?'#fef2f2':'#f0fdf4'):''; badge.style.color=has?(ng?'#dc2626':'#16a34a'):'';
-      document.getElementById('obswrap-'+c.id).classList.toggle('hidden',st.response!=='NG');
+      document.getElementById('obswrap-'+c.id).classList.toggle('hidden',!(st.response==='NG'||st.response==='OK'));
       recompute();
     };
     const optsC=document.querySelector('.opts[data-cp="'+c.id+'"]');
@@ -424,8 +425,8 @@ function wireCp(c){
       opts.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));
       const tg=document.getElementById('tags-'+c.id), ob=document.getElementById('obswrap-'+c.id);
       if(tg)tg.classList.toggle('hidden',st.response!=='NG');
-      ob.classList.toggle('hidden',st.response!=='NG');
-      if(/any NG point is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
+      ob.classList.toggle('hidden',!(st.response==='NG'||st.response==='OK'));
+      if(/any issue is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
       recompute();
     });
   }
@@ -450,9 +451,9 @@ function reflectCp(c,st){
   else if(st.response){const opts=document.querySelector('.opts[data-cp="'+c.id+'"]');if(opts)opts.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x.dataset.v===st.response));}
   const tg=document.getElementById('tags-'+c.id);if(tg){tg.querySelectorAll('.tag').forEach(t=>t.classList.toggle('on',(st.tags||[]).indexOf(t.dataset.tag)>=0));tg.classList.toggle('hidden',st.response!=='NG');}
   const ob=document.getElementById('obs-'+c.id);if(ob&&st.observation)ob.value=st.observation;
-  const ow=document.getElementById('obswrap-'+c.id);if(ow)ow.classList.toggle('hidden',st.response!=='NG');
+  const ow=document.getElementById('obswrap-'+c.id);if(ow)ow.classList.toggle('hidden',!(st.response==='NG'||st.response==='OK'));
   const th=document.getElementById('pthumb-'+c.id);if(th)renderThumbs(th,st.photos||[]);
-  if(/any NG point is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
+  if(/any issue is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
 }
 function techUI(){return '<div id="tech-list"></div><button class="addbtn" id="add-tech">+ Add technician</button>'}
 function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add vehicle NG</button>'}
@@ -465,7 +466,7 @@ function renderTech(){
 function renderVeh(){
   const parts=['Structural damage','Electrical fault','Missing part','Oil leak','No number plate','Side stand welding'];
   const l=document.getElementById('veh-list');
-  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>NG part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
+  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>Part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
   STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
 }
 
@@ -525,7 +526,7 @@ function openReview(){
     <div class="cp-label">Sections</div>
     <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} NG</td></tr>`).join('')}</tbody></table>
     <div class="cp-label" style="margin-top:14px">Evidence completeness</div>
-    ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every NG has an observation ✓</div>'}
+    ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every issue has an observation ✓</div>'}
     <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
     ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No NGs — no CAPAs needed.</div>'}
     <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>Confirm &amp; submit</button>
@@ -539,7 +540,7 @@ async function submitAudit(){
   const err=document.getElementById('submit-err'); err.textContent='';
   // validate NG observations
   for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
-    if(st&&st.response==='NG'&&!(st.observation&&st.observation.trim())){err.textContent='Add an observation for every NG (e.g. "'+c.label+'").';return}}}
+    if(st&&st.response==='NG'&&!(st.observation&&st.observation.trim())){err.textContent='Add an observation for every Issue (e.g. "'+c.label+'").';return}}}
   // photo mandatory for every question
   for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
     if(!(st&&st.photos&&st.photos.some(p=>p.path))){err.textContent='Photo required for every question — missing on "'+c.label+'".';return}}}
