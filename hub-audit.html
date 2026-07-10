@@ -82,7 +82,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 31 -->
+<!-- app build 32 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -673,8 +673,7 @@ function renderCapaCards(){
   const el=document.getElementById('capa-list-view');
   if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
   const appr=isApprover();
-  el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
-    <div class="cp-label">${esc(c.finding)}</div>
+  el.innerHTML=CAPAS.map((c,i)=>`<div class="sec" id="csec-${i}"><div class="sec-head"><b style="font-size:13px">${esc(c.finding)}</b><span class="muted" style="white-space:nowrap;margin-left:8px">${c.status==='Pending Verification'?'Verification':esc(c.status)}</span></div><div class="sec-body">
     <div class="sub" style="margin-bottom:6px">${agingLine(c)}${c.status==='Pending Verification'?' · <span style="color:#d97706;font-weight:700">Pending verification</span>':''}</div>
     ${(c.checkpoint_id&&CAPA_REC[c.checkpoint_id]>1)?`<div class="sub" style="color:var(--red);font-weight:700;margin-bottom:6px">⚠ Recurring: ${CAPA_REC[c.checkpoint_id]}× at this hub in 60 days</div>`:''}
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
@@ -689,8 +688,9 @@ function renderCapaCards(){
     <button class="btn btn-primary" id="csave-${i}" style="margin-top:10px">Save</button>
     ${appr&&c.status==='Pending Verification'?`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e5e9f0"><div style="margin-bottom:8px"><div class="sub" style="margin-bottom:4px">Before → After</div><div class="row" style="gap:10px;align-items:flex-start"><div id="cbefore-${i}"></div><div id="cafter-${i}"></div></div></div><div class="sub">Verify the fix, then:</div><div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-primary" id="capp-${i}">Approve &amp; close</button><button class="btn btn-ghost" id="cback-${i}">Send back</button></div></div>`:''}
     <div class="err" id="cerr-${i}"></div>
-  </div>`).join('');
+  </div></div>`).join('');
   CAPAS.forEach((c,i)=>{
+    document.getElementById('csec-'+i).querySelector('.sec-head').onclick=()=>document.getElementById('csec-'+i).classList.toggle('open');
     document.getElementById('cstp-'+i).querySelectorAll('.opt').forEach(o=>o.onclick=()=>{c._status=o.dataset.s;document.getElementById('cstp-'+i).querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));});
     document.getElementById('cact-'+i).oninput=e=>c._action=e.target.value;
     document.getElementById('cdue-'+i).oninput=e=>c._due=e.target.value;
