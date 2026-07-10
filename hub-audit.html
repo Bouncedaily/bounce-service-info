@@ -82,7 +82,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 29 -->
+<!-- app build 30 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -254,6 +254,8 @@ function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
 const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
+let CAPA_REC={};
+async function loadSignedThumbs(elId,paths){const el=document.getElementById(elId);if(!el||!paths||!paths.length)return;const parts=[];for(const p of paths){const u=await signedUrl(p);if(u)parts.push('<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:110px;border-radius:8px;border:1px solid var(--border);margin:2px"></a>');}el.innerHTML=parts.join('');}
 const APPROVER_ROLES=['regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
 function isApprover(){return !!(ME&&(ME.is_admin||APPROVER_ROLES.indexOf(ME.role)>=0));}
 async function signedUrl(path){try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
@@ -607,9 +609,9 @@ async function submitAudit(){
     // CAPA
     // auto-CAPA per NG: owner from the question, due from severity; owner fills action later
     const capas=[];
-    TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){const or=c.owner_role||null;const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;capas.push({audit_id:aid,finding:c.label+(st.observation?(' — '+st.observation):''),due_date:dueFor(c.severity),status:'Open',owner_role:or,owner_id:person?person.id:null});}}));
+    TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){const or=c.owner_role||null;const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;capas.push({audit_id:aid,finding:c.label+(st.observation?(' — '+st.observation):''),due_date:dueFor(c.severity),status:'Open',owner_role:or,owner_id:person?person.id:null,checkpoint_id:c.id,origin_photos:(st.photos||[]).filter(p=>p.path).map(p=>p.path)});}}));
     const _ro=rfdOwnerRole();
-    STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{const person=(_ro&&STATE.hubPeople)?STATE.hubPeople[_ro]:null;capas.push({audit_id:aid,finding:'Vehicle '+v.vehicle_number+': '+v.ng_part+(v.observation?(' — '+v.observation):''),due_date:dueFor('Medium'),status:'Open',owner_role:_ro,owner_id:person?person.id:null});});
+    STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{const person=(_ro&&STATE.hubPeople)?STATE.hubPeople[_ro]:null;capas.push({audit_id:aid,finding:'Vehicle '+v.vehicle_number+': '+v.ng_part+(v.observation?(' — '+v.observation):''),due_date:dueFor('Medium'),status:'Open',owner_role:_ro,owner_id:person?person.id:null,checkpoint_id:null,origin_photos:(v.photos||[]).filter(p=>p.path).map(p=>p.path)});});
     if(capas.length)await api('capa_items',{method:'POST',body:JSON.stringify(capas)});
 
     // flip to Submitted once all children are written (RLS allows child writes only while In Progress)
@@ -656,7 +658,9 @@ async function loadCapas(){
   if(!hubId){el.innerHTML='';if(sum)sum.innerHTML='';return;}
   el.innerHTML='<div class="card muted">Loading…</div>';
   try{
-    const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
+    const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,closure_photo_url,checkpoint_id,origin_photos,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
+    const _cut=Date.now()-60*86400000; CAPA_REC={};
+    all.forEach(c=>{if(c.checkpoint_id&&new Date(c.created_at).getTime()>=_cut)CAPA_REC[c.checkpoint_id]=(CAPA_REC[c.checkpoint_id]||0)+1;});
     const counts={Open:0,'In Progress':0,Closed:0};
     all.forEach(c=>{if(counts[c.status]==null)counts[c.status]=0;counts[c.status]++;});
     if(sum)sum.innerHTML=`<div class="metric" style="flex:1"><div class="v">${counts.Open||0}</div><div class="l">Open</div></div><div class="metric" style="flex:1"><div class="v">${counts['In Progress']||0}</div><div class="l">In Progress</div></div><div class="metric" style="flex:1"><div class="v">${counts['Pending Verification']||0}</div><div class="l">Verification</div></div><div class="metric" style="flex:1"><div class="v">${counts.Closed||0}</div><div class="l">Completed</div></div>`;
@@ -672,7 +676,9 @@ function renderCapaCards(){
   el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
     <div class="cp-label">${esc(c.finding)}</div>
     <div class="sub" style="margin-bottom:6px">${agingLine(c)}${c.status==='Pending Verification'?' · <span style="color:#d97706;font-weight:700">Pending verification</span>':''}</div>
+    ${(c.checkpoint_id&&CAPA_REC[c.checkpoint_id]>1)?`<div class="sub" style="color:var(--red);font-weight:700;margin-bottom:6px">⚠ Recurring: ${CAPA_REC[c.checkpoint_id]}× at this hub in 60 days</div>`:''}
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
+    ${(c.origin_photos&&c.origin_photos.length)?`<label>Original issue evidence</label><div id="corig-${i}" style="margin:4px 0 10px"></div>`:''}
     <label>Action (what will be done)</label><textarea id="cact-${i}" placeholder="Corrective action">${esc(c._action||'')}</textarea>
     <div style="margin-top:8px"><label>Due date</label><input type="date" id="cdue-${i}" value="${esc(c._due||'')}"></div>
     <label style="display:block;margin-top:8px">Status</label>
@@ -681,7 +687,7 @@ function renderCapaCards(){
     <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Fix photo</button><span class="thumbs" id="cth-${i}"></span></div>
     <div id="cfimg-${i}" style="margin-top:8px"></div>
     <button class="btn btn-primary" id="csave-${i}" style="margin-top:10px">Save</button>
-    ${appr&&c.status==='Pending Verification'?`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e5e9f0"><div class="sub">Verify the fix, then:</div><div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-primary" id="capp-${i}">Approve &amp; close</button><button class="btn btn-ghost" id="cback-${i}">Send back</button></div></div>`:''}
+    ${appr&&c.status==='Pending Verification'?`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e5e9f0"><div style="margin-bottom:8px"><div class="sub" style="margin-bottom:4px">Before → After</div><div class="row" style="gap:10px;align-items:flex-start"><div id="cbefore-${i}"></div><div id="cafter-${i}"></div></div></div><div class="sub">Verify the fix, then:</div><div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-primary" id="capp-${i}">Approve &amp; close</button><button class="btn btn-ghost" id="cback-${i}">Send back</button></div></div>`:''}
     <div class="err" id="cerr-${i}"></div>
   </div>`).join('');
   CAPAS.forEach((c,i)=>{
@@ -694,6 +700,8 @@ function renderCapaCards(){
     const ap=document.getElementById('capp-'+i);if(ap)ap.onclick=()=>approveCapa(i);
     const bk=document.getElementById('cback-'+i);if(bk)bk.onclick=()=>sendBackCapa(i);
     if(c.closure_photo_url)loadSignedImg('cfimg-'+i,c.closure_photo_url);
+    if(c.origin_photos&&c.origin_photos.length)loadSignedThumbs('corig-'+i,c.origin_photos);
+    if(appr&&c.status==='Pending Verification'){if(c.origin_photos&&c.origin_photos[0])loadSignedImg('cbefore-'+i,c.origin_photos[0]);if(c.closure_photo_url)loadSignedImg('cafter-'+i,c.closure_photo_url);}
   });
 }
 async function saveCapa(i){
