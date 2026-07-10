@@ -43,6 +43,7 @@ textarea{min-height:60px;resize:vertical}
 .opt.na.on{background:#94a3b8;color:#fff;border-color:#94a3b8}
 .opt.nc.on{background:#cbd5e1;color:#334155;border-color:#cbd5e1}
 .opt.sopt.on{background:#334155;color:#fff;border-color:#334155}
+.metric.sel{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
 .tags{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}
 .tag{padding:5px 10px;border:1px dashed #cbd5e1;border-radius:999px;font-size:12px;cursor:pointer;background:#fff}
 .tag.on{background:var(--blue-light);border-color:var(--blue);color:var(--blue);border-style:solid}
@@ -82,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 32 -->
+<!-- app build 33 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -537,7 +538,7 @@ function openReview(){
       <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._rating||'—')}</span><div class="l muted" style="margin-top:4px">Rating</div></div>
       <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._riskBand||'—')} (${STATE._risk||0})</span><div class="l muted" style="margin-top:4px">Risk</div></div></div>
     <div class="cp-label">Sections</div>
-    <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} NG</td></tr>`).join('')}</tbody></table>
+    <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} Issue</td></tr>`).join('')}</tbody></table>
     <div class="cp-label" style="margin-top:14px">Evidence completeness</div>
     ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every issue has an observation ✓</div>'}
     <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
@@ -639,7 +640,7 @@ document.getElementById('cancel-btn').onclick=()=>{if(confirm('Discard this audi
 document.getElementById('submit-btn').onclick=openReview;
 
 // ---- Open CAPAs (post-submission action + closure) ----
-let CAPAS=[];
+let CAPAS=[], CAPAS_ALL=[], CAPA_FILTER=null;
 function fillCapaHubs(){const c=document.getElementById('capa-city').value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('capa-hub').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
 function showCapaView(){
   document.getElementById('view-home').classList.add('hidden');
@@ -651,22 +652,28 @@ function showCapaView(){
   else fillCapaHubs();
   loadCapas(); window.scrollTo(0,0);
 }
+function capaMetric(status,n,label){return '<div class="metric" data-status="'+status+'" style="flex:1;cursor:pointer"><div class="v">'+n+'</div><div class="l">'+label+'</div></div>';}
+function applyCapaFilter(){
+  CAPAS = CAPA_FILTER ? CAPAS_ALL.filter(c=>c.status===CAPA_FILTER) : CAPAS_ALL.filter(c=>c.status!=='Closed');
+  const sum=document.getElementById('capa-summary'); if(sum)sum.querySelectorAll('.metric').forEach(m=>m.classList.toggle('sel',m.dataset.status===CAPA_FILTER));
+  renderCapaCards();
+}
+function setCapaFilter(st){ CAPA_FILTER=(CAPA_FILTER===st)?null:st; applyCapaFilter(); }
 async function loadCapas(){
   const hubId=document.getElementById('capa-hub').value;
   const el=document.getElementById('capa-list-view');
   const sum=document.getElementById('capa-summary');
-  if(!hubId){el.innerHTML='';if(sum)sum.innerHTML='';return;}
+  if(!hubId){el.innerHTML='';if(sum)sum.innerHTML='';CAPAS_ALL=[];CAPA_FILTER=null;return;}
   el.innerHTML='<div class="card muted">Loading…</div>';
   try{
     const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,closure_photo_url,checkpoint_id,origin_photos,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
     const _cut=Date.now()-60*86400000; CAPA_REC={};
     all.forEach(c=>{if(c.checkpoint_id&&new Date(c.created_at).getTime()>=_cut)CAPA_REC[c.checkpoint_id]=(CAPA_REC[c.checkpoint_id]||0)+1;});
-    const counts={Open:0,'In Progress':0,Closed:0};
-    all.forEach(c=>{if(counts[c.status]==null)counts[c.status]=0;counts[c.status]++;});
-    if(sum)sum.innerHTML=`<div class="metric" style="flex:1"><div class="v">${counts.Open||0}</div><div class="l">Open</div></div><div class="metric" style="flex:1"><div class="v">${counts['In Progress']||0}</div><div class="l">In Progress</div></div><div class="metric" style="flex:1"><div class="v">${counts['Pending Verification']||0}</div><div class="l">Verification</div></div><div class="metric" style="flex:1"><div class="v">${counts.Closed||0}</div><div class="l">Completed</div></div>`;
-    CAPAS=all.filter(c=>c.status!=='Closed');
-    CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;c._action=c.action||'';c._due=c.due_date||'';});
-    renderCapaCards();
+    all.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;c._action=c.action||'';c._due=c.due_date||'';});
+    CAPAS_ALL=all;
+    const counts={};all.forEach(c=>{counts[c.status]=(counts[c.status]||0)+1;});
+    if(sum){sum.innerHTML=capaMetric('Open',counts.Open||0,'Open')+capaMetric('In Progress',counts['In Progress']||0,'In Progress')+capaMetric('Pending Verification',counts['Pending Verification']||0,'Under Approval')+capaMetric('Closed',counts.Closed||0,'Completed');sum.querySelectorAll('.metric').forEach(m=>m.onclick=()=>setCapaFilter(m.dataset.status));}
+    applyCapaFilter();
   }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';if(sum)sum.innerHTML='';}
 }
 function renderCapaCards(){
@@ -674,15 +681,15 @@ function renderCapaCards(){
   if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
   const appr=isApprover();
   el.innerHTML=CAPAS.map((c,i)=>`<div class="sec" id="csec-${i}"><div class="sec-head"><b style="font-size:13px">${esc(c.finding)}</b><span class="muted" style="white-space:nowrap;margin-left:8px">${c.status==='Pending Verification'?'Verification':esc(c.status)}</span></div><div class="sec-body">
-    <div class="sub" style="margin-bottom:6px">${agingLine(c)}${c.status==='Pending Verification'?' · <span style="color:#d97706;font-weight:700">Pending verification</span>':''}</div>
+    <div class="sub" style="margin-bottom:6px">${agingLine(c)}${c.status==='Pending Verification'?' · <span style="color:#d97706;font-weight:700">Under approval</span>':''}</div>
     ${(c.checkpoint_id&&CAPA_REC[c.checkpoint_id]>1)?`<div class="sub" style="color:var(--red);font-weight:700;margin-bottom:6px">⚠ Recurring: ${CAPA_REC[c.checkpoint_id]}× at this hub in 60 days</div>`:''}
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
     ${(c.origin_photos&&c.origin_photos.length)?`<label>Original issue evidence</label><div id="corig-${i}" style="margin:4px 0 10px"></div>`:''}
     <label>Action (what will be done)</label><textarea id="cact-${i}" placeholder="Corrective action">${esc(c._action||'')}</textarea>
     <div style="margin-top:8px"><label>Due date</label><input type="date" id="cdue-${i}" value="${esc(c._due||'')}"></div>
     <label style="display:block;margin-top:8px">Status</label>
-    <div class="opts" id="cstp-${i}"><div class="opt sopt ${c._status==='Open'?'on':''}" data-s="Open">Open</div><div class="opt sopt ${c._status==='In Progress'?'on':''}" data-s="In Progress">In Progress</div><div class="opt sopt ${c._status==='Pending Verification'?'on':''}" data-s="Pending Verification">Verification</div></div>
-    <div style="margin-top:8px"><label>Fix remark (required for verification)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
+    <div class="opts" id="cstp-${i}"><div class="opt sopt ${c._status==='Open'?'on':''}" data-s="Open">Open</div><div class="opt sopt ${c._status==='In Progress'?'on':''}" data-s="In Progress">In Progress</div><div class="opt sopt ${c._status==='Pending Verification'?'on':''}" data-s="Pending Verification">Under Approval</div></div>
+    <div style="margin-top:8px"><label>Fix remark (required for approval)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
     <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Fix photo</button><span class="thumbs" id="cth-${i}"></span></div>
     <div id="cfimg-${i}" style="margin-top:8px"></div>
     <button class="btn btn-primary" id="csave-${i}" style="margin-top:10px">Save</button>
@@ -709,8 +716,8 @@ async function saveCapa(i){
   const body={status:c._status, action:c._action||null, due_date:c._due||null};
   if((c._status==='In Progress'||c._status==='Pending Verification')&&!(c._action&&c._action.trim())){err.textContent='Add the action before moving it forward.';return;}
   if(c._status==='Pending Verification'){
-    if(!c._remark.trim()){err.textContent='Add a fix remark before sending for verification.';return;}
-    if(!(c._photo||c.closure_photo_url)){err.textContent='Add a fix photo before sending for verification.';return;}
+    if(!c._remark.trim()){err.textContent='Add a fix remark before sending for approval.';return;}
+    if(!(c._photo||c.closure_photo_url)){err.textContent='Add a fix photo before sending for approval.';return;}
     body.closure_remark=c._remark; if(c._photo)body.closure_photo_url=c._photo;
   }
   const btn=document.getElementById('csave-'+i);btn.disabled=true;btn.textContent='Saving…';
