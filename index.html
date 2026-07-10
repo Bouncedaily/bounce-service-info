@@ -879,6 +879,7 @@ function showApp() {
 
 function signOut() {
   clearSess();
+  shownDashKey = null;
   document.getElementById('dash-iframe').srcdoc = '';
   document.getElementById('app').style.display = 'none';
   document.getElementById('view-login').style.display = 'flex';
@@ -918,8 +919,12 @@ function b64decode(b64) {
   return new TextDecoder().decode(bytes);
 }
 
-const loadedDashes = {};
 const decodedCache = {};
+// Tracks which dashboard the shared iframe is CURRENTLY showing.
+// (Previously a per-key "loaded" cache early-returned even though one iframe is
+// reused for every view, so switching back to an already-loaded dashboard left
+// the iframe showing the wrong one until a hard refresh.)
+let shownDashKey = null;
 
 function getDecoded(key) {
   if (!decodedCache[key]) decodedCache[key] = b64decode(DASHBOARDS[key]);
@@ -928,11 +933,11 @@ function getDecoded(key) {
 
 function loadDashboard(key) {
   const iframe = document.getElementById('dash-iframe');
-  if (loadedDashes[key]) { return; }
+  if (shownDashKey === key) { return; } // already showing this view
   const html = getDecoded(key);
   if (!html) { console.warn('Dashboard not found:', key); return; }
   iframe.srcdoc = html;
-  loadedDashes[key] = true;
+  shownDashKey = key;
 }
 
 // Listen for auth messages from iframes
