@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 21</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 22</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -160,13 +160,6 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
     <div class="card">
       <label>Overall comments</label>
       <textarea id="overall-comments" placeholder="Anything noteworthy about this visit…"></textarea>
-    </div>
-
-    <div class="card" id="capa-card">
-      <div class="between"><b>Corrective Action (CAPA)</b><span class="pill" style="background:#fef2f2;color:var(--red)" id="capa-why"></span></div>
-      <div class="sub" id="capa-note" style="margin:6px 0 10px"></div>
-      <div id="capa-list"></div>
-      <button class="addbtn" id="add-capa">+ Add CAPA item</button>
     </div>
 
     <div class="card">
@@ -259,6 +252,8 @@ function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
 const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
+function dueFor(sev){const m=(CFG.capa_due_days_by_severity)||{Critical:3,Medium:7,Low:15};const d=(m[sev]!=null)?m[sev]:7;const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
+function rfdOwnerRole(){let r=null;TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{if(/any NG point is observed/i.test(c.label))r=c.owner_role;}));return r;}
 function ownerText(cpId){const cp=CP_BY_ID[cpId];if(!cp)return 'Owner: pick a question';const or=cp.owner_role;if(!or)return 'Owner: —';const p=STATE&&STATE.hubPeople&&STATE.hubPeople[or];return p?('Owner: '+p.name+' ('+roleLabel(or)+')'):('Owner: '+roleLabel(or)+' — no one assigned at this hub yet');}
 function renderCapaOwner(i){const el=document.getElementById('capa-owner-'+i);if(el)el.textContent=ownerText(STATE.capa[i]._cpId);}
 
@@ -468,11 +463,7 @@ function renderVeh(){
 }
 
 // CAPA
-function renderCapa(){
-  const l=document.getElementById('capa-list');
-  l.innerHTML=STATE.capa.map((c,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Finding</label><input value="${esc(c.finding)}" oninput="STATE.capa[${i}].finding=this.value"></div><div style="width:150px"><label>Due date</label><input type="date" value="${esc(c.due_date||'')}" oninput="STATE.capa[${i}].due_date=this.value"></div></div><div style="margin-top:8px"><label>Action</label><textarea oninput="STATE.capa[${i}].action=this.value">${esc(c.action)}</textarea></div><div style="margin-top:8px"><label>Question / area this applies to (sets owner)</label><select onchange="STATE.capa[${i}]._cpId=this.value;renderCapaOwner(${i})"><option value="">— select —</option>${TEMPLATE.map(s=>`<optgroup label="${esc(s.name)}">${s.checkpoints.map(cp=>`<option value="${cp.id}"${c._cpId===cp.id?' selected':''}>${esc(cp.label)}</option>`).join('')}</optgroup>`).join('')}</select><div class="sub" id="capa-owner-${i}">${ownerText(c._cpId)}</div></div></div>`).join('');
-}
-document.getElementById('add-capa').onclick=()=>{STATE.capa.push({finding:'',action:'',due_date:''});renderCapa()};
+function renderCapa(){}
 
 // scoring
 function recompute(){
@@ -491,12 +482,6 @@ function recompute(){
   const rk=document.getElementById('sb-risk');rk.textContent=denom?rb+' ('+risk+')':'—';rk.style.background=denom?rbc:'#eee';rk.style.color=denom?'#fff':'#888';
   STATE._score=score;STATE._rating=rt;STATE._risk=risk;STATE._riskBand=rb;
   // CAPA gate
-  const need=(denom&&score<75)||critNg||vehNg;
-  STATE._capaNeeded=need;
-  const why=need?((denom&&score<75?'Score < 75':critNg?'Critical NG':'Vehicle NG'))+' → CAPA required':'';
-  document.getElementById('capa-why').textContent=why;
-  document.getElementById('capa-why').style.display=need?'':'none';
-  document.getElementById('capa-note').textContent=need?'A corrective action is mandatory before you can submit.':'Optional unless a trigger fires (score < 75, a Critical NG, or any vehicle NG).';
   updateSectionCounts(secCounts);
   scheduleSave();
 }
@@ -521,9 +506,10 @@ function openReview(){
     });
     secRows.push({name:s.name,ok:so,ng:sn});
   });
-  const capaValid=STATE.capa.filter(c=>c.finding&&c.finding.trim()&&c.action&&c.action.trim()).length>0;
-  const capaBlock=STATE._capaNeeded&&!capaValid;
-  const blocking=issues.length>0||capaBlock;
+  const autoCapas=[];
+  TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){const or=c.owner_role;const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:c.label,owner:p?p.name:roleLabel(or),due:dueFor(c.severity)});}}));
+  STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{const or=rfdOwnerRole();const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:'Vehicle '+v.vehicle_number+': '+v.ng_part,owner:p?p.name:roleLabel(or),due:dueFor('Medium')});});
+  const blocking=issues.length>0;
   const card=document.getElementById('rv-card');
   card.innerHTML=`<div class="between"><b>Review &amp; submit</b><button class="btn btn-ghost" id="rv-close">Close</button></div>
     <div class="row" style="gap:18px;margin:12px 0"><div><div class="score-num">${STATE._score||0}</div><div class="l muted">Score</div></div>
@@ -533,7 +519,8 @@ function openReview(){
     <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} NG</td></tr>`).join('')}</tbody></table>
     <div class="cp-label" style="margin-top:14px">Evidence completeness</div>
     ${issues.length?('<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need attention:</div>'+issues.map(i=>`<div class="rv-issue"><span>${esc(i.label)}</span><span style="white-space:nowrap">${i.photo?'📷 ✓':'📷 ⚠'} &nbsp; ${i.obs?'📝 ✓':'📝 ⚠'}</span></div>`).join('')):'<div class="sub" style="color:#16a34a">Every question has a photo and every NG has an observation ✓</div>'}
-    ${capaBlock?'<div class="err" style="margin-top:10px">A CAPA (finding + action) is required before you can submit.</div>':''}
+    <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
+    ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No NGs — no CAPAs needed.</div>'}
     <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>Confirm &amp; submit</button>
     ${blocking?'<div class="sub" style="text-align:center;margin-top:6px">Resolve the ⚠ items to enable submit</div>':''}`;
   document.getElementById('rv-modal').classList.add('show');
@@ -595,7 +582,11 @@ async function submitAudit(){
       if(vph.length)await api('vehicle_ng_photos',{method:'POST',body:JSON.stringify(vph)});
     }
     // CAPA
-    const capas=STATE.capa.filter(c=>c.finding&&c.finding.trim()).map(c=>{const cp=CP_BY_ID[c._cpId];const or=cp?cp.owner_role:null;const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;return {audit_id:aid,finding:c.finding,action:c.action||null,due_date:c.due_date||null,status:'Open',owner_role:or,owner_id:person?person.id:null};});
+    // auto-CAPA per NG: owner from the question, due from severity; owner fills action later
+    const capas=[];
+    TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){const or=c.owner_role||null;const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;capas.push({audit_id:aid,finding:c.label+(st.observation?(' — '+st.observation):''),due_date:dueFor(c.severity),status:'Open',owner_role:or,owner_id:person?person.id:null});}}));
+    const _ro=rfdOwnerRole();
+    STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{const person=(_ro&&STATE.hubPeople)?STATE.hubPeople[_ro]:null;capas.push({audit_id:aid,finding:'Vehicle '+v.vehicle_number+': '+v.ng_part+(v.observation?(' — '+v.observation):''),due_date:dueFor('Medium'),status:'Open',owner_role:_ro,owner_id:person?person.id:null});});
     if(capas.length)await api('capa_items',{method:'POST',body:JSON.stringify(capas)});
 
     // flip to Submitted once all children are written (RLS allows child writes only while In Progress)
@@ -642,7 +633,7 @@ async function loadCapas(){
   el.innerHTML='<div class="card muted">Loading…</div>';
   try{
     CAPAS=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&status=neq.Closed&order=created_at.desc');
-    CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;});
+    CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;c._action=c.action||'';c._due=c.due_date||'';});
     renderCapaCards();
   }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}
 }
@@ -651,9 +642,10 @@ function renderCapaCards(){
   if(!CAPAS.length){el.innerHTML='<div class="card muted">No open CAPAs for this hub.</div>';return;}
   el.innerHTML=CAPAS.map((c,i)=>`<div class="card">
     <div class="cp-label">${esc(c.finding)}</div>
-    <div class="sub" style="margin-bottom:8px">${c.action?('Action: '+esc(c.action)+' · '):''}${c.due_date?('Due '+esc(c.due_date)):'no due date'}</div>
     <div class="sub" style="margin-bottom:8px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
-    <label>Status</label>
+    <label>Action (what will be done)</label><textarea id="cact-${i}" placeholder="Corrective action">${esc(c._action||'')}</textarea>
+    <div style="margin-top:8px"><label>Due date</label><input type="date" id="cdue-${i}" value="${esc(c._due||'')}"></div>
+    <label style="display:block;margin-top:8px">Status</label>
     <select id="cst-${i}"><option${c._status==='Open'?' selected':''}>Open</option><option value="In Progress"${c._status==='In Progress'?' selected':''}>In Progress</option><option${c._status==='Closed'?' selected':''}>Closed</option></select>
     <div style="margin-top:8px"><label>Closure remark (required to close)</label><textarea id="crem-${i}" placeholder="What was done to fix it">${esc(c._remark)}</textarea></div>
     <div class="photorow"><button type="button" class="photo-btn" id="cph-${i}">📷 Closure photo</button><span class="thumbs" id="cth-${i}"></span></div>
@@ -662,6 +654,8 @@ function renderCapaCards(){
   </div>`).join('');
   CAPAS.forEach((c,i)=>{
     document.getElementById('cst-'+i).onchange=e=>c._status=e.target.value;
+    document.getElementById('cact-'+i).oninput=e=>c._action=e.target.value;
+    document.getElementById('cdue-'+i).oninput=e=>c._due=e.target.value;
     document.getElementById('crem-'+i).oninput=e=>c._remark=e.target.value;
     document.getElementById('cph-'+i).onclick=()=>{const th=document.getElementById('cth-'+i);openCamera(async(blob)=>{if(!blob)return;th.textContent='⏳ uploading…';try{const path='capa/'+c.id+'/'+uid()+'.jpg';await uploadPhoto(blob,path);c._photo=path;th.textContent='✓ closure photo';}catch(e){th.textContent='⚠ '+e.message;}});};
     document.getElementById('csave-'+i).onclick=()=>saveCapa(i);
@@ -669,12 +663,12 @@ function renderCapaCards(){
 }
 async function saveCapa(i){
   const c=CAPAS[i];const err=document.getElementById('cerr-'+i);err.textContent='';
-  const body={status:c._status};
+  const body={status:c._status, action:c._action||null, due_date:c._due||null};
   if(c._status==='Closed'){
     if(!c._remark.trim()){err.textContent='Add a closure remark to close this CAPA.';return;}
     if(!c._photo){err.textContent='Add a closure photo to close this CAPA.';return;}
     body.closure_remark=c._remark; body.closed_by=ME&&ME.id; body.closed_at=new Date().toISOString(); body.closure_photo_url=c._photo;
-  }else{ body.closure_remark=c._remark||null; }
+  }
   const btn=document.getElementById('csave-'+i);btn.disabled=true;btn.textContent='Saving…';
   try{
     await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
