@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 <body>
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
-    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 23</div></div>
+    <div><h1>Hub Audit</h1><div class="sub">Physical hub audits · Bounce Daily · build 24</div></div>
     <div style="text-align:right"><div id="who" class="muted" style="font-size:12px"></div><a href="#" id="signout" class="muted" style="font-size:11px;display:none" onclick="signOut();return false;">Sign out</a></div>
   </div>
 
@@ -135,6 +135,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
         <button class="btn btn-primary" id="capa-load" style="align-self:flex-end">Show</button>
       </div>
     </div>
+    <div id="capa-summary" class="row" style="gap:8px;margin-bottom:12px"></div>
     <div id="capa-list-view"></div>
   </div>
 
@@ -631,13 +632,18 @@ function showCapaView(){
 async function loadCapas(){
   const hubId=document.getElementById('capa-hub').value;
   const el=document.getElementById('capa-list-view');
-  if(!hubId){el.innerHTML='';return;}
+  const sum=document.getElementById('capa-summary');
+  if(!hubId){el.innerHTML='';if(sum)sum.innerHTML='';return;}
   el.innerHTML='<div class="card muted">Loading…</div>';
   try{
-    CAPAS=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&status=neq.Closed&order=created_at.desc');
+    const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
+    const counts={Open:0,'In Progress':0,Closed:0};
+    all.forEach(c=>{if(counts[c.status]==null)counts[c.status]=0;counts[c.status]++;});
+    if(sum)sum.innerHTML=`<div class="metric" style="flex:1"><div class="v">${counts.Open||0}</div><div class="l">Open</div></div><div class="metric" style="flex:1"><div class="v">${counts['In Progress']||0}</div><div class="l">In Progress</div></div><div class="metric" style="flex:1"><div class="v">${counts.Closed||0}</div><div class="l">Completed</div></div>`;
+    CAPAS=all.filter(c=>c.status!=='Closed');
     CAPAS.forEach(c=>{c._status=c.status;c._remark=c.closure_remark||'';c._photo=null;c._action=c.action||'';c._due=c.due_date||'';});
     renderCapaCards();
-  }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}
+  }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';if(sum)sum.innerHTML='';}
 }
 function renderCapaCards(){
   const el=document.getElementById('capa-list-view');
