@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 33 -->
+<!-- app build 34 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -506,7 +506,7 @@ function updateSectionCounts(){
     const complete=answered===cps.length;
     const sec=el.closest('.sec');
     if(complete){
-      el.innerHTML='<span style="color:#16a34a;font-weight:700">✓ Done</span>';
+      el.innerHTML='<span style="color:#16a34a;font-weight:700">✓</span> '+ok+' OK · '+ng+' Issue';
       if(STATE._collapsed&&!STATE._collapsed.has(s.id)){if(sec)sec.classList.remove('open');STATE._collapsed.add(s.id);}
     }else{
       el.textContent=answered?(ok+' OK · '+ng+' Issue'):'';
