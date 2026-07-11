@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 37 -->
+<!-- app build 38 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -529,6 +529,20 @@ function updateSectionCounts(){
 }
 
 // review before submit
+function reviewOrFlag(){
+  let anyBad=false, firstBad=null;
+  TEMPLATE.forEach(s=>{const cps=s.checkpoints||[];if(!cps.length)return;let miss=0;
+    cps.forEach(cp=>{const st=STATE.responses[cp.id];const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));if(!hasPhoto||missObs)miss++;});
+    const el=document.getElementById('secct-'+s.id);
+    if(miss>0){anyBad=true;if(el){el.innerHTML='<span style="color:#dc2626;font-weight:700">⚠ '+miss+' to capture</span>';const sec=el.closest('.sec');if(sec&&!firstBad)firstBad=sec;}}
+  });
+  if(anyBad){
+    toast('Fill all mandatory fields — photos & observations');
+    if(firstBad){firstBad.classList.add('open');firstBad.scrollIntoView({behavior:'smooth',block:'center'});}
+    return;
+  }
+  openReview();
+}
 function openReview(){
   recompute();
   const issues=[]; const secRows=[];
@@ -648,7 +662,7 @@ document.getElementById('start-btn').onclick=()=>{const id=document.getElementBy
 (function(){const va=document.getElementById('view-audit');if(va){va.addEventListener('input',scheduleSave);va.addEventListener('change',scheduleSave);va.addEventListener('click',scheduleSave);}})();
 document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Your progress is saved — you can resume it later.'))goHome()};
 document.getElementById('cancel-btn').onclick=()=>{if(confirm('Discard this audit? Saved progress will be deleted.')){clearDraft();goHome();}};
-document.getElementById('submit-btn').onclick=openReview;
+document.getElementById('submit-btn').onclick=reviewOrFlag;
 
 // ---- Open CAPAs (post-submission action + closure) ----
 let CAPAS=[], CAPAS_ALL=[], CAPA_FILTER=null;
