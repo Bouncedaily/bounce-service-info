@@ -633,6 +633,16 @@ function liSaveSession(tok, ref, em, role, perms) {
             <div class="dash-card-title">OOS Dashboard</div>
             <div class="dash-card-desc">Fleet OOS status — aging buckets, repair categories, inflow &amp; outflow</div>
           </div>
+          <div class="dash-card" onclick="showView('hubaudit')">
+            <div class="dash-card-icon" style="background:#f0f9ff;color:#0369a1"><i class="ti ti-clipboard-check"></i></div>
+            <div class="dash-card-title">Hub Audit Dashboard</div>
+            <div class="dash-card-desc">Network performance, CAPAs &amp; flagged submissions</div>
+          </div>
+          <div class="dash-card" onclick="showView('standup')">
+            <div class="dash-card-icon" style="background:#f1f5f9;color:#334155"><i class="ti ti-presentation"></i></div>
+            <div class="dash-card-title">Standup</div>
+            <div class="dash-card-desc">Daily service ops — OOS, inflow/outflow &amp; productivity by hub</div>
+          </div>
           <div class="dash-card admin-only" id="home-admin-card" style="display:none" onclick="showView('admin')">
             <div class="dash-card-icon" style="background:#fef2f2;color:#dc2626">
               <i class="ti ti-shield-lock"></i>
