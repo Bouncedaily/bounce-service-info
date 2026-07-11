@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 36 -->
+<!-- app build 37 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -364,7 +364,7 @@ async function startAudit(hubId,draft){
 function renderSections(){
   const wrap=document.getElementById('sections'); wrap.innerHTML='';
   TEMPLATE.forEach((s,i)=>{
-    const sec=document.createElement('div'); sec.className='sec'+(i===0?' open':'');
+    const sec=document.createElement('div'); sec.className='sec';
     let body='';
     if(s.name==='Technician Skill Level'){ body=techUI(); }
     else { body = s.checkpoints.length ? s.checkpoints.map(cpUI).join('') : ''; }
@@ -552,8 +552,6 @@ function openReview(){
       <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._riskBand||'—')} (${STATE._risk||0})</span><div class="l muted" style="margin-top:4px">Risk</div></div></div>
     <div class="cp-label">Sections</div>
     <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} Issue</td></tr>`).join('')}</tbody></table>
-    <div class="cp-label" style="margin-top:14px">Evidence completeness</div>
-    ${(()=>{if(!issues.length)return '<div class="sub" style="color:#16a34a">Every question has a photo and every issue has an observation ✓</div>';const bySec={};issues.forEach(i=>{bySec[i.section]=(bySec[i.section]||0)+1;});return '<div class="sub" style="margin-bottom:6px">'+issues.length+' item(s) need a photo/observation — by section:</div>'+Object.keys(bySec).map(sec=>`<div class="rv-issue"><span>${esc(sec)}</span><span style="color:#dc2626;font-weight:700;white-space:nowrap">${bySec[sec]} to capture</span></div>`).join('');})()}
     <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
     ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No NGs — no CAPAs needed.</div>'}
     <div class="cp-label" style="margin-top:14px">Acknowledgement</div>
