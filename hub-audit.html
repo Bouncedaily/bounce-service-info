@@ -316,7 +316,7 @@ async function init(){
   if(!ME||!ME.can_audit){
     const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
   }
-  if(ME&&ME.is_admin){const ab=document.getElementById('admin-open-btn');if(ab)ab.style.display='';}
+  /* Hub Audit user management now lives in the Admin Panel */
   // template
   try{
     const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
