@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 39 -->
+<!-- app build 40 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -122,10 +122,21 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
     <div class="card" id="open-capa-btn" style="cursor:pointer">
       <div class="between"><b>Open CAPA</b><span class="muted">›</span></div>
     </div>
+    <div class="card" id="admin-open-btn" style="cursor:pointer;display:none">
+      <div class="between"><b>Admin — Users</b><span class="muted">›</span></div>
+    </div>
     <div class="card">
       <b>Completed audit scores</b>
       <div id="recent" style="margin-top:10px" class="muted">Loading…</div>
     </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="view-admin" class="hidden">
+    <div class="scorebar" style="justify-content:space-between"><b>Admin — Users</b><button class="btn btn-ghost" id="admin-back">← Back</button></div>
+    <div class="card"><button class="btn btn-primary" id="admin-add">+ Add user</button></div>
+    <div id="admin-form" class="card hidden"></div>
+    <div id="admin-list"></div>
   </div>
 
   <!-- CAPA -->
@@ -252,11 +263,11 @@ function saveDraft(){ if(!STATE)return; try{ localStorage.setItem(DRAFT_KEY,JSON
 function getDraft(){ try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){return null;} }
 function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
-const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
+const ROLE_LBL={hub_manager:'Hub Manager',service_manager:'Service Manager',auditor:'Auditor',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder',city_head:'City Head'};
 function roleLabel(r){return ROLE_LBL[r]||r||'—';}
 let CAPA_REC={};
 async function loadSignedThumbs(elId,paths){const el=document.getElementById(elId);if(!el||!paths||!paths.length)return;const parts=[];for(const p of paths){const u=await signedUrl(p);if(u)parts.push('<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:110px;border-radius:8px;border:1px solid var(--border);margin:2px"></a>');}el.innerHTML=parts.join('');}
-const APPROVER_ROLES=['regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
+const APPROVER_ROLES=['city_head','regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
 function isApprover(){return !!(ME&&(ME.is_admin||APPROVER_ROLES.indexOf(ME.role)>=0));}
 async function signedUrl(path){try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
 async function loadSignedImg(elId,path){const u=await signedUrl(path);const el=document.getElementById(elId);if(el&&u)el.innerHTML='<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:130px;border-radius:8px;border:1px solid var(--border)"></a>';}
@@ -305,6 +316,7 @@ async function init(){
   if(!ME||!ME.can_audit){
     const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
   }
+  if(ME&&ME.is_admin){const ab=document.getElementById('admin-open-btn');if(ab)ab.style.display='';}
   // template
   try{
     const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
@@ -655,7 +667,7 @@ function inHours(){
     return hm>=p(s)&&hm<=p(e);
   }catch(e){return null}
 }
-function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-capa').classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
+function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-capa').classList.add('hidden');var va=document.getElementById('view-admin');if(va)va.classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
 
 document.getElementById('start-btn').onclick=()=>{const id=document.getElementById('hub-select').value;if(id){clearDraft();startAudit(id);}};
 (function(){const va=document.getElementById('view-audit');if(va){va.addEventListener('input',scheduleSave);va.addEventListener('change',scheduleSave);va.addEventListener('click',scheduleSave);}})();
@@ -664,7 +676,7 @@ document.getElementById('cancel-btn').onclick=()=>{if(confirm('Discard this audi
 document.getElementById('submit-btn').onclick=reviewOrFlag;
 
 // ---- Open CAPAs (post-submission action + closure) ----
-let CAPAS=[], CAPAS_ALL=[], CAPA_FILTER=null;
+let CAPAS=[], CAPAS_ALL=[], CAPA_FILTER=null, ADMIN_USERS=[];
 function fillCapaHubs(){const c=document.getElementById('capa-city').value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('capa-hub').innerHTML=hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
 function showCapaView(){
   document.getElementById('view-home').classList.add('hidden');
@@ -768,6 +780,53 @@ document.getElementById('open-capa-btn').onclick=showCapaView;
 document.getElementById('capa-back').onclick=goHome;
 document.getElementById('capa-load').onclick=loadCapas;
 document.getElementById('capa-city').onchange=fillCapaHubs;
+
+// ---- Admin: user management ----
+function adminHubName(id){const h=HUBS.find(x=>x.id===id);return h?h.name:'';}
+function showAdminView(){document.getElementById('view-home').classList.add('hidden');document.getElementById('view-admin').classList.remove('hidden');document.getElementById('admin-form').classList.add('hidden');loadAdminUsers();window.scrollTo(0,0);}
+async function loadAdminUsers(){const el=document.getElementById('admin-list');el.innerHTML='<div class="card muted">Loading…</div>';try{ADMIN_USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');renderAdminList();}catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}}
+function renderAdminList(){const el=document.getElementById('admin-list');if(!ADMIN_USERS.length){el.innerHTML='<div class="card muted">No users yet.</div>';return;}el.innerHTML=ADMIN_USERS.map((u,i)=>'<div class="card" style="padding:12px"><div class="between"><div><b>'+esc(u.name)+'</b> <span class="sub">'+esc(u.email)+'</span><div class="sub">'+roleLabel(u.role)+(u.hub_id?(' · '+esc(adminHubName(u.hub_id))):'')+(u.city?(' · '+esc(u.city)):'')+(u.can_audit?' · audits':'')+(u.is_admin?' · admin':'')+(u.is_active===false?' · inactive':'')+'</div></div><button class="btn btn-ghost" onclick="editUser('+i+')">Edit</button></div></div>').join('');}
+function userForm(u){
+  const roles=[['auditor','Auditor'],['hub_manager','Hub Manager'],['service_manager','Service Manager'],['city_head','City Head'],['regional_manager_ops','Regional Manager - Ops'],['regional_manager_service','Regional Manager - Service'],['ops_head','Ops Head'],['service_head','Service Head'],['founder','Founder']];
+  const cities=[...new Set(HUBS.map(h=>h.city))].sort();
+  const f=document.getElementById('admin-form');f.classList.remove('hidden');
+  f.innerHTML='<b>'+(u.id?'Edit user':'Add user')+'</b>'
+    +'<label>Name</label><input id="au-name" value="'+esc(u.name||'')+'">'
+    +'<label>Email</label><input id="au-email" type="email" value="'+esc(u.email||'')+'" '+(u.id?'disabled':'')+'>'
+    +'<label>Role</label><select id="au-role">'+roles.map(r=>'<option value="'+r[0]+'"'+(u.role===r[0]?' selected':'')+'>'+r[1]+'</option>').join('')+'</select>'
+    +'<label>City (for City Head / Regional)</label><select id="au-city"><option value="">—</option>'+cities.map(c=>'<option'+(u.city===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select>'
+    +'<label>Hub (for Hub / Service Manager)</label><select id="au-hub"><option value="">—</option>'+HUBS.map(h=>'<option value="'+h.id+'"'+(u.hub_id===h.id?' selected':'')+'>'+esc(h.name)+' — '+esc(h.city)+'</option>').join('')+'</select>'
+    +'<label class="row" style="gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="au-audit" style="width:auto" '+(u.can_audit?'checked':'')+'> Can audit</label>'
+    +'<label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="au-admin" style="width:auto" '+(u.is_admin?'checked':'')+'> Admin</label>'
+    +'<label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="au-active" style="width:auto" '+(u.is_active!==false?'checked':'')+'> Active</label>'
+    +'<div class="err" id="au-err"></div>'
+    +'<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-primary" id="au-save">Save</button><button class="btn btn-ghost" id="au-cancel">Cancel</button></div>';
+  document.getElementById('au-save').onclick=()=>saveUser(u.id);
+  document.getElementById('au-cancel').onclick=()=>f.classList.add('hidden');
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function editUser(i){userForm(ADMIN_USERS[i]);}
+async function saveUser(id){
+  const err=document.getElementById('au-err');err.textContent='';
+  const name=document.getElementById('au-name').value.trim();
+  const email=document.getElementById('au-email').value.trim().toLowerCase();
+  const role=document.getElementById('au-role').value;
+  const city=document.getElementById('au-city').value||null;
+  const hub=document.getElementById('au-hub').value||null;
+  if(!name||!email){err.textContent='Name and email are required.';return;}
+  if((role==='hub_manager'||role==='service_manager')&&!hub){err.textContent='Hub is required for Hub/Service Manager.';return;}
+  const body={name:name,role:role,city:city,hub_id:hub,can_audit:document.getElementById('au-audit').checked,is_admin:document.getElementById('au-admin').checked,is_active:document.getElementById('au-active').checked};
+  if(!id)body.email=email;
+  const btn=document.getElementById('au-save');btn.disabled=true;btn.textContent='Saving…';
+  try{
+    if(id)await api('auditors?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    else await api('auditors',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    toast('User saved');document.getElementById('admin-form').classList.add('hidden');loadAdminUsers();
+  }catch(e){err.textContent='Save failed: '+e.message;btn.disabled=false;btn.textContent='Save';}
+}
+document.getElementById('admin-open-btn').onclick=showAdminView;
+document.getElementById('admin-back').onclick=goHome;
+document.getElementById('admin-add').onclick=()=>userForm({});
 
 function showLogin(){document.getElementById('view-login').classList.remove('hidden');document.getElementById('view-home').classList.add('hidden');document.getElementById('view-audit').classList.add('hidden');var vc=document.getElementById('view-capa');if(vc)vc.classList.add('hidden');document.getElementById('signout').style.display='none';document.getElementById('who').textContent='';}
 async function doLogin(){
