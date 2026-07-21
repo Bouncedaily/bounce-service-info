@@ -846,6 +846,22 @@ function showLoginMsg(type, text) {
   msg.textContent = text;
 }
 
+const PERM_MAP = {
+  'dashboard':'rmc','fleet':'fleet_km','parts':'parts_testing','tyre':'wear_tear','msl':'msl_dashboard',
+  'oos':'oos','hubaudit':'hub_audit','standup':'standup','tech':'tech','jcreview':'jcreview','feedback':'feedback','leakage':'leakage'
+};
+function canAccess(view) {
+  if (view === 'home') return true;
+  const sess = getSess();
+  if (!sess) return false;
+  if (sess.role === 'admin') return true;      // admin sees everything
+  if (view === 'admin') return false;          // non-admins never see admin
+  const key = PERM_MAP[view];
+  if (!key) return true;                        // unmapped -> allow
+  const perms = sess.permissions || {};
+  return !!perms[key];
+}
+
 function applyPermissions(perms, role) {
   if (role === 'admin' || !perms) return; // admin sees everything
   const map = {
@@ -926,6 +942,7 @@ function signOut() {
 let currentView = 'home';
 
 function showView(view, updateHash) {
+  if (!canAccess(view)) { view = 'home'; updateHash = true; } // no permission -> home
   if (updateHash !== false) history.replaceState(null, '', '#' + view);
   currentView = view;
 
