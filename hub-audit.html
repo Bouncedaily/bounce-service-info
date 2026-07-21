@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 40 -->
+<!-- app build 41 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -230,9 +230,10 @@ function token(){return _token||sess().access_token||ANON}
 function hdr(extra){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},extra||{})}
 async function api(path,opts){
   opts=opts||{};
+  await ensureToken();
   const go=()=>fetch(SB_URL+'/rest/v1/'+path,Object.assign({},opts,{headers:hdr(opts.headers||{})}));
   let r=await go();
-  if(r.status===401){ const nt=await refreshToken(); if(nt) r=await go(); }
+  if(r.status===401||r.status===403){ const nt=await refreshToken(); if(nt) r=await go(); }
   const t=await r.text();
   let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
   if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
@@ -250,7 +251,7 @@ function openCamera(cb){cam.cb=cb;document.getElementById('cam-modal').classList
 function grabFrame(){const v=document.getElementById('cam-video');let w=v.videoWidth,h=v.videoHeight;if(!w||!h){toast('Camera not ready yet');return;}const max=1600;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(v,0,0,w,h);const cb=cam.cb;cam.cb=null;cv.toBlob(b=>{closeCam();if(cb)cb(b);},'image/jpeg',0.85);}
 function geo(){return new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;res(v);}};setTimeout(()=>fin(null),3000);try{if(!navigator.geolocation)return fin(null);navigator.geolocation.getCurrentPosition(p=>fin({lat:p.coords.latitude,lng:p.coords.longitude}),()=>fin(null),{timeout:3000,maximumAge:600000});}catch(e){fin(null);}});}
 function xhrUpload(blob,path,tok){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST',SB_URL+'/storage/v1/object/hub-audit-photos/'+path);xhr.setRequestHeader('apikey',ANON);xhr.setRequestHeader('Authorization','Bearer '+tok);xhr.setRequestHeader('Content-Type','image/jpeg');xhr.setRequestHeader('x-upsert','true');xhr.timeout=25000;xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve(path);else reject(new Error('HTTP '+xhr.status+' '+((xhr.responseText||'').slice(0,140))));};xhr.onerror=()=>reject(new Error('network/CORS blocked'));xhr.ontimeout=()=>reject(new Error('timed out (25s)'));xhr.send(blob);});}
-async function uploadPhoto(blob,path){try{return await xhrUpload(blob,path,token());}catch(e){if((e.message||'').indexOf('HTTP 401')>=0){const nt=await refreshToken();if(nt)return await xhrUpload(blob,path,nt);}throw e;}}
+async function uploadPhoto(blob,path){await ensureToken();try{return await xhrUpload(blob,path,token());}catch(e){var m=e.message||'';if(/HTTP 40[013]|exp claim|JWT|Unauthorized|token/i.test(m)){const nt=await refreshToken();if(nt)return await xhrUpload(blob,path,nt);}throw e;}}
 function renderThumbs(el,arr){el.innerHTML='';arr.forEach((p,i)=>{const sp=document.createElement('span');sp.className='thumb'+(p.uploading?' up':'')+(p.error?' er':'');sp.textContent=p.uploading?'⏳ uploading…':(p.error?('⚠ '+(p.errmsg||'failed')):'✓ photo');if(!p.uploading){const x=document.createElement('i');x.textContent='✕';x.onclick=()=>{arr.splice(i,1);renderThumbs(el,arr)};sp.appendChild(x);}el.appendChild(sp);});}
 function attachPhoto(btn,thumbs,arr,prefix){if(!btn)return;btn.onclick=()=>openCamera(async(blob)=>{if(!blob)return;const ph={path:null,capturedAt:new Date().toISOString(),lat:null,lng:null,uploading:true,errmsg:''};arr.push(ph);renderThumbs(thumbs,arr);try{let g=null;try{g=await geo();}catch(e){}if(g){ph.lat=g.lat;ph.lng=g.lng;}const path=STATE.localId+'/'+prefix+'/'+uid()+'.jpg';await uploadPhoto(blob,path);ph.path=path;ph.uploading=false;}catch(e){ph.error=true;ph.uploading=false;ph.errmsg=(e&&e.message)||'failed';toast('Photo: '+ph.errmsg);}renderThumbs(thumbs,arr);if(STATE)updateSectionCounts();scheduleSave();});}
 function photoRowHtml(id){return '<div class="photorow"><button type="button" class="photo-btn" id="pbtn-'+id+'">📷 Photo</button><span class="thumbs" id="pthumb-'+id+'"></span></div>';}
@@ -269,7 +270,7 @@ let CAPA_REC={};
 async function loadSignedThumbs(elId,paths){const el=document.getElementById(elId);if(!el||!paths||!paths.length)return;const parts=[];for(const p of paths){const u=await signedUrl(p);if(u)parts.push('<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:110px;border-radius:8px;border:1px solid var(--border);margin:2px"></a>');}el.innerHTML=parts.join('');}
 const APPROVER_ROLES=['city_head','regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
 function isApprover(){return !!(ME&&(ME.is_admin||APPROVER_ROLES.indexOf(ME.role)>=0));}
-async function signedUrl(path){try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
+async function signedUrl(path){await ensureToken();try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
 async function loadSignedImg(elId,path){const u=await signedUrl(path);const el=document.getElementById(elId);if(el&&u)el.innerHTML='<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="max-width:130px;border-radius:8px;border:1px solid var(--border)"></a>';}
 function agingLine(c){const day=86400000;const opened=c.created_at?Math.floor((Date.now()-new Date(c.created_at).getTime())/day):0;let due='';if(c.due_date){const d=Math.ceil((new Date(c.due_date).getTime()-Date.now())/day);due=d<0?(' · <span style=\"color:var(--red);font-weight:700\">overdue '+(-d)+'d</span>'):(' · due in '+d+'d');}return 'Open '+opened+'d'+due;}
 function dueFor(sev){const m=(CFG.capa_due_days_by_severity)||{Critical:3,Medium:7,Low:15};const d=(m[sev]!=null)?m[sev]:7;const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
