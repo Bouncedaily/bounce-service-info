@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 45 -->
+<!-- app build 46 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -778,10 +778,11 @@ async function sendBackCapa(i){
     toast('Sent back to In Progress'); loadCapas();
   }catch(e){err.textContent='Send back failed: '+e.message;}
 }
-document.getElementById('open-capa-btn').onclick=showCapaView;
-document.getElementById('capa-back').onclick=goHome;
-document.getElementById('capa-load').onclick=loadCapas;
-document.getElementById('capa-city').onchange=fillCapaHubs;
+function on(id,ev,fn){const e=document.getElementById(id);if(e)e[ev]=fn;}
+on('open-capa-btn','onclick',showCapaView);
+on('capa-back','onclick',goHome);
+on('capa-load','onclick',loadCapas);
+on('capa-city','onchange',fillCapaHubs);
 
 // ---- Admin: user management ----
 function adminHubName(id){const h=HUBS.find(x=>x.id===id);return h?h.name:'';}
