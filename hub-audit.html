@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 43 -->
+<!-- app build 44 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -311,6 +311,7 @@ async function init(){
   citySel.innerHTML='<option value="">— Select city —</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
   function fillHubs(){const c=citySel.value;const hs=HUBS.filter(h=>h.city===c);document.getElementById('hub-select').innerHTML='<option value="">— Select hub —</option>'+hs.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');}
   citySel.onchange=fillHubs; fillHubs();
+  loadRecent(); // independent of checklist load
   if(!ME||!ME.can_audit){
     const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
   }
@@ -323,14 +324,16 @@ async function init(){
     TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
     CP_BY_ID={};TEMPLATE.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
   }catch(e){toast('Failed to load checklist: '+e.message)}
-  loadRecent();
   const draft=getDraft();
   if(draft&&draft.hubId&&ME&&ME.can_audit&&HUBS.some(h=>h.id===draft.hubId)){ startAudit(draft.hubId,draft); }
 }
 
 async function loadRecent(){
   try{
-    const rows=await api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&status=eq.Submitted&order=created_at.desc&limit=15');
+    const rows=await Promise.race([
+      api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&status=eq.Submitted&order=created_at.desc&limit=15'),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timed out')),15000))
+    ]);
     const hubName=id=>{const h=HUBS.find(x=>x.id===id);return h?h.name:'—'};
     if(!rows.length){document.getElementById('recent').innerHTML='<span class="muted">No audits yet.</span>';return}
     document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th></tr></thead><tbody>'+
