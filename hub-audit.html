@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 42 -->
+<!-- app build 43 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -318,7 +318,7 @@ async function init(){
   // template
   try{
     const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
-    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,owner_role&active_to=is.null&order=sort_order.asc');
+    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,photo_required_on_ok,owner_role&active_to=is.null&order=sort_order.asc');
     const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
     TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
     CP_BY_ID={};TEMPLATE.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
@@ -520,7 +520,7 @@ function updateSectionCounts(){
       if(st&&st.response){answered++;if(st.response==='OK')ok++;else if(st.response==='NG')ng++;}
       const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));
       const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));
-      if(!hasPhoto||missObs)miss++;
+      if((needsPhoto(cp,st)&&!hasPhoto)||missObs)miss++;
     });
     const complete=answered===cps.length;
     const sec=el.closest('.sec');
@@ -537,11 +537,12 @@ function updateSectionCounts(){
   });
 }
 
+function needsPhoto(c,st){if(!st||!st.response)return false;if(st.response==='NG')return c.photo_required_on_ng!==false;if(st.response==='OK')return c.photo_required_on_ok!==false;return false;}
 // review before submit
 function reviewOrFlag(){
   let anyBad=false, firstBad=null;
   TEMPLATE.forEach(s=>{const cps=s.checkpoints||[];if(!cps.length)return;let miss=0;
-    cps.forEach(cp=>{const st=STATE.responses[cp.id];const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));if(!hasPhoto||missObs)miss++;});
+    cps.forEach(cp=>{const st=STATE.responses[cp.id];const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));if((needsPhoto(cp,st)&&!hasPhoto)||missObs)miss++;});
     const el=document.getElementById('secct-'+s.id);
     if(miss>0){anyBad=true;if(el){el.innerHTML='<span style="color:#dc2626;font-weight:700">⚠ '+miss+' to capture</span>';const sec=el.closest('.sec');if(sec&&!firstBad)firstBad=sec;}}
   });
@@ -560,7 +561,7 @@ function openReview(){
       if(st&&st.response==='OK')so++; else if(st&&st.response==='NG')sn++;
       const hasPhoto=!!(st&&st.photos&&st.photos.some(p=>p.path));
       const missObs=!!(st&&st.response==='NG'&&!(st.observation&&st.observation.trim()));
-      if(!hasPhoto||missObs)issues.push({label:c.label,section:s.name,photo:hasPhoto,obs:!missObs});
+      if((needsPhoto(c,st)&&!hasPhoto)||missObs)issues.push({label:c.label,section:s.name,photo:hasPhoto,obs:!missObs});
     });
     secRows.push({name:s.name,ok:so,ng:sn});
   });
@@ -593,9 +594,9 @@ async function submitAudit(){
   // validate NG observations
   for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
     if(st&&st.response==='NG'&&!(st.observation&&st.observation.trim())){err.textContent='Add an observation for every Issue (e.g. "'+c.label+'").';return}}}
-  // photo mandatory for every question
+  // photo required per question rule (Issue always; OK only where configured)
   for(const s of TEMPLATE){for(const c of s.checkpoints){const st=STATE.responses[c.id];
-    if(!(st&&st.photos&&st.photos.some(p=>p.path))){err.textContent='Photo required for every question — missing on "'+c.label+'".';return}}}
+    if(needsPhoto(c,st)&&!(st&&st.photos&&st.photos.some(p=>p.path))){err.textContent='Photo required — missing on "'+c.label+'".';return}}}
   if(STATE._capaNeeded){
     const valid=STATE.capa.filter(c=>c.finding&&c.finding.trim()&&c.action&&c.action.trim());
     if(!valid.length){err.textContent='This audit needs at least one CAPA (finding + action) before submitting.';return}
