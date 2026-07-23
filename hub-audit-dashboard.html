@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hub Audit Dashboard</title>
 <style>
-:root{--red:#f53b3b;--blue:#2563eb;--blue-light:#eff6ff;--green:#16a34a;--amber:#d97706;--purple:#7c3aed;--teal:#0891b2;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;--text:#0f172a;--muted:#64748b;}
+:root{--red:#f53b3b;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;--text:#0f172a;--muted:#64748b;}
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
 .wrap{max-width:1100px;margin:0 auto;padding:18px}
@@ -14,8 +13,7 @@ h1{font-size:18px;margin:0}
 .between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
-.kpi .v{font-size:26px;font-weight:800;line-height:1.1}
-.kpi .l{font-size:12px;color:var(--muted);margin-top:4px}
+.kpi .v{font-size:26px;font-weight:800;line-height:1.1}.kpi .l{font-size:12px;color:var(--muted);margin-top:4px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
 .card h3{margin:0 0 10px;font-size:14px}
 table{width:100%;border-collapse:collapse}
@@ -24,103 +22,216 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
 .muted{color:var(--muted)}
 .btn{border:none;border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer;background:var(--red);color:#fff;text-decoration:none;display:inline-block;font-size:13px}
+.btn-ghost{background:#eef2f7;color:var(--text)}
 .err{color:var(--red);font-size:13px}
-.right{text-align:right}
 .bars{display:flex;gap:8px;flex-wrap:wrap}
-.bar{background:#fafbfe;border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12px}
+.bar{background:#fafbfe;border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer}
+.bar.sel{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
 .bar b{font-size:16px;display:block}
+label{font-size:12px;color:var(--muted);font-weight:600}
+select,input,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff}
+textarea{min-height:52px;resize:vertical}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opt{padding:6px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;font-weight:600}
+.opt.on{background:#334155;color:#fff;border-color:#334155}
+.capa{border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.capa-hd{display:flex;justify-content:space-between;gap:8px;padding:11px 13px;cursor:pointer;background:#fafbfe;font-size:13px}
+.capa-bd{display:none;padding:6px 13px 14px}
+.capa.open .capa-bd{display:block}
+.thumbs img{max-width:120px;border-radius:8px;border:1px solid var(--border);margin:3px}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow:auto}
+.modal.show{display:flex}
+.modal-card{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:18px;margin:auto}
+.rrow{padding:8px 0;border-bottom:1px solid #f1f4f9}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="between">
-    <div style="display:flex;align-items:center;gap:10px"><img src="https://bouncedaily.in/logo%20%20(1).png" alt="Bounce" style="height:32px" onerror="this.style.display='none'"><div><h1>Hub <span style="color:var(--red)">Audit</span> Dashboard</h1><div class="sub">Network performance · CAPAs · flagged submissions</div></div></div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="https://bouncedaily.in/logo%20%20(1).png" alt="Bounce" style="height:32px" onerror="this.style.display='none'"><div><h1>Hub <span style="color:var(--red)">Audit</span> Dashboard</h1><div class="sub">Scorecards · CAPAs · drill-down</div></div></div>
     <a class="btn" href="#" onclick="window.open('https://bouncedaily.github.io/bounce-service-info/hub-audit.html?v='+Date.now(),'_blank');return false;">Open capture app ↗</a>
   </div>
   <div id="err" class="err"></div>
+  <div class="card"><div class="filters"><div style="flex:1;min-width:130px"><label>City</label><select id="f-city"></select></div><div style="flex:1;min-width:170px"><label>Hub</label><select id="f-hub"></select></div><button class="btn btn-ghost" id="f-clear" style="align-self:flex-end">Clear</button></div></div>
   <div class="kpis" id="kpis"></div>
-
   <div class="card"><h3>Hub scorecards</h3><div id="scorecards" class="muted">Loading…</div></div>
-  <div class="card"><h3>CAPA tracker</h3><div id="capa-aging" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted">Loading…</div></div>
+  <div class="card"><h3>CAPA management</h3><div id="capa-sum" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted">Loading…</div></div>
   <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted">Loading…</div></div>
   <div class="card"><h3>Recent audits</h3><div id="recent" class="muted">Loading…</div></div>
 </div>
+<div class="modal" id="audit-modal"><div class="modal-card" id="audit-modal-card"></div></div>
 
 <script>
 const SB_URL='https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-function sess(){try{return JSON.parse(localStorage.getItem('sb_session')||'{}')}catch(e){return{}}}
+function sess(){try{return JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}')}catch(e){return{}}}
 let _token=null;
 function jwtP(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return null}}
 function expd(t){const p=jwtP(t);return !p||!p.exp||(p.exp*1000-Date.now())<60000;}
 async function refreshToken(){const s=sess();if(!s.refresh_token)return null;try{const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});if(!r.ok)return null;const d=await r.json();localStorage.setItem('sb_session',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token,email:(d.user&&d.user.email)||s.email,expires_at:Date.now()+864e5}));_token=d.access_token;return d.access_token;}catch(e){return null}}
 async function ensureToken(){const s=sess();let t=s.access_token;if(!t)return null;if(expd(t))t=await refreshToken();_token=t||s.access_token;return _token;}
 function token(){return _token||sess().access_token||ANON}
-async function api(p){let r=await fetch(SB_URL+'/rest/v1/'+p,{headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit'}});if(r.status===401){const nt=await refreshToken();if(nt)r=await fetch(SB_URL+'/rest/v1/'+p,{headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit'}});}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+function hdr(x){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},x||{});}
+async function api(p,o){o=o||{};await ensureToken();const go=()=>fetch(SB_URL+'/rest/v1/'+p,Object.assign({},o,{headers:hdr(o.headers||{})}));let r=await go();if(r.status===401||r.status===403){const nt=await refreshToken();if(nt)r=await go();}const t=await r.text();let d=t?JSON.parse(t):null;if(!r.ok)throw new Error((d&&d.message)||('HTTP '+r.status));return d;}
+async function signedUrl(path){await ensureToken();try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
+async function loadImgs(elId,paths){const el=document.getElementById(elId);if(!el||!paths||!paths.length)return;const parts=[];for(const p of paths){const u=await signedUrl(p);if(u)parts.push('<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'"></a>');}el.innerHTML=parts.join('');}
+function fileToJpeg(file){return new Promise(res=>{const url=URL.createObjectURL(file);const img=new Image();const done=b=>{URL.revokeObjectURL(url);res(b||file)};const to=setTimeout(()=>done(file),7000);img.onload=()=>{clearTimeout(to);try{const max=1600;let w=img.naturalWidth,h=img.naturalHeight;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);cv.toBlob(b=>done(b),'image/jpeg',0.85);}catch(e){done(file)}};img.onerror=()=>{clearTimeout(to);done(file)};img.src=url;});}
+function uid(){return (crypto.randomUUID&&crypto.randomUUID())||(Date.now()+'-'+Math.random().toString(36).slice(2));}
+async function uploadPhoto(blob,path){await ensureToken();return await new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST',SB_URL+'/storage/v1/object/hub-audit-photos/'+path);xhr.setRequestHeader('apikey',ANON);xhr.setRequestHeader('Authorization','Bearer '+token());xhr.setRequestHeader('Content-Type','image/jpeg');xhr.setRequestHeader('x-upsert','true');xhr.timeout=30000;xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve(path);else reject(new Error('HTTP '+xhr.status));};xhr.onerror=()=>reject(new Error('network'));xhr.ontimeout=()=>reject(new Error('timeout'));xhr.send(blob);});}
 function esc(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function ratingColor(r){return{'Excellent':'#16a34a','Good':'#d97706','Needs Improvement':'#f97316','Critical':'#dc2626'}[r]||'#94a3b8'}
 function bandColor(b){return{'Low':'#16a34a','Medium':'#d97706','High':'#f97316','Critical':'#dc2626'}[b]||'#94a3b8'}
 function daysAgo(d){if(!d)return null;return Math.floor((Date.now()-new Date(d).getTime())/864e5)}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}):'—'}
+const ROLE_LBL={auditor:'Auditor',hub_manager:'Hub Manager',service_manager:'Service Manager',city_head:'City Head',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
+function roleLabel(r){return ROLE_LBL[r]||r||'—'}
+const APPROVER_ROLES=['city_head','regional_manager_ops','regional_manager_service','ops_head','service_head','founder'];
+
+let HUBS=[],AUDITS=[],CAPAS=[],AUDITORS=[],ME=null,HUBBYID={},AUDBYID={},CAPA_REC={},FILTER={city:'',hub:''},CAPA_FILTER=null;
+function audName(id){const a=AUDITORS.find(x=>x.id===id);return a?a.name:'—'}
+function hubName(id){const h=HUBBYID[id];return h?h.name:'—'}
+function isApprover(){return !!(ME&&(ME.is_admin||APPROVER_ROLES.indexOf(ME.role)>=0))}
+function inFilter(hubId){const h=HUBBYID[hubId];if(!h)return false;if(FILTER.hub)return hubId===FILTER.hub;if(FILTER.city)return h.city===FILTER.city;return true;}
 
 async function load(){
   const tk=await ensureToken();
-  if(!tk){document.getElementById('err').textContent='Session expired — please sign in to the dashboard again.';return;}
-  let hubs=[],audits=[],capas=[],auditors=[];
+  if(!tk){document.getElementById('err').textContent='Session expired — sign in again.';return;}
   try{
-    hubs=await api('hubs?select=id,name,city,hub_type,audit_cadence_days,is_active&order=city.asc,name.asc');
-    audits=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at&status=eq.Submitted&order=submitted_at.desc');
-    capas=await api('capa_items?select=id,audit_id,finding,status,due_date,created_at,owner_id&order=created_at.desc');
-    auditors=await api('auditors?select=id,name');
-  }catch(e){document.getElementById('err').textContent='Load error: '+e.message;}
-  const hubById=Object.fromEntries(hubs.map(h=>[h.id,h]));
-  const audById=Object.fromEntries(audits.map(a=>[a.id,a]));
-  const audName=id=>{const a=auditors.find(x=>x.id===id);return a?a.name:'—'};
+    HUBS=await api('hubs?select=id,name,city,hub_type,audit_cadence_days,is_active&order=city.asc,name.asc');
+    AUDITS=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at&status=eq.Submitted&order=submitted_at.desc');
+    CAPAS=await api('capa_items?select=id,audit_id,finding,action,status,due_date,created_at,owner_id,owner_role,checkpoint_id,origin_photos,closure_photo_url,closure_remark,owner:owner_id(name),audit:audit_id(hub_id)&order=created_at.desc');
+    AUDITORS=await api('auditors?select=id,name,role,is_admin');
+    const em=encodeURIComponent(sess().email||'');
+    ME=(await api('auditors?select=id,name,role,is_admin,hub_id,city&email=eq.'+em))[0]||null;
+  }catch(e){document.getElementById('err').textContent='Load error: '+e.message;return;}
+  HUBBYID=Object.fromEntries(HUBS.map(h=>[h.id,h]));
+  AUDBYID=Object.fromEntries(AUDITS.map(a=>[a.id,a]));
+  const cut=Date.now()-60*864e5;CAPA_REC={};
+  CAPAS.forEach(c=>{if(c.checkpoint_id&&new Date(c.created_at).getTime()>=cut)CAPA_REC[c.checkpoint_id]=(CAPA_REC[c.checkpoint_id]||0)+1;});
+  CAPAS.forEach(c=>{c.hub_id=c.audit&&c.audit.hub_id;c._status=c.status;c._action=c.action||'';c._due=c.due_date||'';c._remark=c.closure_remark||'';c._photo=null;});
+  // filters
+  const cities=[...new Set(HUBS.map(h=>h.city))].sort();
+  document.getElementById('f-city').innerHTML='<option value="">All cities</option>'+cities.map(c=>`<option${FILTER.city===c?' selected':''}>${esc(c)}</option>`).join('');
+  fillHubFilter();
+  document.getElementById('f-city').onchange=e=>{FILTER.city=e.target.value;FILTER.hub='';fillHubFilter();renderAll();};
+  document.getElementById('f-hub').onchange=e=>{FILTER.hub=e.target.value;renderAll();};
+  document.getElementById('f-clear').onclick=()=>{FILTER={city:'',hub:''};document.getElementById('f-city').value='';fillHubFilter();renderAll();};
+  renderAll();
+}
+function fillHubFilter(){const hs=HUBS.filter(h=>!FILTER.city||h.city===FILTER.city);document.getElementById('f-hub').innerHTML='<option value="">All hubs</option>'+hs.map(h=>`<option value="${h.id}"${FILTER.hub===h.id?' selected':''}>${esc(h.name)}</option>`).join('');}
 
-  // latest audit per hub
-  const latest={};audits.forEach(a=>{if(!latest[a.hub_id])latest[a.hub_id]=a;});
-  const latestList=Object.values(latest);
+function renderAll(){renderKpis();renderScorecards();renderCapa();renderFlagged();renderRecent();}
+
+function latestByHub(){const l={};AUDITS.forEach(a=>{if(!l[a.hub_id])l[a.hub_id]=a;});return l;}
+
+function renderKpis(){
+  const latest=latestByHub();const activeHubs=HUBS.filter(h=>h.is_active!==false&&inFilter(h.id));
+  const latestList=activeHubs.map(h=>latest[h.id]).filter(Boolean);
   const netScore=latestList.length?Math.round(latestList.reduce((s,a)=>s+(+a.overall_score||0),0)/latestList.length*10)/10:null;
-  const activeHubs=hubs.filter(h=>h.is_active!==false);
-  // coverage: hubs audited within cadence window
   let covered=0;activeHubs.forEach(h=>{const a=latest[h.id];if(a){const cad=h.audit_cadence_days||30;if(daysAgo(a.audit_date)<=cad)covered++;}});
   const coverage=activeHubs.length?Math.round(covered/activeHubs.length*100):0;
   const critical=latestList.filter(a=>a.risk_band==='Critical'||a.risk_band==='High'||a.rating==='Critical').length;
-  const openCapas=capas.filter(c=>c.status!=='Closed');
+  const openCapas=CAPAS.filter(c=>c.status!=='Closed'&&inFilter(c.hub_id));
   const today=new Date();today.setHours(0,0,0,0);
-  const overdueCapas=openCapas.filter(c=>c.due_date&&new Date(c.due_date)<today);
-
+  const overdue=openCapas.filter(c=>c.due_date&&new Date(c.due_date)<today);
   document.getElementById('kpis').innerHTML=[
-    ['Network score',netScore==null?'—':netScore,'avg of latest audit per hub'],
-    ['Audit coverage',coverage+'%',covered+' of '+activeHubs.length+' hubs in cadence'],
-    ['High/Critical risk',critical,'hubs at latest audit'],
-    ['Open CAPAs',openCapas.length,overdueCapas.length+' overdue'],
-    ['Audits submitted',audits.length,'all time']
+    ['Network score',netScore==null?'—':netScore,'avg latest per hub'],
+    ['Audit coverage',coverage+'%',covered+' of '+activeHubs.length+' in cadence'],
+    ['High/Critical risk',critical,'hubs at latest'],
+    ['Open CAPAs',openCapas.length,overdue.length+' overdue'],
+    ['Audits submitted',AUDITS.filter(a=>inFilter(a.hub_id)).length,'filtered']
   ].map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div><div class="l" style="color:#94a3b8">${k[2]}</div></div>`).join('');
-
-  // scorecards
+}
+function renderScorecards(){
+  const latest=latestByHub();const activeHubs=HUBS.filter(h=>h.is_active!==false&&inFilter(h.id));
   const rows=activeHubs.map(h=>{const a=latest[h.id];const cad=h.audit_cadence_days||30;const overdue=!a||daysAgo(a.audit_date)>cad;
-    return `<tr><td>${esc(h.name)}</td><td>${esc(h.city)}</td>
+    return `<tr${a?` style="cursor:pointer" onclick="openAudit('${a.id}')"`:''}><td>${esc(h.name)}</td><td>${esc(h.city)}</td>
       <td>${a?Math.round(a.overall_score):'—'}</td>
       <td>${a?`<span class="pill" style="background:${ratingColor(a.rating)};color:#fff">${esc(a.rating)}</span>`:'—'}</td>
       <td>${a?`<span class="pill" style="background:${bandColor(a.risk_band)};color:#fff">${esc(a.risk_band)}</span>`:'—'}</td>
+      <td>${a?esc(audName(a.auditor_id)):'—'}</td>
       <td>${a?fmtDate(a.audit_date):'never'}</td>
       <td>${overdue?'<span class="pill" style="background:#fef2f2;color:#dc2626">Due</span>':'<span class="pill" style="background:#f0fdf4;color:#16a34a">OK</span>'}</td></tr>`;}).join('');
-  document.getElementById('scorecards').innerHTML=activeHubs.length?`<table><thead><tr><th>Hub</th><th>City</th><th>Score</th><th>Rating</th><th>Risk</th><th>Last audit</th><th>Cadence</th></tr></thead><tbody>${rows}</tbody></table>`:'<span class="muted">No hubs.</span>';
-
-  // CAPA aging
-  const buckets={'0-7':0,'8-15':0,'16-30':0,'30+':0};
-  openCapas.forEach(c=>{const d=daysAgo(c.created_at)||0;if(d<=7)buckets['0-7']++;else if(d<=15)buckets['8-15']++;else if(d<=30)buckets['16-30']++;else buckets['30+']++;});
-  document.getElementById('capa-aging').innerHTML=Object.entries(buckets).map(([k,v])=>`<div class="bar"><b>${v}</b>${k} days</div>`).join('');
-  document.getElementById('capa').innerHTML=openCapas.length?`<table><thead><tr><th>Finding</th><th>Hub</th><th>Owner</th><th>Status</th><th>Due</th><th>Age</th></tr></thead><tbody>${openCapas.map(c=>{const a=audById[c.audit_id];const h=a&&hubById[a.hub_id];const od=c.due_date&&new Date(c.due_date)<today;return `<tr><td>${esc(c.finding)}</td><td>${esc(h?h.name:'—')}</td><td>${esc(audName(c.owner_id))}</td><td><span class="pill" style="background:${od?'#fef2f2':'#eff6ff'};color:${od?'#dc2626':'#2563eb'}">${od?'Overdue':esc(c.status)}</span></td><td>${fmtDate(c.due_date)}</td><td>${daysAgo(c.created_at)}d</td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No open CAPAs. 🎉</span>';
-
-  // flagged
-  const flagged=audits.filter(a=>(a.location_verified===false||a.submitted_in_hours===false)&&!a.flag_reviewed);
-  document.getElementById('flagged').innerHTML=flagged.length?`<table><thead><tr><th>Hub</th><th>Auditor</th><th>Date</th><th>Flag</th></tr></thead><tbody>${flagged.map(a=>{const h=hubById[a.hub_id];const fl=[];if(a.location_verified===false)fl.push('Geo');if(a.submitted_in_hours===false)fl.push('Out-of-hours');return `<tr><td>${esc(h?h.name:'—')}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td><span class="pill" style="background:#fffbeb;color:#d97706">${fl.join(' + ')}</span></td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No unreviewed flagged submissions.</span>';
-
-  // recent
-  document.getElementById('recent').innerHTML=audits.length?`<table><thead><tr><th>Hub</th><th>Auditor</th><th>Date</th><th>Score</th><th>Rating</th><th>Risk</th></tr></thead><tbody>${audits.slice(0,15).map(a=>{const h=hubById[a.hub_id];return `<tr><td>${esc(h?h.name:'—')}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td>${Math.round(a.overall_score)}</td><td>${esc(a.rating)}</td><td>${esc(a.risk_band)}</td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No audits submitted yet.</span>';
+  document.getElementById('scorecards').innerHTML=activeHubs.length?`<table><thead><tr><th>Hub</th><th>City</th><th>Score</th><th>Rating</th><th>Risk</th><th>Audited by</th><th>Last audit</th><th>Cadence</th></tr></thead><tbody>${rows}</tbody></table>`:'<span class="muted">No hubs.</span>';
 }
+function renderFlagged(){
+  const flagged=AUDITS.filter(a=>(a.location_verified===false||a.submitted_in_hours===false)&&!a.flag_reviewed&&inFilter(a.hub_id));
+  document.getElementById('flagged').innerHTML=flagged.length?`<table><thead><tr><th>Hub</th><th>Auditor</th><th>Date</th><th>Flag</th></tr></thead><tbody>${flagged.map(a=>{const fl=[];if(a.location_verified===false)fl.push('Geo');if(a.submitted_in_hours===false)fl.push('Out-of-hours');return `<tr style="cursor:pointer" onclick="openAudit('${a.id}')"><td>${esc(hubName(a.hub_id))}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td><span class="pill" style="background:#fffbeb;color:#d97706">${fl.join(' + ')}</span></td></tr>`}).join('')}</tbody></table>`:'<span class="muted">No unreviewed flagged submissions.</span>';
+}
+function renderRecent(){
+  const list=AUDITS.filter(a=>inFilter(a.hub_id)).slice(0,20);
+  document.getElementById('recent').innerHTML=list.length?`<table><thead><tr><th>Hub</th><th>Audited by</th><th>Date</th><th>Score</th><th>Rating</th><th>Risk</th><th></th></tr></thead><tbody>${list.map(a=>`<tr><td>${esc(hubName(a.hub_id))}</td><td>${esc(audName(a.auditor_id))}</td><td>${fmtDate(a.audit_date)}</td><td>${Math.round(a.overall_score)}</td><td>${esc(a.rating)}</td><td>${esc(a.risk_band)}</td><td><button class="btn btn-ghost" onclick="openAudit('${a.id}')">View</button></td></tr>`).join('')}</tbody></table>`:'<span class="muted">No audits.</span>';
+}
+
+// ---- CAPA management ----
+function agingLine(c){const day=864e5;const opened=c.created_at?Math.floor((Date.now()-new Date(c.created_at).getTime())/day):0;let due='';if(c.due_date){const d=Math.ceil((new Date(c.due_date).getTime()-Date.now())/day);due=d<0?(' · <span style="color:var(--red);font-weight:700">overdue '+(-d)+'d</span>'):(' · due in '+d+'d');}return 'Open '+opened+'d'+due;}
+function renderCapa(){
+  const scoped=CAPAS.filter(c=>inFilter(c.hub_id));
+  const counts={};scoped.forEach(c=>{counts[c.status]=(counts[c.status]||0)+1;});
+  const metric=(st,lbl)=>`<div class="bar${CAPA_FILTER===st?' sel':''}" onclick="capaFilter('${st}')"><b>${counts[st]||0}</b>${lbl}</div>`;
+  document.getElementById('capa-sum').innerHTML=metric('Open','Open')+metric('In Progress','In Progress')+metric('Pending Verification','Under Approval')+metric('Closed','Completed');
+  const list=(CAPA_FILTER?scoped.filter(c=>c.status===CAPA_FILTER):scoped.filter(c=>c.status!=='Closed'));
+  const appr=isApprover();
+  const el=document.getElementById('capa');
+  if(!list.length){el.innerHTML='<span class="muted">No CAPAs for this view.</span>';return;}
+  el.innerHTML=list.map((c,i)=>{const idx=CAPAS.indexOf(c);return `<div class="capa" id="cp-${idx}"><div class="capa-hd" onclick="document.getElementById('cp-${idx}').classList.toggle('open')"><b>${esc(c.finding)}</b><span class="muted" style="white-space:nowrap">${esc(hubName(c.hub_id))} · ${c.status==='Pending Verification'?'Under Approval':esc(c.status)}</span></div>
+    <div class="capa-bd">
+      <div class="sub" style="margin-bottom:6px">${agingLine(c)}${(c.checkpoint_id&&CAPA_REC[c.checkpoint_id]>1)?' · <span style="color:var(--red);font-weight:700">⚠ Recurring '+CAPA_REC[c.checkpoint_id]+'×/60d</span>':''}</div>
+      <div class="sub" style="margin-bottom:6px">Owner: ${c.owner&&c.owner.name?esc(c.owner.name):roleLabel(c.owner_role)}</div>
+      ${(c.origin_photos&&c.origin_photos.length)?`<label>Original issue evidence</label><div class="thumbs" id="orig-${idx}"></div>`:''}
+      <label>Action</label><textarea id="act-${idx}" oninput="CAPAS[${idx}]._action=this.value">${esc(c._action)}</textarea>
+      <div style="margin-top:6px"><label>Due date</label><input type="date" id="due-${idx}" value="${esc(c._due||'')}" oninput="CAPAS[${idx}]._due=this.value"></div>
+      <label style="display:block;margin-top:6px">Status</label>
+      <div class="opts" id="st-${idx}"><div class="opt ${c._status==='Open'?'on':''}" data-s="Open">Open</div><div class="opt ${c._status==='In Progress'?'on':''}" data-s="In Progress">In Progress</div><div class="opt ${c._status==='Pending Verification'?'on':''}" data-s="Pending Verification">Under Approval</div></div>
+      <div style="margin-top:6px"><label>Fix remark</label><textarea id="rem-${idx}" oninput="CAPAS[${idx}]._remark=this.value">${esc(c._remark)}</textarea></div>
+      <div style="margin-top:6px"><label>Fix photo</label><input type="file" accept="image/*" id="fp-${idx}"><span id="fpmsg-${idx}" class="sub"></span><div class="thumbs" id="fpimg-${idx}"></div></div>
+      <button class="btn" style="margin-top:8px" onclick="saveCapa(${idx})">Save</button>
+      ${appr&&c.status==='Pending Verification'?`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)"><div class="sub">Before → After</div><div style="display:flex;gap:10px"><div class="thumbs" id="bef-${idx}"></div><div class="thumbs" id="aft-${idx}"></div></div><div style="margin-top:6px"><button class="btn" onclick="approveCapa(${idx})">Approve &amp; close</button> <button class="btn btn-ghost" onclick="sendBackCapa(${idx})">Send back</button></div></div>`:''}
+      <div class="err" id="cerr-${idx}"></div>
+    </div></div>`;}).join('');
+  list.forEach(c=>{const idx=CAPAS.indexOf(c);
+    var sp=document.getElementById('st-'+idx);if(sp)sp.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{c._status=o.dataset.s;sp.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===o));});
+    var fp=document.getElementById('fp-'+idx);if(fp)fp.onchange=async()=>{const f=fp.files[0];if(!f)return;const m=document.getElementById('fpmsg-'+idx);m.textContent='uploading…';try{const blob=await fileToJpeg(f);const path='capa/'+c.id+'/'+uid()+'.jpg';await uploadPhoto(blob,path);c._photo=path;m.textContent='✓ uploaded';loadImgs('fpimg-'+idx,[path]);}catch(e){m.textContent='⚠ '+e.message;}};
+    if(c.origin_photos&&c.origin_photos.length)loadImgs('orig-'+idx,c.origin_photos);
+    if(appr&&c.status==='Pending Verification'){if(c.origin_photos&&c.origin_photos[0])loadImgs('bef-'+idx,[c.origin_photos[0]]);if(c.closure_photo_url)loadImgs('aft-'+idx,[c.closure_photo_url]);}
+  });
+}
+window.capaFilter=function(st){CAPA_FILTER=(CAPA_FILTER===st)?null:st;renderCapa();};
+window.saveCapa=async function(idx){const c=CAPAS[idx];const err=document.getElementById('cerr-'+idx);err.textContent='';
+  if((c._status==='In Progress'||c._status==='Pending Verification')&&!(c._action&&c._action.trim())){err.textContent='Add the action first.';return;}
+  const body={status:c._status,action:c._action||null,due_date:c._due||null};
+  if(c._status==='Pending Verification'){if(!c._remark.trim()){err.textContent='Add a fix remark.';return;}if(!(c._photo||c.closure_photo_url)){err.textContent='Add a fix photo.';return;}body.closure_remark=c._remark;if(c._photo)body.closure_photo_url=c._photo;}
+  try{await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});await reloadCapas();}catch(e){err.textContent='Save failed: '+e.message;}
+};
+window.approveCapa=async function(idx){const c=CAPAS[idx];const err=document.getElementById('cerr-'+idx);err.textContent='';try{await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({status:'Closed',closed_by:ME&&ME.id,closed_at:new Date().toISOString()})});await reloadCapas();}catch(e){err.textContent='Approve failed: '+e.message;}};
+window.sendBackCapa=async function(idx){const c=CAPAS[idx];try{await api('capa_items?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({status:'In Progress'})});await reloadCapas();}catch(e){document.getElementById('cerr-'+idx).textContent='Failed: '+e.message;}};
+async function reloadCapas(){CAPAS=await api('capa_items?select=id,audit_id,finding,action,status,due_date,created_at,owner_id,owner_role,checkpoint_id,origin_photos,closure_photo_url,closure_remark,owner:owner_id(name),audit:audit_id(hub_id)&order=created_at.desc');CAPAS.forEach(c=>{c.hub_id=c.audit&&c.audit.hub_id;c._status=c.status;c._action=c.action||'';c._due=c.due_date||'';c._remark=c.closure_remark||'';c._photo=null;});renderKpis();renderCapa();}
+
+// ---- Audit drill-down (all points incl OK) ----
+window.openAudit=async function(auditId){
+  const card=document.getElementById('audit-modal-card');
+  document.getElementById('audit-modal').classList.add('show');
+  card.innerHTML='<div class="between"><b>Audit detail</b><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button></div><div class="muted">Loading…</div>';
+  try{
+    const a=AUDBYID[auditId];
+    const resp=await api('audit_responses?select=response,observation,numeric_value,count_provided,count_available,checkpoint:checkpoint_id(label,sort_order,section:section_id(name,sort_order)),audit_response_photos(photo_url),audit_response_tags(checkpoint_tag:checkpoint_tag_id(tag_label))&audit_id=eq.'+auditId);
+    resp.sort((x,y)=>{const sx=x.checkpoint&&x.checkpoint.section?x.checkpoint.section.sort_order:99,sy=y.checkpoint&&y.checkpoint.section?y.checkpoint.section.sort_order:99;return sx-sy||((x.checkpoint&&x.checkpoint.sort_order||0)-(y.checkpoint&&y.checkpoint.sort_order||0));});
+    let html='<div class="between"><b>'+esc(hubName(a.hub_id))+' · '+fmtDate(a.audit_date)+'</b><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button></div>';
+    html+='<div class="sub" style="margin-bottom:10px">Auditor: '+esc(audName(a.auditor_id))+' · Score '+Math.round(a.overall_score)+' · '+esc(a.rating)+' · Risk '+esc(a.risk_band)+'</div>';
+    let curSec='';
+    resp.forEach((r,i)=>{const sec=r.checkpoint&&r.checkpoint.section?r.checkpoint.section.name:'—';if(sec!==curSec){curSec=sec;html+='<div style="font-weight:700;margin:10px 0 4px">'+esc(sec)+'</div>';}
+      const rv=r.response;const col=rv==='OK'?'#16a34a':(rv==='NG'?'#dc2626':'#94a3b8');const lbl=rv==='NG'?'Issue':(rv||'—');
+      const tags=(r.audit_response_tags||[]).map(t=>t.checkpoint_tag&&t.checkpoint_tag.tag_label).filter(Boolean);
+      html+='<div class="rrow"><div><span class="pill" style="background:'+col+';color:#fff">'+esc(lbl)+'</span> '+esc(r.checkpoint&&r.checkpoint.label||'')+'</div>'+
+        (tags.length?'<div class="sub">'+tags.map(esc).join(', ')+'</div>':'')+
+        (r.observation?'<div class="sub">“'+esc(r.observation)+'”</div>':'')+
+        ((r.audit_response_photos&&r.audit_response_photos.length)?'<div class="thumbs" id="rp-'+i+'"></div>':'')+'</div>';
+    });
+    card.innerHTML=html;
+    resp.forEach((r,i)=>{if(r.audit_response_photos&&r.audit_response_photos.length)loadImgs('rp-'+i,r.audit_response_photos.map(p=>p.photo_url));});
+  }catch(e){card.innerHTML='<div class="err">'+esc(e.message)+'</div><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';}
+};
 load();
 </script>
 </body>
