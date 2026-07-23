@@ -780,23 +780,7 @@ async function initAuth() {
       // Always re-fetch role/permissions from DB (not just when role is missing) —
       // ensures admin permission changes take effect on the user's next page load
       // instead of waiting for the cached session to expire at end of day.
-      if (sess.email) {
-        fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(sess.email) + '&select=role,permissions', {
-          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs' }
-        }).then(function(r){return r.json();}).then(function(rows){
-          if (rows && rows[0]) {
-            sess.role = rows[0].role;
-            sess.permissions = rows[0].permissions;
-            localStorage.setItem('sb_session', JSON.stringify(sess));
-            // Refresh admin visibility
-            if (sess.role === 'admin') {
-              var al = document.getElementById('sb-admin-sec'); if(al) al.style.display='';
-              var al2 = document.getElementById('sb-admin-link'); if(al2) al2.style.display='';
-            }
-            applyPermissions(sess.permissions, sess.role);
-          }
-        }).catch(function(){});
-      }
+      if (sess.email) { refreshPerms(sess.email); } else { permsReady = true; }
     } else if (sess.refresh_token) {
       // Try refresh synchronously-ish — show login placeholder while waiting
       fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=refresh_token', {
@@ -818,6 +802,7 @@ async function initAuth() {
       })() };
           localStorage.setItem('sb_session', JSON.stringify(ns));
           showApp();
+          refreshPerms(ns.email);
         } else { showLogin(); }
       }).catch(function(){ showLogin(); });
     } else {
@@ -846,6 +831,7 @@ function showLoginMsg(type, text) {
   msg.textContent = text;
 }
 
+let permsReady = false;   // true once role/permissions confirmed from DB
 const PERM_MAP = {
   'dashboard':'rmc','fleet':'fleet_km','parts':'parts_testing','tyre':'wear_tear','msl':'msl_dashboard',
   'oos':'oos','hubaudit':'hub_audit','standup':'standup','tech':'tech','jcreview':'jcreview','feedback':'feedback','leakage':'leakage'
@@ -853,13 +839,36 @@ const PERM_MAP = {
 function canAccess(view) {
   if (view === 'home') return true;
   const sess = getSess();
-  if (!sess) return false;
+  if (!sess || !sess.access_token) return false;
   if (sess.role === 'admin') return true;      // admin sees everything
   if (view === 'admin') return false;          // non-admins never see admin
+  if (!permsReady) return true;                 // perms not confirmed yet -> don't block navigation
   const key = PERM_MAP[view];
   if (!key) return true;                        // unmapped -> allow
   const perms = sess.permissions || {};
   return !!perms[key];
+}
+function enforceCurrentView() {
+  if (currentView && currentView !== 'home' && !canAccess(currentView)) showView('home');
+}
+function refreshPerms(email) {
+  if (!email) { permsReady = true; return; }
+  fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(email) + '&select=role,permissions', {
+    headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs' }
+  }).then(function(r){return r.json();}).then(function(rows){
+    if (rows && rows[0]) {
+      var s = getSess();
+      s.role = rows[0].role; s.permissions = rows[0].permissions;
+      localStorage.setItem('sb_session', JSON.stringify(s));
+      if (s.role === 'admin') {
+        var al = document.getElementById('sb-admin-sec'); if(al) al.style.display='';
+        var al2 = document.getElementById('sb-admin-link'); if(al2) al2.style.display='';
+      }
+      applyPermissions(s.permissions, s.role);
+    }
+    permsReady = true;
+    enforceCurrentView();       // now that perms are authoritative, bounce off any forbidden view
+  }).catch(function(){ permsReady = true; });
 }
 
 function applyPermissions(perms, role) {
