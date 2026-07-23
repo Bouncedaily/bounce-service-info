@@ -210,27 +210,41 @@ async function reloadCapas(){CAPAS=await api('capa_items?select=id,audit_id,find
 
 // ---- Audit drill-down (all points incl OK) ----
 window.openAudit=async function(auditId){
-  const card=document.getElementById('audit-modal-card');
+  var card=document.getElementById('audit-modal-card');
   document.getElementById('audit-modal').classList.add('show');
-  card.innerHTML='<div class="between"><b>Audit detail</b><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button></div><div class="muted">Loading…</div>';
+  var closeBtn='<button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';
+  card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="muted">Loading…</div>';
   try{
-    const a=AUDBYID[auditId];
-    const resp=await api('audit_responses?select=response,observation,numeric_value,count_provided,count_available,checkpoint:checkpoint_id(label,sort_order,section:section_id(name,sort_order)),audit_response_photos(photo_url),audit_response_tags(checkpoint_tag:checkpoint_tag_id(tag_label))&audit_id=eq.'+auditId);
-    resp.sort((x,y)=>{const sx=x.checkpoint&&x.checkpoint.section?x.checkpoint.section.sort_order:99,sy=y.checkpoint&&y.checkpoint.section?y.checkpoint.section.sort_order:99;return sx-sy||((x.checkpoint&&x.checkpoint.sort_order||0)-(y.checkpoint&&y.checkpoint.sort_order||0));});
-    let html='<div class="between"><b>'+esc(hubName(a.hub_id))+' · '+fmtDate(a.audit_date)+'</b><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button></div>';
+    var a=AUDBYID[auditId];
+    var resp=await api('audit_responses?select=id,response,observation,checkpoint:checkpoint_id(label,sort_order,section_id)&audit_id=eq.'+auditId);
+    var secs=await api('audit_sections?select=id,name,sort_order');
+    var secById={}; secs.forEach(function(x){secById[x.id]=x;});
+    var ids=resp.map(function(r){return r.id;});
+    var photos=[],tags=[];
+    if(ids.length){
+      try{photos=await api('audit_response_photos?select=response_id,photo_url&response_id=in.('+ids.join(',')+')');}catch(e){}
+      try{tags=await api('audit_response_tags?select=response_id,checkpoint_tag:checkpoint_tag_id(tag_label)&response_id=in.('+ids.join(',')+')');}catch(e){}
+    }
+    var photoBy={},tagBy={};
+    photos.forEach(function(p){(photoBy[p.response_id]=photoBy[p.response_id]||[]).push(p.photo_url);});
+    tags.forEach(function(t){(tagBy[t.response_id]=tagBy[t.response_id]||[]).push(t.checkpoint_tag&&t.checkpoint_tag.tag_label);});
+    resp.forEach(function(r){var cp=r.checkpoint;r._sec=(cp&&secById[cp.section_id])?secById[cp.section_id]:{name:'—',sort_order:99};r._label=cp?cp.label:'';r._cs=cp?cp.sort_order:0;});
+    resp.sort(function(x,y){return (x._sec.sort_order-y._sec.sort_order)||(x._cs-y._cs);});
+    var html='<div class="between"><b>'+esc(hubName(a.hub_id))+' · '+fmtDate(a.audit_date)+'</b>'+closeBtn+'</div>';
     html+='<div class="sub" style="margin-bottom:10px">Auditor: '+esc(audName(a.auditor_id))+' · Score '+Math.round(a.overall_score)+' · '+esc(a.rating)+' · Risk '+esc(a.risk_band)+'</div>';
-    let curSec='';
-    resp.forEach((r,i)=>{const sec=r.checkpoint&&r.checkpoint.section?r.checkpoint.section.name:'—';if(sec!==curSec){curSec=sec;html+='<div style="font-weight:700;margin:10px 0 4px">'+esc(sec)+'</div>';}
-      const rv=r.response;const col=rv==='OK'?'#16a34a':(rv==='NG'?'#dc2626':'#94a3b8');const lbl=rv==='NG'?'Issue':(rv||'—');
-      const tags=(r.audit_response_tags||[]).map(t=>t.checkpoint_tag&&t.checkpoint_tag.tag_label).filter(Boolean);
-      html+='<div class="rrow"><div><span class="pill" style="background:'+col+';color:#fff">'+esc(lbl)+'</span> '+esc(r.checkpoint&&r.checkpoint.label||'')+'</div>'+
-        (tags.length?'<div class="sub">'+tags.map(esc).join(', ')+'</div>':'')+
+    if(!resp.length){html+='<div class="muted">No checkpoint responses recorded for this audit.</div>';}
+    var curSec='';
+    resp.forEach(function(r,i){var sec=r._sec.name;if(sec!==curSec){curSec=sec;html+='<div style="font-weight:700;margin:10px 0 4px">'+esc(sec)+'</div>';}
+      var rv=r.response;var col=rv==='OK'?'#16a34a':(rv==='NG'?'#dc2626':'#94a3b8');var lbl=rv==='NG'?'Issue':(rv||'—');
+      var tg=tagBy[r.id]||[];var ph=photoBy[r.id]||[];
+      html+='<div class="rrow"><div><span class="pill" style="background:'+col+';color:#fff">'+esc(lbl)+'</span> '+esc(r._label)+'</div>'+
+        (tg.length?'<div class="sub">'+tg.map(esc).join(', ')+'</div>':'')+
         (r.observation?'<div class="sub">“'+esc(r.observation)+'”</div>':'')+
-        ((r.audit_response_photos&&r.audit_response_photos.length)?'<div class="thumbs" id="rp-'+i+'"></div>':'')+'</div>';
+        (ph.length?'<div class="thumbs" id="rp-'+i+'"></div>':'')+'</div>';
     });
     card.innerHTML=html;
-    resp.forEach((r,i)=>{if(r.audit_response_photos&&r.audit_response_photos.length)loadImgs('rp-'+i,r.audit_response_photos.map(p=>p.photo_url));});
-  }catch(e){card.innerHTML='<div class="err">'+esc(e.message)+'</div><button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';}
+    resp.forEach(function(r,i){var ph=photoBy[r.id]||[];if(ph.length)loadImgs('rp-'+i,ph);});
+  }catch(e){card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="err">'+esc(e.message)+'</div>';}
 };
 load();
 </script>
