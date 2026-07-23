@@ -83,7 +83,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 </style>
 </head>
 <body>
-<!-- app build 44 -->
+<!-- app build 45 -->
 <div class="wrap">
   <div class="between" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -220,8 +220,8 @@ async function refreshToken(){
 async function ensureToken(){
   const s=sess(); let t=s.access_token;
   if(!t) return null;
-  if(tokenExpired(t)){ t=await refreshToken(); }
-  _token=t||s.access_token; return _token;
+  if(tokenExpired(t)){ t=await refreshToken(); if(!t){ _token=null; return null; } }
+  _token=t; return _token;
 }
 function token(){return _token||sess().access_token||ANON}
 function hdr(extra){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},extra||{})}
@@ -230,7 +230,7 @@ async function api(path,opts){
   await ensureToken();
   const go=()=>fetch(SB_URL+'/rest/v1/'+path,Object.assign({},opts,{headers:hdr(opts.headers||{})}));
   let r=await go();
-  if(r.status===401||r.status===403){ const nt=await refreshToken(); if(nt) r=await go(); }
+  if(r.status===401||r.status===403){ const nt=await refreshToken(); if(nt){ r=await go(); } else { showLogin(); throw new Error('Session expired — please sign in again.'); } }
   const t=await r.text();
   let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
   if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
@@ -305,7 +305,7 @@ async function init(){
   // config
   try{(await api('app_config?select=key,value')).forEach(r=>CFG[r.key]=r.value)}catch(e){}
   // hubs
-  try{HUBS=await api('hubs?select=id,name,city,hub_type&is_active=eq.true&order=city.asc,name.asc')}catch(e){HUBS=[]}
+  try{HUBS=await api('hubs?select=id,name,city,hub_type&is_active=eq.true&order=city.asc,name.asc')}catch(e){HUBS=[];toast('Could not load hubs: '+e.message)}
   const cities=[...new Set(HUBS.map(h=>h.city))].sort();
   const citySel=document.getElementById('city-select');
   citySel.innerHTML='<option value="">— Select city —</option>'+cities.map(c=>`<option>${esc(c)}</option>`).join('');
