@@ -1063,20 +1063,29 @@ function ddBadgeClass(cat) {
 }
 
 function openOOSDrilldown(dimKey, dimValue, hub) {
-  const rows = LAST_OOS_DETAIL.filter(r => r[dimKey] === dimValue && r.hub_name === hub);
+  const rows = LAST_OOS_DETAIL.filter(r =>
+    (dimValue === null || r[dimKey] === dimValue) &&
+    (hub === null || r.hub_name === hub)
+  );
   DD_CURRENT_ROWS = rows;
-  DD_CURRENT_TITLE = `${hub} — ${dimValue}`;
+
+  const hubLabel = hub === null ? 'All Hubs' : hub;
+  const valueLabel = dimValue === null ? 'All' : dimValue;
+  DD_CURRENT_TITLE = (hub === null && dimValue === null)
+    ? 'All OOS Vehicles'
+    : `${hubLabel} — ${valueLabel}`;
 
   document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
   document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
 
-  let html = '<thead><tr><th>Reg No</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
     const odo = r.current_odometer != null ? Math.round(r.current_odometer).toLocaleString('en-IN') + ' km' : '—';
     html += `<tr>
       <td style="font-weight:600">${r.reg_number || '—'}</td>
+      <td>${r.hub_name || '—'}</td>
       <td><span class="dd-badge ${ddBadgeClass(r.repair_category)}">${r.oos_sub_status || '—'}</span></td>
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
       <td class="num">${odo}</td>
@@ -1136,13 +1145,17 @@ function renderAgingPivot(oos) {
         ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},${JSON.stringify(b)},${JSON.stringify(h)})'>${c}</td>`
         : `<td class="num"></td>`;
     });
-    row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
+    row += rowTotal
+      ? `<td class="num cell-click" style="font-weight:600" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},${JSON.stringify(b)},null)'>${rowTotal}</td></tr>`
+      : `<td class="num" style="font-weight:600">0</td></tr>`;
     html += row;
   });
 
   html += '<tr class="tfoot"><td>Total</td>';
-  hubs.forEach(h => html += `<td class="num">${colTotals[h] || ''}</td>`);
-  html += `<td class="num">${grandTotal}</td></tr>`;
+  hubs.forEach(h => html += colTotals[h]
+    ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},null,${JSON.stringify(h)})'>${colTotals[h]}</td>`
+    : `<td class="num"></td>`);
+  html += `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},null,null)'>${grandTotal}</td></tr>`;
   html += '</tbody></table>';
   wrap.innerHTML = html;
 }
@@ -1177,13 +1190,17 @@ function renderRepairPivot(oos) {
         ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},${JSON.stringify(cat)},${JSON.stringify(h)})'>${c}</td>`
         : `<td class="num"></td>`;
     });
-    row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
+    row += rowTotal
+      ? `<td class="num cell-click" style="font-weight:600" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},${JSON.stringify(cat)},null)'>${rowTotal}</td></tr>`
+      : `<td class="num" style="font-weight:600">0</td></tr>`;
     html += row;
   });
 
   html += '<tr class="tfoot"><td>Total</td>';
-  hubs.forEach(h => html += `<td class="num">${colTotals[h] || ''}</td>`);
-  html += `<td class="num">${grandTotal}</td></tr>`;
+  hubs.forEach(h => html += colTotals[h]
+    ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},null,${JSON.stringify(h)})'>${colTotals[h]}</td>`
+    : `<td class="num"></td>`);
+  html += `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},null,null)'>${grandTotal}</td></tr>`;
   html += '</tbody></table>';
   wrap.innerHTML = html;
 }
