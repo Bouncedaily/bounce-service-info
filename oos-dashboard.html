@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><style>
+/* ── BOUNCE SERVICE INFO — BASE THEME ── */
+:root {
+  --bg:      #f4f6f9;
+  --card:    #ffffff;
+  --border:  #e2e8f0;
+  --border2: #cbd5e1;
+  --text:    #0f172a;
+  --text2:   #334155;
+  --muted:   #64748b;
+  --muted2:  #94a3b8;
+  --red:     #dc2626;
+  --blue:    #2563eb;
+  --green:   #16a34a;
+  --amber:   #d97706;
+  --purple:  #7c3aed;
+  --mono:    'SF Mono','Fira Code','Fira Mono',ui-monospace,monospace;
+  --font:    'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --sb-border: rgba(255,255,255,.1);
+  --accent:  #dc2626;
+  --bounce-border: #e2e8f0;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  height: 100%; overflow: hidden;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+body { display: flex; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── INPUTS & SELECTS ── */
+input, select, textarea {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-size: 12px; font-family: var(--font);
+  padding: 6px 10px; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--red); }
+input[type=date] { min-width: 130px; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  background: var(--red); color: #fff; border: none;
+  padding: 7px 16px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: var(--font); transition: opacity .15s;
+}
+.btn-primary:hover { opacity: .9; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 200px; min-width: 200px; flex-shrink: 0;
+  background: #0f1117;
+  display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
+  transition: width .2s ease, min-width .2s ease;
+  position: relative;
+}
+.sidebar.collapsed { width: 52px; min-width: 52px; }
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed; left: -200px; top: 0; z-index: 1000;
+    width: 200px !important; min-width: 200px !important;
+    transition: left .2s ease;
+  }
+  .sidebar.mobile-open { left: 0 !important; }
+}
+
+.sb-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 999;
+}
+
+.sb-hamburger {
+  display: none;
+  position: fixed; top: 10px; left: 10px; z-index: 998;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: #0f1117; border: 1px solid rgba(255,255,255,.15);
+  color: #fff; font-size: 16px; cursor: pointer;
+  align-items: center; justify-content: center;
+}
+@media (max-width: 768px) { .sb-hamburger { display: flex; } }
+
+.sb-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 36px; padding: 0 14px; margin-top: 4px;
+  background: none; border: none; border-bottom: 1px solid rgba(255,255,255,.07);
+  color: #475569; cursor: pointer; font-size: 14px;
+  justify-content: flex-end;
+}
+.sidebar.collapsed .sb-toggle { justify-content: center; }
+.sb-toggle:hover { color: #94a3b8; }
+
+.sb-brand {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 12px 10px; border-bottom: 1px solid rgba(255,255,255,.07);
+  min-height: 52px; overflow: hidden;
+}
+.sb-logo-img { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; object-fit: contain; }
+.sb-logo-fallback {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: #e63946; display: none;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sb-text { overflow: hidden; white-space: nowrap; }
+.sb-name { color: #e2e8f0; font-size: 12px; font-weight: 700; }
+.sb-name span { color: #e63946; }
+.sidebar.collapsed .sb-text { display: none; }
+
+.sb-sec {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  color: #334155; text-transform: uppercase;
+  padding: 12px 14px 4px; white-space: nowrap; overflow: hidden;
+}
+.sidebar.collapsed .sb-sec { opacity: 0; pointer-events: none; }
+
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; cursor: pointer;
+  color: #64748b; text-decoration: none;
+  font-size: 12px; font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: all .15s; white-space: nowrap; overflow: hidden;
+}
+.sb-item:hover { background: rgba(255,255,255,.05); color: #cbd5e1; }
+.sb-item.active { background: rgba(220,38,38,.12); color: #fff; border-left-color: #dc2626; }
+.sb-icon { font-size: 15px; flex-shrink: 0; width: 18px; text-align: center; }
+.sb-label { overflow: hidden; text-overflow: ellipsis; }
+.sidebar.collapsed .sb-label { display: none; }
+.sidebar.collapsed .sb-item { padding: 8px; justify-content: center; }
+.sidebar.collapsed .sb-item.active { border-left-color: transparent; border-radius: 6px; margin: 0 4px; }
+
+.sb-spacer { flex: 1; }
+
+.sb-foot {
+  padding: 8px 12px;
+  font-size: 10px; color: #334155;
+  border-top: 1px solid rgba(255,255,255,.07);
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden;
+}
+.sidebar.collapsed .sb-foot .sb-text { display: none; }
+.sb-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34,197,94,.25);
+  animation: pulse 2.5s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── MAIN CONTENT ── */
+.main, .app-main {
+  flex: 1; display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden; min-width: 0;
+}
+.content, .app-scroll { flex: 1; overflow-y: auto; }
+
+/* ── OPEN SIDEBAR BTN (collapsed state) ── */
+.sb-open-btn {
+  display: none;
+  position: fixed; top: 8px; left: 8px; z-index: 100;
+  width: 32px; height: 32px; border-radius: 7px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted); font-size: 14px; cursor: pointer;
+  align-items: center; justify-content: center;
+}
+.sb-open-btn:hover { color: var(--text); border-color: var(--text2); }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px 0; flex-shrink: 0;
+}
+
+/* ── LOADING ── */
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 32px; color: var(--muted); font-size: 12px;
+}
+.spin, .spinner {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border); border-top-color: var(--red);
+  animation: sp .7s linear infinite;
+}
+@keyframes sp { to { transform: rotate(360deg); } }
+.error-msg { padding: 16px; color: var(--red); font-size: 12px; text-align: center; }
+
+/* ── SECTION HEADER ── */
+.sh {
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .05em;
+  margin: 16px 0 8px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── TAGS ── */
+.tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 600;
+}
+.t-r { background: #fef2f2; color: #dc2626; }
+.t-b { background: #eff6ff; color: #2563eb; }
+.t-g { background: #f0fdf4; color: #16a34a; }
+.t-a { background: #fffbeb; color: #d97706; }
+
+/* ── TOAST ── */
+#_toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  padding: 10px 16px; border-radius: 10px; font-size: 13px;
+  max-width: 320px; opacity: 0; transform: translateY(10px);
+  transition: opacity .3s, transform .3s;
+  background: #0f172a; color: #e2e8f0; border: 1px solid #334155;
+}
+#_toast.show { opacity: 1; transform: translateY(0); }
+#_toast.ok  { background: #052e16; border-color: #166534; color: #4ade80; }
+#_toast.err { background: #450a0a; border-color: #dc2626; color: #fca5a5; }
+
+/* Type / Bucket / Model badges for bike lists */
+.badge.b-rr{background:rgba(220,38,38,.1);color:#dc2626}
+.badge.b-rs{background:rgba(99,102,241,.1);color:#6366f1}
+.badge.b-rec{background:rgba(124,58,237,.1);color:#7c3aed}
+.badge.b-green{background:rgba(22,163,74,.12);color:#16a34a}
+.badge.b-blue{background:rgba(37,99,235,.12);color:#2563eb}
+.badge.b-amber{background:rgba(217,119,6,.12);color:#d97706}
+.badge.b-red{background:rgba(220,38,38,.12);color:#dc2626}
+.badge.b-grey{background:rgba(100,116,139,.1);color:#64748b}
+.pill-model{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(13,148,136,.12);color:#0d9488}
+.pill-city-blr{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(37,99,235,.1);color:#2563eb}
+.pill-city-ncr{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(217,119,6,.1);color:#d97706}
+.pill-city-hyd{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(124,58,237,.1);color:#7c3aed}
+
+.pill-m-e1x{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(13,148,136,.12);color:#0d9488}
+.pill-m-pro{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(124,58,237,.12);color:#7c3aed}
+.pill-m-low{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(217,119,6,.12);color:#d97706}
+.badge.b-t-oos{background:rgba(220,38,38,.12);color:#dc2626}
+.badge.b-t-pdi{background:rgba(99,102,241,.12);color:#6366f1}
+.badge.b-t-rec{background:rgba(124,58,237,.12);color:#7c3aed}
+.badge.b-t-rr{background:rgba(217,119,6,.12);color:#d97706}
+.badge.b-t-rs{background:rgba(37,99,235,.12);color:#2563eb}
+.badge.b-t-be{background:rgba(22,163,74,.12);color:#16a34a}
+.badge.b-t-rs2{background:rgba(8,145,178,.12);color:#0891b2}
+
+.bl-pager { display:flex; align-items:center; gap:4px; justify-content:center; padding:10px 0 6px; flex-wrap:wrap; }
+.bl-pager button { min-width:30px; height:28px; padding:0 6px; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer; font-size:12px; font-family:inherit; color:var(--text); transition:background 0.1s; }
+.bl-pager button:hover { background:var(--bg); }
+.bl-pager button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+.bl-pager .dots { font-size:12px; color:var(--muted); padding:0 2px; }
+</style><script>
+(function() {
+  var sess = {};
+  try { sess = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e) {}
+  // Auth handled by portal — expose helpers from session
+  window.authGetEmail = function() { return sess.email || ''; };
+  window.authIsAdmin  = function() { return sess.role === 'admin'; };
+  window.authGetToken = function() { return sess.access_token || ''; };
+  window.authLogout   = function() { localStorage.removeItem('sb_session'); window.location.replace('login.html'); };
+
+  // Populate email + admin link after DOM ready
+  function onReady() {
+    var em = document.getElementById('sb-user-email');
+    if (em) em.textContent = sess.email || '';
+    var al = document.getElementById('admin-link');
+    if (al) al.style.display = sess.role === 'admin' ? 'block' : 'none';
+    // Also handle .admin-only class
+    document.querySelectorAll('.admin-only').forEach(function(el) {
+      el.style.display = sess.role === 'admin' ? '' : 'none';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady);
+  } else {
+    onReady();
+  }
+  // Also handle Sign Out button clicks that might use window.top
+  window.addEventListener('message', function(ev) {
+    if (ev.data && ev.data.type === 'logout') {
+      localStorage.removeItem('sb_session');
+    }
+  });
+})();
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OOS Dashboard</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+
+<style>
+.wrap { padding: 20px 24px; max-width: none; }
+.ptitle { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -.3px; margin-bottom: 2px; }
+.psub   { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+
+/* Filters */
+.filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:20px; padding:14px 16px; background:var(--card); border:1px solid var(--border); border-radius:10px; }
+.filter-bar label { font-size:11px; font-weight:600; color:var(--muted); margin-right:4px; }
+.filter-group { display:flex; align-items:center; gap:4px; }
+
+/* KPI cards */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+.kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.kpi-label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.kpi-val   { font-size:26px; font-weight:800; color:var(--text); line-height:1; }
+.kpi-val.red  { color:var(--red); }
+.kpi-val.green{ color:var(--green); }
+.kpi-val.blue { color:var(--blue); }
+.kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+
+/* Grid layouts */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.grid-1 { margin-bottom:16px; }
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+/* Card */
+.card { background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.card-hd { display:flex; align-items:baseline; gap:8px; padding:14px 16px 10px; border-bottom:1px solid var(--border); }
+.card-hd h2 { font-size:13px; font-weight:700; color:var(--text); margin:0; }
+.card-hd .sub { font-size:11px; color:var(--muted); }
+
+/* Tables */
+.tbl { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { background:var(--bg); color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:8px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+td { padding:7px 12px; border-bottom:1px solid var(--border); color:var(--text2); white-space:nowrap; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--bg); }
+.tfoot td { font-weight:700; color:var(--text); background:var(--bg); border-top:2px solid var(--border); }
+
+/* ── DRILLDOWN CELLS + MODAL ── */
+td.cell-click { cursor:pointer; color:var(--red); font-weight:600; transition:background .1s; }
+td.cell-click:hover { background:#fef2f2; text-decoration:underline; }
+.dd-overlay {
+  display:none; position:fixed; inset:0; z-index:2000;
+  background:rgba(15,23,42,.45); align-items:flex-start; justify-content:center; padding-top:60px;
+}
+.dd-overlay.open { display:flex; }
+.dd-modal {
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  width:min(760px,92vw); max-height:78vh; display:flex; flex-direction:column;
+  box-shadow:0 12px 32px rgba(15,23,42,.18);
+}
+.dd-hd { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); }
+.dd-hd h3 { margin:0; font-size:14px; font-weight:700; color:var(--text); }
+.dd-hd p { margin:2px 0 0; font-size:11.5px; color:var(--muted); }
+.dd-actions { display:flex; align-items:center; gap:8px; }
+.dd-actions button {
+  background:none; border:1px solid var(--border); color:var(--text2);
+  width:28px; height:28px; border-radius:6px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+}
+.dd-actions button:hover { border-color:var(--border2); color:var(--text); }
+.dd-actions button.dd-export { width:auto; padding:0 10px; gap:5px; color:var(--green); border-color:var(--green); }
+.dd-body { overflow:auto; }
+.dd-body table { width:100%; }
+.dd-body th:first-child, .dd-body td:first-child { text-align:left; }
+.dd-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:700; }
+.dd-badge.major  { background:#fee2e2; color:#b91c1c; }
+.dd-badge.medium { background:#fef3c7; color:#92400e; }
+.dd-badge.minor  { background:#dcfce7; color:#15803d; }
+.dd-badge.default{ background:var(--bg); color:var(--muted); }
+.dd-age-high { color:var(--red); font-weight:700; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+.pct { text-align:right; font-size:11px; }
+.pct.hi { color:var(--red); font-weight:600; }
+.pct.ok { color:var(--green); }
+.badge { display:inline-flex; align-items:center; padding:2px 7px; border-radius:20px; font-size:10px; font-weight:600; }
+.b-red   { background:#fef2f2; color:#dc2626; }
+.b-amber { background:#fffbeb; color:#d97706; }
+.b-green { background:#f0fdf4; color:#16a34a; }
+.b-blue  { background:#eff6ff; color:#2563eb; }
+.b-gray  { background:#f1f5f9; color:#475569; }
+.empty { text-align:center; color:var(--muted); padding:24px; font-size:12px; }
+.sync-row { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted); padding:0 0 16px; }
+</style>
+<style>
+.sidebar,.sb-overlay,.sb-hamburger { display:none!important; }
+.main,.app-main { width:100%!important; flex:1!important; }
+body { overflow:auto!important; }
+</style></head>
+<body>
+
+<div class="sb-overlay" style="display:none" id="sb-overlay" onclick="closeSidebar()"></div>
+
+<div class="dd-overlay" id="dd-overlay" onclick="if(event.target===this) closeOOSDrilldown()">
+  <div class="dd-modal">
+    <div class="dd-hd">
+      <div>
+        <h3 id="dd-title">Vehicles</h3>
+        <p id="dd-sub"></p>
+      </div>
+      <div class="dd-actions">
+        <button class="dd-export" onclick="exportOOSDrilldownCSV()" title="Download CSV"><i class="ti ti-table-export"></i> CSV</button>
+        <button onclick="closeOOSDrilldown()" title="Close"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    <div class="dd-body"><table id="dd-table"></table></div>
+  </div>
+</div>
+<nav class="sidebar collapsed" id="sidebar">
+  <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()"><i class="ti ti-layout-sidebar" id="sb-arrow"></i></button>
+  <div class="sb-brand">
+    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
+    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
+    <span class="sb-name">Bounce <span>Service Info</span></span>
+  </div>
+  <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
+  <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
+  <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
+  <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Wear &amp; Tear</span></a>
+  <a class="sb-item" href="hub-control-tower.html"><i class="ti ti-dashboard sb-icon"></i><span class="sb-label">Hub Control Tower</span></a>
+  <a class="sb-item" href="msl-dashboard.html"><i class="ti ti-package sb-icon"></i><span class="sb-label">MSL Dashboard</span></a>
+  <a class="sb-item active" href="oos-dashboard.html"><i class="ti ti-alert-circle sb-icon"></i><span class="sb-label">OOS Dashboard</span></a>
+  <div id="admin-link" style="display:none"><a class="sb-item" href="admin.html"><i class="ti ti-shield sb-icon"></i><span class="sb-label">Admin</span></a></div>
+  <div class="sb-spacer"></div>
+  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
+</nav>
+
+<div class="main">
+<div class="content">
+<div class="wrap">
+
+  <div class="ptitle">OOS Dashboard</div>
+  <div class="psub">Out-of-service fleet tracker — live from Supabase</div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="filter-group"><label>City</label>
+      <select id="f-city" onchange="onFilter()"><option value="">All Cities</option></select>
+    </div>
+    <div class="filter-group"><label>Hub</label>
+      <select id="f-hub" onchange="onFilter()"><option value="">All Hubs</option></select>
+    </div>
+    <div class="filter-group"><label>Model</label>
+      <select id="f-model" onchange="onFilter()"><option value="">All Models</option></select>
+    </div>
+    <button class="btn-primary" onclick="clearFilters()" style="margin-left:auto;padding:5px 12px;font-size:11px">Clear</button>
+    <button onclick="refresh()" id="sync-btn" style="padding:5px 12px;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit" onmouseover="this.style.borderColor='#64748b'" onmouseout="this.style.borderColor='#334155'">&#8635; Sync</button>
+    <span id="sync-lbl" class="sync-row" style="padding:0;margin-left:8px"><span class="spin"></span> Loading…</span>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi"><div class="kpi-label">Total Bikes</div><div class="kpi-val" id="k-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">OOS Bikes</div><div class="kpi-val red" id="k-oos">—</div></div>
+    <div class="kpi"><div class="kpi-label">OOS %</div><div class="kpi-val red" id="k-pct">—</div></div>
+    <div class="kpi"><div class="kpi-label">Today's Inflow</div><div class="kpi-val blue" id="k-inflow">—</div><div class="kpi-sub">Rider Sub. · Bike Exchange · Recovery</div><div class="kpi-sub" id="k-inflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
+    <div class="kpi"><div class="kpi-label">Today's Outflow</div><div class="kpi-val green" id="k-outflow">—</div><div class="kpi-sub">OOS to RFD · PDI to RFD</div><div class="kpi-sub" id="k-outflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
+    <div class="kpi"><div class="kpi-label">Running Repair</div><div class="kpi-val" id="k-rr" style="color:var(--amber)">—</div></div>
+    <div class="kpi"><div class="kpi-label">Avg Repair TAT</div><div class="kpi-val" id="k-age">—</div><div class="kpi-sub">days · OOS→RFD</div></div>
+    <div class="kpi"><div class="kpi-label">Available Technicians</div><div class="kpi-val" id="k-techs">—</div><div class="kpi-sub">active today (outflow)</div></div>
+  </div>
+
+  <!-- City + Model breakdown -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hd"><h2>OOS by City</h2></div>
+      <div class="tbl"><table id="tbl-city">
+        <thead><tr><th>City</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th></tr></thead>
+        <tbody><tr><td colspan="4" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>OOS by Bike Model</h2></div>
+      <div class="tbl"><table id="tbl-model">
+        <thead><tr><th>Model</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th></tr></thead>
+        <tbody><tr><td colspan="4" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+
+  <!-- OOS Aging pivot -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd"><h2>OOS Aging by Hub</h2><span class="sub">Bucket × Hub</span></div>
+      <div class="tbl" id="aging-tbl-wrap">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Repair Category pivot -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd"><h2>OOS by Repair Category × Hub</h2></div>
+      <div class="tbl" id="repair-tbl-wrap">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hub-wise Inflow + Outflow summary -->
+  <!-- Bike List Filters — above pivot so they also control hub counts -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-hd" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 16px">
+      <h2 style="margin:0;font-size:13px">Filters</h2>
+      <!-- Date pill buttons -->
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <button id="f-btn-today" onclick="setBLDate('today')"
+          style="padding:3px 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;letter-spacing:0">Today</button>
+        <button id="f-btn-yesterday" onclick="setBLDate('yesterday')"
+          style="padding:3px 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">Yesterday</button>
+        <button id="f-btn-7d" onclick="setBLDate('7d')"
+          style="padding:3px 12px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">7d</button>
+      </div>
+      <!-- hidden date range inputs still needed for logic -->
+      <input type="date" id="f-bl-from" style="display:none"/>
+      <input type="date" id="f-bl-to" style="display:none"/>
+      <div id="f-bl-custom-range" style="display:none"></div>
+      <!-- Inflow Type -->
+      <div style="display:flex;align-items:center;gap:5px">
+        <label style="font-size:11px;color:var(--muted)">Inflow Type</label>
+        <select id="f-bl-inflow-type" onchange="applyBikeListFilters()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All</option>
+        </select>
+      </div>
+      <!-- Outflow Type -->
+      <div style="display:flex;align-items:center;gap:5px">
+        <label style="font-size:11px;color:var(--muted)">Outflow Type</label>
+        <select id="f-bl-repair-type" onchange="applyBikeListFilters()" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All</option>
+        </select>
+      </div>
+      <button onclick="clearBikeListFilters()" style="padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:none;font-size:12px;cursor:pointer;margin-left:auto">✕ Clear</button>
+    </div>
+  </div>
+
+
+  <!-- Today's Repair Aging pivot -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">Repair — Aging by Hub</h2>
+        <span class="sub">OOS repairs (Rider Sub + Recovery + Bike Exchange) · OOS&#8594;RFD TAT bucket &times; hub</span>
+        <div id="rep-inflow-filter" style="margin-left:auto;display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <button onclick="setRepairInflow('all',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;font-weight:600">All</button>
+          <button onclick="setRepairInflow('Rider Submission',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Rider Sub.</button>
+          <button onclick="setRepairInflow('Recovery',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Recovery</button>
+          <button onclick="setRepairInflow('Bike Exchange',this)" style="padding:3px 10px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Bike Exch.</button>
+        </div>
+      </div>
+      <div class="tbl" id="rep-aging-wrap"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hd"><h2>Inflow by Hub</h2><span class="sub" id="inflow-count">—</span></div>
+      <div class="tbl"><table id="tbl-hub-inflow">
+        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">Running Repair</th><th class="num">Rider Sub</th><th class="num">Recovery</th><th class="num">Bike Exchange</th></tr></thead>
+        <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>Outflow by Hub</h2><span class="sub" id="outflow-count">—</span></div>
+      <div class="tbl"><table id="tbl-hub-outflow">
+        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">OOS</th><th class="num">Rider Sub.</th><th class="num">Recovery</th><th class="num">Bike Exch.</th><th class="num">RR</th><th class="num">PDI</th><th class="num">Avg TAT (days)</th></tr></thead>
+        <tbody><tr><td colspan="9" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+    <!-- Bike-level Inflow + Outflow today -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hd" style="display:flex;align-items:center"><h2>Inflow — Bike List</h2><button onclick="exportInflowXLSX()" title="Download Excel" style="margin-left:auto;background:none;border:1px solid #16a34a;border-radius:6px;cursor:pointer;color:#16a34a;font-size:13px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-table-export"></i> Excel</button></div>
+      <div class="tbl"><table id="tbl-inflow">
+        <thead><tr><th>Reg No</th><th>Hub</th><th>City</th><th>Model</th><th>Type</th><th>Date &amp; Time</th></tr></thead>
+        <tbody><tr><td colspan="5" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+      <div id="inflow-pager" class="bl-pager"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd" style="display:flex;align-items:center"><h2>Outflow - Bike List</h2><button onclick="exportOutflowXLSX()" title="Download Excel" style="margin-left:auto;background:none;border:1px solid #16a34a;border-radius:6px;cursor:pointer;color:#16a34a;font-size:13px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-table-export"></i> Excel</button></div>
+      <div class="tbl"><table id="tbl-outflow">
+        <thead><tr><th>Reg No</th><th>Hub</th><th>Model</th><th>Type</th><th>Date &amp; Time</th><th>Technician</th><th>Labour Hrs</th><th>Part Cost</th><th>Bucket (TAT)</th></tr></thead>
+        <tbody><tr><td colspan="5" class="empty"><span class="spin"></span></td></tr></tbody>
+      </table></div>
+      <div id="outflow-pager" class="bl-pager"></div>
+    </div>
+  </div>
+
+  <!-- Technician Productivity -->
+  <div class="grid-1" style="margin-top:16px">
+    <div class="card">
+      <div class="card-hd"><h2>Technician Productivity</h2><span class="sub" id="tech-count"></span></div>
+      <div class="tbl" id="tech-tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Technician</th>
+            <th>Hub</th>
+            <th class="num">Repaired</th>
+            <th class="num">Avg TAT (days)</th>
+            <th class="num">Total Labour Hrs</th>
+            <th class="num">Total JC Cost</th>
+          </tr></thead>
+          <tbody id="tech-tbody"><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<script>
+const SB   = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR  = { apikey: ANON, Authorization: 'Bearer ' + ANON };
+
+let RAW = null;
+let DAILY_FLOW = [];
+let LAST_OOS_DETAIL = [];
+
+// ── FETCH — split into 3 small targeted queries instead of 1 full-table scan ──
+async function fetchData() {
+  // Q1: summary — only city/model/status, all bikes (~11K rows, 3 tiny cols)
+  // Q2: OOS detail — only OOS bikes with aging/repair cols (~464 rows)
+  // Q3+4: inflow/outflow — small tables
+  const [summaryR, oosR, inflowR, outflowR] = await Promise.all([
+    fetch(`${SB}/rest/v1/bike_fleet?select=city,hub_name,model_name,status&limit=20000`, { headers: HDR }),
+    fetch(`${SB}/rest/v1/bike_fleet?select=city,hub_name,model_name,oos_aging_bucket,repair_category,oos_age,reg_number,oos_sub_status,current_odometer,latest_oos_date&status=eq.OOS&limit=2000`, { headers: HDR }),
+    fetch(`${SB}/rest/v1/inflow_today?select=*&data_date=eq.${todayISTDate()}&order=event_time.desc`, { headers: HDR }),
+    fetch(`${SB}/rest/v1/outflow_today?select=*&data_date=eq.${todayISTDate()}&order=repaired_datetime.desc`, { headers: HDR }),
+  ]);
+  const [summary, oosDetail, inflow, outflow] = await Promise.all([
+    summaryR.json(), oosR.json(), inflowR.json(), outflowR.json()
+  ]);
+  return { summary, oosDetail, inflow, outflow };
+}
+
+// ── POPULATE FILTERS ──────────────────────────────────────────────────────────
+function populateFilters({ summary, oosDetail }) {
+  const cities = [...new Set(summary.map(r => r.city).filter(Boolean))].sort();
+  const hubs   = [...new Set(oosDetail.map(r => r.hub_name).filter(Boolean))].sort();
+  const models = [...new Set(summary.map(r => r.model_name).filter(Boolean))].sort();
+  const sel = (id, items, label) => {
+    const el = document.getElementById(id), cur = el.value;
+    el.innerHTML = `<option value="">All ${label}</option>`;
+    items.forEach(v => el.innerHTML += `<option value="${v}"${v===cur?' selected':''}>${v}</option>`);
+  };
+  sel('f-city',  cities, 'Cities');
+  sel('f-hub',   hubs,   'Hubs');
+  sel('f-model', models, 'Models');
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function csvCell(v) {
+  var s = (v == null) ? '' : String(v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+function downloadCSV(filename, header, rows) {
+  var csv = '\uFEFF' + header.map(csvCell).join(',') + '\n' +
+    rows.map(function(r){ return r.map(csvCell).join(','); }).join('\n');
+  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+function getFilteredInflow() {
+  if (!RAW) return [];
+  var dr = getBLDateRange();
+  var inType = document.getElementById('f-bl-inflow-type') ? document.getElementById('f-bl-inflow-type').value : '';
+  var inflow = applyFilters(RAW).inflow || [];
+  if (dr.from) inflow = inflow.filter(function(r){ return r.data_date && r.data_date >= dr.from; });
+  if (dr.to)   inflow = inflow.filter(function(r){ return r.data_date && r.data_date <= dr.to; });
+  if (inType)  inflow = inflow.filter(function(r){ return r.submission_type === inType; });
+  return inflow;
+}
+function exportInflowXLSX() {
+  try {
+  if (!RAW) { alert('Data not loaded yet — wait for the page to finish loading.'); return; }
+  var inflow = getFilteredInflow();
+  var header = ['Reg No','Hub','City','Model','Type','Date & Time'];
+  var rows = inflow.map(function(r){
+    return [r.reg_number, r.hub_name, r.city, r.model_name, r.submission_type, r.event_time ? fmtDateTime(r.event_time) : ''];
+  });
+  downloadCSV('oos_inflow_' + new Date().toISOString().slice(0,10) + '.csv', header, rows);
+  } catch(e) { alert('Export error: ' + e.message); }
+}
+function getFilteredOutflow() {
+  if (!RAW) return [];
+  var dr = getBLDateRange();
+  var reType = document.getElementById('f-bl-repair-type') ? document.getElementById('f-bl-repair-type').value : '';
+  var outflow = applyFilters(RAW).outflow || [];
+  if (dr.from) outflow = outflow.filter(function(r){ return r.data_date && r.data_date >= dr.from; });
+  if (dr.to)   outflow = outflow.filter(function(r){ return r.data_date && r.data_date <= dr.to; });
+  if (reType)  outflow = outflow.filter(function(r){ return r.submission_type === reType; });
+  return outflow;
+}
+function exportOutflowXLSX() {
+  try {
+  if (!RAW) { alert('Data not loaded yet — wait for the page to finish loading.'); return; }
+  var outflow = getFilteredOutflow();
+  var header = ['Reg No','Hub','Model','Type','Date & Time','Technician','Labour Hrs','Part Cost','Bucket (TAT)'];
+  var rows = outflow.map(function(r){
+    var timeStr = r.repaired_datetime ? fmtDateTime(r.repaired_datetime) : '';
+    var labourStr = (r.labour_hours != null) ? parseFloat(r.labour_hours).toFixed(2) : '';
+    var costStr   = (r.total_item_cost != null) ? Math.round(r.total_item_cost) : '';
+    return [r.reg_number, r.hub_name, r.model_name, r.submission_type, timeStr, r.technician_name||'', labourStr, costStr, r.tat_bucket||''];
+  });
+  downloadCSV('oos_repaired_' + new Date().toISOString().slice(0,10) + '.csv', header, rows);
+  } catch(e) { alert('Export error: ' + e.message); }
+}
+
+function renderTechTable(outflow) {
+  var tbody = document.getElementById('tech-tbody');
+  var countEl = document.getElementById('tech-count');
+  if (!tbody) return;
+
+  var rows = outflow.filter(function(r){ return r.technician_name; });
+
+  // Group by technician + hub
+  var map = {};
+  rows.forEach(function(r) {
+    var key = (r.technician_name||'') + '||' + (r.hub_name||'');
+    if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, tatSum: 0, tatN: 0, labSum: 0, labN: 0, costSum: 0 };
+    map[key].count++;
+    if (r.oos_to_rfd_tat_days != null) { map[key].tatSum += parseFloat(r.oos_to_rfd_tat_days)||0; map[key].tatN++; }
+    if (r.labour_hours != null) { map[key].labSum += parseFloat(r.labour_hours)||0; map[key].labN++; }
+    if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; }
+  });
+
+  var techs = Object.values(map).sort(function(a,b){ return b.count - a.count; });
+  if (countEl) countEl.textContent = techs.length + ' technicians';
+
+  if (!techs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No repair data</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = techs.map(function(t) {
+    var avgTat  = t.tatN  ? (t.tatSum  / t.tatN).toFixed(1)  : '—';
+    var avgLab  = t.labN  ? t.labSum.toFixed(2) : '—';
+    var cost    = t.costSum ? '₹' + Math.round(t.costSum).toLocaleString('en-IN') : '—';
+    var tatColor = t.tatN ? (parseFloat(avgTat) <= 1 ? 'color:#16a34a' : parseFloat(avgTat) <= 3 ? 'color:#d97706' : 'color:#dc2626') : '';
+    return '<tr>' +
+      '<td style="font-weight:500">' + t.tech + '</td>' +
+      '<td>' + (t.hub||'—') + '</td>' +
+      '<td class="num"><strong>' + t.count + '</strong></td>' +
+      '<td class="num" style="' + tatColor + '">' + avgTat + '</td>' +
+      '<td class="num">' + avgLab + '</td>' +
+      '<td class="num">' + cost + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function populateBikeListTypeFilters() {
+  if (!RAW) return;
+  var inSel = document.getElementById('f-bl-inflow-type');
+  var reSel = document.getElementById('f-bl-repair-type');
+  if (inSel && inSel.options.length <= 1) {
+    var inTypes = [...new Set((RAW.inflow||[]).map(r=>r.submission_type).filter(Boolean))].sort();
+    inTypes.forEach(function(t){ var o=document.createElement('option'); o.value=t; o.textContent=t; inSel.appendChild(o); });
+  }
+  if (reSel && reSel.options.length <= 1) {
+    var reTypes = [...new Set((RAW.outflow||[]).map(r=>r.submission_type).filter(Boolean))].sort();
+    reTypes.forEach(function(t){ var o=document.createElement('option'); o.value=t; o.textContent=t; reSel.appendChild(o); });
+  }
+}
+
+function todayISTDate() {
+  return new Date(Date.now() + 5.5*60*60*1000).toISOString().slice(0,10);
+}
+
+function todayISTStr() {
+  var d = new Date(Date.now() + 5.5*60*60*1000);
+  return d.toISOString().slice(0,10);
+}
+function yesterdayISTStr() {
+  var d = new Date(Date.now() + 5.5*60*60*1000 - 86400000);
+  return d.toISOString().slice(0,10);
+}
+
+async function loadBLDates() {
+  var sel = document.getElementById('f-bl-date-sel');
+  if (!sel) return;
+  var todayStr = new Date(Date.now() + 5.5*60*60*1000).toISOString().slice(0,10);
+  var yesterStr = new Date(Date.now() + 5.5*60*60*1000 - 86400000).toISOString().slice(0,10);
+  // Start fresh
+  sel.innerHTML = '<option value="today">Today (' + todayStr + ')</option>';
+  try {
+    var r = await fetch(SB + '/rest/v1/inflow_today?select=data_date&order=data_date.desc', {
+      headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
+    });
+    var rows = await r.json();
+    var dates = [...new Set((rows||[]).map(function(x){ return x.data_date; }).filter(Boolean))].sort().reverse();
+    dates.forEach(function(d) {
+      if (d === todayStr) return; // already added as Today
+      var o = document.createElement('option');
+      o.value = d;
+      o.textContent = d === yesterStr ? d + ' (Yesterday)' : d;
+      sel.appendChild(o);
+    });
+  } catch(e) { console.warn('loadBLDates error', e); }
+  // Always add Custom Range at end
+  var oc = document.createElement('option');
+  oc.value = 'custom';
+  oc.textContent = 'Custom Range';
+  sel.appendChild(oc);
+}
+
+async function onBLDateSel() {
+  var val = document.getElementById('f-bl-date-sel').value;
+  var cr = document.getElementById('f-bl-custom-range');
+  if (val === 'custom') {
+    cr.style.display = 'flex';
+    document.getElementById('f-bl-from').value = '';
+    document.getElementById('f-bl-to').value = '';
+    // Don't fetch yet — wait for user to pick dates
+  } else if (val === 'today') {
+    cr.style.display = 'none';
+    var today = todayISTDate();
+    document.getElementById('f-bl-from').value = today;
+    document.getElementById('f-bl-to').value   = today;
+    await fetchAndRenderBikeList(today, today);
+    applyBikeListFilters();
+  } else {
+    cr.style.display = 'none';
+    document.getElementById('f-bl-from').value = val;
+    document.getElementById('f-bl-to').value   = val;
+    await fetchAndRenderBikeList(val, val);
+    applyBikeListFilters();
+  }
+}
+
+async function setBLDate(mode) {
+  var IDS = { today:'f-btn-today', yesterday:'f-btn-yesterday', '7d':'f-btn-7d' };
+  Object.keys(IDS).forEach(function(k){ var b=document.getElementById(IDS[k]); if(b){ b.style.background='none'; b.style.color='var(--text)'; b.style.fontWeight=''; } });
+  var active = document.getElementById(IDS[mode] || IDS.today);
+  if (active) { active.style.background='var(--accent)'; active.style.color='#fff'; active.style.fontWeight='600'; }
+
+  var MS = Date.now() + 5.5*60*60*1000, DAY = 86400000;
+  var todayStr = new Date(MS).toISOString().slice(0,10);
+  var from, to;
+  if (mode === '7d')       { to = todayStr; from = new Date(MS - 6*DAY).toISOString().slice(0,10); }
+  else if (mode === 'yesterday') { from = to = new Date(MS - DAY).toISOString().slice(0,10); }
+  else                     { from = to = todayStr; }
+  document.getElementById('f-bl-from').value = from;
+  document.getElementById('f-bl-to').value   = to;
+  await fetchAndRenderBikeList(from, to);
+  applyBikeListFilters();
+}
+
+
+function getBLDateRange() {
+  var from = document.getElementById('f-bl-from') ? document.getElementById('f-bl-from').value : '';
+  var to   = document.getElementById('f-bl-to')   ? document.getElementById('f-bl-to').value   : '';
+  return { from: from, to: to };
+}
+
+async function onBLCustomRange() {
+  var from = document.getElementById('f-bl-from').value;
+  var to   = document.getElementById('f-bl-to').value;
+  if (!from || !to) return; // wait for both dates
+  await fetchAndRenderBikeList(from, to);
+  applyBikeListFilters();
+}
+
+async function fetchAndRenderBikeList(from, to) {
+  // Fetch server-side filtered data for the given date range
+  var fromParam = from ? `&data_date=gte.${from}` : '';
+  var toParam   = to   ? `&data_date=lte.${to}`   : '';
+  var dateParam = fromParam + toParam;
+  // If no date filter, default to today
+  if (!dateParam) dateParam = `&data_date=eq.${todayISTDate()}`;
+  try {
+    const [inflowR, outflowR] = await Promise.all([
+      fetch(`${SB}/rest/v1/inflow_today?select=*${dateParam}&order=event_time.desc&limit=5000`, { headers: HDR }),
+      fetch(`${SB}/rest/v1/outflow_today?select=*${dateParam}&order=repaired_datetime.desc&limit=5000`, { headers: HDR }),
+    ]);
+    const inflow  = await inflowR.json();
+    const outflow = await outflowR.json();
+    RAW.inflow  = Array.isArray(inflow)  ? inflow  : [];
+    RAW.outflow = Array.isArray(outflow) ? outflow : [];
+    try { var _fo = applyFilters(RAW).outflow; LAST_OUTFLOW = _fo; renderRepairAging(_fo); } catch(e) {}
+  } catch(e) { console.error('fetchAndRenderBikeList error', e); }
+}
+
+async function fetchDailyFlow() {
+  var today = todayISTDate();
+  var monthStart = today.slice(0,8) + '01';
+  try {
+    var r = await fetch(SB + '/rest/v1/daily_flow?select=data_date,city,hub_name,inflow_total,inflow_rr,outflow_total,outflow_rr&data_date=gte.' + monthStart + '&limit=20000', { headers: HDR });
+    var j = await r.json();
+    return Array.isArray(j) ? j : [];
+  } catch(e) { console.error('fetchDailyFlow error', e); return []; }
+}
+
+function updateMTD() {
+  var elIn = document.getElementById('k-inflow-avg');
+  var elOut = document.getElementById('k-outflow-avg');
+  if (!elIn || !elOut) return;
+  var city = document.getElementById('f-city').value;
+  var hub  = document.getElementById('f-hub').value;
+  var today = todayISTDate();
+  var monthStart = today.slice(0,8) + '01';
+  var byDate = {};
+  (DAILY_FLOW || []).forEach(function(r){
+    if (r.data_date < monthStart || r.data_date >= today) return; // completed days this month only
+    if (city && r.city !== city) return;
+    if (hub && r.hub_name !== hub) return;
+    if (!byDate[r.data_date]) byDate[r.data_date] = { in:0, out:0 };
+    byDate[r.data_date].in  += (r.inflow_total  - r.inflow_rr);
+    byDate[r.data_date].out += (r.outflow_total - r.outflow_rr);
+  });
+  var dates = Object.keys(byDate);
+  if (!dates.length) { elIn.textContent = 'avg —/day (MTD)'; elOut.textContent = 'avg —/day (MTD)'; return; }
+  var sIn = 0, sOut = 0;
+  dates.forEach(function(d){ sIn += byDate[d].in; sOut += byDate[d].out; });
+  elIn.textContent  = 'avg ' + Math.round(sIn/dates.length)  + '/day (MTD)';
+  elOut.textContent = 'avg ' + Math.round(sOut/dates.length) + '/day (MTD)';
+}
+
+function applyBikeListFilters() {
+  if (!RAW) return;
+  var dr = getBLDateRange();
+  var inType = document.getElementById('f-bl-inflow-type') ? document.getElementById('f-bl-inflow-type').value : '';
+  var reType = document.getElementById('f-bl-repair-type') ? document.getElementById('f-bl-repair-type').value : '';
+
+  var filtered = applyFilters(RAW);
+  var inflow  = filtered.inflow  || [];
+  var outflow = filtered.outflow || [];
+  var summary = filtered.summary || [];
+  var oosDetail = filtered.oosDetail || [];
+
+  if (dr.from) inflow  = inflow.filter(function(r){ return r.data_date && r.data_date >= dr.from; });
+  if (dr.to)   inflow  = inflow.filter(function(r){ return r.data_date && r.data_date <= dr.to; });
+  if (dr.from) outflow = outflow.filter(function(r){ return r.data_date && r.data_date >= dr.from; });
+  if (dr.to)   outflow = outflow.filter(function(r){ return r.data_date && r.data_date <= dr.to; });
+  if (inType)  inflow  = inflow.filter(function(r){ return r.submission_type === inType; });
+  if (reType)  outflow = outflow.filter(function(r){ return r.submission_type === reType; });
+
+  // Update KPI counts (exclude Running Repair from headline inflow/outflow; RR shown separately)
+  var inflowNonRR  = inflow.filter(function(r){ return r.submission_type !== 'Running Repair'; });
+  var outflowNonRR = outflow.filter(function(r){ return r.submission_type !== 'RR'; });
+  var rrOutCount   = outflow.filter(function(r){ return r.submission_type === 'RR'; }).length;
+  document.getElementById('k-inflow').textContent  = inflowNonRR.length;
+  document.getElementById('k-outflow').textContent = outflowNonRR.length;
+  var _krr = document.getElementById('k-rr'); if (_krr) _krr.textContent = rrOutCount;
+  var techsToday = new Set(outflow.map(function(r){ return r.technician_name; }).filter(Boolean)).size;
+  var _kt = document.getElementById('k-techs'); if (_kt) _kt.textContent = techsToday;
+
+  // Re-render hub pivot tables and bike lists
+  renderHubInflow(inflow);
+  renderHubOutflow(outflow);
+  renderInflowTable(inflow);
+  renderOutflowTable(outflow);
+  renderTechTable(outflow);
+  updateMTD();
+}
+
+function clearBikeListFilters() {
+  document.getElementById('f-bl-inflow-type').value = '';
+  document.getElementById('f-bl-repair-type').value = '';
+  setBLDate('today');
+}
+
+function applyFilters(raw) {
+  const city  = document.getElementById('f-city').value;
+  const hub   = document.getElementById('f-hub').value;
+  const model = document.getElementById('f-model').value;
+
+  let summary   = raw.summary;
+  let oosDetail = raw.oosDetail;
+  let inflow    = raw.inflow;
+  let outflow   = raw.outflow;
+
+  if (city)  { summary = summary.filter(r => r.city === city); oosDetail = oosDetail.filter(r => r.city === city); inflow = inflow.filter(r => r.city === city); outflow = outflow.filter(r => r.city === city); }
+  if (hub)   { summary = summary.filter(r => r.hub_name === hub); oosDetail = oosDetail.filter(r => r.hub_name === hub); inflow = inflow.filter(r => r.hub_name === hub); outflow = outflow.filter(r => r.hub_name === hub); }
+  if (model) { summary = summary.filter(r => r.model_name === model); oosDetail = oosDetail.filter(r => r.model_name === model); outflow = outflow.filter(r => r.model_name === model); }
+
+  return { summary, oosDetail, inflow, outflow };
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function pct(n, d) { return d ? (n/d*100).toFixed(1)+'%' : '—'; }
+function pctClass(p) { const v = parseFloat(p); return v > 6 ? 'hi' : 'ok'; }
+
+function render({ summary, oosDetail, inflow, outflow }) {
+  const total  = summary.length;
+  const oosN   = summary.filter(r => r.status === 'OOS').length;
+  const oosPct = total ? (oosN/total*100).toFixed(1)+'%' : '—';
+  const _rTAT = outflow.filter(function(r){ return OOS_TYPES.indexOf(r.submission_type)>=0 && r.oos_to_rfd_tat_days != null; });
+  const avgAge = _rTAT.length ? (_rTAT.reduce(function(s,r){ return s+(parseFloat(r.oos_to_rfd_tat_days)||0); }, 0) / _rTAT.length).toFixed(1) : '—';
+
+  document.getElementById('k-total').textContent   = total.toLocaleString('en-IN');
+  document.getElementById('k-oos').textContent     = oosN.toLocaleString('en-IN');
+  document.getElementById('k-pct').textContent     = oosPct;
+  document.getElementById('k-inflow').textContent  = '...';
+  document.getElementById('k-outflow').textContent = '...';
+  document.getElementById('k-age').textContent     = avgAge;
+
+  renderCityTable(summary, oosDetail);
+  renderModelTable(summary, oosDetail);
+  renderHubInflow(inflow);
+  renderHubOutflow(outflow);
+  LAST_OUTFLOW = outflow;
+  renderRepairAging(outflow);
+  renderAgingPivot(oosDetail);
+  renderRepairPivot(oosDetail);
+  populateBikeListTypeFilters();
+  loadBLDates().then(function() {
+    // After dates loaded, select Today and apply filter
+    var sel = document.getElementById('f-bl-date-sel');
+    if (sel) sel.value = 'today';
+    var cr = document.getElementById('f-bl-custom-range');
+    if (cr) cr.style.display = 'none';
+    var todayStr = new Date(Date.now() + 5.5*60*60*1000).toISOString().slice(0,10);
+    document.getElementById('f-bl-from').value = todayStr;
+    document.getElementById('f-bl-to').value   = todayStr;
+    applyBikeListFilters();
+  });
+}
+
+function cityModelRows(summary, oosDetail, key, tblId) {
+  const groups = [...new Set(summary.map(r => r[key]).filter(Boolean))].sort();
+  const tbody = document.querySelector('#' + tblId + ' tbody');
+  if (!groups.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No data</td></tr>'; return; }
+  let rows = '', gt = 0, go = 0;
+  groups.forEach(g => {
+    const t = summary.filter(r => r[key]===g).length;
+    const o = oosDetail.filter(r => r[key]===g).length;
+    const p = pct(o, t);
+    gt += t; go += o;
+    rows += `<tr><td>${g}</td><td class="num">${t.toLocaleString('en-IN')}</td><td class="num">${o.toLocaleString('en-IN')}</td><td class="pct ${pctClass(p)}">${p}</td></tr>`;
+  });
+  const tp = pct(go, gt);
+  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt.toLocaleString('en-IN')}</td><td class="num">${go.toLocaleString('en-IN')}</td><td class="pct ${pctClass(tp)}">${tp}</td></tr>`;
+  tbody.innerHTML = rows;
+}
+
+function renderCityTable(summary, oosDetail)  { cityModelRows(summary, oosDetail, 'city',       'tbl-city');  }
+function renderModelTable(summary, oosDetail) { cityModelRows(summary, oosDetail, 'model_name', 'tbl-model'); }
+
+let DD_CURRENT_ROWS = [];
+let DD_CURRENT_TITLE = '';
+
+function ddBadgeClass(cat) {
+  if (!cat) return 'default';
+  const c = String(cat).toLowerCase();
+  if (c.includes('major')) return 'major';
+  if (c.includes('medium')) return 'medium';
+  if (c.includes('minor')) return 'minor';
+  return 'default';
+}
+
+function openOOSDrilldown(dimKey, dimValue, hub) {
+  const rows = LAST_OOS_DETAIL.filter(r => r[dimKey] === dimValue && r.hub_name === hub);
+  DD_CURRENT_ROWS = rows;
+  DD_CURRENT_TITLE = `${hub} — ${dimValue}`;
+
+  document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
+  document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
+
+  let html = '<thead><tr><th>Reg No</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
+    const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
+    const odo = r.current_odometer != null ? Math.round(r.current_odometer).toLocaleString('en-IN') + ' km' : '—';
+    html += `<tr>
+      <td style="font-weight:600">${r.reg_number || '—'}</td>
+      <td><span class="dd-badge ${ddBadgeClass(r.repair_category)}">${r.oos_sub_status || '—'}</span></td>
+      <td class="${ageCls}">${r.oos_age ?? '—'}</td>
+      <td class="num">${odo}</td>
+      <td>${since}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('dd-table').innerHTML = html;
+  document.getElementById('dd-overlay').classList.add('open');
+}
+
+function closeOOSDrilldown() {
+  document.getElementById('dd-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeOOSDrilldown();
+});
+
+function exportOOSDrilldownCSV() {
+  if (!DD_CURRENT_ROWS.length) return;
+  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Latest OOS Date'];
+  const rows = DD_CURRENT_ROWS.map(r => [
+    r.reg_number, r.hub_name, r.city, r.oos_sub_status, r.repair_category,
+    r.oos_age, r.current_odometer, r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : ''
+  ]);
+  downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
+}
+
+const AGING_ORDER = ['0 days', '1-2 days', '3-4 days', '5-7 days', 'above 7 days'];
+
+function renderAgingPivot(oos) {
+  const wrap = document.getElementById('aging-tbl-wrap');
+  const hubs = [...new Set(oos.map(r => r.hub_name).filter(Boolean))].sort();
+  const buckets = AGING_ORDER.filter(b => oos.some(r => r.oos_aging_bucket === b));
+  LAST_OOS_DETAIL = oos;
+
+  if (!oos.length) { wrap.innerHTML = '<div class="empty">No OOS bikes for selected filters</div>'; return; }
+
+  let html = '<table><thead><tr><th>Aging Bucket</th>';
+  hubs.forEach(h => html += `<th class="num">${h}</th>`);
+  html += '<th class="num">Total</th></tr></thead><tbody>';
+
+  let colTotals = {};
+  hubs.forEach(h => colTotals[h] = 0);
+  let grandTotal = 0;
+
+  buckets.forEach(b => {
+    const rowOOS = oos.filter(r => r.oos_aging_bucket === b);
+    const rowTotal = rowOOS.length;
+    grandTotal += rowTotal;
+    let row = `<tr><td>${b}</td>`;
+    hubs.forEach(h => {
+      const c = rowOOS.filter(r => r.hub_name === h).length;
+      colTotals[h] += c;
+      row += c
+        ? `<td class="num cell-click" onclick="openOOSDrilldown('oos_aging_bucket',${JSON.stringify(b)},${JSON.stringify(h)})">${c}</td>`
+        : `<td class="num"></td>`;
+    });
+    row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
+    html += row;
+  });
+
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(h => html += `<td class="num">${colTotals[h] || ''}</td>`);
+  html += `<td class="num">${grandTotal}</td></tr>`;
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+const CAT_ORDER = ['Minor', 'Medium', 'Major', 'Detailed Inspection Required'];
+
+function renderRepairPivot(oos) {
+  const wrap = document.getElementById('repair-tbl-wrap');
+  const hubs = [...new Set(oos.map(r => r.hub_name).filter(Boolean))].sort();
+  const cats = CAT_ORDER.filter(c => oos.some(r => r.repair_category === c));
+  LAST_OOS_DETAIL = oos;
+
+  if (!oos.length) { wrap.innerHTML = '<div class="empty">No OOS bikes for selected filters</div>'; return; }
+
+  let html = '<table><thead><tr><th>Repair Category</th>';
+  hubs.forEach(h => html += `<th class="num">${h}</th>`);
+  html += '<th class="num">Total</th></tr></thead><tbody>';
+
+  let colTotals = {};
+  hubs.forEach(h => colTotals[h] = 0);
+  let grandTotal = 0;
+
+  cats.forEach(cat => {
+    const rowOOS = oos.filter(r => r.repair_category === cat);
+    const rowTotal = rowOOS.length;
+    grandTotal += rowTotal;
+    let row = `<tr><td>${cat}</td>`;
+    hubs.forEach(h => {
+      const c = rowOOS.filter(r => r.hub_name === h).length;
+      colTotals[h] += c;
+      row += c
+        ? `<td class="num cell-click" onclick="openOOSDrilldown('repair_category',${JSON.stringify(cat)},${JSON.stringify(h)})">${c}</td>`
+        : `<td class="num"></td>`;
+    });
+    row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
+    html += row;
+  });
+
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(h => html += `<td class="num">${colTotals[h] || ''}</td>`);
+  html += `<td class="num">${grandTotal}</td></tr>`;
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function modelClass(m) {
+  if (!m) return '';
+  if (m === 'e1+x') return 'pill-m-e1x';
+  if (m === 'e1+xPRO') return 'pill-m-pro';
+  if (m === 'LowSpeed') return 'pill-m-low';
+  return 'pill-model';
+}
+function typeClass(t) {
+  if (!t) return 'b-grey';
+  if (t === 'OOS') return 'b-t-oos';
+  if (t === 'PDI') return 'b-t-pdi';
+  if (t === 'Recovery') return 'b-t-rec';
+  if (t === 'Running Repair') return 'b-t-rr';
+  if (t === 'RR') return 'b-t-rr';
+  if (t === 'Rider Submission') return 'b-t-rs';
+  if (t === 'Bike Exchange') return 'b-t-be';
+  return 'b-grey';
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+}
+function fmtDateTime(ts) {
+  if (!ts) return '—';
+  var d = new Date(ts);
+  var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+  var h = d.getUTCHours(), mn = d.getUTCMinutes();
+  var ampm = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12;
+  return d.getUTCDate() + ' ' + mon + ' ' + h + ':' + String(mn).padStart(2,'0') + ' ' + ampm;
+}
+
+function renderHubInflow(inflow) {
+  document.getElementById('inflow-count').textContent = inflow.length + ' bikes';
+  const tbody = document.querySelector('#tbl-hub-inflow tbody');
+  const hubs = [...new Set(inflow.map(r => r.hub_name).filter(Boolean))].sort();
+  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No inflow today</td></tr>'; return; }
+  const TYPES = ['Running Repair', 'Rider Submission', 'Recovery', 'Bike Exchange'];
+  let rows = '', gt = 0, gCounts = [0,0,0,0];
+  hubs.forEach(h => {
+    const rows_h = inflow.filter(r => r.hub_name === h);
+    const total  = rows_h.length;
+    const counts = TYPES.map(t => rows_h.filter(r => r.submission_type === t).length);
+    gt += total; counts.forEach((c,i) => gCounts[i] += c);
+    rows += `<tr><td>${h}</td><td class="num">${total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}</tr>`;
+  });
+  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt}</td>${gCounts.map(c=>`<td class="num">${c||''}</td>`).join('')}</tr>`;
+  tbody.innerHTML = rows;
+}
+
+const REP_ORDER=['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
+const OOS_TYPES=['Rider Submission','Recovery','Bike Exchange'];
+var LAST_OUTFLOW=[];
+var REPAIR_INFLOW='all';
+function repBucket(d){ d=parseFloat(d); if(isNaN(d)) return null; var f=Math.floor(d); if(f<=0)return '0 days'; if(f<=2)return '1-2 days'; if(f<=4)return '3-4 days'; if(f<=7)return '5-7 days'; return 'above 7 days'; }
+function setRepairInflow(t,btn){
+  REPAIR_INFLOW=t;
+  document.querySelectorAll('#rep-inflow-filter button').forEach(function(b){b.style.background='none';b.style.color='var(--text)';b.style.fontWeight='400';});
+  if(btn){btn.style.background='var(--accent)';btn.style.color='#fff';btn.style.fontWeight='600';}
+  renderRepairAging(LAST_OUTFLOW);
+}
+function renderRepairAging(outflow){
+  const wrap=document.getElementById('rep-aging-wrap');
+  if(!wrap) return;
+  let set=(outflow||[]).filter(function(r){return OOS_TYPES.indexOf(r.submission_type)>=0;});
+  if(REPAIR_INFLOW!=='all') set=set.filter(function(r){return r.submission_type===REPAIR_INFLOW;});
+  const rowsData=set.map(function(r){return {hub:r.hub_name,b:repBucket(r.oos_to_rfd_tat_days)};}).filter(function(x){return x.hub && x.b;});
+  if(!rowsData.length){wrap.innerHTML='<div class="empty">No OOS repairs for selected filters</div>';return;}
+  const hubs=[...new Set(rowsData.map(function(x){return x.hub;}))].sort();
+  const buckets=REP_ORDER.filter(function(b){return rowsData.some(function(x){return x.b===b;});});
+  let html='<table><thead><tr><th>Aging Bucket</th>';
+  hubs.forEach(function(h){html+='<th class="num">'+h+'</th>';});
+  html+='<th class="num">Total</th></tr></thead><tbody>';
+  const colTot={}; hubs.forEach(function(h){colTot[h]=0;}); let grand=0;
+  buckets.forEach(function(b){
+    const rd=rowsData.filter(function(x){return x.b===b;}); const rt=rd.length; grand+=rt;
+    let row='<tr><td>'+b+'</td>';
+    hubs.forEach(function(h){var c=rd.filter(function(x){return x.hub===h;}).length; colTot[h]+=c; row+='<td class="num">'+(c||'')+'</td>';});
+    row+='<td class="num" style="font-weight:600">'+rt+'</td></tr>'; html+=row;
+  });
+  html+='<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(function(h){html+='<td class="num">'+(colTot[h]||'')+'</td>';});
+  html+='<td class="num">'+grand+'</td></tr></tbody></table>';
+  wrap.innerHTML=html;
+}
+
+function renderHubOutflow(outflow) {
+  document.getElementById('outflow-count').textContent = outflow.length + ' bikes';
+  const tbody = document.querySelector('#tbl-hub-outflow tbody');
+  const hubs = [...new Set(outflow.map(r => r.hub_name).filter(Boolean))].sort();
+  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No repairs today</td></tr>'; return; }
+  // OOS = Rider Submission + Recovery + Bike Exchange (shown as a group + its breakdown)
+  const OOS_SET = ['Rider Submission','Recovery','Bike Exchange'];
+  let rows = '', gt = 0, gCounts = [0,0,0,0,0,0], gtat = 0;
+  const cnt = (arr,t) => arr.filter(r => r.submission_type === t).length;
+  hubs.forEach(h => {
+    const rows_h = outflow.filter(r => r.hub_name === h);
+    const total  = rows_h.length;
+    const rider = cnt(rows_h,'Rider Submission'), recov = cnt(rows_h,'Recovery'), bex = cnt(rows_h,'Bike Exchange');
+    const oos = rider + recov + bex;
+    const rr = cnt(rows_h,'RR'), pdi = cnt(rows_h,'PDI');
+    const counts = [oos, rider, recov, bex, rr, pdi];
+    const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
+    const avgTat = total ? (tatSum/total).toFixed(1) : '—';
+    gt += total; counts.forEach((c,i) => gCounts[i] += c); gtat += tatSum;
+    rows += `<tr><td>${h}</td><td class="num">${total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}<td class="num">${avgTat}</td></tr>`;
+  });
+  const overallAvg = gt ? (gtat/gt).toFixed(1) : '—';
+  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt}</td>${gCounts.map(c=>`<td class="num">${c||''}</td>`).join('')}<td class="num">${overallAvg}</td></tr>`;
+  tbody.innerHTML = rows;
+}
+
+var _inflowAll = [];
+var _inflowPage = 1;
+function renderInflowTable(inflow) {
+  _inflowAll = [...inflow].sort((a,b) => new Date(b.event_time||0) - new Date(a.event_time||0));
+  _inflowPage = 1;
+  _renderInflowPage();
+}
+function _renderInflowPage() {
+  const tbody = document.querySelector('#tbl-inflow tbody');
+  const total = _inflowAll.length;
+  const pageSize = 20;
+  const start = (_inflowPage - 1) * pageSize;
+  const page = _inflowAll.slice(start, start + pageSize);
+  if (!total) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No inflow data</td></tr>'; _renderInflowPager(0); return; }
+  tbody.innerHTML = page.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:11px">${r.reg_number||'—'}</td>
+      <td>${r.hub_name||'—'}</td>
+      <td><span class="${r.city==='Bangalore'?'pill-city-blr':r.city==='NCR'?'pill-city-ncr':r.city==='Hyderabad'?'pill-city-hyd':''}">${r.city||'—'}</span></td>
+      <td><span class="${modelClass(r.model_name)}">${r.model_name||'—'}</span></td>
+      <td><span class="badge ${typeClass(r.submission_type)}">${r.submission_type||'—'}</span></td>
+      <td>${fmtDateTime(r.event_time)}</td>
+    </tr>`).join('');
+  _renderInflowPager(total);
+}
+function _renderInflowPager(total) {
+  var el = document.getElementById('inflow-pager');
+  if (!el) return;
+  var pages = Math.ceil(total / 20);
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  var cur = _inflowPage;
+  var html = '';
+  // Prev
+  html += `<button ${cur===1?'disabled':''} onclick="_inflowPage--;_renderInflowPage()">‹</button>`;
+  // Page numbers with ellipsis
+  var nums = [];
+  if (pages <= 7) {
+    for (var i=1;i<=pages;i++) nums.push(i);
+    nums.forEach(function(p) { html += `<button class="${cur===p?'active':''}" onclick="_inflowPage=${p};_renderInflowPage()">${p}</button>`; });
+  } else {
+    // Always show 1, last, current±1, with dots
+    var show = new Set([1, 2, pages-1, pages, cur-1, cur, cur+1].filter(function(p){return p>=1&&p<=pages;}));
+    var sorted = [...show].sort(function(a,b){return a-b;});
+    var prev = 0;
+    sorted.forEach(function(p) {
+      if (prev && p - prev > 1) html += '<span class="dots">…</span>';
+      html += `<button class="${cur===p?'active':''}" onclick="_inflowPage=${p};_renderInflowPage()">${p}</button>`;
+      prev = p;
+    });
+  }
+  // Next
+  html += `<button ${cur===pages?'disabled':''} onclick="_inflowPage++;_renderInflowPage()">›</button>`;
+  el.innerHTML = html;
+}
+
+
+var _outflowAll = [];
+var _outflowPage = 1;
+function renderOutflowTable(outflow) {
+  _outflowAll = [...outflow].sort((a,b) => new Date(b.repaired_datetime||0) - new Date(a.repaired_datetime||0));
+  _outflowPage = 1;
+  _renderOutflowPage();
+}
+function _renderOutflowPage() {
+  const tbody = document.querySelector('#tbl-outflow tbody');
+  const total = _outflowAll.length;
+  const pageSize = 20;
+  const start = (_outflowPage - 1) * pageSize;
+  const page = _outflowAll.slice(start, start + pageSize);
+  if (!total) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No repair data</td></tr>'; _renderOutflowPager(0); return; }
+  tbody.innerHTML = page.map(r => {
+    const bucket = r.tat_bucket || '';
+    let bClass = 'b-grey';
+    if (['0-0.5 hr','0.5-1 hr','1-2 hr'].includes(bucket)) bClass = 'b-green';
+    else if (['2-4 hr','4-12 hr'].includes(bucket)) bClass = 'b-blue';
+    else if (['12-24 hr','1-2 days'].includes(bucket)) bClass = 'b-amber';
+    else if (['3-4 days','5-7 days','Above 7 days'].includes(bucket)) bClass = 'b-red';
+    var timeStr = fmtDateTime(r.repaired_datetime);
+    var labourStr = (r.labour_hours != null) ? parseFloat(r.labour_hours).toFixed(2) + ' hr' : '—';
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px">${r.reg_number||'—'}</td>
+      <td>${r.hub_name||'—'}</td>
+      <td><span class="${modelClass(r.model_name)}">${r.model_name||'—'}</span></td>
+      <td><span class="badge ${typeClass(r.submission_type)}">${r.submission_type||'—'}</span></td>
+      <td class="num">${timeStr}</td>
+      <td style="font-size:11px">${r.technician_name||'—'}</td>
+      <td class="num" style="font-family:var(--mono)">${labourStr}</td>
+      <td class="num" style="font-family:var(--mono);font-weight:600;color:${r.total_item_cost==null?'var(--muted)':r.total_item_cost<500?'#16a34a':r.total_item_cost<=1000?'#d97706':'#dc2626'}">${r.total_item_cost!=null?'₹'+Math.round(r.total_item_cost).toLocaleString('en-IN'):'—'}</td>
+      <td><span class="badge ${bClass}">${bucket||'—'}</span></td>
+    </tr>`;
+  }).join('');
+  _renderOutflowPager(total);
+}
+function _renderOutflowPager(total) {
+  var el = document.getElementById('outflow-pager');
+  if (!el) return;
+  var pages = Math.ceil(total / 20);
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  var cur = _outflowPage;
+  var html = '';
+  // Prev
+  html += `<button ${cur===1?'disabled':''} onclick="_outflowPage--;_renderOutflowPage()">‹</button>`;
+  // Page numbers with ellipsis
+  var nums = [];
+  if (pages <= 7) {
+    for (var i=1;i<=pages;i++) nums.push(i);
+    nums.forEach(function(p) { html += `<button class="${cur===p?'active':''}" onclick="_outflowPage=${p};_renderOutflowPage()">${p}</button>`; });
+  } else {
+    // Always show 1, last, current±1, with dots
+    var show = new Set([1, 2, pages-1, pages, cur-1, cur, cur+1].filter(function(p){return p>=1&&p<=pages;}));
+    var sorted = [...show].sort(function(a,b){return a-b;});
+    var prev = 0;
+    sorted.forEach(function(p) {
+      if (prev && p - prev > 1) html += '<span class="dots">…</span>';
+      html += `<button class="${cur===p?'active':''}" onclick="_outflowPage=${p};_renderOutflowPage()">${p}</button>`;
+      prev = p;
+    });
+  }
+  // Next
+  html += `<button ${cur===pages?'disabled':''} onclick="_outflowPage++;_renderOutflowPage()">›</button>`;
+  el.innerHTML = html;
+}
+
+
+function onFilter() {
+  if (!RAW) return;
+  render(applyFilters(RAW));
+}
+
+function clearFilters() {
+  ['f-city','f-hub','f-model'].forEach(id => document.getElementById(id).value = '');
+  onFilter();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function refresh() {
+  const btn = document.getElementById('sync-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '&#8635; Syncing…'; }
+  try {
+    RAW = await fetchData();
+    try { DAILY_FLOW = await fetchDailyFlow(); } catch(e) { DAILY_FLOW = []; }
+    populateFilters(RAW);
+    render(applyFilters(RAW));
+    document.getElementById('sync-lbl').innerHTML = `<span class="sb-dot" style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span> Synced ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}`;
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
+  } catch(e) {
+    console.error('OOS dashboard error:', e);
+    document.getElementById('sync-lbl').innerHTML = `<span style="color:var(--red)">⚠ Error loading data</span>`;
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
+  }
+}
+refresh();
+setInterval(refresh, 2 * 60 * 1000); // auto-refresh every 2 minutes
+
+// Sidebar
+function getSidebar() { return document.getElementById('sidebar'); }
+function toggleSidebar() {
+  const sb = getSidebar(); if (!sb) return;
+  const col = sb.classList.toggle('collapsed');
+  document.getElementById('sb-arrow').className = col ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
+  localStorage.setItem('sb_collapsed', col ? '1' : '0');
+}
+function closeSidebar() { const sb=getSidebar(); if(sb){ sb.classList.add('collapsed'); document.getElementById('sb-overlay').style.display='none'; } }
+(function(){
+  if (localStorage.getItem('sb_collapsed') === '0') {
+    const sb = getSidebar(), arr = document.getElementById('sb-arrow');
+    if (sb) sb.classList.remove('collapsed');
+    if (arr) arr.className = 'ti ti-layout-sidebar-right';
+  }
+})();
+</script>
+</body>
+</html>
