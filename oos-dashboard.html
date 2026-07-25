@@ -1133,7 +1133,7 @@ function renderAgingPivot(oos) {
       const c = rowOOS.filter(r => r.hub_name === h).length;
       colTotals[h] += c;
       row += c
-        ? `<td class="num cell-click" onclick="openOOSDrilldown('oos_aging_bucket',${JSON.stringify(b)},${JSON.stringify(h)})">${c}</td>`
+        ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},${JSON.stringify(b)},${JSON.stringify(h)})'>${c}</td>`
         : `<td class="num"></td>`;
     });
     row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
@@ -1174,7 +1174,7 @@ function renderRepairPivot(oos) {
       const c = rowOOS.filter(r => r.hub_name === h).length;
       colTotals[h] += c;
       row += c
-        ? `<td class="num cell-click" onclick="openOOSDrilldown('repair_category',${JSON.stringify(cat)},${JSON.stringify(h)})">${c}</td>`
+        ? `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},${JSON.stringify(cat)},${JSON.stringify(h)})'>${c}</td>`
         : `<td class="num"></td>`;
     });
     row += `<td class="num" style="font-weight:600">${rowTotal}</td></tr>`;
