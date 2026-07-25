@@ -267,7 +267,7 @@
           <!-- HUB HEALTH -->
           <div class="side-panel">
             <div class="side-header">
-              <div class="panel-title">Hub shortage ranking</div>
+              <div class="panel-title">Hub-wise MSL Fulfilment %</div>
               <div class="panel-sub">Worst → best</div>
             </div>
             <div class="side-body" id="hubRanking">
@@ -427,28 +427,36 @@ function render() {
     document.getElementById('heatmapTable').innerHTML = html;
   }
 
-  // ── HUB RANKING ──
+  // ── HUB RANKING (by MSL fulfilment %) ──
   const hubShorts = {};
+  const hubFulfilled = {};
   const hubTotals = {};
   allData.forEach(r => {
     if (!r.hub_name) return;
     hubTotals[r.hub_name] = (hubTotals[r.hub_name] || 0) + 1;
-    if ((r.status||'').toLowerCase().includes('short')) {
+    const st = (r.status||'').toLowerCase();
+    if (st.includes('short')) {
       hubShorts[r.hub_name] = (hubShorts[r.hub_name] || 0) + 1;
+    } else if (st.includes('ok') || st.includes('excess')) {
+      hubFulfilled[r.hub_name] = (hubFulfilled[r.hub_name] || 0) + 1;
     }
   });
-  const maxShort = Math.max(...Object.values(hubShorts), 1);
-  const hubsSorted = Object.keys(hubTotals).sort((a,b) => (hubShorts[b]||0) - (hubShorts[a]||0));
+  const hubsSorted = Object.keys(hubTotals).sort((a,b) => {
+    const fa = (hubFulfilled[a]||0) / (hubTotals[a]||1);
+    const fb = (hubFulfilled[b]||0) / (hubTotals[b]||1);
+    return fa - fb; // worst fulfilment first
+  });
 
   document.getElementById('hubRanking').innerHTML = hubsSorted.map(h => {
     const s = hubShorts[h] || 0;
+    const f = hubFulfilled[h] || 0;
     const t = hubTotals[h] || 1;
-    const pct = Math.round(s/t*100);
+    const fulfilPct = Math.round(f/t*100);
     return `<div class="hub-row">
       <div class="hub-name-lbl">${h}</div>
-      <div class="hub-bar-wrap"><div class="hub-bar-fill" style="width:${Math.round(s/maxShort*100)}%"></div></div>
-      <div class="hub-count">${s}</div>
-      <div class="hub-pct">${pct}%</div>
+      <div class="hub-bar-wrap"><div class="hub-bar-fill" style="width:${fulfilPct}%;background:${fulfilPct>=80?'#22c55e':fulfilPct>=50?'#f59e0b':'#ef4444'}"></div></div>
+      <div class="hub-count" style="color:${fulfilPct>=80?'#22c55e':fulfilPct>=50?'#f59e0b':'#f87171'}">${fulfilPct}%</div>
+      <div class="hub-pct">${s} short</div>
     </div>`;
   }).join('');
 
