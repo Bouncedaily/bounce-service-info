@@ -115,6 +115,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
       <div class="row" style="margin-top:12px">
         <div style="flex:1;min-width:130px"><label>City</label><select id="city-select"></select></div>
         <div style="flex:1;min-width:170px"><label>Hub</label><select id="hub-select"></select></div>
+        <div style="flex:1;min-width:130px;display:none" id="audit-type-wrap"><label>Audit Type</label><select id="audit-type-select"><option value="internal">Internal</option><option value="external">External</option></select></div>
         <button class="btn btn-primary" id="start-btn" style="align-self:flex-end">Start audit</button>
       </div>
       <div id="home-msg" class="err"></div>
@@ -253,11 +254,11 @@ function renderThumbs(el,arr){el.innerHTML='';arr.forEach((p,i)=>{const sp=docum
 function attachPhoto(btn,thumbs,arr,prefix){if(!btn)return;btn.onclick=()=>openCamera(async(blob)=>{if(!blob)return;const ph={path:null,capturedAt:new Date().toISOString(),lat:null,lng:null,uploading:true,errmsg:''};arr.push(ph);renderThumbs(thumbs,arr);try{let g=null;try{g=await geo();}catch(e){}if(g){ph.lat=g.lat;ph.lng=g.lng;}const path=STATE.localId+'/'+prefix+'/'+uid()+'.jpg';await uploadPhoto(blob,path);ph.path=path;ph.uploading=false;}catch(e){ph.error=true;ph.uploading=false;ph.errmsg=(e&&e.message)||'failed';toast('Photo: '+ph.errmsg);}renderThumbs(thumbs,arr);if(STATE)updateSectionCounts();scheduleSave();});}
 function photoRowHtml(id){return '<div class="photorow"><button type="button" class="photo-btn" id="pbtn-'+id+'">📷 Photo</button><span class="thumbs" id="pthumb-'+id+'"></span></div>';}
 
-let ME=null, CFG={}, HUBS=[], TEMPLATE=[], STATE=null;
+let ME=null, CFG={}, HUBS=[], TEMPLATE=[], TEMPLATE_FULL=[], STATE=null;
 const DRAFT_KEY='hub_audit_draft_v1';
 let _saveT=null;
 function scheduleSave(){clearTimeout(_saveT);_saveT=setTimeout(saveDraft,600);}
-function saveDraft(){ if(!STATE)return; try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hubId:STATE.hub.id,localId:STATE.localId,responses:STATE.responses,technicians:STATE.technicians,vehicleNg:STATE.vehicleNg,capa:STATE.capa,overallComments:(document.getElementById('overall-comments')||{}).value||'',ackName:(document.getElementById('ack-name')||{}).value||'',ackChk:!!(document.getElementById('ack-chk')||{}).checked,savedAt:Date.now()})); }catch(e){} }
+function saveDraft(){ if(!STATE)return; try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hubId:STATE.hub.id,auditType:STATE.auditType,localId:STATE.localId,responses:STATE.responses,technicians:STATE.technicians,vehicleNg:STATE.vehicleNg,capa:STATE.capa,overallComments:(document.getElementById('overall-comments')||{}).value||'',ackName:(document.getElementById('ack-name')||{}).value||'',ackChk:!!(document.getElementById('ack-chk')||{}).checked,savedAt:Date.now()})); }catch(e){} }
 function getDraft(){ try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){return null;} }
 function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
@@ -299,7 +300,7 @@ async function init(){
   document.getElementById('signout').style.display=(window.self===window.top)?'':'none';
   try{
     const em=encodeURIComponent(sess().email||'');
-    const rows=await api('auditors?select=id,name,can_audit,is_admin,hub_id&email=eq.'+em);
+    const rows=await api('auditors?select=id,name,can_audit,can_audit_external,is_admin,hub_id&email=eq.'+em);
     ME=rows&&rows[0];
   }catch(e){}
   // config
@@ -315,14 +316,18 @@ async function init(){
   if(!ME||!ME.can_audit){
     const sc=document.getElementById('start-card'); if(sc)sc.style.display='none';
   }
+  if(ME&&ME.can_audit_external){
+    const atw=document.getElementById('audit-type-wrap'); if(atw)atw.style.display='';
+  }
   /* Hub Audit user management now lives in the Admin Panel */
   // template
   try{
-    const secs=await api('audit_sections?select=id,name,sort_order&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
-    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,photo_required_on_ok,owner_role&active_to=is.null&order=sort_order.asc');
+    const secs=await api('audit_sections?select=id,name,sort_order,is_external_only&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
+    const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,photo_required_on_ok,owner_role,is_external_only&active_to=is.null&order=sort_order.asc');
     const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
-    TEMPLATE=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
-    CP_BY_ID={};TEMPLATE.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
+    TEMPLATE_FULL=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
+    TEMPLATE=TEMPLATE_FULL;
+    CP_BY_ID={};TEMPLATE_FULL.forEach(s=>s.checkpoints.forEach(cp=>{CP_BY_ID[cp.id]={label:cp.label,owner_role:cp.owner_role,section:s.name};}));
   }catch(e){toast('Failed to load checklist: '+e.message)}
   const draft=getDraft();
   if(draft&&draft.hubId&&ME&&ME.can_audit&&HUBS.some(h=>h.id===draft.hubId)){ startAudit(draft.hubId,draft); }
@@ -342,9 +347,11 @@ async function loadRecent(){
 }
 
 // ---- audit form ----
-async function startAudit(hubId,draft){
+async function startAudit(hubId,draft,auditType){
   const hub=HUBS.find(h=>h.id===hubId); if(!hub)return;
-  STATE={hub,localId:(draft&&draft.localId)||uid(),responses:(draft&&draft.responses)||{},technicians:(draft&&draft.technicians)||[],vehicleNg:(draft&&draft.vehicleNg)||[],capa:(draft&&draft.capa)||[]};
+  const type=(draft&&draft.auditType)||auditType||'internal';
+  TEMPLATE=(type==='external')?TEMPLATE_FULL:TEMPLATE_FULL.map(s=>({...s,checkpoints:s.checkpoints.filter(c=>!c.is_external_only)})).filter(s=>!s.is_external_only);
+  STATE={hub,auditType:type,localId:(draft&&draft.localId)||uid(),responses:(draft&&draft.responses)||{},technicians:(draft&&draft.technicians)||[],vehicleNg:(draft&&draft.vehicleNg)||[],capa:(draft&&draft.capa)||[]};
   STATE._collapsed=new Set();
   Object.values(STATE.responses).forEach(st=>{st.photos=(st.photos||[]).filter(p=>p&&p.path);});
   STATE.vehicleNg.forEach(v=>{v.photos=(v.photos||[]).filter(p=>p&&p.path);});
@@ -352,7 +359,7 @@ async function startAudit(hubId,draft){
   try{(await api('auditors?select=id,name,role&is_active=eq.true&hub_id=eq.'+hubId)).forEach(p=>{if(!STATE.hubPeople[p.role])STATE.hubPeople[p.role]={id:p.id,name:p.name};});}catch(e){}
   document.getElementById('view-home').classList.add('hidden');
   document.getElementById('view-audit').classList.remove('hidden');
-  document.getElementById('au-hub').textContent=hub.name+' · '+hub.city;
+  document.getElementById('au-hub').textContent=hub.name+' · '+hub.city+' · '+(STATE.auditType==='external'?'External Audit':'Internal Audit');
   document.getElementById('au-date').textContent=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   window.scrollTo(0,0);
   // metrics
@@ -609,7 +616,7 @@ async function submitAudit(){
     const snapshot={rating_thresholds:CFG.rating_thresholds,risk_weights:CFG.risk_weights,risk_bands:CFG.risk_bands};
     const now=new Date().toISOString();
     const audit=(await api('audits',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({
-      hub_id:STATE.hub.id,auditor_id:ME.id,template_version_id:TEMPLATE_ID,
+      hub_id:STATE.hub.id,auditor_id:ME.id,template_version_id:TEMPLATE_ID,audit_type:STATE.auditType||'internal',
       status:'In Progress',started_at:now,last_synced_at:now,synced:false,
       overall_score:STATE._score,rating:STATE._rating,risk_score:STATE._risk,risk_band:STATE._riskBand,
       scoring_config_snapshot:snapshot,overall_comments:document.getElementById('overall-comments').value||null,
@@ -671,7 +678,7 @@ function inHours(){
 }
 function goHome(){document.getElementById('view-audit').classList.add('hidden');document.getElementById('view-capa').classList.add('hidden');var va=document.getElementById('view-admin');if(va)va.classList.add('hidden');document.getElementById('view-home').classList.remove('hidden');STATE=null;window.scrollTo(0,0)}
 
-document.getElementById('start-btn').onclick=()=>{const id=document.getElementById('hub-select').value;if(id){clearDraft();startAudit(id);}};
+document.getElementById('start-btn').onclick=()=>{const id=document.getElementById('hub-select').value;const atEl=document.getElementById('audit-type-select');const at=(ME&&ME.can_audit_external&&atEl)?atEl.value:'internal';if(id){clearDraft();startAudit(id,null,at);}};
 (function(){const va=document.getElementById('view-audit');if(va){va.addEventListener('input',scheduleSave);va.addEventListener('change',scheduleSave);va.addEventListener('click',scheduleSave);}})();
 document.getElementById('back-btn').onclick=()=>{if(confirm('Leave this audit? Your progress is saved — you can resume it later.'))goHome()};
 document.getElementById('cancel-btn').onclick=()=>{if(confirm('Discard this audit? Saved progress will be deleted.')){clearDraft();goHome();}};
@@ -844,7 +851,7 @@ async function doLogin(){
     _token=d.access_token;
     document.getElementById('view-login').classList.add('hidden');
     document.getElementById('view-home').classList.remove('hidden');
-    ME=null;CFG={};HUBS=[];TEMPLATE=[];
+    ME=null;CFG={};HUBS=[];TEMPLATE=[];TEMPLATE_FULL=[];
     init();
   }catch(e){errEl.textContent=e.message}
   btn.disabled=false;btn.textContent='Sign in';
