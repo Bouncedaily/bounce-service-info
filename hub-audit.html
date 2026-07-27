@@ -506,9 +506,13 @@ function reflectCp(c,st){
   if(/any issue is observed/i.test(c.label)){/* vehicle-level block always visible now, regardless of answer */}
 }
 function techUI(){return '<div id="tech-list"></div><button class="addbtn" id="add-tech">+ Add technician</button>'}
-function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add vehicle NG</button>'}
+function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add another vehicle</button>'}
 function wireTech(){const b=document.getElementById('add-tech');if(b)b.onclick=()=>{STATE.technicians.push({technician_name:'',status:null,observation:''});renderTech()}}
-function wireVehicle(){const b=document.getElementById('add-veh');if(b)b.onclick=()=>{STATE.vehicleNg.push({vehicle_number:'',ng_part:'Structural damage',observation:'',photos:[]});renderVeh();recompute()}}
+function wireVehicle(){
+  if(STATE.vehicleNg.length===0){STATE.vehicleNg.push({vehicle_number:'',ng_part:'Structural damage',observation:'',photos:[]});}
+  renderVeh();
+  const b=document.getElementById('add-veh');if(b)b.onclick=()=>{STATE.vehicleNg.push({vehicle_number:'',ng_part:'Structural damage',observation:'',photos:[]});renderVeh();recompute()}
+}
 function renderTech(){
   const l=document.getElementById('tech-list');
   l.innerHTML=STATE.technicians.map((t,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Technician</label><input value="${esc(t.technician_name)}" oninput="STATE.technicians[${i}].technician_name=this.value"></div><div style="width:160px"><label>Status</label><select onchange="STATE.technicians[${i}].status=this.value"><option value="">—</option><option${t.status==='Competent'?' selected':''}>Competent</option><option${t.status==='Needs Training'?' selected':''}>Needs Training</option></select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.technicians[${i}].observation=this.value">${esc(t.observation)}</textarea></div></div>`).join('');
