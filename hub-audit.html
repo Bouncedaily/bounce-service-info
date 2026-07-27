@@ -131,10 +131,21 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 
   <!-- ADMIN -->
   <div id="view-admin" class="hidden">
-    <div class="scorebar" style="justify-content:space-between"><b>Admin — Users</b><button class="btn btn-ghost" id="admin-back">← Back</button></div>
-    <div class="card"><button class="btn btn-primary" id="admin-add">+ Add user</button></div>
-    <div id="admin-form" class="card hidden"></div>
-    <div id="admin-list"></div>
+    <div class="scorebar" style="justify-content:space-between"><b>Admin</b><button class="btn btn-ghost" id="admin-back">← Back</button></div>
+    <div class="row" style="gap:8px;margin-bottom:10px">
+      <button class="btn btn-ghost" id="admin-tab-users-btn">Users</button>
+      <button class="btn btn-ghost" id="admin-tab-checklist-btn">Checklist</button>
+    </div>
+    <div id="admin-tab-users">
+      <div class="card"><button class="btn btn-primary" id="admin-add">+ Add user</button></div>
+      <div id="admin-form" class="card hidden"></div>
+      <div id="admin-list"></div>
+    </div>
+    <div id="admin-tab-checklist" class="hidden">
+      <div class="card"><button class="btn btn-primary" id="cl-add-section">+ Add section</button></div>
+      <div id="cl-form" class="card hidden"></div>
+      <div id="cl-list"></div>
+    </div>
   </div>
 
   <!-- CAPA -->
@@ -319,10 +330,13 @@ async function init(){
   if(ME&&ME.can_audit_external){
     const atw=document.getElementById('audit-type-wrap'); if(atw)atw.style.display='';
   }
+  if(ME&&ME.is_admin){
+    const aob=document.getElementById('admin-open-btn'); if(aob)aob.style.display='';
+  }
   /* Hub Audit user management now lives in the Admin Panel */
   // template
   try{
-    const secs=await api('audit_sections?select=id,name,sort_order,is_external_only&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
+    const secs=await api('audit_sections?select=id,name,sort_order,is_external_only&template_version_id=eq.'+TEMPLATE_ID+'&is_active=eq.true&order=sort_order.asc');
     const cps=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,threshold_config,photo_required_on_ng,photo_required_on_ok,owner_role,is_external_only&active_to=is.null&order=sort_order.asc');
     const tags=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
     TEMPLATE_FULL=secs.map(s=>({...s,checkpoints:cps.filter(c=>c.section_id===s.id).map(c=>({...c,tags:tags.filter(t=>t.checkpoint_id===c.id)}))}));
@@ -793,7 +807,14 @@ on('capa-city','onchange',fillCapaHubs);
 
 // ---- Admin: user management ----
 function adminHubName(id){const h=HUBS.find(x=>x.id===id);return h?h.name:'';}
-function showAdminView(){document.getElementById('view-home').classList.add('hidden');document.getElementById('view-admin').classList.remove('hidden');document.getElementById('admin-form').classList.add('hidden');loadAdminUsers();window.scrollTo(0,0);}
+function showAdminView(){document.getElementById('view-home').classList.add('hidden');document.getElementById('view-admin').classList.remove('hidden');document.getElementById('admin-form').classList.add('hidden');showAdminTab('users');window.scrollTo(0,0);}
+function showAdminTab(t){
+  document.getElementById('admin-tab-users').classList.toggle('hidden',t!=='users');
+  document.getElementById('admin-tab-checklist').classList.toggle('hidden',t!=='checklist');
+  if(t==='users')loadAdminUsers(); else loadChecklistAdmin();
+}
+document.getElementById('admin-tab-users-btn').onclick=()=>showAdminTab('users');
+document.getElementById('admin-tab-checklist-btn').onclick=()=>showAdminTab('checklist');
 async function loadAdminUsers(){const el=document.getElementById('admin-list');el.innerHTML='<div class="card muted">Loading…</div>';try{ADMIN_USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');renderAdminList();}catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}}
 function renderAdminList(){const el=document.getElementById('admin-list');if(!ADMIN_USERS.length){el.innerHTML='<div class="card muted">No users yet.</div>';return;}el.innerHTML=ADMIN_USERS.map((u,i)=>'<div class="card" style="padding:12px"><div class="between"><div><b>'+esc(u.name)+'</b> <span class="sub">'+esc(u.email)+'</span><div class="sub">'+roleLabel(u.role)+(u.hub_id?(' · '+esc(adminHubName(u.hub_id))):'')+(u.city?(' · '+esc(u.city)):'')+(u.can_audit?' · audits':'')+(u.is_admin?' · admin':'')+(u.is_active===false?' · inactive':'')+'</div></div><button class="btn btn-ghost" onclick="editUser('+i+')">Edit</button></div></div>').join('');}
 function userForm(u){
@@ -837,6 +858,127 @@ async function saveUser(id){
 document.getElementById('admin-open-btn').onclick=showAdminView;
 document.getElementById('admin-back').onclick=goHome;
 document.getElementById('admin-add').onclick=()=>userForm({});
+
+// ---- Checklist admin (sections / checkpoints / tags) ----
+const ROLE_OPTS=[['','—'],['auditor','Auditor'],['hub_manager','Hub Manager'],['service_manager','Service Manager'],['city_head','City Head'],['regional_manager_ops','Regional Manager - Ops'],['regional_manager_service','Regional Manager - Service'],['ops_head','Ops Head'],['service_head','Service Head'],['founder','Founder']];
+const MODE_OPTS=['binary','multi_select','numeric','count','text_only'];
+const SEV_OPTS=['','Low','Medium','Critical'];
+let CL_SECTIONS=[],CL_CPS=[],CL_TAGS=[];
+async function loadChecklistAdmin(){
+  const el=document.getElementById('cl-list'); el.innerHTML='<div class="card muted">Loading…</div>';
+  try{
+    CL_SECTIONS=await api('audit_sections?select=id,name,sort_order,owner_role,is_external_only,is_active&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
+    CL_CPS=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,owner_role,photo_required_on_ng,photo_required_on_ok,is_external_only,active_to&order=sort_order.asc');
+    CL_TAGS=await api('checkpoint_tags?select=id,checkpoint_id,tag_label,sort_order&order=sort_order.asc');
+    renderChecklistAdmin();
+  }catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}
+}
+function renderChecklistAdmin(){
+  const el=document.getElementById('cl-list');
+  if(!CL_SECTIONS.length){el.innerHTML='<div class="card muted">No sections yet.</div>';return;}
+  el.innerHTML=CL_SECTIONS.map(s=>{
+    const cps=CL_CPS.filter(c=>c.section_id===s.id);
+    const cpHtml=cps.map(c=>{
+      const tags=CL_TAGS.filter(t=>t.checkpoint_id===c.id);
+      const retired=!!c.active_to;
+      return '<div class="card" style="padding:10px;margin-top:6px;'+(retired?'opacity:.55':'')+'">'
+        +'<div class="between"><div><b>'+esc(c.label)+'</b>'
+        +'<div class="sub">'+esc(c.mode)+(c.severity?(' · '+esc(c.severity)):'')+(c.owner_role?(' · '+roleLabel(c.owner_role)):'')+(c.is_external_only?' · External only':'')+(retired?' · Retired':'')+'</div></div>'
+        +'<div class="row" style="gap:6px"><button class="btn btn-ghost" onclick="editCheckpoint(\''+c.id+'\')">Edit</button>'
+        +'<button class="btn btn-ghost" onclick="toggleCheckpoint(\''+c.id+'\','+(retired?'false':'true')+')">'+(retired?'Reactivate':'Retire')+'</button></div></div>'
+        +(c.mode==='multi_select'?('<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">'
+          +tags.map(t=>'<span class="sub" style="background:#f4f6f9;padding:3px 8px;border-radius:6px">'+esc(t.tag_label)+' <a href="#" onclick="deleteTag(\''+t.id+'\');return false" style="color:#dc2626">×</a></span>').join('')
+          +'<button class="btn btn-ghost" style="padding:2px 8px" onclick="addTag(\''+c.id+'\')">+ tag</button></div>'):'')
+        +'</div>';
+    }).join('');
+    return '<div class="card">'
+      +'<div class="between"><div><b>'+esc(s.name)+'</b><div class="sub">Order '+s.sort_order+(s.owner_role?(' · '+roleLabel(s.owner_role)):'')+(s.is_external_only?' · External only':'')+(!s.is_active?' · Retired':'')+'</div></div>'
+      +'<div class="row" style="gap:6px"><button class="btn btn-ghost" onclick="editSection(\''+s.id+'\')">Edit</button>'
+      +'<button class="btn btn-ghost" onclick="toggleSection(\''+s.id+'\','+(s.is_active?'false':'true')+')">'+(s.is_active?'Retire':'Reactivate')+'</button>'
+      +'<button class="btn btn-ghost" onclick="addCheckpoint(\''+s.id+'\')">+ Checkpoint</button></div></div>'
+      +cpHtml
+      +'</div>';
+  }).join('');
+}
+function sectionForm(s){
+  const f=document.getElementById('cl-form'); f.classList.remove('hidden');
+  f.innerHTML='<b>'+(s.id?'Edit section':'Add section')+'</b>'
+    +'<label>Name</label><input id="cs-name" value="'+esc(s.name||'')+'">'
+    +'<label>Sort order</label><input id="cs-order" type="number" value="'+(s.sort_order!=null?s.sort_order:(CL_SECTIONS.length+1)*10)+'">'
+    +'<label>Owner role</label><select id="cs-role">'+ROLE_OPTS.map(r=>'<option value="'+r[0]+'"'+(s.owner_role===r[0]?' selected':'')+'>'+r[1]+'</option>').join('')+'</select>'
+    +'<label class="row" style="gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cs-ext" style="width:auto" '+(s.is_external_only?'checked':'')+'> External only</label>'
+    +'<div class="err" id="cs-err"></div>'
+    +'<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-primary" id="cs-save">Save</button><button class="btn btn-ghost" id="cs-cancel">Cancel</button></div>';
+  document.getElementById('cs-save').onclick=()=>saveSection(s.id);
+  document.getElementById('cs-cancel').onclick=()=>f.classList.add('hidden');
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function editSection(id){sectionForm(CL_SECTIONS.find(s=>s.id===id)||{});}
+document.getElementById('cl-add-section').onclick=()=>sectionForm({});
+async function saveSection(id){
+  const err=document.getElementById('cs-err'); err.textContent='';
+  const name=document.getElementById('cs-name').value.trim();
+  if(!name){err.textContent='Name is required.';return;}
+  const body={name:name,sort_order:parseInt(document.getElementById('cs-order').value)||0,owner_role:document.getElementById('cs-role').value||null,is_external_only:document.getElementById('cs-ext').checked};
+  if(!id)body.template_version_id=TEMPLATE_ID;
+  const btn=document.getElementById('cs-save');btn.disabled=true;btn.textContent='Saving…';
+  try{
+    if(id)await api('audit_sections?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    else await api('audit_sections',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    toast('Section saved');document.getElementById('cl-form').classList.add('hidden');loadChecklistAdmin();
+  }catch(e){err.textContent='Save failed: '+e.message;btn.disabled=false;btn.textContent='Save';}
+}
+async function toggleSection(id,makeActive){
+  try{await api('audit_sections?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({is_active:makeActive})});toast(makeActive?'Section reactivated':'Section retired');loadChecklistAdmin();}catch(e){toast('Failed: '+e.message);}
+}
+function checkpointForm(sectionId,c){
+  const f=document.getElementById('cl-form'); f.classList.remove('hidden');
+  const cps=CL_CPS.filter(x=>x.section_id===sectionId);
+  f.innerHTML='<b>'+(c.id?'Edit checkpoint':'Add checkpoint')+'</b>'
+    +'<label>Label</label><input id="cc-label" value="'+esc(c.label||'')+'">'
+    +'<label>Sort order</label><input id="cc-order" type="number" value="'+(c.sort_order!=null?c.sort_order:(cps.length+1)*10)+'">'
+    +'<label>Mode</label><select id="cc-mode">'+MODE_OPTS.map(m=>'<option value="'+m+'"'+(c.mode===m?' selected':'')+'>'+m+'</option>').join('')+'</select>'
+    +'<label>Severity</label><select id="cc-sev">'+SEV_OPTS.map(s=>'<option value="'+s+'"'+(c.severity===s?' selected':'')+'>'+(s||'—')+'</option>').join('')+'</select>'
+    +'<label>Owner role</label><select id="cc-role">'+ROLE_OPTS.map(r=>'<option value="'+r[0]+'"'+(c.owner_role===r[0]?' selected':'')+'>'+r[1]+'</option>').join('')+'</select>'
+    +'<label class="row" style="gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cc-png" style="width:auto" '+(c.photo_required_on_ng!==false?'checked':'')+'> Photo required on Issue</label>'
+    +'<label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="cc-pok" style="width:auto" '+(c.photo_required_on_ok?'checked':'')+'> Photo required on OK</label>'
+    +'<label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="cc-ext" style="width:auto" '+(c.is_external_only?'checked':'')+'> External only</label>'
+    +'<div class="err" id="cc-err"></div>'
+    +'<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-primary" id="cc-save">Save</button><button class="btn btn-ghost" id="cc-cancel">Cancel</button></div>';
+  document.getElementById('cc-save').onclick=()=>saveCheckpoint(c.id,sectionId);
+  document.getElementById('cc-cancel').onclick=()=>f.classList.add('hidden');
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function addCheckpoint(sectionId){checkpointForm(sectionId,{});}
+function editCheckpoint(id){const c=CL_CPS.find(x=>x.id===id);if(c)checkpointForm(c.section_id,c);}
+async function saveCheckpoint(id,sectionId){
+  const err=document.getElementById('cc-err'); err.textContent='';
+  const label=document.getElementById('cc-label').value.trim();
+  if(!label){err.textContent='Label is required.';return;}
+  const body={label:label,sort_order:parseInt(document.getElementById('cc-order').value)||0,mode:document.getElementById('cc-mode').value,
+    severity:document.getElementById('cc-sev').value||null,owner_role:document.getElementById('cc-role').value||null,
+    photo_required_on_ng:document.getElementById('cc-png').checked,photo_required_on_ok:document.getElementById('cc-pok').checked,
+    is_external_only:document.getElementById('cc-ext').checked};
+  if(!id){body.section_id=sectionId;body.active_from=new Date().toISOString();}
+  const btn=document.getElementById('cc-save');btn.disabled=true;btn.textContent='Saving…';
+  try{
+    if(id)await api('audit_checkpoints?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    else await api('audit_checkpoints',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    toast('Checkpoint saved');document.getElementById('cl-form').classList.add('hidden');loadChecklistAdmin();
+  }catch(e){err.textContent='Save failed: '+e.message;btn.disabled=false;btn.textContent='Save';}
+}
+async function toggleCheckpoint(id,makeActive){
+  try{await api('audit_checkpoints?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({active_to:makeActive?null:new Date().toISOString()})});toast(makeActive?'Checkpoint reactivated':'Checkpoint retired');loadChecklistAdmin();}catch(e){toast('Failed: '+e.message);}
+}
+async function addTag(checkpointId){
+  const label=prompt('New tag label:'); if(!label||!label.trim())return;
+  const existing=CL_TAGS.filter(t=>t.checkpoint_id===checkpointId);
+  try{await api('checkpoint_tags',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({checkpoint_id:checkpointId,tag_label:label.trim(),sort_order:(existing.length+1)*10})});toast('Tag added');loadChecklistAdmin();}catch(e){toast('Failed: '+e.message);}
+}
+async function deleteTag(id){
+  if(!confirm('Remove this tag?'))return;
+  try{await api('checkpoint_tags?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}});toast('Tag removed');loadChecklistAdmin();}catch(e){toast('Failed — tag may be in use on past audits: '+e.message);}
+}
 
 function showLogin(){document.getElementById('view-login').classList.remove('hidden');document.getElementById('view-home').classList.add('hidden');document.getElementById('view-audit').classList.add('hidden');var vc=document.getElementById('view-capa');if(vc)vc.classList.add('hidden');document.getElementById('signout').style.display='none';document.getElementById('who').textContent='';}
 async function doLogin(){
