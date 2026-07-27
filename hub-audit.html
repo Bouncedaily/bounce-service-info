@@ -248,6 +248,13 @@ async function api(path,opts){
   if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
   return d;
 }
+async function apiPublic(path){
+  await ensureToken();
+  const r=await fetch(SB_URL+'/rest/v1/'+path,{headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'public'}});
+  const t=await r.text(); let d=null; try{d=t?JSON.parse(t):null}catch(e){d=t}
+  if(!r.ok) throw new Error((d&&d.message)||('HTTP '+r.status));
+  return d;
+}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function uid(){return (crypto.randomUUID&&crypto.randomUUID())||(Date.now()+'-'+Math.random().toString(36).slice(2));}
@@ -265,7 +272,7 @@ function renderThumbs(el,arr){el.innerHTML='';arr.forEach((p,i)=>{const sp=docum
 function attachPhoto(btn,thumbs,arr,prefix){if(!btn)return;btn.onclick=()=>openCamera(async(blob)=>{if(!blob)return;const ph={path:null,capturedAt:new Date().toISOString(),lat:null,lng:null,uploading:true,errmsg:''};arr.push(ph);renderThumbs(thumbs,arr);try{let g=null;try{g=await geo();}catch(e){}if(g){ph.lat=g.lat;ph.lng=g.lng;}const path=STATE.localId+'/'+prefix+'/'+uid()+'.jpg';await uploadPhoto(blob,path);ph.path=path;ph.uploading=false;}catch(e){ph.error=true;ph.uploading=false;ph.errmsg=(e&&e.message)||'failed';toast('Photo: '+ph.errmsg);}renderThumbs(thumbs,arr);if(STATE)updateSectionCounts();scheduleSave();});}
 function photoRowHtml(id){return '<div class="photorow"><button type="button" class="photo-btn" id="pbtn-'+id+'">📷 Photo</button><span class="thumbs" id="pthumb-'+id+'"></span></div>';}
 
-let ME=null, CFG={}, HUBS=[], TEMPLATE=[], TEMPLATE_FULL=[], STATE=null;
+let ME=null, CFG={}, HUBS=[], TEMPLATE=[], TEMPLATE_FULL=[], STATE=null, RFD_VEHICLES=[];
 const DRAFT_KEY='hub_audit_draft_v1';
 let _saveT=null;
 function scheduleSave(){clearTimeout(_saveT);_saveT=setTimeout(saveDraft,600);}
@@ -366,6 +373,8 @@ async function startAudit(hubId,draft,auditType){
   const type=(draft&&draft.auditType)||auditType||'internal';
   TEMPLATE=(type==='external')?TEMPLATE_FULL:TEMPLATE_FULL.map(s=>({...s,checkpoints:s.checkpoints.filter(c=>!c.is_external_only)})).filter(s=>!s.is_external_only);
   STATE={hub,auditType:type,localId:(draft&&draft.localId)||uid(),responses:(draft&&draft.responses)||{},technicians:(draft&&draft.technicians)||[],vehicleNg:(draft&&draft.vehicleNg)||[],capa:(draft&&draft.capa)||[]};
+  RFD_VEHICLES=[];
+  try{RFD_VEHICLES=await apiPublic('bike_fleet?select=reg_number&hub_name=eq.'+encodeURIComponent(hub.name)+'&status=eq.RFD&order=reg_number.asc');}catch(e){RFD_VEHICLES=[];}
   STATE._collapsed=new Set();
   Object.values(STATE.responses).forEach(st=>{st.photos=(st.photos||[]).filter(p=>p&&p.path);});
   STATE.vehicleNg.forEach(v=>{v.photos=(v.photos||[]).filter(p=>p&&p.path);});
@@ -426,7 +435,7 @@ function cpUI(c){
   }
   const tags=(c.tags&&c.tags.length)?`<div class="tags hidden" id="tags-${c.id}">${c.tags.map(t=>`<span class="tag" data-tag="${t.id}">${esc(t.tag_label)}</span>`).join('')}</div>`:'';
   const sev=c.severity&&c.severity!=='Medium'?`<span class="pill" style="background:#fef2f2;color:#dc2626;margin-left:6px">${esc(c.severity)}</span>`:'';
-  const vehBlock=/any issue is observed/i.test(c.label)?'<div id="vehng-block" class="hidden" style="margin:10px 0 4px;padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#fafbfe"><div class="cp-label">Vehicle-Level Issues</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific issues found</div>'+vehicleUI()+'</div>':'';
+  const vehBlock=/any issue is observed/i.test(c.label)?'<div id="vehng-block" style="margin:10px 0 4px;padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#fafbfe"><div class="cp-label">Vehicle-Level Issues</div><div class="sub" style="margin:-4px 0 8px">Log any vehicle-specific issues found</div>'+vehicleUI()+'</div>':'';
   let liveHint='';
   if(STATE&&STATE.metrics){
     if(/RFD vehicles match between system and physical/i.test(c.label)&&STATE.metrics.rfd_count!=null)liveHint='<div class="sub" style="margin:2px 0 6px;color:var(--blue)">System shows '+STATE.metrics.rfd_count+' RFD vehicles — verify vs physical</div>';
@@ -467,7 +476,7 @@ function wireCp(c){
       const tg=document.getElementById('tags-'+c.id), ob=document.getElementById('obswrap-'+c.id);
       if(tg)tg.classList.toggle('hidden',st.response!=='NG');
       ob.classList.toggle('hidden',!(st.response==='NG'||st.response==='OK'));
-      if(/any issue is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
+      if(/any issue is observed/i.test(c.label)){/* vehicle-level block always visible now, regardless of answer */}
       recompute();
     });
   }
@@ -494,7 +503,7 @@ function reflectCp(c,st){
   const ob=document.getElementById('obs-'+c.id);if(ob&&st.observation)ob.value=st.observation;
   const ow=document.getElementById('obswrap-'+c.id);if(ow)ow.classList.toggle('hidden',!(st.response==='NG'||st.response==='OK'));
   const th=document.getElementById('pthumb-'+c.id);if(th)renderThumbs(th,st.photos||[]);
-  if(/any issue is observed/i.test(c.label)){const vb=document.getElementById('vehng-block');if(vb)vb.classList.toggle('hidden',st.response!=='NG');}
+  if(/any issue is observed/i.test(c.label)){/* vehicle-level block always visible now, regardless of answer */}
 }
 function techUI(){return '<div id="tech-list"></div><button class="addbtn" id="add-tech">+ Add technician</button>'}
 function vehicleUI(){return '<div id="veh-list"></div><button class="addbtn" id="add-veh">+ Add vehicle NG</button>'}
@@ -507,8 +516,23 @@ function renderTech(){
 function renderVeh(){
   const parts=['Structural damage','Electrical fault','Missing part','Oil leak','No number plate','Side stand welding'];
   const l=document.getElementById('veh-list');
-  l.innerHTML=STATE.vehicleNg.map((v,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label><input value="${esc(v.vehicle_number)}" oninput="STATE.vehicleNg[${i}].vehicle_number=this.value"></div><div style="width:180px"><label>Part</label><select onchange="STATE.vehicleNg[${i}].ng_part=this.value">${parts.map(p=>`<option${v.ng_part===p?' selected':''}>${p}</option>`).join('')}</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg[${i}].observation=this.value">${esc(v.observation)}</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="${i}">📷 Photo</button><span class="thumbs" data-vthumb="${i}"></span></div></div>`).join('');
+  const vehOpts=RFD_VEHICLES.map(rv=>rv.reg_number);
+  l.innerHTML=STATE.vehicleNg.map((v,i)=>{
+    const isManual=v.manual||(v.vehicle_number&&vehOpts.indexOf(v.vehicle_number)===-1);
+    const selectHtml='<select data-vsel="'+i+'" onchange="onVehSelect('+i+',this.value)">'
+      +'<option value="">— select RFD vehicle —</option>'
+      +vehOpts.map(rn=>'<option value="'+esc(rn)+'"'+(!isManual&&v.vehicle_number===rn?' selected':'')+'>'+esc(rn)+'</option>').join('')
+      +'<option value="__manual__"'+(isManual?' selected':'')+'>Vehicle not listed? Enter manually</option>'
+      +'</select>'
+      +'<input data-vmanual="'+i+'" style="margin-top:6px'+(isManual?'':';display:none')+'" placeholder="Enter vehicle number" value="'+esc(isManual?v.vehicle_number:'')+'" oninput="STATE.vehicleNg['+i+'].vehicle_number=this.value">';
+    return '<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label>'+selectHtml+'</div><div style="width:180px"><label>Part</label><select onchange="STATE.vehicleNg['+i+'].ng_part=this.value">'+parts.map(p=>'<option'+(v.ng_part===p?' selected':'')+'>'+p+'</option>').join('')+'</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg['+i+'].observation=this.value">'+esc(v.observation)+'</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="'+i+'">📷 Photo</button><span class="thumbs" data-vthumb="'+i+'"></span></div></div>';
+  }).join('');
   STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
+}
+function onVehSelect(i,val){
+  const manualInput=document.querySelector('[data-vmanual="'+i+'"]');
+  if(val==='__manual__'){STATE.vehicleNg[i].manual=true;STATE.vehicleNg[i].vehicle_number='';if(manualInput){manualInput.style.display='';manualInput.value='';manualInput.focus();}}
+  else{STATE.vehicleNg[i].manual=false;STATE.vehicleNg[i].vehicle_number=val;if(manualInput)manualInput.style.display='none';}
 }
 
 // CAPA
@@ -993,7 +1017,7 @@ async function doLogin(){
     _token=d.access_token;
     document.getElementById('view-login').classList.add('hidden');
     document.getElementById('view-home').classList.remove('hidden');
-    ME=null;CFG={};HUBS=[];TEMPLATE=[];TEMPLATE_FULL=[];
+    ME=null;CFG={};HUBS=[];TEMPLATE=[];TEMPLATE_FULL=[];RFD_VEHICLES=[];
     init();
   }catch(e){errEl.textContent=e.message}
   btn.disabled=false;btn.textContent='Sign in';
