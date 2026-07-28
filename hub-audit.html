@@ -1044,6 +1044,52 @@ document.getElementById('cam-file').onclick=()=>document.getElementById('cam-inp
 document.getElementById('cam-close').onclick=()=>{cam.cb=null;closeCam();};
 document.getElementById('cam-input').onchange=async()=>{const inp=document.getElementById('cam-input');const fl=Array.from(inp.files||[]);inp.value='';if(!fl.length){return;}const cb=cam.cb;cam.cb=null;const blob=await fileToJpeg(fl[0]);closeCam();if(cb)cb(blob);};
 
+// ---- PWA install handling ----
+// Android/Chrome: capture the real browser install prompt so we can trigger
+// it programmatically. iOS Safari has NO equivalent API at all — Apple
+// deliberately doesn't allow any page to trigger "Add to Home Screen"
+// from JS, so the only honest option there is showing clear instructions.
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  if (new URLSearchParams(location.search).get('install') === '1') triggerInstall();
+});
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function showIOSInstallHint() {
+  if (document.getElementById('ios-install-hint')) return;
+  const el = document.createElement('div');
+  el.id = 'ios-install-hint';
+  el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:16px;background:#0f172a;color:#fff;border-radius:12px;padding:14px 16px;z-index:200;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3)';
+  el.innerHTML = '<b>Install this app:</b> tap the Share icon <span style="font-size:16px">⬆️</span> below, then choose <b>“Add to Home Screen.”</b>'
+    + '<div style="text-align:right;margin-top:8px"><button onclick="document.getElementById(\'ios-install-hint\').remove()" style="background:none;border:1px solid #475569;color:#fff;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer">Got it</button></div>';
+  document.body.appendChild(el);
+}
+async function triggerInstall() {
+  if (isStandalone()) return; // already installed, nothing to do
+  if (isIOS()) { showIOSInstallHint(); return; }
+  if (_deferredInstallPrompt) {
+    _deferredInstallPrompt.prompt();
+    await _deferredInstallPrompt.userChoice;
+    _deferredInstallPrompt = null;
+  } else {
+    // Chrome hasn't fired beforeinstallprompt yet (already installed, or
+    // criteria not yet met) — fall back to a generic hint.
+    toast('Use your browser menu → “Install app” / “Add to Home Screen”');
+  }
+}
+if (new URLSearchParams(location.search).get('install') === '1' && isIOS()) {
+  // iOS never fires beforeinstallprompt, so show the hint immediately
+  // rather than waiting for an event that will never come.
+  window.addEventListener('load', () => setTimeout(showIOSInstallHint, 400));
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw-hub-audit.js').catch(() => {});
