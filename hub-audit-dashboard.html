@@ -74,7 +74,7 @@ async function refreshToken(){const s=sess();if(!s.refresh_token)return null;try
 async function ensureToken(){const s=sess();let t=s.access_token;if(!t)return null;if(expd(t))t=await refreshToken();_token=t||s.access_token;return _token;}
 function token(){return _token||sess().access_token||ANON}
 function hdr(x){return Object.assign({'apikey':ANON,'Authorization':'Bearer '+token(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},x||{});}
-async function api(p,o){o=o||{};await ensureToken();const go=()=>fetch(SB_URL+'/rest/v1/'+p,Object.assign({},o,{headers:hdr(o.headers||{})}));let r=await go();if(r.status===401||r.status===403){const nt=await refreshToken();if(nt)r=await go();}const t=await r.text();let d=t?JSON.parse(t):null;if(!r.ok)throw new Error((d&&d.message)||('HTTP '+r.status));return d;}
+async function api(p,o){o=o||{};await ensureToken();const go=()=>{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);return fetch(SB_URL+'/rest/v1/'+p,Object.assign({},o,{headers:hdr(o.headers||{}),signal:controller.signal})).finally(()=>clearTimeout(timer));};let r;try{r=await go();}catch(e){throw new Error(e.name==='AbortError'?'Request timed out — the server is responding slowly right now, please try again':e.message);}if(r.status===401||r.status===403){const nt=await refreshToken();if(nt){try{r=await go();}catch(e){throw new Error(e.name==='AbortError'?'Request timed out — please try again':e.message);}}}const t=await r.text();let d=t?JSON.parse(t):null;if(!r.ok)throw new Error((d&&d.message)||('HTTP '+r.status));return d;}
 async function signedUrl(path){await ensureToken();try{const r=await fetch(SB_URL+'/storage/v1/object/sign/hub-audit-photos/'+path,{method:'POST',headers:{'apikey':ANON,'Authorization':'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return null;const d=await r.json();return d.signedURL?(SB_URL+'/storage/v1'+d.signedURL):null;}catch(e){return null;}}
 async function loadImgs(elId,paths){const el=document.getElementById(elId);if(!el||!paths||!paths.length)return;const parts=[];for(const p of paths){const u=await signedUrl(p);if(u)parts.push('<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'"></a>');}el.innerHTML=parts.join('');}
 function fileToJpeg(file){return new Promise(res=>{const url=URL.createObjectURL(file);const img=new Image();const done=b=>{URL.revokeObjectURL(url);res(b||file)};const to=setTimeout(()=>done(file),7000);img.onload=()=>{clearTimeout(to);try{const max=1600;let w=img.naturalWidth,h=img.naturalHeight;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);cv.toBlob(b=>done(b),'image/jpeg',0.85);}catch(e){done(file)}};img.onerror=()=>{clearTimeout(to);done(file)};img.src=url;});}
@@ -97,7 +97,7 @@ function inFilter(hubId){const h=HUBBYID[hubId];if(!h)return false;if(FILTER.hub
 
 async function load(){
   const tk=await ensureToken();
-  if(!tk){document.getElementById('err').textContent='Session expired — sign in again.';return;}
+  if(!tk){document.getElementById('err').innerHTML='Session expired — sign in again.';return;}
   try{
     HUBS=await api('hubs?select=id,name,city,hub_type,audit_cadence_days,is_active&order=city.asc,name.asc');
     AUDITS=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at&status=eq.Submitted&order=submitted_at.desc');
@@ -105,7 +105,8 @@ async function load(){
     AUDITORS=await api('auditors?select=id,name,role,is_admin');
     const em=encodeURIComponent(sess().email||'');
     ME=(await api('auditors?select=id,name,role,is_admin,hub_id,city&email=eq.'+em))[0]||null;
-  }catch(e){document.getElementById('err').textContent='Load error: '+e.message;return;}
+    document.getElementById('err').innerHTML='';
+  }catch(e){document.getElementById('err').innerHTML=esc('Load error: '+e.message)+' <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;margin-left:6px" onclick="load()">Retry</button>';return;}
   HUBBYID=Object.fromEntries(HUBS.map(h=>[h.id,h]));
   AUDBYID=Object.fromEntries(AUDITS.map(a=>[a.id,a]));
   const cut=Date.now()-60*864e5;CAPA_REC={};
