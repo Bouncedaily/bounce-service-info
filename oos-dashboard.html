@@ -401,11 +401,18 @@ td.cell-click:hover { background:#fef2f2; text-decoration:underline; }
   border-radius:6px; background:var(--card); color:var(--text); cursor:pointer;
 }
 .remark-select:focus { outline:none; border-color:var(--red); }
+.remark-text-wrap { display:flex; align-items:center; gap:4px; width:100%; }
 .remark-text-input {
-  width:100%; font-size:12px; padding:4px 6px; border:1px solid var(--border);
-  border-radius:6px; background:var(--card); color:var(--text); margin-top:4px;
+  flex:1; min-width:0; font-size:12px; padding:4px 6px; border:1px solid var(--border);
+  border-radius:6px; background:var(--card); color:var(--text);
 }
 .remark-text-input:focus { outline:none; border-color:var(--red); }
+.remark-back-btn {
+  flex-shrink:0; width:22px; height:22px; border:1px solid var(--border); border-radius:6px;
+  background:var(--card); color:var(--muted); cursor:pointer; font-size:12px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.remark-back-btn:hover { color:var(--text); border-color:var(--border2); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .pct { text-align:right; font-size:11px; }
 .pct.hi { color:var(--red); font-weight:600; }
@@ -1156,13 +1163,15 @@ async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
 
 function onRemarkTypeChange(selectEl, regNumber, oosSince) {
   const val = selectEl.value;
-  const row = selectEl.closest('tr');
-  const textInput = row.querySelector('.remark-text-input');
+  const cell = selectEl.closest('.remark-cell');
+  const textInput = cell.querySelector('.remark-text-input');
+  const backBtn = cell.querySelector('.remark-back-btn');
   if (val === 'Other') {
+    selectEl.style.display = 'none';
     textInput.style.display = '';
+    backBtn.style.display = '';
     textInput.focus();
   } else {
-    textInput.style.display = 'none';
     saveRemark(regNumber, oosSince, val, null);
     REMARKS_CACHE[remarkKey(regNumber, oosSince)] = { remark_type: val, remark_text: null };
   }
@@ -1172,6 +1181,13 @@ function onRemarkTextBlur(inputEl, regNumber, oosSince) {
   const val = inputEl.value.trim();
   saveRemark(regNumber, oosSince, 'Other', val);
   REMARKS_CACHE[remarkKey(regNumber, oosSince)] = { remark_type: 'Other', remark_text: val };
+}
+
+function onRemarkBackToDropdown(btnEl) {
+  const cell = btnEl.closest('.remark-cell');
+  cell.querySelector('.remark-select').style.display = '';
+  cell.querySelector('.remark-text-input').style.display = 'none';
+  btnEl.style.display = 'none';
 }
 
 function renderRemarkCell(regNumber, oosSince) {
@@ -1186,9 +1202,12 @@ function renderRemarkCell(regNumber, oosSince) {
     opts += `<option value="${o}" ${o === selectedType ? 'selected' : ''}>${o}</option>`;
   });
   return `<td class="remark-cell">
-    <select class="remark-select" onchange='onRemarkTypeChange(this,${regAttr},${sinceAttr})'>${opts}</select>
-    <input type="text" class="remark-text-input" placeholder="Enter remark..." value="${selectedText.replace(/"/g,'&quot;')}"
-      style="display:${showText ? '' : 'none'}" onblur='onRemarkTextBlur(this,${regAttr},${sinceAttr})'>
+    <select class="remark-select" onchange='onRemarkTypeChange(this,${regAttr},${sinceAttr})' style="display:${showText ? 'none' : ''}">${opts}</select>
+    <div class="remark-text-wrap" style="display:${showText ? 'flex' : 'none'}">
+      <input type="text" class="remark-text-input" placeholder="Enter remark..." value="${selectedText.replace(/"/g,'&quot;')}"
+        onblur='onRemarkTextBlur(this,${regAttr},${sinceAttr})'>
+      <button type="button" class="remark-back-btn" title="Choose from list instead" onclick="onRemarkBackToDropdown(this)">↺</button>
+    </div>
   </td>`;
 }
 
