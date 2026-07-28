@@ -2,9 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <title>Bounce Daily Hub Audit</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f53b3b">
+<!-- iOS home-screen support (Safari doesn't read the manifest for these) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hub Audit">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
 :root{
   --red:#f53b3b;--blue:#2563eb;--blue-light:#eff6ff;--green:#16a34a;--amber:#d97706;
@@ -1035,6 +1043,12 @@ document.getElementById('cam-switch').onclick=()=>{cam.facing=cam.facing==='envi
 document.getElementById('cam-file').onclick=()=>document.getElementById('cam-input').click();
 document.getElementById('cam-close').onclick=()=>{cam.cb=null;closeCam();};
 document.getElementById('cam-input').onchange=async()=>{const inp=document.getElementById('cam-input');const fl=Array.from(inp.files||[]);inp.value='';if(!fl.length){return;}const cb=cam.cb;cam.cb=null;const blob=await fileToJpeg(fl[0]);closeCam();if(cb)cb(blob);};
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw-hub-audit.js').catch(() => {});
+  });
+}
 
 init();
 </script>
