@@ -350,7 +350,7 @@ td.cell-click:hover { background:#fef2f2; text-decoration:underline; }
 .dd-overlay.open { display:flex; }
 .dd-modal {
   background:var(--card); border:1px solid var(--border); border-radius:10px;
-  width:min(760px,92vw); max-height:78vh; display:flex; flex-direction:column;
+  width:min(980px,94vw); max-height:78vh; display:flex; flex-direction:column;
   box-shadow:0 12px 32px rgba(15,23,42,.18);
 }
 .dd-hd { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); }
@@ -373,6 +373,17 @@ td.cell-click:hover { background:#fef2f2; text-decoration:underline; }
 .dd-badge.minor  { background:#dcfce7; color:#15803d; }
 .dd-badge.default{ background:var(--bg); color:var(--muted); }
 .dd-age-high { color:var(--red); font-weight:700; }
+.remark-cell { min-width:190px; }
+.remark-select {
+  width:100%; font-size:12px; padding:4px 6px; border:1px solid var(--border);
+  border-radius:6px; background:var(--card); color:var(--text); cursor:pointer;
+}
+.remark-select:focus { outline:none; border-color:var(--red); }
+.remark-text-input {
+  width:100%; font-size:12px; padding:4px 6px; border:1px solid var(--border);
+  border-radius:6px; background:var(--card); color:var(--text); margin-top:4px;
+}
+.remark-text-input:focus { outline:none; border-color:var(--red); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .pct { text-align:right; font-size:11px; }
 .pct.hi { color:var(--red); font-weight:600; }
@@ -1055,6 +1066,104 @@ function renderModelTable(summary, oosDetail) { cityModelRows(summary, oosDetail
 let DD_CURRENT_ROWS = [];
 let DD_CURRENT_TITLE = '';
 
+const REMARK_OPTIONS = [
+  'SMPL issue',
+  'Total Loss',
+  'Parts Not Available',
+  'RFD Validation Pending',
+  'Number plate not available',
+  'Insurance Case',
+  'Other'
+];
+
+const REMARKS_CACHE = {}; // key: `${reg_number}|${oos_since}` -> {remark_type, remark_text}
+
+function authHDR() {
+  return { apikey: ANON, Authorization: 'Bearer ' + (window.authGetToken ? window.authGetToken() : ANON), 'Content-Type': 'application/json' };
+}
+
+function remarkKey(regNumber, oosSince) {
+  return `${regNumber}|${oosSince || ''}`;
+}
+
+async function loadRemarksFor(rows) {
+  const pairs = rows.filter(r => r.reg_number).map(r => `and(reg_number.eq.${encodeURIComponent(r.reg_number)},oos_since.eq.${encodeURIComponent(r.latest_oos_date || '')})`);
+  if (!pairs.length) return;
+  try {
+    const url = `${SB}/rest/v1/oos_remarks?or=(${pairs.join(',')})&select=reg_number,oos_since,remark_type,remark_text`;
+    const res = await fetch(url, { headers: authHDR() });
+    if (!res.ok) return;
+    const data = await res.json();
+    data.forEach(rec => {
+      REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text };
+    });
+  } catch (e) { console.warn('loadRemarksFor failed', e); }
+}
+
+async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
+  const payload = {
+    reg_number: regNumber,
+    oos_since: oosSince || null,
+    remark_type: remarkType,
+    remark_text: remarkText || null,
+    updated_by: window.authGetEmail ? window.authGetEmail() : null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const res = await fetch(`${SB}/rest/v1/oos_remarks`, {
+      method: 'POST',
+      headers: { ...authHDR(), Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('saveRemark failed', err);
+      alert('Could not save remark — check you are logged in and try again.');
+    }
+  } catch (e) {
+    console.error('saveRemark error', e);
+    alert('Could not save remark — network error.');
+  }
+}
+
+function onRemarkTypeChange(selectEl, regNumber, oosSince) {
+  const val = selectEl.value;
+  const row = selectEl.closest('tr');
+  const textInput = row.querySelector('.remark-text-input');
+  if (val === 'Other') {
+    textInput.style.display = '';
+    textInput.focus();
+  } else {
+    textInput.style.display = 'none';
+    saveRemark(regNumber, oosSince, val, null);
+    REMARKS_CACHE[remarkKey(regNumber, oosSince)] = { remark_type: val, remark_text: null };
+  }
+}
+
+function onRemarkTextBlur(inputEl, regNumber, oosSince) {
+  const val = inputEl.value.trim();
+  saveRemark(regNumber, oosSince, 'Other', val);
+  REMARKS_CACHE[remarkKey(regNumber, oosSince)] = { remark_type: 'Other', remark_text: val };
+}
+
+function renderRemarkCell(regNumber, oosSince) {
+  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)];
+  const selectedType = cached ? cached.remark_type : '';
+  const selectedText = cached && cached.remark_type === 'Other' ? (cached.remark_text || '') : '';
+  const showText = selectedType === 'Other';
+  const regAttr = JSON.stringify(regNumber);
+  const sinceAttr = JSON.stringify(oosSince || '');
+  let opts = `<option value="">— Select —</option>`;
+  REMARK_OPTIONS.forEach(o => {
+    opts += `<option value="${o}" ${o === selectedType ? 'selected' : ''}>${o}</option>`;
+  });
+  return `<td class="remark-cell">
+    <select class="remark-select" onchange='onRemarkTypeChange(this,${regAttr},${sinceAttr})'>${opts}</select>
+    <input type="text" class="remark-text-input" placeholder="Enter remark..." value="${selectedText.replace(/"/g,'&quot;')}"
+      style="display:${showText ? '' : 'none'}" onblur='onRemarkTextBlur(this,${regAttr},${sinceAttr})'>
+  </td>`;
+}
+
 function ddBadgeClass(cat) {
   if (!cat) return 'default';
   const c = String(cat).toLowerCase();
@@ -1064,7 +1173,7 @@ function ddBadgeClass(cat) {
   return 'default';
 }
 
-function openOOSDrilldown(dimKey, dimValue, hub) {
+async function openOOSDrilldown(dimKey, dimValue, hub) {
   const rows = LAST_OOS_DETAIL.filter(r =>
     (dimValue === null || r[dimKey] === dimValue) &&
     (hub === null || r.hub_name === hub)
@@ -1079,8 +1188,15 @@ function openOOSDrilldown(dimKey, dimValue, hub) {
 
   document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
   document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
+  document.getElementById('dd-overlay').classList.add('open');
+  document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody>';
 
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th></tr></thead><tbody>';
+  await loadRemarksFor(rows);
+  renderDDTable(rows);
+}
+
+function renderDDTable(rows) {
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
@@ -1092,11 +1208,11 @@ function openOOSDrilldown(dimKey, dimValue, hub) {
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
       <td class="num">${odo}</td>
       <td>${since}</td>
+      ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
     </tr>`;
   });
   html += '</tbody>';
   document.getElementById('dd-table').innerHTML = html;
-  document.getElementById('dd-overlay').classList.add('open');
 }
 
 function closeOOSDrilldown() {
@@ -1109,11 +1225,15 @@ document.addEventListener('keydown', e => {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Latest OOS Date'];
-  const rows = DD_CURRENT_ROWS.map(r => [
-    r.reg_number, r.hub_name, r.city, r.oos_sub_status, r.repair_category,
-    r.oos_age, r.current_odometer, r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : ''
-  ]);
+  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Latest OOS Date', 'Remark'];
+  const rows = DD_CURRENT_ROWS.map(r => {
+    const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
+    const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
+    return [
+      r.reg_number, r.hub_name, r.city, r.oos_sub_status, r.repair_category,
+      r.oos_age, r.current_odometer, r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
+    ];
+  });
   downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
 }
 
