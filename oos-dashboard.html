@@ -271,6 +271,28 @@ input[type=date] { min-width: 130px; }
   window.authGetToken = function() { return sess.access_token || ''; };
   window.authLogout   = function() { localStorage.removeItem('sb_session'); window.location.replace('login.html'); };
 
+  // Access tokens expire (~1hr default) and this cached copy was never
+  // refreshed on its own — before any write that needs real auth (like
+  // saving a remark), get a guaranteed-valid token, refreshing if needed.
+  window.authGetValidToken = async function() {
+    try { sess = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e) {}
+    if (!sess.access_token) return '';
+    if (sess.expires_at && sess.expires_at > Date.now() + 5000) return sess.access_token; // still valid
+    if (!sess.refresh_token) return sess.access_token; // can't refresh, use what we have
+    try {
+      const r = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { apikey: ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: sess.refresh_token })
+      });
+      if (!r.ok) return sess.access_token; // refresh failed, fall back to stale token
+      const d = await r.json();
+      sess = { access_token: d.access_token, refresh_token: d.refresh_token, email: d.user && d.user.email || sess.email, role: sess.role, expires_at: Date.now() + 24*60*60*1000 };
+      localStorage.setItem('sb_session', JSON.stringify(sess));
+      return sess.access_token;
+    } catch (e) { return sess.access_token; }
+  };
+
   // Populate email + admin link after DOM ready
   function onReady() {
     var em = document.getElementById('sb-user-email');
@@ -1078,8 +1100,9 @@ const REMARK_OPTIONS = [
 
 const REMARKS_CACHE = {}; // key: `${reg_number}|${oos_since}` -> {remark_type, remark_text}
 
-function authHDR() {
-  return { apikey: ANON, Authorization: 'Bearer ' + (window.authGetToken ? window.authGetToken() : ANON), 'Content-Type': 'application/json' };
+async function authHDR() {
+  const token = window.authGetValidToken ? await window.authGetValidToken() : (window.authGetToken ? window.authGetToken() : ANON);
+  return { apikey: ANON, Authorization: 'Bearer ' + (token || ANON), 'Content-Type': 'application/json' };
 }
 
 function remarkKey(regNumber, oosSince) {
@@ -1091,7 +1114,7 @@ async function loadRemarksFor(rows) {
   if (!pairs.length) return;
   try {
     const url = `${SB}/rest/v1/oos_remarks?or=(${pairs.join(',')})&select=reg_number,oos_since,remark_type,remark_text`;
-    const res = await fetch(url, { headers: authHDR() });
+    const res = await fetch(url, { headers: await authHDR() });
     if (!res.ok) return;
     const data = await res.json();
     data.forEach(rec => {
@@ -1110,15 +1133,20 @@ async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
     updated_at: new Date().toISOString()
   };
   try {
+    const hdr = await authHDR();
     const res = await fetch(`${SB}/rest/v1/oos_remarks`, {
       method: 'POST',
-      headers: { ...authHDR(), Prefer: 'resolution=merge-duplicates' },
+      headers: { ...hdr, Prefer: 'resolution=merge-duplicates' },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const err = await res.text();
-      console.error('saveRemark failed', err);
-      alert('Could not save remark — check you are logged in and try again.');
+      console.error('saveRemark failed', res.status, err);
+      if (res.status === 401 || res.status === 403) {
+        alert('Your session has expired. Please refresh the page and log in again to save remarks.');
+      } else {
+        alert('Could not save remark (error ' + res.status + '). Please try again.');
+      }
     }
   } catch (e) {
     console.error('saveRemark error', e);
