@@ -1173,12 +1173,11 @@ async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
 function onRemarkTypeChange(selectEl, regNumber, oosSince) {
   const val = selectEl.value;
   const cell = selectEl.closest('.remark-cell');
+  const wrap = cell.querySelector('.remark-text-wrap');
   const textInput = cell.querySelector('.remark-text-input');
-  const backBtn = cell.querySelector('.remark-back-btn');
   if (val === 'Other') {
     selectEl.style.display = 'none';
-    textInput.style.display = '';
-    backBtn.style.display = '';
+    wrap.style.display = 'flex';
     textInput.focus();
   } else {
     saveRemark(regNumber, oosSince, val, null);
@@ -1195,8 +1194,7 @@ function onRemarkTextBlur(inputEl, regNumber, oosSince) {
 function onRemarkBackToDropdown(btnEl) {
   const cell = btnEl.closest('.remark-cell');
   cell.querySelector('.remark-select').style.display = '';
-  cell.querySelector('.remark-text-input').style.display = 'none';
-  btnEl.style.display = 'none';
+  cell.querySelector('.remark-text-wrap').style.display = 'none';
 }
 
 function renderRemarkCell(regNumber, oosSince) {
