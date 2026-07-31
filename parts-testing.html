@@ -390,6 +390,13 @@ tr:hover td { background: var(--bg); }
           <option value="2026" selected>Deployed 2026</option>
           <option value="2025">Deployed 2025</option>
         </select>
+        <select id="oem-f-dmscat" onchange="renderOemRaw(true)">
+          <option value="">All DMS Cat</option>
+          <option value="A">A — Wear &amp; Tear</option>
+          <option value="W">W — Warranty</option>
+          <option value="P">P — Rider Payable</option>
+          <option value="F">F</option>
+        </select>
         <select id="oem-sort" onchange="renderOemRaw(true)">
           <option value="km_desc">KM ↓</option>
           <option value="km_asc">KM ↑</option>
@@ -898,7 +905,7 @@ function exportCSV() {
 }
 
 function exportOemCSV() {
-  const rows = window._oemRawRows || [];
+  const rows = window._oemFilteredRows || window._oemRawRows || [];
   if (!rows.length) return;
   const cols = ['Part','Reg No','Chassis','City','Hub','JC No','ODO Fitment','ODO Replacement','KM on Part','Current KM','Date Fitted','Date Replaced','Submission','DMS Cat','Status','Deployed Year'];
   const data = rows.map(r => [
@@ -1146,6 +1153,7 @@ function renderOemRaw(resetPage) {
     document.getElementById('oem-raw-body').innerHTML =
       '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Select a specific part to view running bikes</div>';
     document.getElementById('oem-raw-count').textContent = '—';
+    window._oemFilteredRows = [];
     return;
   }
 
@@ -1168,6 +1176,7 @@ function _renderOemRawTable(resetPage) {
   const fStat  = document.getElementById('oem-f-status')?.value || '';
   const fCity  = document.getElementById('oem-f-city')?.value   || '';
   const fYear  = document.getElementById('oem-f-year')?.value   || '';
+  const fDms   = document.getElementById('oem-f-dmscat')?.value || '';
   const sort   = document.getElementById('oem-sort')?.value     || 'km_desc';
 
   let filtered = rows.filter(r => {
@@ -1180,6 +1189,7 @@ function _renderOemRawTable(resetPage) {
     }
     if (fCity && r.city !== fCity)       return false;
     if (fYear && r.deployedYear !== fYear) return false;
+    if (fDms  && r.dmsCat !== fDms)       return false;
     return true;
   });
 
@@ -1190,6 +1200,10 @@ function _renderOemRawTable(resetPage) {
     if (sort === 'date_asc')  return (a.dateFit||'').localeCompare(b.dateFit||'');
     return 0;
   });
+
+  // Keep the fully filtered+sorted set (not just the current page) available
+  // for Export CSV, so it downloads exactly what the filters describe.
+  window._oemFilteredRows = filtered;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / OEM_PAGE_SIZE));
   if (_oemRawPage > totalPages) _oemRawPage = totalPages;
