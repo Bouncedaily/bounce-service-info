@@ -733,8 +733,16 @@ const FORCE_SIGNOUT_AFTER = 1783492823723; // updated 2026-07-08 06:40 IST
 function getSess() {
   try {
     var s = JSON.parse(localStorage.getItem('sb_session') || '{}');
-    // Force sign-out if session was created before the forced signout timestamp
-    if (s.access_token && (!s.issued_at || s.issued_at < FORCE_SIGNOUT_AFTER)) {
+    // A session missing issued_at only happens via the (now-fixed) refresh-token
+    // bug that never stamped it -- self-heal instead of forcing a full re-login.
+    // Any session that genuinely predates FORCE_SIGNOUT_AFTER would already be
+    // expired via the daily expires_at cutoff by now, so this can't resurrect a
+    // truly stale/old session -- it only rescues ones caught by that bug.
+    if (s.access_token && !s.issued_at) {
+      s.issued_at = Date.now();
+      localStorage.setItem('sb_session', JSON.stringify(s));
+    }
+    if (s.access_token && s.issued_at < FORCE_SIGNOUT_AFTER) {
       localStorage.removeItem('sb_session');
       return {};
     }
@@ -743,6 +751,7 @@ function getSess() {
 }
 function clearSess() {
   localStorage.removeItem('sb_session');
+  try { sessionStorage.removeItem('sb_session_bak'); } catch(e) {}
 }
 
 async function sendMagicLink() {
