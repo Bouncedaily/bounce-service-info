@@ -1480,7 +1480,7 @@ function renderHubOutflow(outflow) {
     const rows_h = outflow.filter(r => r.hub_name === h);
     const total  = rows_h.length;
     const rider = cnt(rows_h,'Rider Submission'), recov = cnt(rows_h,'Recovery'), bex = cnt(rows_h,'Bike Exchange');
-    const oos = rider + recov + bex;
+    const oos = rider + recov + bex + cnt(rows_h,'OOS');
     const rr = cnt(rows_h,'RR'), pdi = cnt(rows_h,'PDI');
     const counts = [oos, rider, recov, bex, rr, pdi];
     const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
