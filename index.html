@@ -1138,5 +1138,139 @@ const DASHBOARDS = {
 initAuth();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     SERVICE INFO CHATBOT — floating widget, available on every view
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  #chatbot-bubble {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--red); color: #fff; border: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 22px; transition: transform .15s;
+  }
+  #chatbot-bubble:hover { transform: scale(1.06); }
+  #chatbot-panel {
+    position: fixed; bottom: 88px; right: 24px; z-index: 9999;
+    width: 360px; height: 480px; max-height: 70vh;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.2);
+    display: none; flex-direction: column; overflow: hidden;
+    font-family: var(--font);
+  }
+  #chatbot-panel.open { display: flex; }
+  #chatbot-header {
+    background: var(--red); color: #fff; padding: 12px 16px;
+    font-size: 13px; font-weight: 700; display: flex; align-items: center;
+    justify-content: space-between; flex-shrink: 0;
+  }
+  #chatbot-header .sub { font-weight: 400; font-size: 10px; opacity: .85; margin-top: 1px; }
+  #chatbot-close { background: none; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 2px 6px; }
+  #chatbot-messages {
+    flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+    font-size: 12.5px; color: var(--text);
+  }
+  .cb-msg { max-width: 88%; padding: 8px 11px; border-radius: 10px; line-height: 1.45; white-space: pre-wrap; }
+  .cb-msg.user { align-self: flex-end; background: var(--red); color: #fff; border-bottom-right-radius: 2px; }
+  .cb-msg.bot  { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
+  .cb-msg.bot strong { color: var(--text); }
+  .cb-msg.typing { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-style: italic; }
+  #chatbot-suggestions { padding: 8px 12px 0; display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+  .cb-chip {
+    font-size: 10.5px; padding: 5px 9px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text2); cursor: pointer; white-space: nowrap;
+  }
+  .cb-chip:hover { background: var(--bg); }
+  #chatbot-input-row { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  #chatbot-input {
+    flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    font-size: 12.5px; font-family: var(--font); outline: none; color: var(--text);
+  }
+  #chatbot-input:focus { border-color: var(--red); }
+  #chatbot-send {
+    background: var(--red); color: #fff; border: none; border-radius: 8px;
+    padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  #chatbot-send:disabled { opacity: .5; cursor: default; }
+</style>
+
+<button id="chatbot-bubble" onclick="toggleChatbot()" title="Ask Service Info">
+  <i class="ti ti-message-chatbot"></i>
+</button>
+<div id="chatbot-panel">
+  <div id="chatbot-header">
+    <div><div>Ask Service Info</div><div class="sub">Data questions, answered instantly</div></div>
+    <button id="chatbot-close" onclick="toggleChatbot()">✕</button>
+  </div>
+  <div id="chatbot-messages"></div>
+  <div id="chatbot-suggestions">
+    <div class="cb-chip" onclick="askChatbot('What is the OOS % today?')">OOS % today</div>
+    <div class="cb-chip" onclick="askChatbot('RMC cost this month vs last month')">RMC this month</div>
+    <div class="cb-chip" onclick="askChatbot('Top repeat offender bikes')">Repeat offenders</div>
+    <div class="cb-chip" onclick="askChatbot('Which parts are running low?')">Parts running low</div>
+  </div>
+  <div id="chatbot-input-row">
+    <input id="chatbot-input" placeholder="Ask anything about the data..." onkeydown="if(event.key==='Enter')sendChatbotMessage()"/>
+    <button id="chatbot-send" onclick="sendChatbotMessage()">Send</button>
+  </div>
+</div>
+<script>
+  const CHATBOT_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/chatbot-query';
+  const CHATBOT_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+  let chatbotOpened = false;
+
+  function toggleChatbot() {
+    const panel = document.getElementById('chatbot-panel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open') && !chatbotOpened) {
+      chatbotOpened = true;
+      addChatbotMessage('bot', "Hi! Ask me anything about the fleet, RMC costs, parts, or OOS — or tap a suggestion below.");
+    }
+  }
+
+  function addChatbotMessage(who, text) {
+    const box = document.getElementById('chatbot-messages');
+    const el = document.createElement('div');
+    el.className = 'cb-msg ' + who;
+    // simple **bold** markdown support, escape everything else
+    const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    el.innerHTML = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+    return el;
+  }
+
+  async function askChatbot(question) {
+    addChatbotMessage('user', question);
+    const typingEl = addChatbotMessage('typing', 'Thinking...');
+    const input = document.getElementById('chatbot-input');
+    const sendBtn = document.getElementById('chatbot-send');
+    input.disabled = true; sendBtn.disabled = true;
+    try {
+      const res = await fetch(CHATBOT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': CHATBOT_ANON, 'Authorization': 'Bearer ' + CHATBOT_ANON },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      typingEl.remove();
+      addChatbotMessage('bot', data.answer || "Sorry, I couldn't get an answer for that.");
+    } catch (e) {
+      typingEl.remove();
+      addChatbotMessage('bot', "Couldn't reach the server — check your connection and try again.");
+    }
+    input.disabled = false; sendBtn.disabled = false; input.focus();
+  }
+
+  function sendChatbotMessage() {
+    const input = document.getElementById('chatbot-input');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    askChatbot(q);
+  }
+</script>
+
 </body>
 </html>
