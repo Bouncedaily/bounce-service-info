@@ -228,6 +228,7 @@ function renderTable() {
   if (!filtered.length) {
     document.getElementById('tbl-body').innerHTML = '<div class="loading-state">No records found.</div>';
     document.getElementById('tbl-count').textContent = '0 vehicles';
+    window._trbFilteredRows = [];
     return;
   }
 
@@ -235,6 +236,7 @@ function renderTable() {
     const av = a[_sortCol] ?? -1, bv = b[_sortCol] ?? -1;
     return typeof av === 'string' ? av.localeCompare(bv) * _sortDir : (av - bv) * _sortDir;
   });
+  window._trbFilteredRows = sorted;
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
   _page = Math.min(_page, totalPages);
@@ -294,6 +296,7 @@ function sortBy(col) {
 }
 
 function exportCSV() {
+  const _data = window._trbFilteredRows || [];
   if (!_data.length) return;
   const cols = ['Reg No','Chassis','City','Hub','Part','Qty Replaced','Avg KM','Min KM','Max KM','Current KM','Status','Last Sub Type','Last Replaced'];
   const rows = _data.map(r => [
