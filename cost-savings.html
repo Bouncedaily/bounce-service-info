@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cost Savings — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { overflow-y: auto; height: auto; }
+    .wrap { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    .ctl-bar {
+      display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select, .fg input {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+    }
+    .fg select:focus, .fg input:focus { border-color: var(--red); }
+    .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
+
+    /* KPI row */
+    .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 12px; }
+    .kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
+    .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .kpi .ks { font-size: 11px; color: var(--muted); }
+    .kpi .ks.up { color: #16a34a; }
+    .kpi .ks.down { color: #dc2626; }
+
+    .total-banner {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 1px solid #a7f3d0; border-radius: 12px;
+      padding: 16px 20px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .total-banner .tl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #065f46; font-weight: 700; }
+    .total-banner .tv { font-size: 30px; font-weight: 800; color: #047857; }
+    .total-banner .ts { font-size: 12px; color: #065f46; }
+
+    .bottom-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media(max-width:960px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+    .chart-box { height: 260px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .saving-pos { color: #16a34a; font-weight: 600; }
+
+    .warn-box {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+
+    /* Admin panel */
+    #admin-panel { display: none; }
+    .admin-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; color: var(--red);
+      cursor: pointer; margin-bottom: 12px; user-select: none;
+    }
+    .admin-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+    .admin-form .fg input { width: 140px; }
+    .btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: inherit; border: none;
+      background: var(--red); color: #fff;
+    }
+    .btn:hover { opacity: .9; }
+    .btn.secondary { background: var(--border2); color: var(--text); }
+    .save-msg { font-size: 11px; color: #16a34a; margin-left: 8px; display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><i class="ti ti-piggy-bank"></i> Cost Savings</div>
+  <div class="page-sub">Refurbishment, shared manpower, scrap sale & supplier chargeback — money saved every month.</div>
+
+  <div class="ctl-bar">
+    <div class="fg">
+      <label>Month</label>
+      <select id="monthSel" onchange="onMonthChange()"></select>
+    </div>
+    <div class="fg">
+      <label>City</label>
+      <select id="citySel" onchange="render()">
+        <option value="">All Cities</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="NCR">NCR</option>
+        <option value="Hyderabad">Hyderabad</option>
+      </select>
+    </div>
+    <div class="synced-lbl" id="syncedLbl"></div>
+  </div>
+
+  <div id="unmappedWarn" class="warn-box" style="display:none;"></div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-recycle"></i> Refurbishment</div>
+      <div class="kv" id="kvRefurb">—</div>
+      <div class="ks" id="ksRefurb"></div>
+    </div>
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-users-group"></i> Shared Manpower (SMPL)</div>
+      <div class="kv" id="kvSmpl">—</div>
+      <div class="ks" id="ksSmpl"></div>
+    </div>
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Sale Revenue</div>
+      <div class="kv" id="kvScrap">—</div>
+      <div class="ks" id="ksScrap"></div>
+    </div>
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-file-invoice"></i> Supplier CN</div>
+      <div class="kv" id="kvCn">—</div>
+      <div class="ks" id="ksCn"></div>
+    </div>
+  </div>
+
+  <div class="total-banner">
+    <div>
+      <div class="tl">Total Savings This Month</div>
+      <div class="ts" id="tsCompare"></div>
+    </div>
+    <div class="tv" id="tvTotal">—</div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <h3>Savings Trend (Last 6 Months)</h3>
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Refurb Savings by Part (This Month)</h3>
+      <div style="max-height:260px; overflow-y:auto;">
+        <table>
+          <thead><tr><th>Part</th><th class="num">Units</th><th class="num">Savings</th></tr></thead>
+          <tbody id="refurbPartsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="admin-toggle" id="adminToggle" onclick="toggleAdmin()">
+      <i class="ti ti-settings"></i> Admin: Update this month's numbers
+    </div>
+    <div id="admin-panel">
+      <div class="admin-form">
+        <div class="fg"><label>Scrap Sale Revenue (₹)</label><input type="number" id="inScrap"></div>
+        <div class="fg"><label>Supplier CN (₹)</label><input type="number" id="inCn"></div>
+        <div class="fg"><label>SMPL Manpower (₹)</label><input type="number" id="inSmpl"></div>
+        <button class="btn" onclick="saveManual()">Save</button>
+        <span class="save-msg" id="saveMsg">Saved ✓</span>
+      </div>
+
+      <h3 style="margin-top:8px;">Refurb Part → OEM Benchmark Mapping</h3>
+      <table>
+        <thead><tr><th>Refurb Item</th><th>OEM Benchmark Item</th><th class="num">OEM A-Cat Price (₹)</th><th>Notes</th></tr></thead>
+        <tbody id="mappingBody"></tbody>
+      </table>
+      <div class="admin-form" style="margin-top:10px;">
+        <div class="fg"><label>Refurb Item Name</label><input type="text" id="mapRefurbName" style="width:220px;"></div>
+        <div class="fg"><label>OEM Item Name</label><input type="text" id="mapOemName" style="width:220px;"></div>
+        <div class="fg"><label>OEM A-Cat Price (₹)</label><input type="number" id="mapPrice"></div>
+        <button class="btn secondary" onclick="addMapping()">Add Mapping</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+function authHeaders() {
+  const tk = (window.authGetToken && window.authGetToken()) || INFO_KEY;
+  return { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + tk };
+}
+async function sbGet(path) {
+  const r = await fetch(`${INFO_URL}/rest/v1/${path}`, { headers: authHeaders() });
+  return r.json();
+}
+async function sbUpsert(table, body, onConflict) {
+  const r = await fetch(`${INFO_URL}/rest/v1/${table}${onConflict ? '?on_conflict='+onConflict : ''}`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+let mapping = [];       // refurb_part_mapping rows
+let manualRows = [];    // cost_savings_manual rows
+let refurbLines = [];   // raw jc_details lines for mapped refurb items (last 7 months)
+let months = [];        // list of 'YYYY-MM' available, most recent first
+
+function monthKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function monthLabel(k) {
+  const [y,m] = k.split('-');
+  return new Date(y, m-1, 1).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+}
+function fmtL(n) { return '₹' + (n/100000).toFixed(2) + 'L'; }
+function fmtInr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+
+async function init() {
+  const now = new Date();
+  months = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(monthKey(d));
+  }
+  const sel = document.getElementById('monthSel');
+  sel.innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  sel.value = months[0];
+
+  const earliestStart = months[months.length-1] + '-01';
+  const [mapData, manualData] = await Promise.all([
+    sbGet(`refurb_part_mapping?select=*`),
+    sbGet(`cost_savings_manual?select=*&month=in.(${months.map(m=>`"${m}"`).join(',')})`)
+  ]);
+  mapping = Array.isArray(mapData) ? mapData : [];
+  manualRows = Array.isArray(manualData) ? manualData : [];
+
+  if (mapping.length) {
+    const names = mapping.map(m => `"${m.refurb_item_name.replace(/"/g,'\\"')}"`).join(',');
+    refurbLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name&item_name=in.(${names})&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
+    if (!Array.isArray(refurbLines)) refurbLines = [];
+  } else {
+    refurbLines = [];
+  }
+
+  await checkUnmapped(earliestStart);
+  renderMappingTable();
+  document.getElementById('syncedLbl').textContent = 'Loaded: ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true});
+  render();
+
+  if (window.authIsAdmin && window.authIsAdmin()) {
+    document.getElementById('adminToggle').style.display = 'inline-flex';
+  } else {
+    document.getElementById('adminToggle').style.display = 'none';
+  }
+}
+async function checkUnmapped(earliestStart) {
+  const known = new Set(mapping.map(m => m.refurb_item_name));
+  const all = await sbGet(`jc_details?select=item_name&item_name=ilike.Refurbished*&end_time=gte.${earliestStart}&limit=5000`);
+  if (!Array.isArray(all)) return;
+  const unmapped = [...new Set(all.map(r => r.item_name))].filter(n => !known.has(n));
+  const box = document.getElementById('unmappedWarn');
+  if (unmapped.length) {
+    box.style.display = 'flex';
+    box.innerHTML = `<i class="ti ti-alert-triangle" style="margin-top:2px;"></i><div><b>${unmapped.length} refurb item(s) found without an OEM benchmark price</b> — excluded from savings total: ${unmapped.join(', ')}. Add a mapping below.</div>`;
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function onMonthChange() {
+  const m = document.getElementById('monthSel').value;
+  const row = manualRows.find(r => r.month === m) || {};
+  document.getElementById('inScrap').value = row.scrap_revenue || 0;
+  document.getElementById('inCn').value = row.supplier_cn || 0;
+  document.getElementById('inSmpl').value = row.smpl_manpower || 0;
+  render();
+}
+
+function computeRefurbSaving(month, city) {
+  const map = {};
+  mapping.forEach(m => map[m.refurb_item_name] = m.oem_a_price);
+  let total = 0;
+  const byPart = {};
+  refurbLines.forEach(l => {
+    if (!l.end_time || !l.end_time.startsWith(month)) return;
+    if (city && l.city !== city) return;
+    const benchmark = map[l.item_name];
+    if (benchmark == null) return;
+    const saving = benchmark - (l.total_amount || 0);
+    total += saving;
+    if (!byPart[l.item_name]) byPart[l.item_name] = { units: 0, saving: 0 };
+    byPart[l.item_name].units += 1;
+    byPart[l.item_name].saving += saving;
+  });
+  return { total, byPart };
+}
+
+function render() {
+  const month = document.getElementById('monthSel').value;
+  const city = document.getElementById('citySel').value;
+  const prevMonth = months[months.indexOf(month) + 1];
+
+  const { total: refurbTotal, byPart } = computeRefurbSaving(month, city);
+  const manual = manualRows.find(r => r.month === month) || { scrap_revenue: 0, supplier_cn: 0, smpl_manpower: 0 };
+  const total = refurbTotal + (manual.scrap_revenue||0) + (manual.supplier_cn||0) + (manual.smpl_manpower||0);
+
+  const prevRefurb = prevMonth ? computeRefurbSaving(prevMonth, city).total : null;
+  const prevManual = prevMonth ? (manualRows.find(r => r.month === prevMonth) || {}) : null;
+  const prevTotal = prevMonth ? (prevRefurb + (prevManual.scrap_revenue||0) + (prevManual.supplier_cn||0) + (prevManual.smpl_manpower||0)) : null;
+
+  document.getElementById('kvRefurb').textContent = fmtL(refurbTotal);
+  document.getElementById('kvSmpl').textContent = fmtL(manual.smpl_manpower||0);
+  document.getElementById('kvScrap').textContent = fmtL(manual.scrap_revenue||0);
+  document.getElementById('kvCn').textContent = fmtL(manual.supplier_cn||0);
+  document.getElementById('tvTotal').textContent = fmtL(total);
+
+  function trendText(cur, prev) {
+    if (prev == null || prev === 0) return '';
+    const pct = ((cur - prev) / Math.abs(prev)) * 100;
+    const cls = pct >= 0 ? 'up' : 'down';
+    const arrow = pct >= 0 ? '↑' : '↓';
+    return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(0)}% vs prev month</span>`;
+  }
+  document.getElementById('ksRefurb').innerHTML = prevMonth ? trendText(refurbTotal, prevRefurb) : '';
+  document.getElementById('ksSmpl').innerHTML = prevMonth ? trendText(manual.smpl_manpower||0, prevManual.smpl_manpower||0) : '';
+  document.getElementById('ksScrap').innerHTML = prevMonth ? trendText(manual.scrap_revenue||0, prevManual.scrap_revenue||0) : '';
+  document.getElementById('ksCn').innerHTML = prevMonth ? trendText(manual.supplier_cn||0, prevManual.supplier_cn||0) : '';
+  document.getElementById('tsCompare').innerHTML = prevMonth ? trendText(total, prevTotal) : '';
+
+  const tbody = document.getElementById('refurbPartsBody');
+  const parts = Object.entries(byPart).sort((a,b) => b[1].saving - a[1].saving);
+  tbody.innerHTML = parts.length ? parts.map(([name, v]) => `
+    <tr><td>${name}</td><td class="num">${v.units}</td><td class="num saving-pos">${fmtInr(v.saving)}</td></tr>
+  `).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--muted);">No refurb parts used this month</td></tr>';
+
+  renderTrendChart(city);
+}
+
+let trendChartInstance = null;
+function renderTrendChart(city) {
+  const labels = [...months].reverse().map(monthLabel);
+  const data = [...months].reverse().map(m => {
+    const r = computeRefurbSaving(m, city).total;
+    const man = manualRows.find(row => row.month === m) || {};
+    return r + (man.scrap_revenue||0) + (man.supplier_cn||0) + (man.smpl_manpower||0);
+  });
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendChartInstance) trendChartInstance.destroy();
+  trendChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Total Savings (₹)', data, backgroundColor: '#16a34a', borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' } } }
+    }
+  });
+}
+
+function renderMappingTable() {
+  document.getElementById('mappingBody').innerHTML = mapping.map(m => `
+    <tr><td>${m.refurb_item_name}</td><td>${m.oem_item_name||''}</td><td class="num">${fmtInr(m.oem_a_price)}</td><td>${m.notes||''}</td></tr>
+  `).join('');
+}
+
+function toggleAdmin() {
+  const p = document.getElementById('admin-panel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+  if (p.style.display === 'block') onMonthChange();
+}
+
+async function saveManual() {
+  const month = document.getElementById('monthSel').value;
+  const body = {
+    month,
+    scrap_revenue: parseFloat(document.getElementById('inScrap').value) || 0,
+    supplier_cn: parseFloat(document.getElementById('inCn').value) || 0,
+    smpl_manpower: parseFloat(document.getElementById('inSmpl').value) || 0,
+    updated_by: (window.authGetEmail && window.authGetEmail()) || 'unknown',
+    updated_at: new Date().toISOString()
+  };
+  await sbUpsert('cost_savings_manual', body, 'month');
+  const idx = manualRows.findIndex(r => r.month === month);
+  if (idx >= 0) manualRows[idx] = body; else manualRows.push(body);
+  const msg = document.getElementById('saveMsg');
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000);
+  render();
+}
+
+async function addMapping() {
+  const refurb_item_name = document.getElementById('mapRefurbName').value.trim();
+  const oem_item_name = document.getElementById('mapOemName').value.trim();
+  const oem_a_price = parseFloat(document.getElementById('mapPrice').value);
+  if (!refurb_item_name || isNaN(oem_a_price)) { alert('Refurb item name and OEM price are required'); return; }
+  const body = { refurb_item_name, oem_item_name, oem_a_price, notes: 'Added via UI', updated_at: new Date().toISOString() };
+  await sbUpsert('refurb_part_mapping', body, 'refurb_item_name');
+  mapping.push(body);
+  renderMappingTable();
+  document.getElementById('mapRefurbName').value = '';
+  document.getElementById('mapOemName').value = '';
+  document.getElementById('mapPrice').value = '';
+  // Refresh refurb lines to include the newly mapped item
+  await init();
+}
+
+init();
+
+// Auto-resize for iframe host
+function reportHeight() {
+  window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*');
+}
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>
