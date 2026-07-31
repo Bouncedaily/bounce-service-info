@@ -266,7 +266,7 @@ async function init() {
 }
 async function checkUnmapped(earliestStart) {
   const known = new Set(mapping.map(m => m.refurb_item_name));
-  const all = await sbGet(`jc_details?select=item_name&item_name=ilike.Refurbished*&end_time=gte.${earliestStart}&limit=5000`);
+  const all = await sbGet(`jc_details?select=item_name&item_name=like.Refurbished*&end_time=gte.${earliestStart}&limit=5000`);
   if (!Array.isArray(all)) return;
   const unmapped = [...new Set(all.map(r => r.item_name))].filter(n => !known.has(n));
   const box = document.getElementById('unmappedWarn');
