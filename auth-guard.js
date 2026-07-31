@@ -1,5 +1,19 @@
 // auth-guard.js — session check with 1-day expiry + permission-based sidebar
 (function() {
+  // One-time cleanup: an earlier version of hub-audit.html registered its
+  // service worker with no explicit scope, which defaults to the site root —
+  // meaning it silently intercepted every page on the whole site, not just
+  // hub-audit.html. Remove any registration whose scope isn't narrowed to
+  // hub-audit.html specifically; a correctly-scoped SW re-registers itself
+  // fine from hub-audit.html on next visit there.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(reg) {
+        if (reg.scope.indexOf('hub-audit.html') === -1) reg.unregister().catch(function() {});
+      });
+    }).catch(function() {});
+  }
+
   const SB_URL  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
   const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
   const EDGE    = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';

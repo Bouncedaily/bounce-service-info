@@ -293,6 +293,27 @@ input[type=date] { min-width: 130px; }
     } catch (e) { return sess.access_token; }
   };
 
+  // The cached role in localStorage may be stale or missing entirely if
+  // this page is the first one opened this session (nothing else has
+  // written it yet) — fetch the authoritative role from allowed_users
+  // (same as auth-guard.js does) and re-run onReady() once it resolves.
+  if (sess.email && sess.access_token) {
+    var _anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+    fetch('https://fuslpeyhpmofzijrotkb.supabase.co/rest/v1/allowed_users?email=eq.' + encodeURIComponent(sess.email) + '&select=role', {
+      headers: { apikey: _anonKey, Authorization: 'Bearer ' + sess.access_token }
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (d && d[0] && d[0].role && d[0].role !== sess.role) {
+        sess.role = d[0].role;
+        try {
+          var stored = JSON.parse(localStorage.getItem('sb_session') || '{}');
+          stored.role = d[0].role;
+          localStorage.setItem('sb_session', JSON.stringify(stored));
+        } catch(e) {}
+        onReady();
+      }
+    }).catch(function() {});
+  }
+
   // Populate email + admin link after DOM ready
   function onReady() {
     var em = document.getElementById('sb-user-email');

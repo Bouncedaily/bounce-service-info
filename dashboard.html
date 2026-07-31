@@ -669,10 +669,14 @@ load();
   });
   const emailEl = document.getElementById('sb-user-email');
   if (emailEl) emailEl.textContent = authGetEmail();
-  if (typeof authIsAdmin === 'function' && authIsAdmin()) {
-    const adminLink = document.getElementById('admin-link');
-    if (adminLink) adminLink.style.display = 'block';
+  function updateAdminLink() {
+    if (typeof authIsAdmin === 'function' && authIsAdmin()) {
+      const adminLink = document.getElementById('admin-link');
+      if (adminLink) adminLink.style.display = 'block';
+    }
   }
+  updateAdminLink();
+  window.addEventListener('auth-ready', updateAdminLink);
 
 
 // ── SIDEBAR CONTROL ──────────────────────────────────────

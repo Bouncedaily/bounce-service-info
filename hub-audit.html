@@ -1092,7 +1092,10 @@ if (new URLSearchParams(location.search).get('install') === '1' && isIOS()) {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw-hub-audit.js').catch(() => {});
+    // IMPORTANT: explicit scope so this SW only ever controls this page.
+    // Without it, the default scope is the site root (this file's directory),
+    // meaning it would silently intercept every other page on the site too.
+    navigator.serviceWorker.register('sw-hub-audit.js', { scope: './hub-audit.html' }).catch(() => {});
   });
 }
 
