@@ -708,6 +708,20 @@ function liSaveSession(tok, ref, em, role, perms) {
 // ═══════════════════════════════════════════════════════════════════════════
 // Auth disabled — supabase not needed in shell
 
+// One-time cleanup: an earlier version of hub-audit.html registered its
+// service worker with no explicit scope, which defaults to the site root —
+// meaning it silently intercepts every page on the whole site, not just
+// hub-audit.html. This page (index.html) never loads auth-guard.js, so it
+// needs this cleanup directly too. Remove any registration whose scope
+// isn't narrowed to hub-audit.html specifically.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(reg) {
+      if (reg.scope.indexOf('hub-audit.html') === -1) reg.unregister().catch(function() {});
+    });
+  }).catch(function() {});
+}
+
 // DASHBOARDS defined after DASH_* constants in the next <script> block
 
 // ═══════════════════════════════════════════════════════════════════════════
