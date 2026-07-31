@@ -971,7 +971,7 @@ function showApp() {
   applyPermissions(sess.permissions, sess.role);
   // Restore last view from hash
   const hash = window.location.hash.replace('#', '');
-  const validViews = ['home','dashboard','fleet','parts','tyre','msl','admin','oos','hubaudit','standup','tech','jcreview','feedback','leakage','hotat'];
+  const validViews = ['home','dashboard','fleet','parts','tyre','msl','savings','admin','oos','hubaudit','standup','tech','jcreview','feedback','leakage','hotat'];
   if (hash && validViews.includes(hash)) {
     showView(hash, false);
   } else {
