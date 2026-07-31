@@ -636,6 +636,13 @@ function liSaveSession(tok, ref, em, role, perms) {
             <div class="dash-card-title">Parts Dashboard</div>
             <div class="dash-card-desc">Minimum Stock Level tracker — parts shortages across all hubs</div>
           </div>
+          <div class="dash-card" onclick="showView('savings')">
+            <div class="dash-card-icon" style="background:#ecfdf5;color:#059669">
+              <i class="ti ti-pig-money"></i>
+            </div>
+            <div class="dash-card-title">Cost Savings</div>
+            <div class="dash-card-desc">Refurbishment, shared manpower, scrap sale &amp; supplier chargeback savings</div>
+          </div>
           <div class="dash-card" onclick="showView('oos')">
             <div class="dash-card-icon">🔴</div>
             <div class="dash-card-title">OOS Dashboard</div>
@@ -886,7 +893,7 @@ function applyPermissions(perms, role) {
   if (role === 'admin' || !perms) return; // admin sees everything
   const map = {
     'dashboard': 'rmc', 'fleet': 'fleet_km', 'parts': 'parts_testing',
-    'tyre': 'wear_tear', 'msl': 'msl_dashboard', 'oos': 'oos', 'hubaudit': 'hub_audit', 'standup': 'standup', 'tech': 'tech', 'jcreview': 'jcreview', 'feedback': 'feedback', 'leakage': 'leakage', 'hotat': 'ho_tat'
+    'tyre': 'wear_tear', 'msl': 'msl_dashboard', 'savings': 'cost_savings', 'oos': 'oos', 'hubaudit': 'hub_audit', 'standup': 'standup', 'tech': 'tech', 'jcreview': 'jcreview', 'feedback': 'feedback', 'leakage': 'leakage', 'hotat': 'ho_tat'
   };
   document.querySelectorAll('.sb-item[data-view]').forEach(function(el) {
     const view = el.getAttribute('data-view');
@@ -898,7 +905,7 @@ function applyPermissions(perms, role) {
   // Also hide the corresponding home dashboard cards
   const cardMap = {
     'dashboard': 'rmc', 'fleet': 'fleet_km', 'parts': 'parts_testing',
-    'tyre': 'wear_tear', 'msl': 'msl_dashboard', 'oos': 'oos', 'hubaudit': 'hub_audit', 'standup': 'standup', 'tech': 'tech', 'jcreview': 'jcreview', 'feedback': 'feedback', 'leakage': 'leakage', 'hotat': 'ho_tat'
+    'tyre': 'wear_tear', 'msl': 'msl_dashboard', 'savings': 'cost_savings', 'oos': 'oos', 'hubaudit': 'hub_audit', 'standup': 'standup', 'tech': 'tech', 'jcreview': 'jcreview', 'feedback': 'feedback', 'leakage': 'leakage', 'hotat': 'ho_tat'
   };
   document.querySelectorAll('.dash-card[onclick]').forEach(function(el) {
     const onclick = el.getAttribute('onclick') || '';
