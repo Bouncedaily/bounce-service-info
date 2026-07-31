@@ -277,20 +277,9 @@ tr:hover td { background: var(--bg); }
         </select></div>
         <div class="fg"><label>Part</label><select id="f-part" onchange="applyFilters()">
           <option value="">All parts</option>
-          <option>Kit Side stand</option>
-          <option>Rr suspension</option>
-          <option>Handle lock</option>
-          <option>Rear Tyre 110/70/12</option>
-          <option>Rear Suspension</option>
-          <option>Cone Set</option>
-          <option>Front brake pad</option>
-          <option>Rear brake pad</option>
         </select></div>
         <div class="fg"><label>Vendor</label><select id="f-vendor" onchange="applyFilters()">
           <option value="">All vendors</option>
-          <option>Gabriel</option>
-          <option>Arrow +</option>
-          <option>OEM improved</option>
         </select></div>
         <div class="fg"><label>Status</label><select id="f-status" onchange="applyFilters()">
           <option value="">All</option>
@@ -532,6 +521,7 @@ async function loadAll() {
     }
 
     applyFilters();
+    populateRawFilterDims();
     const ts = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
     const lr = document.getElementById('last-refresh');
     if (lr) lr.textContent = 'Updated ' + ts;
@@ -541,6 +531,32 @@ async function loadAll() {
     document.getElementById('raw-body').innerHTML = '';
     console.error(e);
   }
+}
+
+// Part/Vendor dropdown options used to be a hand-maintained static list that
+// silently drifted out of sync with real data (missing categories, mismatched
+// vendor labels). Populate them from whatever's actually in the Test rows
+// instead, so new parts/vendors show up automatically.
+function populateRawFilterDims() {
+  const testRows = allRows.filter(r => r.type === 'Test');
+  function fill(selectId, values) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const cur = sel.value;
+    const defaultOpt = sel.options[0];
+    sel.innerHTML = '';
+    sel.appendChild(defaultOpt);
+    values.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+    if (cur && values.includes(cur)) sel.value = cur;
+  }
+  const parts = [...new Set(testRows.map(r => r.part_category).filter(Boolean))].sort();
+  const vendors = [...new Set(testRows.map(r => r.vendor).filter(v => v && v !== '—'))].sort();
+  fill('f-part', parts);
+  fill('f-vendor', vendors);
 }
 
 
@@ -843,7 +859,7 @@ function renderRaw() {
       <td>${fmtDate(r.fitted_date)}</td>
       <td style="font-family:var(--mono)">${r.km_at_fitment ? r.km_at_fitment.toLocaleString() : '0'}</td>
       <td style="font-family:var(--mono);color:var(--text2)">${r.current_odo ? r.current_odo.toLocaleString() : '—'}</td>
-      <td style="font-weight:600;font-family:var(--mono);color:${kmColor}">${r.km_on_part ? r.km_on_part.toLocaleString() : '—'}</td>
+      <td style="font-weight:600;font-family:var(--mono);color:${kmColor}">${r.km_on_part != null ? r.km_on_part.toLocaleString() : '—'}</td>
       <td>${fmtDate(r.replacement_date)}</td>
       <td style="font-family:var(--mono)">${r.km_at_replacement ? r.km_at_replacement.toLocaleString() : '—'}</td>
       <td>${stPill}</td>
