@@ -1649,6 +1649,22 @@ function clearFilters() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+const OOS_CACHE_KEY = 'oos_dashboard_cache';
+
+function saveOOSCache(raw) {
+  try {
+    localStorage.setItem(OOS_CACHE_KEY, JSON.stringify({ data: raw, ts: Date.now() }));
+  } catch(e) { /* ignore quota errors -- caching is best-effort */ }
+}
+
+function loadOOSCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(OOS_CACHE_KEY) || 'null');
+    if (cached && cached.data) return cached;
+  } catch(e) {}
+  return null;
+}
+
 async function refresh() {
   const btn = document.getElementById('sync-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '&#8635; Syncing…'; }
@@ -1657,11 +1673,23 @@ async function refresh() {
     try { DAILY_FLOW = await fetchDailyFlow(); } catch(e) { DAILY_FLOW = []; }
     populateFilters(RAW);
     render(applyFilters(RAW));
+    saveOOSCache(RAW);
     document.getElementById('sync-lbl').innerHTML = `<span class="sb-dot" style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span> Synced ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}`;
     if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
   } catch(e) {
     console.error('OOS dashboard error:', e);
-    document.getElementById('sync-lbl').innerHTML = `<span style="color:var(--red)">⚠ Error loading data</span>`;
+    const cached = loadOOSCache();
+    if (cached) {
+      // Database is unreachable right now -- show the last data we did
+      // successfully load instead of leaving every KPI/table blank.
+      RAW = cached.data;
+      populateFilters(RAW);
+      render(applyFilters(RAW));
+      const cachedTime = new Date(cached.ts).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+      document.getElementById('sync-lbl').innerHTML = `<span style="color:var(--amber)">⚠ Can't reach the database — showing data from ${cachedTime}</span>`;
+    } else {
+      document.getElementById('sync-lbl').innerHTML = `<span style="color:var(--red)">⚠ Error loading data</span>`;
+    }
     if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
   }
 }
