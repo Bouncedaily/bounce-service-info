@@ -258,11 +258,13 @@ async function init() {
   document.getElementById('syncedLbl').textContent = 'Loaded: ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true});
   render();
 
-  if (window.authIsAdmin && window.authIsAdmin()) {
-    document.getElementById('adminToggle').style.display = 'inline-flex';
-  } else {
-    document.getElementById('adminToggle').style.display = 'none';
-  }
+  updateAdminToggle();
+  window.addEventListener('auth-ready', updateAdminToggle);
+}
+
+function updateAdminToggle() {
+  if (!window.authIsAdmin) return;
+  document.getElementById('adminToggle').style.display = window.authIsAdmin() ? 'inline-flex' : 'none';
 }
 async function checkUnmapped(earliestStart) {
   const known = new Set(mapping.map(m => m.refurb_item_name));

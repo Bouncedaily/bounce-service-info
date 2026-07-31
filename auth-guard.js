@@ -56,6 +56,7 @@
     window.authGetToken  = () => sess.access_token || '';
     window.authPerms     = () => perms || {};
     window.authLogout    = () => { localStorage.removeItem('sb_session'); redirectLogin(); };
+    window.dispatchEvent(new Event('auth-ready'));
 
     // Apply permissions to sidebar — hide dashboards user can't access
     function applyPerms() {
