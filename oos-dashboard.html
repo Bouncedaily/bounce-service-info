@@ -630,8 +630,8 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd"><h2>Outflow by Hub</h2><span class="sub" id="outflow-count">—</span></div>
       <div class="tbl"><table id="tbl-hub-outflow">
-        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">OOS</th><th class="num">Rider Sub.</th><th class="num">Recovery</th><th class="num">Bike Exch.</th><th class="num">OOS (Direct)</th><th class="num">RR</th><th class="num">PDI</th><th class="num">Avg TAT (days)</th></tr></thead>
-        <tbody><tr><td colspan="10" class="empty"><span class="spin"></span></td></tr></tbody>
+        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">OOS</th><th class="num">RR</th><th class="num">PDI</th><th class="num">Avg TAT (days)</th></tr></thead>
+        <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -1492,22 +1492,17 @@ function renderHubOutflow(outflow) {
   document.getElementById('outflow-count').textContent = outflow.length + ' bikes';
   const tbody = document.querySelector('#tbl-hub-outflow tbody');
   const hubs = [...new Set(outflow.map(r => r.hub_name).filter(Boolean))].sort();
-  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">No repairs today</td></tr>'; return; }
-  // OOS = Rider Submission + Recovery + Bike Exchange (matches standup_daily's
-  // established convention). Literal 'OOS'-typed rows are a distinct category,
-  // shown in their own column so the total still reconciles without folding
-  // two different things into the same bucket.
-  const OOS_SET = ['Rider Submission','Recovery','Bike Exchange'];
-  let rows = '', gt = 0, gCounts = [0,0,0,0,0,0,0], gtat = 0;
+  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No repairs today</td></tr>'; return; }
+  // OOS = Rider Submission + Recovery + Bike Exchange + literal 'OOS' rows,
+  // all combined into a single number -- no separate breakdown columns.
+  let rows = '', gt = 0, gCounts = [0,0,0], gtat = 0;
   const cnt = (arr,t) => arr.filter(r => r.submission_type === t).length;
   hubs.forEach(h => {
     const rows_h = outflow.filter(r => r.hub_name === h);
     const total  = rows_h.length;
-    const rider = cnt(rows_h,'Rider Submission'), recov = cnt(rows_h,'Recovery'), bex = cnt(rows_h,'Bike Exchange');
-    const oos = rider + recov + bex;
-    const oosDirect = cnt(rows_h,'OOS');
+    const oos = cnt(rows_h,'Rider Submission') + cnt(rows_h,'Recovery') + cnt(rows_h,'Bike Exchange') + cnt(rows_h,'OOS');
     const rr = cnt(rows_h,'RR'), pdi = cnt(rows_h,'PDI');
-    const counts = [oos, rider, recov, bex, oosDirect, rr, pdi];
+    const counts = [oos, rr, pdi];
     const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
     const avgTat = total ? (tatSum/total).toFixed(1) : '—';
     gt += total; counts.forEach((c,i) => gCounts[i] += c); gtat += tatSum;
