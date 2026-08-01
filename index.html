@@ -1206,9 +1206,10 @@ initAuth();
   <div id="chatbot-messages"></div>
   <div id="chatbot-suggestions">
     <div class="cb-chip" onclick="askChatbot('What is the OOS % today?')">OOS % today</div>
-    <div class="cb-chip" onclick="askChatbot('RMC cost this month vs last month')">RMC this month</div>
+    <div class="cb-chip" onclick="askChatbot('Total cost savings this month')">Cost savings</div>
     <div class="cb-chip" onclick="askChatbot('Top repeat offender bikes')">Repeat offenders</div>
     <div class="cb-chip" onclick="askChatbot('Which parts are running low?')">Parts running low</div>
+    <div class="cb-chip" onclick="askChatbot('Which part consumption is increasing month on month?')">Rising part usage</div>
   </div>
   <div id="chatbot-input-row">
     <input id="chatbot-input" placeholder="Ask anything about the data..." onkeydown="if(event.key==='Enter')sendChatbotMessage()"/>
