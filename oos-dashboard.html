@@ -607,12 +607,13 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">
         <h2 style="margin:0">Repair — Aging by Hub</h2>
-        <span class="sub">OOS repairs (Rider Sub + Recovery + Bike Exchange) · OOS&#8594;RFD TAT bucket &times; hub</span>
+        <span class="sub">OOS repairs (Rider Sub + Recovery + Bike Exchange + OOS Direct) &middot; OOS&#8594;RFD TAT bucket &times; hub</span>
         <div id="rep-inflow-filter" style="margin-left:auto;display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
           <button onclick="setRepairInflow('all',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:var(--accent);color:#fff;font-weight:600">All</button>
           <button onclick="setRepairInflow('Rider Submission',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Rider Sub.</button>
           <button onclick="setRepairInflow('Recovery',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Recovery</button>
-          <button onclick="setRepairInflow('Bike Exchange',this)" style="padding:3px 10px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Bike Exch.</button>
+          <button onclick="setRepairInflow('Bike Exchange',this)" style="padding:3px 10px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">Bike Exch.</button>
+          <button onclick="setRepairInflow('OOS',this)" style="padding:3px 10px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text)">OOS Direct</button>
         </div>
       </div>
       <div class="tbl" id="rep-aging-wrap"><div class="empty"><span class="spin"></span></div></div>
@@ -1453,7 +1454,7 @@ function renderHubInflow(inflow) {
 }
 
 const REP_ORDER=['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
-const OOS_TYPES=['Rider Submission','Recovery','Bike Exchange'];
+const OOS_TYPES=['Rider Submission','Recovery','Bike Exchange','OOS'];
 var LAST_OUTFLOW=[];
 var REPAIR_INFLOW='all';
 function repBucket(d){ d=parseFloat(d); if(isNaN(d)) return null; var f=Math.floor(d); if(f<=0)return '0 days'; if(f<=2)return '1-2 days'; if(f<=4)return '3-4 days'; if(f<=7)return '5-7 days'; return 'above 7 days'; }
