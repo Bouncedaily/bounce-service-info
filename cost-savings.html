@@ -261,14 +261,14 @@ async function init() {
 
   if (mapping.length) {
     const names = mapping.map(m => `"${m.refurb_item_name.replace(/"/g,'\\"')}"`).join(',');
-    refurbLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name&item_name=in.(${names})&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
+    refurbLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name&item_name=in.(${names})&line_type=eq.Part&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
     if (!Array.isArray(refurbLines)) refurbLines = [];
   } else {
     refurbLines = [];
   }
 
   const forkNames = FORK_CHILD_NAMES.map(n => `"${n}"`).join(',');
-  forkChildLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name,draft_jc_id&item_name=in.(${forkNames})&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
+  forkChildLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name,draft_jc_id&item_name=in.(${forkNames})&line_type=eq.Part&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
   if (!Array.isArray(forkChildLines)) forkChildLines = [];
 
   await checkUnmapped(earliestStart);
