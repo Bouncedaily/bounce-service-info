@@ -216,7 +216,21 @@ async function sbUpsert(table, body, onConflict) {
 let mapping = [];       // refurb_part_mapping rows
 let manualRows = [];    // cost_savings_manual rows
 let refurbLines = [];   // raw jc_details lines for mapped refurb items (last 7 months)
+let forkChildLines = []; // raw jc_details lines for front-fork child parts (legs/T-Steam) replaced instead of full assembly
 let months = [];        // list of 'YYYY-MM' available, most recent first
+
+// Front fork "child parts" -- when only these are replaced instead of the
+// full assembly, the saving is (assembly OEM cost) - (sum of these actually
+// paid, per job card). Same assembly benchmark used for both Drum and Disc
+// (matches the existing Front Fork refurb mapping, which already uses one
+// shared OEM price for both variants).
+const FORK_CHILD_NAMES = ['Fr Suspension Leg-Lh-Drum','Fr Suspension Leg-Rh-Drum','Fr Suspension Leg-Lh-Disc','Fr Suspension Leg-Rh-Disc','Suspension-T-Steam'];
+const FORK_ASSEMBLY_BENCHMARK = 2475;
+function forkChildType(itemName) {
+  if (itemName === 'Fr Suspension Leg-Lh-Drum' || itemName === 'Fr Suspension Leg-Rh-Drum') return 'Drum';
+  if (itemName === 'Fr Suspension Leg-Lh-Disc' || itemName === 'Fr Suspension Leg-Rh-Disc') return 'Disc';
+  return 'T-Steam';
+}
 
 function monthKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(k) {
@@ -252,6 +266,10 @@ async function init() {
   } else {
     refurbLines = [];
   }
+
+  const forkNames = FORK_CHILD_NAMES.map(n => `"${n}"`).join(',');
+  forkChildLines = await sbGet(`jc_details?select=item_name,total_amount,end_time,city,hub_name,draft_jc_id&item_name=in.(${forkNames})&end_time=gte.${earliestStart}&order=end_time.desc&limit=20000`);
+  if (!Array.isArray(forkChildLines)) forkChildLines = [];
 
   await checkUnmapped(earliestStart);
   renderMappingTable();
@@ -309,6 +327,34 @@ function computeRefurbSaving(month, city) {
     byPart[l.item_name].units += 1;
     byPart[l.item_name].saving += saving;
   });
+
+  // Front fork child parts (legs/T-Steam) replaced instead of the full
+  // assembly -- one combined saving per job card, since a job card might
+  // replace more than one of these together (e.g. both legs, or a leg +
+  // T-Steam) and it's still only one assembly-replacement avoided.
+  const byJc = {};
+  forkChildLines.forEach(l => {
+    if (!l.end_time || !l.end_time.startsWith(month)) return;
+    if (city && l.city !== city) return;
+    const jc = l.draft_jc_id;
+    if (jc == null) return;
+    if (!byJc[jc]) byJc[jc] = { amt: 0, types: new Set() };
+    byJc[jc].amt += (l.total_amount || 0);
+    byJc[jc].types.add(forkChildType(l.item_name));
+  });
+  Object.values(byJc).forEach(jc => {
+    const saving = FORK_ASSEMBLY_BENCHMARK - jc.amt;
+    total += saving;
+    // Label: Drum or Disc if either leg type is present; otherwise it was
+    // T-Steam replaced alone.
+    const label = jc.types.has('Drum') ? 'Front Fork Child Parts (Drum)'
+                : jc.types.has('Disc') ? 'Front Fork Child Parts (Disc)'
+                : 'Front Fork Child Parts (T-Steam only)';
+    if (!byPart[label]) byPart[label] = { units: 0, saving: 0 };
+    byPart[label].units += 1;
+    byPart[label].saving += saving;
+  });
+
   return { total, byPart };
 }
 
