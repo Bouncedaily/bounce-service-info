@@ -289,6 +289,10 @@ function onMonthChange() {
   render();
 }
 
+// Excluded from Refurbishment total/KPI card per Nithish -- kept in the
+// by-part breakdown table below for reference only, not counted in totals.
+const EXCLUDE_FROM_TOTAL = new Set(['Refurbished - Rear Rim With Motor 12Inch']);
+
 function computeRefurbSaving(month, city) {
   const map = {};
   mapping.forEach(m => map[m.refurb_item_name] = m.oem_a_price);
@@ -300,7 +304,7 @@ function computeRefurbSaving(month, city) {
     const benchmark = map[l.item_name];
     if (benchmark == null) return;
     const saving = benchmark - (l.total_amount || 0);
-    total += saving;
+    if (!EXCLUDE_FROM_TOTAL.has(l.item_name)) total += saving;
     if (!byPart[l.item_name]) byPart[l.item_name] = { units: 0, saving: 0 };
     byPart[l.item_name].units += 1;
     byPart[l.item_name].saving += saving;
