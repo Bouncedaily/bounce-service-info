@@ -1428,7 +1428,7 @@ function fmtTime(ts) {
 }
 function fmtDateTime(ts) {
   if (!ts) return '—';
-  var d = new Date(ts);
+  var d = new Date(new Date(ts).getTime() + 5.5 * 60 * 60 * 1000); // UTC -> IST
   var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
   var h = d.getUTCHours(), mn = d.getUTCMinutes();
   var ampm = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12;
