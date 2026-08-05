@@ -1455,6 +1455,10 @@ function renderHubInflow(inflow) {
 
 const REP_ORDER=['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
 const OOS_TYPES=['Rider Submission','Recovery','Bike Exchange','OOS'];
+// jc_submission_type is the granular field (added Aug 2026) -- as of that
+// change, raw submission_type only ever says 'RR' or 'OOS'. Fall back to
+// submission_type for older rows synced before jc_submission_type existed.
+function effType(r){ return r.jc_submission_type || r.submission_type; }
 var LAST_OUTFLOW=[];
 var REPAIR_INFLOW='all';
 function repBucket(d){ d=parseFloat(d); if(isNaN(d)) return null; var f=Math.floor(d); if(f<=0)return '0 days'; if(f<=2)return '1-2 days'; if(f<=4)return '3-4 days'; if(f<=7)return '5-7 days'; return 'above 7 days'; }
@@ -1467,8 +1471,8 @@ function setRepairInflow(t,btn){
 function renderRepairAging(outflow){
   const wrap=document.getElementById('rep-aging-wrap');
   if(!wrap) return;
-  let set=(outflow||[]).filter(function(r){return OOS_TYPES.indexOf(r.submission_type)>=0;});
-  if(REPAIR_INFLOW!=='all') set=set.filter(function(r){return r.submission_type===REPAIR_INFLOW;});
+  let set=(outflow||[]).filter(function(r){return OOS_TYPES.indexOf(effType(r))>=0;});
+  if(REPAIR_INFLOW!=='all') set=set.filter(function(r){return effType(r)===REPAIR_INFLOW;});
   const rowsData=set.map(function(r){return {hub:r.hub_name,b:repBucket(r.oos_to_rfd_tat_days)};}).filter(function(x){return x.hub && x.b;});
   if(!rowsData.length){wrap.innerHTML='<div class="empty">No OOS repairs for selected filters</div>';return;}
   const hubs=[...new Set(rowsData.map(function(x){return x.hub;}))].sort();
@@ -1494,15 +1498,18 @@ function renderHubOutflow(outflow) {
   const tbody = document.querySelector('#tbl-hub-outflow tbody');
   const hubs = [...new Set(outflow.map(r => r.hub_name).filter(Boolean))].sort();
   if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No repairs today</td></tr>'; return; }
-  // OOS = Rider Submission + Recovery + Bike Exchange + literal 'OOS' rows,
-  // all combined into a single number -- no separate breakdown columns.
+  // OOS = Rider Submission + Recovery + Bike Exchange, all combined into a
+  // single number. Classified via jc_submission_type (the granular field --
+  // as of Aug 2026 the raw submission_type only ever says 'RR' or 'OOS',
+  // with jc_submission_type carrying the real sub-category), falling back
+  // to submission_type for any older rows synced before that field existed.
   let rows = '', gt = 0, gCounts = [0,0,0], gtat = 0;
-  const cnt = (arr,t) => arr.filter(r => r.submission_type === t).length;
+  const cnt = (arr,types) => arr.filter(r => types.includes(effType(r))).length;
   hubs.forEach(h => {
     const rows_h = outflow.filter(r => r.hub_name === h);
     const total  = rows_h.length;
-    const oos = cnt(rows_h,'Rider Submission') + cnt(rows_h,'Recovery') + cnt(rows_h,'Bike Exchange') + cnt(rows_h,'OOS');
-    const rr = cnt(rows_h,'RR'), pdi = cnt(rows_h,'PDI');
+    const oos = cnt(rows_h, ['Rider Submission','Recovery','Bike Exchange','OOS']);
+    const rr = cnt(rows_h, ['Running Repair','Manual JC','RR']), pdi = cnt(rows_h, ['PDI']);
     const counts = [oos, rr, pdi];
     const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
     const avgTat = total ? (tatSum/total).toFixed(1) : '—';
