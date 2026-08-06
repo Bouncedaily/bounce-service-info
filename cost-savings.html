@@ -115,6 +115,7 @@
     <div class="synced-lbl" id="syncedLbl"></div>
   </div>
 
+  <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
   <div id="unmappedWarn" class="warn-box" style="display:none;"></div>
 
   <div class="kpi-row">
@@ -200,10 +201,24 @@ const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 function authHeaders() {
   return { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY };
 }
-async function sbGet(path) {
-  const r = await fetch(`${INFO_URL}/rest/v1/${path}`, { headers: authHeaders() });
-  if (!r.ok) { console.error('sbGet failed', path, r.status, await r.text()); return []; }
-  return r.json();
+let _sbGetHadFailure = false;
+async function sbGet(path, _attempt) {
+  _attempt = _attempt || 0;
+  try {
+    const r = await fetch(`${INFO_URL}/rest/v1/${path}`, { headers: authHeaders() });
+    if (!r.ok) {
+      console.error('sbGet failed', path, r.status, await r.text());
+      if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return sbGet(path, _attempt + 1); }
+      _sbGetHadFailure = true;
+      return [];
+    }
+    return r.json();
+  } catch (e) {
+    console.error('sbGet network error', path, e);
+    if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return sbGet(path, _attempt + 1); }
+    _sbGetHadFailure = true;
+    return [];
+  }
 }
 async function sbUpsert(table, body, onConflict) {
   const r = await fetch(`${INFO_URL}/rest/v1/${table}${onConflict ? '?on_conflict='+onConflict : ''}`, {
@@ -242,6 +257,7 @@ function fmtL(n) { return '₹' + (n/100000).toFixed(2) + 'L'; }
 function fmtInr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
 
 async function init() {
+  _sbGetHadFailure = false;
   const now = new Date();
   months = [];
   for (let i = 0; i < 7; i++) {
@@ -276,6 +292,14 @@ async function init() {
   renderMappingTable();
   document.getElementById('syncedLbl').textContent = 'Loaded: ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true});
   render();
+
+  const failBox = document.getElementById('loadFailWarn');
+  if (_sbGetHadFailure) {
+    failBox.style.display = 'flex';
+    failBox.innerHTML = `<i class="ti ti-alert-triangle" style="margin-top:2px;"></i><div><b>Some data failed to load</b> — the numbers above may be incomplete (this can happen when the database is under load). <a href="#" onclick="location.reload();return false;" style="color:#991b1b;text-decoration:underline;">Reload the page</a> to try again.</div>`;
+  } else {
+    failBox.style.display = 'none';
+  }
 
   updateAdminToggle();
   window.addEventListener('auth-ready', updateAdminToggle);
