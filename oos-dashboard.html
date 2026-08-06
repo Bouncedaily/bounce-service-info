@@ -1149,6 +1149,7 @@ function remarkKey(regNumber, oosSince) {
 
 async function loadRemarksFor(rows, _attempt) {
   _attempt = _attempt || 0;
+  const MAX_ATTEMPTS = 5; // exponential backoff: 1s, 2s, 4s, 8s -- absorbs longer DB blips, not just brief ones
   const pairs = rows.filter(r => r.reg_number).map(r => `and(reg_number.eq.${encodeURIComponent(r.reg_number)},oos_since.eq.${encodeURIComponent(r.latest_oos_date || '')})`);
   if (!pairs.length) return true;
   try {
@@ -1156,7 +1157,7 @@ async function loadRemarksFor(rows, _attempt) {
     const res = await fetch(url, { headers: await authHDR() });
     if (!res.ok) {
       console.error('loadRemarksFor failed', res.status);
-      if (_attempt < 2) { await new Promise(r => setTimeout(r, 800)); return loadRemarksFor(rows, _attempt + 1); }
+      if (_attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, _attempt))); return loadRemarksFor(rows, _attempt + 1); }
       return false;
     }
     const data = await res.json();
@@ -1166,7 +1167,7 @@ async function loadRemarksFor(rows, _attempt) {
     return true;
   } catch (e) {
     console.warn('loadRemarksFor failed', e);
-    if (_attempt < 2) { await new Promise(r => setTimeout(r, 800)); return loadRemarksFor(rows, _attempt + 1); }
+    if (_attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, _attempt))); return loadRemarksFor(rows, _attempt + 1); }
     return false;
   }
 }
