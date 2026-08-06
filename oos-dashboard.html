@@ -271,13 +271,32 @@ input[type=date] { min-width: 130px; }
   window.authGetToken = function() { return sess.access_token || ''; };
   window.authLogout   = function() { localStorage.removeItem('sb_session'); window.location.replace('login.html'); };
 
-  // Access tokens expire (~1hr default) and this cached copy was never
-  // refreshed on its own — before any write that needs real auth (like
-  // saving a remark), get a guaranteed-valid token, refreshing if needed.
+  // Access tokens expire (~1hr default, real value in the JWT's own "exp"
+  // claim) and this cached copy was never refreshed on its own — before any
+  // read/write that needs real auth (remarks, saves), get a guaranteed-valid
+  // token, refreshing if needed.
+  //
+  // Note: sess.expires_at is a *separate* app-level policy field (end-of-day
+  // force-logout, set by index.html/login.html) — not the token's real
+  // cryptographic expiry. A previous version of this function checked
+  // sess.expires_at to decide if the token was "still valid" and then wrote
+  // Date.now()+24hr back into it after refreshing, which meant: (a) the
+  // validity check was against the wrong number entirely, and (b) once it
+  // *did* refresh, it wrongly told itself the fresh token was good for 24hrs
+  // when it's really good for ~1hr, so the same 401s came right back after
+  // the first refresh. Decoding the real exp straight from the JWT fixes
+  // both, and leaves expires_at untouched for its actual (end-of-day) job.
+  function realTokenExpiryMs(jwt) {
+    try {
+      var payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch (e) { return null; }
+  }
   window.authGetValidToken = async function() {
     try { sess = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e) {}
     if (!sess.access_token) return '';
-    if (sess.expires_at && sess.expires_at > Date.now() + 5000) return sess.access_token; // still valid
+    var realExp = realTokenExpiryMs(sess.access_token);
+    if (realExp && realExp > Date.now() + 5000) return sess.access_token; // still cryptographically valid
     if (!sess.refresh_token) return sess.access_token; // can't refresh, use what we have
     try {
       const r = await fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=refresh_token', {
@@ -287,7 +306,9 @@ input[type=date] { min-width: 130px; }
       });
       if (!r.ok) return sess.access_token; // refresh failed, fall back to stale token
       const d = await r.json();
-      sess = { access_token: d.access_token, refresh_token: d.refresh_token, email: d.user && d.user.email || sess.email, role: sess.role, expires_at: Date.now() + 24*60*60*1000 };
+      // Preserve whatever expires_at (end-of-day policy marker) was already
+      // stored — this refresh is purely about token cryptographic validity.
+      sess = Object.assign({}, sess, { access_token: d.access_token, refresh_token: d.refresh_token, email: (d.user && d.user.email) || sess.email });
       localStorage.setItem('sb_session', JSON.stringify(sess));
       return sess.access_token;
     } catch (e) { return sess.access_token; }
