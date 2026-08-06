@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Parts Tracker — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    body { overflow-y: auto; height: auto; }
+    .wrap { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    .ctl-bar {
+      display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit; min-width: 150px;
+    }
+    .fg select:focus { border-color: var(--red); }
+    .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
+
+    .warn-box {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+
+    .edit-badge {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+      color: var(--muted); margin-bottom: 12px;
+    }
+    .edit-badge.on { color: var(--green); }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 4px; margin-bottom: 20px; overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    th {
+      text-align: right; padding: 10px 10px; color: var(--muted); font-size: 10px;
+      text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th:first-child { text-align: left; width: 26%; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); text-align: right; }
+    td:first-child { text-align: left; color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    .num { font-variant-numeric: tabular-nums; }
+    td input {
+      width: 64px; text-align: right; padding: 4px 6px; font-size: 12px;
+      border: 1px solid var(--border2); border-radius: 6px; background: var(--card);
+      color: var(--text); font-family: inherit; outline: none;
+    }
+    td input:focus { border-color: var(--red); }
+    td input.flag { border-color: var(--red); }
+    .flag-icon { color: var(--red); margin-right: 4px; }
+    .flag-cell { color: var(--red); font-weight: 600; }
+    .muted-cell { color: var(--muted); }
+
+    .save-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+    .btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: inherit; border: none; background: var(--red); color: #fff;
+    }
+    .btn:hover { opacity: .9; }
+    .btn.secondary { background: var(--border2); color: var(--text); }
+    .save-msg { font-size: 11px; color: var(--green); display: none; }
+    .empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><i class="ti ti-recycle"></i> Parts Tracker</div>
+  <div class="page-sub">Refurb parts reverse-logistics funnel — consumed (auto) vs sent to vendor, refurbed, rejected and received at RPDC (manual), weekly by hub.</div>
+
+  <div class="ctl-bar">
+    <div class="fg">
+      <label>City</label>
+      <select id="citySel" onchange="onCityChange()"></select>
+    </div>
+    <div class="fg">
+      <label>Hub</label>
+      <select id="hubSel" onchange="onHubChange()"></select>
+    </div>
+    <div class="fg">
+      <label>Week (Mon–Sun)</label>
+      <select id="weekSel" onchange="onWeekChange()"></select>
+    </div>
+    <div class="synced-lbl" id="syncedLbl"></div>
+  </div>
+
+  <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
+
+  <div class="edit-badge" id="editBadge"></div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Part</th>
+          <th>Consumed</th>
+          <th>Sent to vendor</th>
+          <th>Refurbed</th>
+          <th>Rejected</th>
+          <th>Received at RPDC</th>
+          <th>Refurb %</th>
+        </tr>
+      </thead>
+      <tbody id="rowsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="save-row" id="saveRow" style="display:none;">
+    <button class="btn" onclick="saveAll()">Save</button>
+    <span class="save-msg" id="saveMsg">Saved ✓</span>
+  </div>
+</div>
+
+<script>
+const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+function authHeaders() {
+  return { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY };
+}
+let _sbGetHadFailure = false;
+async function sbGet(path, _attempt) {
+  _attempt = _attempt || 0;
+  try {
+    const r = await fetch(`${INFO_URL}/rest/v1/${path}`, { headers: authHeaders() });
+    if (!r.ok) {
+      console.error('sbGet failed', path, r.status, await r.text());
+      if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return sbGet(path, _attempt + 1); }
+      _sbGetHadFailure = true;
+      return [];
+    }
+    return r.json();
+  } catch (e) {
+    console.error('sbGet network error', path, e);
+    if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return sbGet(path, _attempt + 1); }
+    _sbGetHadFailure = true;
+    return [];
+  }
+}
+async function sbUpsert(table, body, onConflict) {
+  const r = await fetch(`${INFO_URL}/rest/v1/${table}${onConflict ? '?on_conflict=' + onConflict : ''}`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// Emails allowed to edit the manual entry fields — everyone else sees read-only text.
+const EDIT_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
+
+// Canonical refurb parts tracked on this dashboard (matches jc_details item_name).
+const REFURB_PARTS = [
+  'Refurbished Handle Lock Assembly',
+  'Refurbished Lock Set',
+  'Refurbished - Rear Rim With Motor 12Inch',
+  'Handle Lock B2B (Refurbished)',
+  'Refurbished Seat Sub Assy',
+  'Refurbished Front Fork Sub assembly MW - Disc brake',
+  'Refurbished - Iot Device - Intellicar',
+  'Refurbished Front Fork Sub assembly-MW - DRUM'
+];
+
+let hubsByCity = {};   // city -> [hub_name, ...] sorted
+let allCities  = [];
+let weeks      = [];   // [{value:'YYYY-MM-DD', label:'...'}], most recent first
+let consumedRows = {}; // item_name -> consumed_qty
+let manualRows   = {}; // item_name -> {sent_to_vendor_qty, refurbed_qty, rejected_qty, received_at_rpdc_qty}
+let canEdit = false;
+
+function fmtWeekLabel(weekStart) {
+  const mon = new Date(weekStart + 'T00:00:00');
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const f = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  return `${f(mon)} – ${f(sun)}, ${mon.getFullYear()}`;
+}
+function mondayOf(d) {
+  const dd = new Date(d);
+  const off = (dd.getDay() + 6) % 7;
+  dd.setDate(dd.getDate() - off);
+  dd.setHours(0,0,0,0);
+  return dd;
+}
+function fmtDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function buildWeeks() {
+  const thisMonday = mondayOf(new Date());
+  weeks = [];
+  for (let i = 0; i < 12; i++) {
+    const mon = new Date(thisMonday);
+    mon.setDate(mon.getDate() - 7*i);
+    const val = fmtDate(mon);
+    weeks.push({ value: val, label: fmtWeekLabel(val) + (i === 0 ? ' (current, in progress)' : i === 1 ? ' (last completed)' : '') });
+  }
+}
+
+async function init() {
+  _sbGetHadFailure = false;
+
+  buildWeeks();
+  const weekSel = document.getElementById('weekSel');
+  weekSel.innerHTML = weeks.map(w => `<option value="${w.value}">${w.label}</option>`).join('');
+  weekSel.value = weeks[1].value; // default: last completed week
+
+  const email = (window.authGetEmail && window.authGetEmail()) || '';
+  canEdit = EDIT_EMAILS.includes(email);
+  const badge = document.getElementById('editBadge');
+  if (canEdit) {
+    badge.className = 'edit-badge on';
+    badge.innerHTML = '<i class="ti ti-lock-open"></i> You have edit access for this hub\'s manual entries';
+    document.getElementById('saveRow').style.display = 'flex';
+  } else {
+    badge.className = 'edit-badge';
+    badge.innerHTML = '<i class="ti ti-lock"></i> Read-only view';
+  }
+
+  const fleet = await sbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
+  hubsByCity = {};
+  (Array.isArray(fleet) ? fleet : []).forEach(r => {
+    const city = r.city || 'Other';
+    if (!hubsByCity[city]) hubsByCity[city] = new Set();
+    hubsByCity[city].add(r.hub_name);
+  });
+  allCities = Object.keys(hubsByCity).sort();
+  Object.keys(hubsByCity).forEach(c => hubsByCity[c] = [...hubsByCity[c]].sort());
+
+  const citySel = document.getElementById('citySel');
+  citySel.innerHTML = allCities.map(c => `<option value="${c}">${c}</option>`).join('');
+  onCityChange();
+
+  const failBox = document.getElementById('loadFailWarn');
+  if (_sbGetHadFailure) {
+    failBox.style.display = 'flex';
+    failBox.innerHTML = `<i class="ti ti-alert-triangle" style="margin-top:2px;"></i><div><b>Some data failed to load</b> — the hub list may be incomplete. <a href="#" onclick="location.reload();return false;" style="color:#991b1b;text-decoration:underline;">Reload the page</a> to try again.</div>`;
+  } else {
+    failBox.style.display = 'none';
+  }
+}
+
+function onCityChange() {
+  const city = document.getElementById('citySel').value;
+  const hubSel = document.getElementById('hubSel');
+  hubSel.innerHTML = (hubsByCity[city] || []).map(h => `<option value="${h}">${h}</option>`).join('');
+  onHubChange();
+}
+function onHubChange() { loadAndRender(); }
+function onWeekChange() { loadAndRender(); }
+
+async function loadAndRender() {
+  const city = document.getElementById('citySel').value;
+  const hub  = document.getElementById('hubSel').value;
+  const week = document.getElementById('weekSel').value;
+  if (!hub) { document.getElementById('rowsBody').innerHTML = '<tr><td colspan="7" class="empty">No hub selected</td></tr>'; return; }
+
+  const [consumed, manual] = await Promise.all([
+    sbGet(`refurb_consumed_cache?select=item_name,consumed_qty&week_start=eq.${week}&hub_name=eq.${encodeURIComponent(hub)}`),
+    sbGet(`refurb_manual_entries?select=*&week_start=eq.${week}&hub_name=eq.${encodeURIComponent(hub)}`)
+  ]);
+
+  consumedRows = {};
+  (Array.isArray(consumed) ? consumed : []).forEach(r => { consumedRows[r.item_name] = Number(r.consumed_qty) || 0; });
+
+  manualRows = {};
+  (Array.isArray(manual) ? manual : []).forEach(r => {
+    manualRows[r.item_name] = {
+      sent_to_vendor_qty: r.sent_to_vendor_qty,
+      refurbed_qty: r.refurbed_qty,
+      rejected_qty: r.rejected_qty,
+      received_at_rpdc_qty: r.received_at_rpdc_qty
+    };
+  });
+
+  document.getElementById('syncedLbl').textContent = 'Loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  render(city, hub, week);
+}
+
+function render(city, hub, week) {
+  const tbody = document.getElementById('rowsBody');
+  tbody.innerHTML = REFURB_PARTS.map(part => {
+    const consumed = consumedRows[part] || 0;
+    const m = manualRows[part] || {};
+    const sent = m.sent_to_vendor_qty;
+    const refurbed = m.refurbed_qty;
+    const rejected = m.rejected_qty;
+    const received = m.received_at_rpdc_qty;
+    const pct = (refurbed != null && consumed > 0) ? ((refurbed / consumed) * 100).toFixed(1) + '%' : '—';
+    const flagged = received != null && refurbed != null && received > refurbed;
+
+    if (canEdit) {
+      return `
+        <tr data-part="${escapeAttr(part)}">
+          <td>${part}</td>
+          <td class="num">${consumed}</td>
+          <td><input type="number" class="f-sent" value="${sent ?? ''}"></td>
+          <td><input type="number" class="f-refurbed" value="${refurbed ?? ''}"></td>
+          <td><input type="number" class="f-rejected" value="${rejected ?? ''}"></td>
+          <td><input type="number" class="f-received ${flagged ? 'flag' : ''}" value="${received ?? ''}"></td>
+          <td class="num">${pct}</td>
+        </tr>`;
+    }
+    return `
+      <tr>
+        <td>${part}</td>
+        <td class="num">${consumed}</td>
+        <td class="num ${sent == null ? 'muted-cell' : ''}">${sent ?? '—'}</td>
+        <td class="num ${refurbed == null ? 'muted-cell' : ''}">${refurbed ?? '—'}</td>
+        <td class="num ${rejected == null ? 'muted-cell' : ''}">${rejected ?? '—'}</td>
+        <td class="num ${flagged ? 'flag-cell' : (received == null ? 'muted-cell' : '')}">${flagged ? '<i class="ti ti-alert-triangle flag-icon"></i>' : ''}${received ?? '—'}</td>
+        <td class="num">${pct}</td>
+      </tr>`;
+  }).join('');
+}
+
+function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+async function saveAll() {
+  if (!canEdit) return;
+  const city = document.getElementById('citySel').value;
+  const hub  = document.getElementById('hubSel').value;
+  const week = document.getElementById('weekSel').value;
+  const email = (window.authGetEmail && window.authGetEmail()) || 'unknown';
+
+  const rows = [...document.querySelectorAll('#rowsBody tr')];
+  const payload = rows.map(tr => {
+    const part = tr.dataset.part;
+    const val = sel => { const v = tr.querySelector(sel).value; return v === '' ? null : parseFloat(v); };
+    return {
+      week_start: week,
+      city,
+      hub_name: hub,
+      item_name: part,
+      sent_to_vendor_qty: val('.f-sent'),
+      refurbed_qty: val('.f-refurbed'),
+      rejected_qty: val('.f-rejected'),
+      received_at_rpdc_qty: val('.f-received'),
+      updated_by: email,
+      updated_at: new Date().toISOString()
+    };
+  });
+
+  await sbUpsert('refurb_manual_entries', payload, 'week_start,hub_name,item_name');
+  const msg = document.getElementById('saveMsg');
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000);
+  loadAndRender();
+}
+
+init();
+
+// Auto-resize for iframe host
+function reportHeight() {
+  window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*');
+}
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>
