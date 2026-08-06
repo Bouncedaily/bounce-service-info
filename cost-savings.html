@@ -173,6 +173,7 @@
         <div class="fg"><label>Scrap Sale Revenue (₹)</label><input type="number" id="inScrap"></div>
         <div class="fg"><label>Supplier CN (₹)</label><input type="number" id="inCn"></div>
         <div class="fg"><label>SMPL Manpower (₹)</label><input type="number" id="inSmpl"></div>
+        <div class="fg"><label>Other Refurbishment (₹)</label><input type="number" id="inOtherRefurb"></div>
         <button class="btn" onclick="saveManual()">Save</button>
         <span class="save-msg" id="saveMsg">Saved ✓</span>
       </div>
@@ -304,6 +305,7 @@ function onMonthChange() {
   document.getElementById('inScrap').value = row.scrap_revenue || 0;
   document.getElementById('inCn').value = row.supplier_cn || 0;
   document.getElementById('inSmpl').value = row.smpl_manpower || 0;
+  document.getElementById('inOtherRefurb').value = row.other_refurb_manual || 0;
   render();
 }
 
@@ -363,12 +365,13 @@ function render() {
   const city = document.getElementById('citySel').value;
   const prevMonth = months[months.indexOf(month) + 1];
 
-  const { total: refurbTotal, byPart } = computeRefurbSaving(month, city);
-  const manual = manualRows.find(r => r.month === month) || { scrap_revenue: 0, supplier_cn: 0, smpl_manpower: 0 };
+  const { total: autoRefurbTotal, byPart } = computeRefurbSaving(month, city);
+  const manual = manualRows.find(r => r.month === month) || { scrap_revenue: 0, supplier_cn: 0, smpl_manpower: 0, other_refurb_manual: 0 };
+  const refurbTotal = autoRefurbTotal + (manual.other_refurb_manual||0);
   const total = refurbTotal + (manual.scrap_revenue||0) + (manual.supplier_cn||0) + (manual.smpl_manpower||0);
 
-  const prevRefurb = prevMonth ? computeRefurbSaving(prevMonth, city).total : null;
   const prevManual = prevMonth ? (manualRows.find(r => r.month === prevMonth) || {}) : null;
+  const prevRefurb = prevMonth ? (computeRefurbSaving(prevMonth, city).total + (prevManual.other_refurb_manual||0)) : null;
   const prevTotal = prevMonth ? (prevRefurb + (prevManual.scrap_revenue||0) + (prevManual.supplier_cn||0) + (prevManual.smpl_manpower||0)) : null;
 
   document.getElementById('kvRefurb').textContent = fmtL(refurbTotal);
@@ -405,7 +408,7 @@ function renderTrendChart(city) {
   const data = [...months].reverse().map(m => {
     const r = computeRefurbSaving(m, city).total;
     const man = manualRows.find(row => row.month === m) || {};
-    return r + (man.scrap_revenue||0) + (man.supplier_cn||0) + (man.smpl_manpower||0);
+    return r + (man.other_refurb_manual||0) + (man.scrap_revenue||0) + (man.supplier_cn||0) + (man.smpl_manpower||0);
   });
   const ctx = document.getElementById('trendChart').getContext('2d');
   if (trendChartInstance) trendChartInstance.destroy();
@@ -439,6 +442,7 @@ async function saveManual() {
     scrap_revenue: parseFloat(document.getElementById('inScrap').value) || 0,
     supplier_cn: parseFloat(document.getElementById('inCn').value) || 0,
     smpl_manpower: parseFloat(document.getElementById('inSmpl').value) || 0,
+    other_refurb_manual: parseFloat(document.getElementById('inOtherRefurb').value) || 0,
     updated_by: (window.authGetEmail && window.authGetEmail()) || 'unknown',
     updated_at: new Date().toISOString()
   };
