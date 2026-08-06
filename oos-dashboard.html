@@ -1147,18 +1147,28 @@ function remarkKey(regNumber, oosSince) {
   return `${regNumber}|${oosSince || ''}`;
 }
 
-async function loadRemarksFor(rows) {
+async function loadRemarksFor(rows, _attempt) {
+  _attempt = _attempt || 0;
   const pairs = rows.filter(r => r.reg_number).map(r => `and(reg_number.eq.${encodeURIComponent(r.reg_number)},oos_since.eq.${encodeURIComponent(r.latest_oos_date || '')})`);
-  if (!pairs.length) return;
+  if (!pairs.length) return true;
   try {
     const url = `${SB}/rest/v1/oos_remarks?or=(${pairs.join(',')})&select=reg_number,oos_since,remark_type,remark_text`;
     const res = await fetch(url, { headers: await authHDR() });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error('loadRemarksFor failed', res.status);
+      if (_attempt < 2) { await new Promise(r => setTimeout(r, 800)); return loadRemarksFor(rows, _attempt + 1); }
+      return false;
+    }
     const data = await res.json();
     data.forEach(rec => {
       REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text };
     });
-  } catch (e) { console.warn('loadRemarksFor failed', e); }
+    return true;
+  } catch (e) {
+    console.warn('loadRemarksFor failed', e);
+    if (_attempt < 2) { await new Promise(r => setTimeout(r, 800)); return loadRemarksFor(rows, _attempt + 1); }
+    return false;
+  }
 }
 
 async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
@@ -1267,7 +1277,10 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
   document.getElementById('dd-overlay').classList.add('open');
   document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody>';
 
-  await loadRemarksFor(rows);
+  const remarksOk = await loadRemarksFor(rows);
+  if (!remarksOk) {
+    document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ Remarks failed to load — what you see below may be blank even where a remark exists. <a href="#" onclick="loadRemarksFor(DD_CURRENT_ROWS).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
+  }
   renderDDTable(rows);
 }
 
