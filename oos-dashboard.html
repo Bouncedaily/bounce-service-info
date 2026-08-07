@@ -399,6 +399,9 @@ input[type=date] { min-width: 130px; }
 .tbl { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; font-size:12px; }
 th { background:var(--bg); color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:8px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { color:var(--text); }
+.sort-ind { display:inline-block; width:10px; font-size:9px; }
 td { padding:7px 12px; border-bottom:1px solid var(--border); color:var(--text2); white-space:nowrap; }
 tr:last-child td { border-bottom:none; }
 tr:hover td { background:var(--bg); }
@@ -671,7 +674,17 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd" style="display:flex;align-items:center"><h2>Outflow - Bike List</h2><button onclick="exportOutflowXLSX()" title="Download Excel" style="margin-left:auto;background:none;border:1px solid #16a34a;border-radius:6px;cursor:pointer;color:#16a34a;font-size:13px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-table-export"></i> Excel</button></div>
       <div class="tbl"><table id="tbl-outflow">
-        <thead><tr><th>Reg No</th><th>Hub</th><th>Model</th><th>Type</th><th>Date &amp; Time</th><th>Technician</th><th>Labour Hrs</th><th>Part Cost</th><th>Bucket (TAT)</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortOutflowBy('reg_number')">Reg No<span class="sort-ind" id="so-reg_number"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('hub_name')">Hub<span class="sort-ind" id="so-hub_name"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('model_name')">Model<span class="sort-ind" id="so-model_name"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('submission_type')">Type<span class="sort-ind" id="so-submission_type"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('repaired_datetime')">Date &amp; Time<span class="sort-ind" id="so-repaired_datetime"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('technician_name')">Technician<span class="sort-ind" id="so-technician_name"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('labour_hours')">Labour Hrs<span class="sort-ind" id="so-labour_hours"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('total_item_cost')">Part Cost<span class="sort-ind" id="so-total_item_cost"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('tat_bucket')">Bucket (TAT)<span class="sort-ind" id="so-tat_bucket"></span></th>
+        </tr></thead>
         <tbody><tr><td colspan="5" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
       <div id="outflow-pager" class="bl-pager"></div>
@@ -685,16 +698,16 @@ body { overflow:auto!important; }
       <div class="tbl" id="tech-tbl-wrap">
         <table>
           <thead><tr>
-            <th>Technician Name</th>
-            <th>Hub</th>
-            <th class="num">Working Days</th>
-            <th class="num">Repaired Count</th>
-            <th class="num">Running Repair</th>
-            <th class="num">OOS</th>
-            <th class="num">Total Labour Hrs</th>
-            <th class="num">Avg. Labour Hrs</th>
-            <th class="num">Total JC Cost</th>
-            <th class="num">Avg. JC Cost</th>
+            <th class="sortable" onclick="sortTechBy('tech')">Technician Name<span class="sort-ind" id="st-tech"></span></th>
+            <th class="sortable" onclick="sortTechBy('hub')">Hub<span class="sort-ind" id="st-hub"></span></th>
+            <th class="num sortable" onclick="sortTechBy('days')">Working Days<span class="sort-ind" id="st-days"></span></th>
+            <th class="num sortable" onclick="sortTechBy('count')">Repaired Count<span class="sort-ind" id="st-count"></span></th>
+            <th class="num sortable" onclick="sortTechBy('rrCount')">Running Repair<span class="sort-ind" id="st-rrCount"></span></th>
+            <th class="num sortable" onclick="sortTechBy('oosCount')">OOS<span class="sort-ind" id="st-oosCount"></span></th>
+            <th class="num sortable" onclick="sortTechBy('labSum')">Total Labour Hrs<span class="sort-ind" id="st-labSum"></span></th>
+            <th class="num sortable" onclick="sortTechBy('avgLab')">Avg. Labour Hrs<span class="sort-ind" id="st-avgLab"></span></th>
+            <th class="num sortable" onclick="sortTechBy('costSum')">Total JC Cost<span class="sort-ind" id="st-costSum"></span></th>
+            <th class="num sortable" onclick="sortTechBy('avgCost')">Avg. JC Cost<span class="sort-ind" id="st-avgCost"></span></th>
           </tr></thead>
           <tbody id="tech-tbody"><tr><td colspan="10" class="empty"><span class="spin"></span></td></tr></tbody>
         </table>
@@ -813,10 +826,13 @@ function exportOutflowXLSX() {
   } catch(e) { alert('Export error: ' + e.message); }
 }
 
+var _techRowsAll = [];
+var _techSortKey = 'count';
+var _techSortDir = 'desc';
+var TECH_TEXT_KEYS = ['tech', 'hub'];
+
 function renderTechTable(outflow) {
-  var tbody = document.getElementById('tech-tbody');
   var countEl = document.getElementById('tech-count');
-  if (!tbody) return;
 
   var rows = outflow.filter(function(r){ return r.technician_name; });
 
@@ -836,8 +852,42 @@ function renderTechTable(outflow) {
     if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; map[key].costN++; }
   });
 
-  var techs = Object.values(map).sort(function(a,b){ return b.count - a.count; });
+  var techs = Object.values(map);
+  // Precompute derived/display fields once so sorting can reference them
+  // directly instead of recomputing on every click.
+  techs.forEach(function(t) {
+    t.daysCount = t.days.size;
+    t.avgLab  = t.labN  ? t.labSum / t.labN : null;
+    t.avgCost = t.costN ? t.costSum / t.costN : null;
+  });
+
+  _techRowsAll = techs;
   if (countEl) countEl.textContent = techs.length + ' technicians';
+  _renderTechRows();
+  _updateSortIndicators('st-', _techSortKey, _techSortDir);
+}
+
+function sortTechBy(key) {
+  if (_techSortKey === key) { _techSortDir = _techSortDir === 'asc' ? 'desc' : 'asc'; }
+  else { _techSortKey = key; _techSortDir = TECH_TEXT_KEYS.indexOf(key) >= 0 ? 'asc' : 'desc'; }
+  _renderTechRows();
+  _updateSortIndicators('st-', _techSortKey, _techSortDir);
+}
+
+function _renderTechRows() {
+  var tbody = document.getElementById('tech-tbody');
+  if (!tbody) return;
+
+  var key = _techSortKey, dir = _techSortDir === 'asc' ? 1 : -1;
+  var isText = TECH_TEXT_KEYS.indexOf(key) >= 0;
+  var techs = [..._techRowsAll].sort(function(a, b) {
+    var av = a[key], bv = b[key];
+    if (isText) { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+    else { av = (av == null) ? -Infinity : av; bv = (bv == null) ? -Infinity : bv; }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
 
   if (!techs.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="empty">No repair data</td></tr>';
@@ -846,13 +896,13 @@ function renderTechTable(outflow) {
 
   tbody.innerHTML = techs.map(function(t) {
     var totalLab = t.labN ? t.labSum.toFixed(2) : '—';
-    var avgLab   = t.labN ? (t.labSum / t.labN).toFixed(2) : '—';
+    var avgLab   = t.avgLab != null ? t.avgLab.toFixed(2) : '—';
     var totalCost = t.costN ? '₹' + Math.round(t.costSum).toLocaleString('en-IN') : '—';
-    var avgCost   = t.costN ? '₹' + Math.round(t.costSum / t.costN).toLocaleString('en-IN') : '—';
+    var avgCost   = t.avgCost != null ? '₹' + Math.round(t.avgCost).toLocaleString('en-IN') : '—';
     return '<tr>' +
       '<td style="font-weight:500">' + t.tech + '</td>' +
       '<td>' + (t.hub||'—') + '</td>' +
-      '<td class="num">' + t.days.size + '</td>' +
+      '<td class="num">' + t.daysCount + '</td>' +
       '<td class="num"><strong>' + t.count + '</strong></td>' +
       '<td class="num">' + t.rrCount + '</td>' +
       '<td class="num">' + t.oosCount + '</td>' +
@@ -1658,10 +1708,45 @@ function _renderInflowPager(total) {
 
 var _outflowAll = [];
 var _outflowPage = 1;
+var _outflowSortKey = 'repaired_datetime';
+var _outflowSortDir = 'desc';
+var OUTFLOW_NUMERIC_KEYS = ['labour_hours', 'total_item_cost'];
+var OUTFLOW_DATE_KEYS = ['repaired_datetime'];
+
 function renderOutflowTable(outflow) {
-  _outflowAll = [...outflow].sort((a,b) => new Date(b.repaired_datetime||0) - new Date(a.repaired_datetime||0));
+  _outflowAll = [...outflow];
+  _outflowPage = 1;
+  _sortOutflowAll();
+  _renderOutflowPage();
+  _updateSortIndicators('so-', _outflowSortKey, _outflowSortDir);
+}
+function _sortOutflowAll() {
+  var key = _outflowSortKey, dir = _outflowSortDir === 'asc' ? 1 : -1;
+  var isNum = OUTFLOW_NUMERIC_KEYS.indexOf(key) >= 0;
+  var isDate = OUTFLOW_DATE_KEYS.indexOf(key) >= 0;
+  _outflowAll.sort(function(a, b) {
+    var av = a[key], bv = b[key];
+    if (isDate) { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
+    else if (isNum) { av = parseFloat(av); if (isNaN(av)) av = -Infinity; bv = parseFloat(bv); if (isNaN(bv)) bv = -Infinity; }
+    else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+function sortOutflowBy(key) {
+  if (_outflowSortKey === key) { _outflowSortDir = _outflowSortDir === 'asc' ? 'desc' : 'asc'; }
+  else { _outflowSortKey = key; _outflowSortDir = (OUTFLOW_NUMERIC_KEYS.indexOf(key) >= 0 || OUTFLOW_DATE_KEYS.indexOf(key) >= 0) ? 'desc' : 'asc'; }
+  _sortOutflowAll();
   _outflowPage = 1;
   _renderOutflowPage();
+  _updateSortIndicators('so-', _outflowSortKey, _outflowSortDir);
+}
+function _updateSortIndicators(prefix, activeKey, dir) {
+  document.querySelectorAll('[id^="' + prefix + '"]').forEach(function(el) {
+    var key = el.id.slice(prefix.length);
+    el.textContent = key === activeKey ? (dir === 'asc' ? '▲' : '▼') : '';
+  });
 }
 function _renderOutflowPage() {
   const tbody = document.querySelector('#tbl-outflow tbody');
