@@ -217,17 +217,7 @@ async function init() {
   weekSel.innerHTML = weeks.map(w => `<option value="${w.value}">${w.label}</option>`).join('');
   weekSel.value = weeks[1].value; // default: last completed week
 
-  const email = (window.authGetEmail && window.authGetEmail()) || '';
-  canEdit = EDIT_EMAILS.includes(email);
-  const badge = document.getElementById('editBadge');
-  if (canEdit) {
-    badge.className = 'edit-badge on';
-    badge.innerHTML = '<i class="ti ti-lock-open"></i> You have edit access for this hub\'s manual entries';
-    document.getElementById('saveRow').style.display = 'flex';
-  } else {
-    badge.className = 'edit-badge';
-    badge.innerHTML = '<i class="ti ti-lock"></i> Read-only view';
-  }
+  applyEditPermission(); // best-effort now, in case auth-guard already finished
 
   const fleet = await sbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
   hubsByCity = {};
@@ -251,6 +241,33 @@ async function init() {
     failBox.style.display = 'none';
   }
 }
+
+// auth-guard.js's own setup is async (it may need to refresh the session
+// token before it's done) and only finishes defining window.authGetEmail
+// partway through, firing 'auth-ready' once it's actually safe to call.
+// Checking window.authGetEmail immediately on page load -- before that
+// event -- meant this frequently ran before auth-guard was ready, silently
+// reading an empty email and always falling back to read-only, regardless
+// of who was actually logged in. Listening for 'auth-ready' fixes the race;
+// calling this again at that point re-renders the table too, since the
+// edit inputs vs read-only text decision happens inside render().
+function applyEditPermission() {
+  const email = (window.authGetEmail && window.authGetEmail()) || '';
+  canEdit = EDIT_EMAILS.includes(email);
+  const badge = document.getElementById('editBadge');
+  if (canEdit) {
+    badge.className = 'edit-badge on';
+    badge.innerHTML = '<i class="ti ti-lock-open"></i> You have edit access for this hub\'s manual entries';
+    document.getElementById('saveRow').style.display = 'flex';
+  } else {
+    badge.className = 'edit-badge';
+    badge.innerHTML = '<i class="ti ti-lock"></i> Read-only view';
+  }
+}
+window.addEventListener('auth-ready', function() {
+  applyEditPermission();
+  if (document.getElementById('hubSel').value) loadAndRender(); // re-render with the now-correct permission
+});
 
 function onCityChange() {
   const city = document.getElementById('citySel').value;
