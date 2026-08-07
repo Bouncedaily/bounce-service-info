@@ -3,9 +3,25 @@
 <head>
 <meta http-equiv="refresh" content="0;url=index.html">
 <script>window.location.replace('index.html');</script>
+<meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Bounce Service Info - Sign In</title>
+<script>
+// An earlier version of hub-audit.html registered a service worker with no
+// explicit scope, which defaults to the whole site root -- meaning it can
+// silently intercept and serve a cached copy of ANY page on this site,
+// including this one. index.html and auth-guard.js already clean this up,
+// but login.html is very often the first page someone lands on (e.g. after
+// a session expires), before either of those ever gets a chance to run.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(reg) {
+      if (reg.scope.indexOf('hub-audit.html') === -1) reg.unregister().catch(function() {});
+    });
+  }).catch(function() {});
+}
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
