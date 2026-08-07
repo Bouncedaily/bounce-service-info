@@ -827,7 +827,10 @@ function renderTechTable(outflow) {
     if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, rrCount: 0, oosCount: 0, days: new Set(), labSum: 0, labN: 0, costSum: 0, costN: 0 };
     map[key].count++;
     if (r.submission_type === 'RR') map[key].rrCount++;
-    if (r.submission_type === 'OOS') map[key].oosCount++;
+    else map[key].oosCount++; // OOS bucket = anything not RR (was ===='OOS' literally,
+    // which missed PDI/Bike Exchange-type rows -- same misclassification pattern
+    // as the aging table and Outflow by Hub. No third bucket here, so "not RR"
+    // keeps Repaired Count = Running Repair + OOS holding exactly, for every tech.
     if (r.data_date) map[key].days.add(r.data_date);
     if (r.labour_hours != null) { map[key].labSum += parseFloat(r.labour_hours)||0; map[key].labN++; }
     if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; map[key].costN++; }
