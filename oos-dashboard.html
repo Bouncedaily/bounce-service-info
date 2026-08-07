@@ -685,14 +685,17 @@ body { overflow:auto!important; }
       <div class="tbl" id="tech-tbl-wrap">
         <table>
           <thead><tr>
-            <th>Technician</th>
+            <th>Technician Name</th>
             <th>Hub</th>
-            <th class="num">Repaired</th>
-            <th class="num">Avg TAT (days)</th>
+            <th class="num">Working Days</th>
+            <th class="num">Repaired Count</th>
+            <th class="num">Running Repair OOS</th>
             <th class="num">Total Labour Hrs</th>
+            <th class="num">Avg. Labour Hrs</th>
             <th class="num">Total JC Cost</th>
+            <th class="num">Avg. JC Cost</th>
           </tr></thead>
-          <tbody id="tech-tbody"><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
+          <tbody id="tech-tbody"><tr><td colspan="9" class="empty"><span class="spin"></span></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -820,33 +823,37 @@ function renderTechTable(outflow) {
   var map = {};
   rows.forEach(function(r) {
     var key = (r.technician_name||'') + '||' + (r.hub_name||'');
-    if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, tatSum: 0, tatN: 0, labSum: 0, labN: 0, costSum: 0 };
+    if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, rrCount: 0, days: new Set(), labSum: 0, labN: 0, costSum: 0, costN: 0 };
     map[key].count++;
-    if (r.oos_to_rfd_tat_days != null) { map[key].tatSum += parseFloat(r.oos_to_rfd_tat_days)||0; map[key].tatN++; }
+    if (r.submission_type === 'RR') map[key].rrCount++;
+    if (r.data_date) map[key].days.add(r.data_date);
     if (r.labour_hours != null) { map[key].labSum += parseFloat(r.labour_hours)||0; map[key].labN++; }
-    if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; }
+    if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; map[key].costN++; }
   });
 
   var techs = Object.values(map).sort(function(a,b){ return b.count - a.count; });
   if (countEl) countEl.textContent = techs.length + ' technicians';
 
   if (!techs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">No repair data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No repair data</td></tr>';
     return;
   }
 
   tbody.innerHTML = techs.map(function(t) {
-    var avgTat  = t.tatN  ? (t.tatSum  / t.tatN).toFixed(1)  : '—';
-    var avgLab  = t.labN  ? t.labSum.toFixed(2) : '—';
-    var cost    = t.costSum ? '₹' + Math.round(t.costSum).toLocaleString('en-IN') : '—';
-    var tatColor = t.tatN ? (parseFloat(avgTat) <= 1 ? 'color:#16a34a' : parseFloat(avgTat) <= 3 ? 'color:#d97706' : 'color:#dc2626') : '';
+    var totalLab = t.labN ? t.labSum.toFixed(2) : '—';
+    var avgLab   = t.labN ? (t.labSum / t.labN).toFixed(2) : '—';
+    var totalCost = t.costN ? '₹' + Math.round(t.costSum).toLocaleString('en-IN') : '—';
+    var avgCost   = t.costN ? '₹' + Math.round(t.costSum / t.costN).toLocaleString('en-IN') : '—';
     return '<tr>' +
       '<td style="font-weight:500">' + t.tech + '</td>' +
       '<td>' + (t.hub||'—') + '</td>' +
+      '<td class="num">' + t.days.size + '</td>' +
       '<td class="num"><strong>' + t.count + '</strong></td>' +
-      '<td class="num" style="' + tatColor + '">' + avgTat + '</td>' +
+      '<td class="num">' + t.rrCount + '</td>' +
+      '<td class="num">' + totalLab + '</td>' +
       '<td class="num">' + avgLab + '</td>' +
-      '<td class="num">' + cost + '</td>' +
+      '<td class="num">' + totalCost + '</td>' +
+      '<td class="num">' + avgCost + '</td>' +
     '</tr>';
   }).join('');
 }
