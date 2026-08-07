@@ -185,6 +185,11 @@ const REFURB_PARTS = [
   'Refurbished Front Fork Sub assembly-MW - DRUM'
 ];
 
+// Not real service hubs for this tracker (auto/office/coworking-space
+// entries in bike_fleet with no bearing on 2-wheeler refurb parts) --
+// excluded from every city's hub list entirely.
+const EXCLUDED_HUBS = ['3 Wheeler Auto - E City Hub', 'Indiqube Alpha', 'Majestic Railway Station', 'Spaceware Hub'];
+
 let hubsByCity = {};   // city -> [hub_name, ...] sorted, RAW names as they exist in bike_fleet
 let mergedHubsByCity = {}; // city -> [hub_name, ...] sorted, after folding partner sub-hubs into their parent
 let hubToParent = {};  // raw hub_name -> the display/merge target hub_name (itself, if no match)
@@ -242,6 +247,7 @@ async function init() {
   const fleet = await sbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
   hubsByCity = {};
   (Array.isArray(fleet) ? fleet : []).forEach(r => {
+    if (EXCLUDED_HUBS.includes(r.hub_name)) return;
     const city = r.city || 'Other';
     if (!hubsByCity[city]) hubsByCity[city] = new Set();
     hubsByCity[city].add(r.hub_name);
@@ -325,13 +331,13 @@ async function loadAndRender() {
   hubBreakdown = {};
   REFURB_PARTS.forEach(p => { hubBreakdown[p] = {}; });
   (Array.isArray(consumed) ? consumed : []).forEach(r => {
-    if (!hubBreakdown[r.item_name]) return;
+    if (!hubBreakdown[r.item_name] || EXCLUDED_HUBS.includes(r.hub_name)) return;
     const hub = hubToParent[r.hub_name] || r.hub_name;
     if (!hubBreakdown[r.item_name][hub]) hubBreakdown[r.item_name][hub] = {};
     hubBreakdown[r.item_name][hub].consumed = (hubBreakdown[r.item_name][hub].consumed || 0) + (Number(r.consumed_qty) || 0);
   });
   (Array.isArray(sentEntries) ? sentEntries : []).forEach(r => {
-    if (!hubBreakdown[r.item_name]) return;
+    if (!hubBreakdown[r.item_name] || EXCLUDED_HUBS.includes(r.hub_name)) return;
     const hub = hubToParent[r.hub_name] || r.hub_name;
     if (!hubBreakdown[r.item_name][hub]) hubBreakdown[r.item_name][hub] = {};
     const prev = hubBreakdown[r.item_name][hub].sent;
