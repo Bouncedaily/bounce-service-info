@@ -1308,19 +1308,16 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Odometer</th><th class="num">Total Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Total Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
-    const odo = r.current_odometer != null ? Math.round(r.current_odometer).toLocaleString('en-IN') + ' km' : '—';
     const labourHrs = r.total_labour_hrs;
     html += `<tr>
       <td style="font-weight:600">${r.reg_number || '—'}</td>
       <td>${r.hub_name || '—'}</td>
-      <td><span class="dd-badge ${ddBadgeClass(r.repair_category)}">${r.oos_sub_status || '—'}</span></td>
       <td>${r.repair_category || '—'}</td>
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
-      <td class="num">${odo}</td>
       <td class="num">${labourHrs != null ? Number(labourHrs).toFixed(1) : '—'}</td>
       <td>${since}</td>
       ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
@@ -1340,14 +1337,14 @@ document.addEventListener('keydown', e => {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Total Labour Hrs', 'Latest OOS Date', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Repair Category', 'Days OOS', 'Total Labour Hrs', 'Latest OOS Date', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
     const labourHrs = r.total_labour_hrs;
     return [
-      r.reg_number, r.hub_name, r.city, r.oos_sub_status, r.repair_category,
-      r.oos_age, r.current_odometer, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
+      r.reg_number, r.hub_name, r.city, r.repair_category,
+      r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
     ];
   });
   downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
