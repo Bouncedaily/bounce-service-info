@@ -185,7 +185,9 @@ const REFURB_PARTS = [
   'Refurbished Front Fork Sub assembly-MW - DRUM'
 ];
 
-let hubsByCity = {};   // city -> [hub_name, ...] sorted
+let hubsByCity = {};   // city -> [hub_name, ...] sorted, RAW names as they exist in bike_fleet
+let mergedHubsByCity = {}; // city -> [hub_name, ...] sorted, after folding partner sub-hubs into their parent
+let hubToParent = {};  // raw hub_name -> the display/merge target hub_name (itself, if no match)
 let allCities  = [];
 let weeks      = [];   // [{value:'YYYY-MM-DD', label:'...'}], most recent first
 let canEdit = false;
@@ -247,6 +249,26 @@ async function init() {
   allCities = Object.keys(hubsByCity).sort();
   Object.keys(hubsByCity).forEach(c => hubsByCity[c] = [...hubsByCity[c]].sort());
 
+  // Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
+  // "Flipkart hub - Banaswadi", "Famcare hub - Hoodi") but physically report
+  // under the parent hub for this tracker -- fold them together rather than
+  // listing dozens of near-duplicate rows. Generic pattern match (not a
+  // hardcoded partner list) so any future partner hub named this way gets
+  // merged automatically too.
+  hubToParent = {};
+  mergedHubsByCity = {};
+  Object.keys(hubsByCity).forEach(city => {
+    const rawHubs = hubsByCity[city];
+    const merged = new Set();
+    rawHubs.forEach(h => {
+      const m = h.match(/^.+ hub - (.+)$/i);
+      const parent = (m && rawHubs.includes(m[1])) ? m[1] : h;
+      hubToParent[h] = parent;
+      merged.add(parent);
+    });
+    mergedHubsByCity[city] = [...merged].sort();
+  });
+
   const citySel = document.getElementById('citySel');
   citySel.innerHTML = allCities.map(c => `<option value="${c}">${c}</option>`).join('');
   onCityChange();
@@ -297,18 +319,27 @@ async function loadAndRender() {
     sbGet(`refurb_manual_entries_city?select=*&week_start=eq.${week}&city=eq.${encodeURIComponent(city)}`)
   ]);
 
-  // Build per-part, per-hub breakdown
+  // Build per-part, per-hub breakdown -- remapped through hubToParent so
+  // partner sub-hubs (Flipkart hub - X, Famcare hub - X) fold into their
+  // parent hub X rather than showing as separate rows.
   hubBreakdown = {};
   REFURB_PARTS.forEach(p => { hubBreakdown[p] = {}; });
   (Array.isArray(consumed) ? consumed : []).forEach(r => {
     if (!hubBreakdown[r.item_name]) return;
-    if (!hubBreakdown[r.item_name][r.hub_name]) hubBreakdown[r.item_name][r.hub_name] = {};
-    hubBreakdown[r.item_name][r.hub_name].consumed = Number(r.consumed_qty) || 0;
+    const hub = hubToParent[r.hub_name] || r.hub_name;
+    if (!hubBreakdown[r.item_name][hub]) hubBreakdown[r.item_name][hub] = {};
+    hubBreakdown[r.item_name][hub].consumed = (hubBreakdown[r.item_name][hub].consumed || 0) + (Number(r.consumed_qty) || 0);
   });
   (Array.isArray(sentEntries) ? sentEntries : []).forEach(r => {
     if (!hubBreakdown[r.item_name]) return;
-    if (!hubBreakdown[r.item_name][r.hub_name]) hubBreakdown[r.item_name][r.hub_name] = {};
-    hubBreakdown[r.item_name][r.hub_name].sent = r.sent_to_vendor_qty;
+    const hub = hubToParent[r.hub_name] || r.hub_name;
+    if (!hubBreakdown[r.item_name][hub]) hubBreakdown[r.item_name][hub] = {};
+    const prev = hubBreakdown[r.item_name][hub].sent;
+    // Sum any legacy entries filed under a sub-hub's own raw name together
+    // with the parent's -- shouldn't happen going forward since saves now
+    // always target the merged parent name, but stay correct if it does.
+    if (r.sent_to_vendor_qty != null) hubBreakdown[r.item_name][hub].sent = (prev || 0) + Number(r.sent_to_vendor_qty);
+    else if (prev === undefined) hubBreakdown[r.item_name][hub].sent = null;
   });
 
   // City totals: consumed sums all hubs (0 if none); sent sums only hubs with
@@ -339,7 +370,7 @@ async function loadAndRender() {
 
 function render(city, week) {
   const tbody = document.getElementById('rowsBody');
-  const hubs = hubsByCity[city] || [];
+  const hubs = mergedHubsByCity[city] || [];
   tbody.innerHTML = REFURB_PARTS.map(part => {
     const tot = cityTotals[part] || { consumed: 0, sent: null };
     const m = cityManual[part] || {};
