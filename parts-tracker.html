@@ -65,6 +65,21 @@
     .flag-cell { color: var(--red); font-weight: 600; }
     .muted-cell { color: var(--muted); }
 
+    .part-cell { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .part-cell:hover { color: var(--red); }
+    .part-cell i { font-size: 13px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+    tr.expanded .part-cell i { transform: rotate(90deg); }
+
+    .drill-row td { padding: 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .drill-wrap { padding: 10px 10px 12px 34px; }
+    .drill-hint { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .drill-table { width: 100%; font-size: 11px; }
+    .drill-table th { padding: 5px 8px; font-size: 9px; }
+    .drill-table th:first-child { width: 40%; }
+    .drill-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+    .drill-table tr:last-child td { border-bottom: none; }
+    .drill-table input { width: 56px; }
+
     .save-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
     .btn {
       padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
@@ -79,16 +94,12 @@
 <body>
 <div class="wrap">
   <div class="page-title"><i class="ti ti-recycle"></i> Parts Tracker</div>
-  <div class="page-sub">Refurb parts reverse-logistics funnel — consumed (auto) vs sent to vendor, refurbed, rejected and received at RPDC (manual), weekly by hub.</div>
+  <div class="page-sub">Refurb parts reverse-logistics funnel — consumed &amp; sent to vendor (summed across hubs) vs refurbed, rejected and received at RPDC (manual, city-level), weekly. Click a part to see the hub-wise breakdown and enter Sent to Vendor per hub.</div>
 
   <div class="ctl-bar">
     <div class="fg">
       <label>City</label>
       <select id="citySel" onchange="onCityChange()"></select>
-    </div>
-    <div class="fg">
-      <label>Hub</label>
-      <select id="hubSel" onchange="onHubChange()"></select>
     </div>
     <div class="fg">
       <label>Week (Mon–Sun)</label>
@@ -177,9 +188,16 @@ const REFURB_PARTS = [
 let hubsByCity = {};   // city -> [hub_name, ...] sorted
 let allCities  = [];
 let weeks      = [];   // [{value:'YYYY-MM-DD', label:'...'}], most recent first
-let consumedRows = {}; // item_name -> consumed_qty
-let manualRows   = {}; // item_name -> {sent_to_vendor_qty, refurbed_qty, rejected_qty, received_at_rpdc_qty}
 let canEdit = false;
+
+// Per-part, per-hub breakdown (for the drill-down): { part: { hub: {consumed, sent} } }
+let hubBreakdown = {};
+// Per-part city totals: { part: {consumed, sent} } -- sent is null if no hub has any entry yet
+let cityTotals = {};
+// Per-part city-level manual fields (refurbed/rejected/received): { part: {...} }
+let cityManual = {};
+// Which part rows currently have their drill-down expanded (survives re-render)
+let expandedParts = new Set();
 
 function fmtWeekLabel(weekStart) {
   const mon = new Date(weekStart + 'T00:00:00');
@@ -242,22 +260,18 @@ async function init() {
   }
 }
 
-// auth-guard.js's own setup is async (it may need to refresh the session
-// token before it's done) and only finishes defining window.authGetEmail
-// partway through, firing 'auth-ready' once it's actually safe to call.
-// Checking window.authGetEmail immediately on page load -- before that
-// event -- meant this frequently ran before auth-guard was ready, silently
-// reading an empty email and always falling back to read-only, regardless
-// of who was actually logged in. Listening for 'auth-ready' fixes the race;
-// calling this again at that point re-renders the table too, since the
-// edit inputs vs read-only text decision happens inside render().
+// auth-guard.js's own setup is async and only finishes defining
+// window.authGetEmail partway through, firing 'auth-ready' once it's
+// actually safe to call. Listening for that event (not just checking
+// immediately) avoids a race where this silently reads an empty email
+// and always falls back to read-only.
 function applyEditPermission() {
   const email = (window.authGetEmail && window.authGetEmail()) || '';
   canEdit = EDIT_EMAILS.includes(email);
   const badge = document.getElementById('editBadge');
   if (canEdit) {
     badge.className = 'edit-badge on';
-    badge.innerHTML = '<i class="ti ti-lock-open"></i> You have edit access for this hub\'s manual entries';
+    badge.innerHTML = '<i class="ti ti-lock-open"></i> You have edit access — Refurbed/Rejected/Received at RPDC (city-level) and Sent to Vendor (per hub, click a part to expand)';
     document.getElementById('saveRow').style.display = 'flex';
   } else {
     badge.className = 'edit-badge';
@@ -266,36 +280,53 @@ function applyEditPermission() {
 }
 window.addEventListener('auth-ready', function() {
   applyEditPermission();
-  if (document.getElementById('hubSel').value) loadAndRender(); // re-render with the now-correct permission
+  if (document.getElementById('citySel').value) loadAndRender();
 });
 
-function onCityChange() {
-  const city = document.getElementById('citySel').value;
-  const hubSel = document.getElementById('hubSel');
-  hubSel.innerHTML = (hubsByCity[city] || []).map(h => `<option value="${h}">${h}</option>`).join('');
-  onHubChange();
-}
-function onHubChange() { loadAndRender(); }
+function onCityChange() { loadAndRender(); }
 function onWeekChange() { loadAndRender(); }
 
 async function loadAndRender() {
   const city = document.getElementById('citySel').value;
-  const hub  = document.getElementById('hubSel').value;
   const week = document.getElementById('weekSel').value;
-  if (!hub) { document.getElementById('rowsBody').innerHTML = '<tr><td colspan="7" class="empty">No hub selected</td></tr>'; return; }
+  if (!city) { document.getElementById('rowsBody').innerHTML = '<tr><td colspan="7" class="empty">No city selected</td></tr>'; return; }
 
-  const [consumed, manual] = await Promise.all([
-    sbGet(`refurb_consumed_cache?select=item_name,consumed_qty&week_start=eq.${week}&hub_name=eq.${encodeURIComponent(hub)}`),
-    sbGet(`refurb_manual_entries?select=*&week_start=eq.${week}&hub_name=eq.${encodeURIComponent(hub)}`)
+  const [consumed, sentEntries, cityEntries] = await Promise.all([
+    sbGet(`refurb_consumed_cache?select=item_name,hub_name,consumed_qty&week_start=eq.${week}&city=eq.${encodeURIComponent(city)}`),
+    sbGet(`refurb_manual_entries?select=item_name,hub_name,sent_to_vendor_qty&week_start=eq.${week}&city=eq.${encodeURIComponent(city)}`),
+    sbGet(`refurb_manual_entries_city?select=*&week_start=eq.${week}&city=eq.${encodeURIComponent(city)}`)
   ]);
 
-  consumedRows = {};
-  (Array.isArray(consumed) ? consumed : []).forEach(r => { consumedRows[r.item_name] = Number(r.consumed_qty) || 0; });
+  // Build per-part, per-hub breakdown
+  hubBreakdown = {};
+  REFURB_PARTS.forEach(p => { hubBreakdown[p] = {}; });
+  (Array.isArray(consumed) ? consumed : []).forEach(r => {
+    if (!hubBreakdown[r.item_name]) return;
+    if (!hubBreakdown[r.item_name][r.hub_name]) hubBreakdown[r.item_name][r.hub_name] = {};
+    hubBreakdown[r.item_name][r.hub_name].consumed = Number(r.consumed_qty) || 0;
+  });
+  (Array.isArray(sentEntries) ? sentEntries : []).forEach(r => {
+    if (!hubBreakdown[r.item_name]) return;
+    if (!hubBreakdown[r.item_name][r.hub_name]) hubBreakdown[r.item_name][r.hub_name] = {};
+    hubBreakdown[r.item_name][r.hub_name].sent = r.sent_to_vendor_qty;
+  });
 
-  manualRows = {};
-  (Array.isArray(manual) ? manual : []).forEach(r => {
-    manualRows[r.item_name] = {
-      sent_to_vendor_qty: r.sent_to_vendor_qty,
+  // City totals: consumed sums all hubs (0 if none); sent sums only hubs with
+  // a real (non-null) entry -- null overall if nobody's entered anything yet.
+  cityTotals = {};
+  REFURB_PARTS.forEach(part => {
+    const hubs = hubBreakdown[part] || {};
+    let consumedSum = 0, sentSum = 0, sentHasAny = false;
+    Object.values(hubs).forEach(h => {
+      consumedSum += h.consumed || 0;
+      if (h.sent != null) { sentSum += Number(h.sent) || 0; sentHasAny = true; }
+    });
+    cityTotals[part] = { consumed: consumedSum, sent: sentHasAny ? sentSum : null };
+  });
+
+  cityManual = {};
+  (Array.isArray(cityEntries) ? cityEntries : []).forEach(r => {
+    cityManual[r.item_name] = {
       refurbed_qty: r.refurbed_qty,
       rejected_qty: r.rejected_qty,
       received_at_rpdc_qty: r.received_at_rpdc_qty
@@ -303,44 +334,64 @@ async function loadAndRender() {
   });
 
   document.getElementById('syncedLbl').textContent = 'Loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-  render(city, hub, week);
+  render(city, week);
 }
 
-function render(city, hub, week) {
+function render(city, week) {
   const tbody = document.getElementById('rowsBody');
+  const hubs = hubsByCity[city] || [];
   tbody.innerHTML = REFURB_PARTS.map(part => {
-    const consumed = consumedRows[part] || 0;
-    const m = manualRows[part] || {};
-    const sent = m.sent_to_vendor_qty;
-    const refurbed = m.refurbed_qty;
-    const rejected = m.rejected_qty;
-    const received = m.received_at_rpdc_qty;
-    const pct = (refurbed != null && consumed > 0) ? ((refurbed / consumed) * 100).toFixed(1) + '%' : '—';
+    const tot = cityTotals[part] || { consumed: 0, sent: null };
+    const m = cityManual[part] || {};
+    const refurbed = m.refurbed_qty, rejected = m.rejected_qty, received = m.received_at_rpdc_qty;
+    const pct = (refurbed != null && tot.consumed > 0) ? ((refurbed / tot.consumed) * 100).toFixed(1) + '%' : '—';
     const flagged = received != null && refurbed != null && received > refurbed;
+    const isOpen = expandedParts.has(part);
 
-    if (canEdit) {
-      return `
-        <tr data-part="${escapeAttr(part)}">
-          <td>${part}</td>
-          <td class="num">${consumed}</td>
-          <td><input type="number" class="f-sent" value="${sent ?? ''}"></td>
-          <td><input type="number" class="f-refurbed" value="${refurbed ?? ''}"></td>
-          <td><input type="number" class="f-rejected" value="${rejected ?? ''}"></td>
-          <td><input type="number" class="f-received ${flagged ? 'flag' : ''}" value="${received ?? ''}"></td>
-          <td class="num">${pct}</td>
-        </tr>`;
-    }
-    return `
-      <tr>
-        <td>${part}</td>
-        <td class="num">${consumed}</td>
-        <td class="num ${sent == null ? 'muted-cell' : ''}">${sent ?? '—'}</td>
-        <td class="num ${refurbed == null ? 'muted-cell' : ''}">${refurbed ?? '—'}</td>
-        <td class="num ${rejected == null ? 'muted-cell' : ''}">${rejected ?? '—'}</td>
-        <td class="num ${flagged ? 'flag-cell' : (received == null ? 'muted-cell' : '')}">${flagged ? '<i class="ti ti-alert-triangle flag-icon"></i>' : ''}${received ?? '—'}</td>
+    const mainRow = `
+      <tr class="${isOpen ? 'expanded' : ''}">
+        <td><div class="part-cell" onclick="togglePart('${escapeAttr(part)}')"><i class="ti ti-chevron-right"></i>${part}</div></td>
+        <td class="num">${tot.consumed}</td>
+        <td class="num ${tot.sent == null ? 'muted-cell' : ''}">${tot.sent ?? '—'}</td>
+        ${canEdit ? `<td><input type="number" class="f-refurbed" value="${refurbed ?? ''}"></td>` : `<td class="num ${refurbed == null ? 'muted-cell' : ''}">${refurbed ?? '—'}</td>`}
+        ${canEdit ? `<td><input type="number" class="f-rejected" value="${rejected ?? ''}"></td>` : `<td class="num ${rejected == null ? 'muted-cell' : ''}">${rejected ?? '—'}</td>`}
+        ${canEdit ? `<td><input type="number" class="f-received ${flagged ? 'flag' : ''}" value="${received ?? ''}"></td>` : `<td class="num ${flagged ? 'flag-cell' : (received == null ? 'muted-cell' : '')}">${flagged ? '<i class="ti ti-alert-triangle flag-icon"></i>' : ''}${received ?? '—'}</td>`}
         <td class="num">${pct}</td>
       </tr>`;
+
+    if (!isOpen) return mainRow;
+
+    const hubData = hubBreakdown[part] || {};
+    const drillRows = hubs.map(h => {
+      const hd = hubData[h] || {};
+      const hConsumed = hd.consumed || 0;
+      const hSent = hd.sent;
+      return `<tr>
+        <td>${h}</td>
+        <td class="num">${hConsumed}</td>
+        <td>${canEdit ? `<input type="number" class="f-hub-sent" data-hub="${escapeAttr(h)}" value="${hSent ?? ''}">` : `<span class="num ${hSent == null ? 'muted-cell' : ''}">${hSent ?? '—'}</span>`}</td>
+      </tr>`;
+    }).join('');
+
+    return mainRow + `
+      <tr class="drill-row" data-drill-part="${escapeAttr(part)}"><td colspan="7">
+        <div class="drill-wrap">
+          <div class="drill-hint">Hub-wise breakdown for ${part}${canEdit ? ' — enter Sent to Vendor per hub here' : ''}</div>
+          <table class="drill-table">
+            <thead><tr><th>Hub</th><th class="num">Consumed</th><th class="num">Sent to vendor</th></tr></thead>
+            <tbody>${drillRows || '<tr><td colspan="3" class="empty">No hubs in this city</td></tr>'}</tbody>
+          </table>
+        </div>
+      </td></tr>`;
   }).join('');
+}
+
+function togglePart(part) {
+  if (expandedParts.has(part)) expandedParts.delete(part);
+  else expandedParts.add(part);
+  const city = document.getElementById('citySel').value;
+  const week = document.getElementById('weekSel').value;
+  render(city, week);
 }
 
 function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
@@ -348,29 +399,42 @@ function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
 async function saveAll() {
   if (!canEdit) return;
   const city = document.getElementById('citySel').value;
-  const hub  = document.getElementById('hubSel').value;
   const week = document.getElementById('weekSel').value;
   const email = (window.authGetEmail && window.authGetEmail()) || 'unknown';
+  const now = new Date().toISOString();
 
-  const rows = [...document.querySelectorAll('#rowsBody tr')];
-  const payload = rows.map(tr => {
-    const part = tr.dataset.part;
-    const val = sel => { const v = tr.querySelector(sel).value; return v === '' ? null : parseFloat(v); };
-    return {
-      week_start: week,
-      city,
-      hub_name: hub,
-      item_name: part,
-      sent_to_vendor_qty: val('.f-sent'),
-      refurbed_qty: val('.f-refurbed'),
-      rejected_qty: val('.f-rejected'),
-      received_at_rpdc_qty: val('.f-received'),
-      updated_by: email,
-      updated_at: new Date().toISOString()
-    };
+  // City-level: refurbed / rejected / received, one row per part (main table rows only)
+  const cityPayload = [];
+  document.querySelectorAll('#rowsBody > tr:not(.drill-row)').forEach(tr => {
+    const partCell = tr.querySelector('.part-cell');
+    if (!partCell) return;
+    const part = partCell.textContent.trim();
+    const val = sel => { const el = tr.querySelector(sel); if (!el) return undefined; return el.value === '' ? null : parseFloat(el.value); };
+    const refurbed = val('.f-refurbed'), rejected = val('.f-rejected'), received = val('.f-received');
+    if (refurbed === undefined && rejected === undefined && received === undefined) return; // read-only row, nothing to save
+    cityPayload.push({
+      week_start: week, city, item_name: part,
+      refurbed_qty: refurbed ?? null, rejected_qty: rejected ?? null, received_at_rpdc_qty: received ?? null,
+      updated_by: email, updated_at: now
+    });
   });
 
-  await sbUpsert('refurb_manual_entries', payload, 'week_start,hub_name,item_name');
+  // Hub-level: sent to vendor, only from currently-expanded drill-downs
+  const hubPayload = [];
+  document.querySelectorAll('.drill-row').forEach(drillTr => {
+    const part = drillTr.dataset.drillPart;
+    drillTr.querySelectorAll('.f-hub-sent').forEach(inp => {
+      const hub = inp.dataset.hub;
+      const v = inp.value === '' ? null : parseFloat(inp.value);
+      hubPayload.push({ week_start: week, city, hub_name: hub, item_name: part, sent_to_vendor_qty: v, updated_by: email, updated_at: now });
+    });
+  });
+
+  await Promise.all([
+    cityPayload.length ? sbUpsert('refurb_manual_entries_city', cityPayload, 'week_start,city,item_name') : Promise.resolve(),
+    hubPayload.length ? sbUpsert('refurb_manual_entries', hubPayload, 'week_start,hub_name,item_name') : Promise.resolve()
+  ]);
+
   const msg = document.getElementById('saveMsg');
   msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000);
   loadAndRender();
