@@ -66,6 +66,8 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 <div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
 <div class="bar">
   <span class="count" id="count">Loading…</span>
+  <input type="date" id="dateFilter" onchange="applyFilter()" style="max-width:150px">
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="clearDateFilter()">All dates</button>
   <input type="text" id="filter" placeholder="Filter by bike, hub, JC or technician…" oninput="applyFilter()">
 </div>
 <div id="results"><div class="empty">Loading…</div></div>
@@ -82,6 +84,8 @@ function sid(s){return String(s).replace(/[^a-z0-9]/gi,'_');}
 function fmtDate(t){if(!t)return '—';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'});}
 function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
 function currentUser(){try{var s=JSON.parse(localStorage.getItem('bounce_session')||'{}');var u=(s&&typeof s.user==='object'&&s.user)?s.user:s;return u.name||u.email||u.mobile||'';}catch(e){return '';}}
+function todayISTStr(){ return new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10); }
+function clearDateFilter(){ document.getElementById('dateFilter').value=''; applyFilter(); }
 function tatChip(d){d=Number(d)||0;var cls=d>30?'red':(d>7?'amber':'');return '<span class="chip '+cls+'">Waiting '+d+'d</span>';}
 
 // TODO: confirm/expand this list with Nithish -- standard life (km) per
@@ -175,14 +179,14 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLight
 async function load(){
   var res=document.getElementById('results');
   res.innerHTML='<div class="empty">Loading…</div>';
+  document.getElementById('dateFilter').value=todayISTStr();
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_ho_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     if(!r.ok){res.innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';document.getElementById('count').textContent='';return;}
     ALL=await r.json();
     var warrOk=await loadWarrantyDecisions();
     ALL.forEach(function(jc){ jc.__items=parseItems(jc); });
-    updateCount();
-    render(ALL);
+    applyFilter();
     if(!warrOk){
       var note=document.createElement('div');
       note.className='note'; note.style.background='#fef2f2'; note.style.borderColor='#fca5a5'; note.style.color='#991b1b';
@@ -191,17 +195,34 @@ async function load(){
     }
   }catch(e){res.innerHTML='<div class="empty" style="color:var(--red)">Error.</div>';}
 }
-function updateCount(){
+function updateCount(shownCount){
   var dec=ALL.filter(function(j){return j.decision;}).length;
-  document.getElementById('count').textContent=ALL.length+' waiting · '+dec+' decided';
+  var dateVal=document.getElementById('dateFilter').value;
+  var suffix=dateVal?' shown for '+dateVal+' · ':' shown · ';
+  document.getElementById('count').textContent=(shownCount!=null?shownCount:ALL.length)+suffix+ALL.length+' total waiting · '+dec+' decided';
 }
 function applyFilter(){
   var q=document.getElementById('filter').value.trim().toLowerCase();
-  render(!q?ALL:ALL.filter(function(j){return ((j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')).toLowerCase().indexOf(q)>=0;}));
+  var dateVal=document.getElementById('dateFilter').value; // '' = all dates
+  var list=ALL;
+  if(dateVal){
+    list=list.filter(function(j){
+      if(!j.latest_status_date) return false;
+      // latest_status_date is a naive IST wall-clock string (no tz offset) --
+      // comparing the date portion directly, no conversion needed.
+      return String(j.latest_status_date).slice(0,10)===dateVal;
+    });
+  }
+  if(q){
+    list=list.filter(function(j){return ((j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')).toLowerCase().indexOf(q)>=0;});
+  }
+  updateCount(list.length);
+  render(list);
 }
 function render(list){
   var res=document.getElementById('results');
-  if(!list||!list.length){res.innerHTML='<div class="empty">No job cards waiting for HO approval.</div>';return;}
+  var dateVal=document.getElementById('dateFilter').value;
+  if(!list||!list.length){res.innerHTML='<div class="empty">No job cards waiting for HO approval'+(dateVal?' entering that status on '+dateVal:'')+'. <a href="#" onclick="clearDateFilter();return false;">Show all dates</a></div>';return;}
   res.innerHTML=list.map(renderJC).join('');
 }
 function lastReplaced(p){
@@ -251,7 +272,7 @@ async function decide(jcno, decision){
     if(!r.ok){alert('Could not save decision.');return;}
     var jc=ALL.find(function(x){return x.job_card_number===jcno;});
     if(jc){jc.decision=decision;jc.remarks=remarks;jc.decided_by=by;jc.decided_at=when;}
-    updateCount(); applyFilter();
+    applyFilter();
   }catch(e){alert('Could not save decision.');}
 }
 async function decideWarranty(jcno, itemKey, itemLabel, decision){
