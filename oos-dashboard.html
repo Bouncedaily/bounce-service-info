@@ -1571,18 +1571,21 @@ function renderHubOutflow(outflow) {
   const tbody = document.querySelector('#tbl-hub-outflow tbody');
   const hubs = [...new Set(outflow.map(r => r.hub_name).filter(Boolean))].sort();
   if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No repairs today</td></tr>'; return; }
-  // OOS = Rider Submission + Recovery + Bike Exchange, all combined into a
-  // single number. Classified via jc_submission_type (the granular field --
-  // as of Aug 2026 the raw submission_type only ever says 'RR' or 'OOS',
-  // with jc_submission_type carrying the real sub-category), falling back
-  // to submission_type for any older rows synced before that field existed.
+  // OOS/RR/PDI here needs to sum to Total for each hub, so classify off
+  // submission_type (the actual OOS-vs-RR-vs-PDI signal) rather than the
+  // finer jc_submission_type. Using jc_submission_type meant a bike with
+  // submission_type='OOS' but jc_submission_type='Manual JC' was landing in
+  // the RR bucket instead (since 'Manual JC' was in the RR type list) --
+  // undercounting OOS and overcounting RR for that hub, even though the JC
+  // itself is genuinely an OOS repair.
   let rows = '', gt = 0, gCounts = [0,0,0], gtat = 0;
-  const cnt = (arr,types) => arr.filter(r => types.includes(effType(r))).length;
+  const cnt = (arr,pred) => arr.filter(pred).length;
   hubs.forEach(h => {
     const rows_h = outflow.filter(r => r.hub_name === h);
     const total  = rows_h.length;
-    const oos = cnt(rows_h, ['Rider Submission','Recovery','Bike Exchange','OOS']);
-    const rr = cnt(rows_h, ['Running Repair','Manual JC','RR']), pdi = cnt(rows_h, ['PDI']);
+    const rr  = cnt(rows_h, r => r.submission_type === 'RR');
+    const pdi = cnt(rows_h, r => r.submission_type === 'PDI');
+    const oos = cnt(rows_h, r => r.submission_type !== 'RR' && r.submission_type !== 'PDI');
     const counts = [oos, rr, pdi];
     const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
     const avgTat = total ? (tatSum/total).toFixed(1) : '—';
