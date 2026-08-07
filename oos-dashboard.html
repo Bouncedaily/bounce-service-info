@@ -1158,6 +1158,33 @@ const REMARK_OPTIONS = [
 ];
 
 const REMARKS_CACHE = {}; // key: `${reg_number}|${oos_since}` -> {remark_type, remark_text}
+const LABOUR_CACHE = {};  // reg_number -> total labour hours logged since this OOS stay began
+
+async function loadLabourHoursFor(rows) {
+  const regs = [...new Set(rows.map(r => r.reg_number).filter(Boolean))];
+  if (!regs.length) return true;
+  try {
+    const inList = regs.map(r => `"${String(r).replace(/"/g,'')}"`).join(',');
+    const res = await fetchWithTimeout(`${SB}/rest/v1/jc_details?select=reg_number,labour_mins,start_time&reg_number=in.(${inList})`, { headers: HDR }, 15000);
+    if (!res.ok) return false;
+    const jcs = await res.json();
+    // Only count labour logged during THIS OOS stay, not earlier ones for the same bike.
+    const cutoffByReg = {};
+    rows.forEach(r => { if (r.reg_number) cutoffByReg[r.reg_number] = r.latest_oos_date ? new Date(r.latest_oos_date) : null; });
+    const totalMinsByReg = {};
+    (Array.isArray(jcs) ? jcs : []).forEach(jc => {
+      if (!jc.reg_number || jc.labour_mins == null) return;
+      const cutoff = cutoffByReg[jc.reg_number];
+      if (cutoff && jc.start_time && new Date(jc.start_time) < cutoff) return;
+      totalMinsByReg[jc.reg_number] = (totalMinsByReg[jc.reg_number] || 0) + Number(jc.labour_mins);
+    });
+    regs.forEach(reg => { LABOUR_CACHE[reg] = (totalMinsByReg[reg] || 0) / 60; });
+    return true;
+  } catch (e) {
+    console.error('loadLabourHoursFor failed', e);
+    return false;
+  }
+}
 
 async function authHDR() {
   const token = window.authGetValidToken ? await window.authGetValidToken() : (window.authGetToken ? window.authGetToken() : ANON);
@@ -1286,6 +1313,7 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
     (dimValue === null || r[dimKey] === dimValue) &&
     (hub === null || r.hub_name === hub)
   );
+  rows.sort((a, b) => (b.oos_age || 0) - (a.oos_age || 0)); // Days OOS, highest first
   DD_CURRENT_ROWS = rows;
 
   const hubLabel = hub === null ? 'All Hubs' : hub;
@@ -1299,25 +1327,29 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
   document.getElementById('dd-overlay').classList.add('open');
   document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody>';
 
-  const remarksOk = await loadRemarksFor(rows);
-  if (!remarksOk) {
-    document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ Remarks failed to load — what you see below may be blank even where a remark exists. <a href="#" onclick="loadRemarksFor(DD_CURRENT_ROWS).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
+  const [remarksOk, labourOk] = await Promise.all([loadRemarksFor(rows), loadLabourHoursFor(rows)]);
+  if (!remarksOk || !labourOk) {
+    const what = !remarksOk && !labourOk ? 'Remarks and labour hours' : !remarksOk ? 'Remarks' : 'Labour hours';
+    document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ ${what} failed to load — what you see below may be blank. <a href="#" onclick="Promise.all([loadRemarksFor(DD_CURRENT_ROWS),loadLabourHoursFor(DD_CURRENT_ROWS)]).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
   }
   renderDDTable(rows);
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th class="num">Days OOS</th><th class="num">Odometer</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Sub-status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Odometer</th><th class="num">Total Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
     const odo = r.current_odometer != null ? Math.round(r.current_odometer).toLocaleString('en-IN') + ' km' : '—';
+    const labourHrs = LABOUR_CACHE[r.reg_number];
     html += `<tr>
       <td style="font-weight:600">${r.reg_number || '—'}</td>
       <td>${r.hub_name || '—'}</td>
       <td><span class="dd-badge ${ddBadgeClass(r.repair_category)}">${r.oos_sub_status || '—'}</span></td>
+      <td>${r.repair_category || '—'}</td>
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
       <td class="num">${odo}</td>
+      <td class="num">${labourHrs != null ? labourHrs.toFixed(1) : '—'}</td>
       <td>${since}</td>
       ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
     </tr>`;
@@ -1336,13 +1368,14 @@ document.addEventListener('keydown', e => {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Latest OOS Date', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Sub-status', 'Repair Category', 'Days OOS', 'Odometer', 'Total Labour Hrs', 'Latest OOS Date', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
+    const labourHrs = LABOUR_CACHE[r.reg_number];
     return [
       r.reg_number, r.hub_name, r.city, r.oos_sub_status, r.repair_category,
-      r.oos_age, r.current_odometer, r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
+      r.oos_age, r.current_odometer, labourHrs != null ? labourHrs.toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
     ];
   });
   downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
