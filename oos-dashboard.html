@@ -1727,6 +1727,15 @@ async function refresh() {
     try { DAILY_FLOW = await fetchDailyFlow(); } catch(e) { DAILY_FLOW = []; }
     populateFilters(RAW);
     render(applyFilters(RAW));
+    // fetchData() always pulls today-only inflow/outflow. If the person has
+    // Yesterday/7d/Custom selected, re-fetch that range now so this 2-minute
+    // auto-refresh doesn't silently swap the underlying data back to today
+    // while the date buttons still show the range as selected.
+    const dr = getBLDateRange();
+    if (dr.from && dr.to) {
+      await fetchAndRenderBikeList(dr.from, dr.to);
+      applyBikeListFilters();
+    }
     saveOOSCache(RAW);
     document.getElementById('sync-lbl').innerHTML = `<span class="sb-dot" style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span> Synced ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}`;
     if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
