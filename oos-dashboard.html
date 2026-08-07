@@ -555,15 +555,15 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd"><h2>OOS by City</h2></div>
       <div class="tbl"><table id="tbl-city">
-        <thead><tr><th>City</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
-        <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
+        <thead><tr><th>City</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
+        <tbody><tr><td colspan="7" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
     <div class="card">
       <div class="card-hd"><h2>OOS by Bike Model</h2></div>
       <div class="tbl"><table id="tbl-model">
-        <thead><tr><th>Model</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
-        <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
+        <thead><tr><th>Model</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
+        <tbody><tr><td colspan="7" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -1228,19 +1228,20 @@ function render({ summary, oosDetail, inflow, outflow }) {
 function cityModelRows(summary, oosDetail, key, tblId) {
   const groups = [...new Set(summary.map(r => r[key]).filter(Boolean))].sort();
   const tbody = document.querySelector('#' + tblId + ' tbody');
-  if (!groups.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No data</td></tr>'; return; }
-  let rows = '', gt = 0, go = 0, grfd = 0, gact = 0;
+  if (!groups.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No data</td></tr>'; return; }
+  let rows = '', gt = 0, go = 0, gpdi = 0, grfd = 0, gact = 0;
   groups.forEach(g => {
     const t = summary.filter(r => r[key]===g).length;
     const o = oosDetail.filter(r => r[key]===g).length;
+    const pdi = summary.filter(r => r[key]===g && r.status === 'pdi').length;
     const rfd = summary.filter(r => r[key]===g && r.status === 'RFD').length;
     const act = summary.filter(r => r[key]===g && r.status === 'Active_rental').length;
     const p = pct(o, t);
-    gt += t; go += o; grfd += rfd; gact += act;
-    rows += `<tr><td>${g}</td><td class="num">${t.toLocaleString('en-IN')}</td><td class="num">${o.toLocaleString('en-IN')}</td><td class="pct ${pctClass(p)}">${p}</td><td class="num">${rfd.toLocaleString('en-IN')}</td><td class="num">${act.toLocaleString('en-IN')}</td></tr>`;
+    gt += t; go += o; gpdi += pdi; grfd += rfd; gact += act;
+    rows += `<tr><td>${g}</td><td class="num">${t.toLocaleString('en-IN')}</td><td class="num">${o.toLocaleString('en-IN')}</td><td class="pct ${pctClass(p)}">${p}</td><td class="num">${pdi.toLocaleString('en-IN')}</td><td class="num">${rfd.toLocaleString('en-IN')}</td><td class="num">${act.toLocaleString('en-IN')}</td></tr>`;
   });
   const tp = pct(go, gt);
-  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt.toLocaleString('en-IN')}</td><td class="num">${go.toLocaleString('en-IN')}</td><td class="pct ${pctClass(tp)}">${tp}</td><td class="num">${grfd.toLocaleString('en-IN')}</td><td class="num">${gact.toLocaleString('en-IN')}</td></tr>`;
+  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt.toLocaleString('en-IN')}</td><td class="num">${go.toLocaleString('en-IN')}</td><td class="pct ${pctClass(tp)}">${tp}</td><td class="num">${gpdi.toLocaleString('en-IN')}</td><td class="num">${grfd.toLocaleString('en-IN')}</td><td class="num">${gact.toLocaleString('en-IN')}</td></tr>`;
   tbody.innerHTML = rows;
 }
 
