@@ -1308,7 +1308,7 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Total Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
@@ -1337,7 +1337,7 @@ document.addEventListener('keydown', e => {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Repair Category', 'Days OOS', 'Total Labour Hrs', 'Latest OOS Date', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
