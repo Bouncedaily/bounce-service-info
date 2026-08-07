@@ -648,14 +648,28 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd"><h2>Inflow by Hub</h2><span class="sub" id="inflow-count">—</span></div>
       <div class="tbl"><table id="tbl-hub-inflow">
-        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">Running Repair</th><th class="num">Rider Sub</th><th class="num">Recovery</th><th class="num">Bike Exchange</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortHubInflowBy('hub')">Hub<span class="sort-ind" id="shi-hub"></span></th>
+          <th class="num sortable" onclick="sortHubInflowBy('total')">Total<span class="sort-ind" id="shi-total"></span></th>
+          <th class="num sortable" onclick="sortHubInflowBy('rr')">Running Repair<span class="sort-ind" id="shi-rr"></span></th>
+          <th class="num sortable" onclick="sortHubInflowBy('riderSub')">Rider Sub<span class="sort-ind" id="shi-riderSub"></span></th>
+          <th class="num sortable" onclick="sortHubInflowBy('recovery')">Recovery<span class="sort-ind" id="shi-recovery"></span></th>
+          <th class="num sortable" onclick="sortHubInflowBy('bikeExchange')">Bike Exchange<span class="sort-ind" id="shi-bikeExchange"></span></th>
+        </tr></thead>
         <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
     <div class="card">
       <div class="card-hd"><h2>Outflow by Hub</h2><span class="sub" id="outflow-count">—</span></div>
       <div class="tbl"><table id="tbl-hub-outflow">
-        <thead><tr><th>Hub</th><th class="num">Total</th><th class="num">OOS</th><th class="num">RR</th><th class="num">PDI</th><th class="num">Avg TAT (days)</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortHubOutflowBy('hub')">Hub<span class="sort-ind" id="sho-hub"></span></th>
+          <th class="num sortable" onclick="sortHubOutflowBy('total')">Total<span class="sort-ind" id="sho-total"></span></th>
+          <th class="num sortable" onclick="sortHubOutflowBy('oos')">OOS<span class="sort-ind" id="sho-oos"></span></th>
+          <th class="num sortable" onclick="sortHubOutflowBy('rr')">RR<span class="sort-ind" id="sho-rr"></span></th>
+          <th class="num sortable" onclick="sortHubOutflowBy('pdi')">PDI<span class="sort-ind" id="sho-pdi"></span></th>
+          <th class="num sortable" onclick="sortHubOutflowBy('avgTat')">Avg TAT (days)<span class="sort-ind" id="sho-avgTat"></span></th>
+        </tr></thead>
         <tbody><tr><td colspan="6" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
@@ -666,7 +680,14 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd" style="display:flex;align-items:center"><h2>Inflow — Bike List</h2><button onclick="exportInflowXLSX()" title="Download Excel" style="margin-left:auto;background:none;border:1px solid #16a34a;border-radius:6px;cursor:pointer;color:#16a34a;font-size:13px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-table-export"></i> Excel</button></div>
       <div class="tbl"><table id="tbl-inflow">
-        <thead><tr><th>Reg No</th><th>Hub</th><th>City</th><th>Model</th><th>Type</th><th>Date &amp; Time</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="sortInflowBy('reg_number')">Reg No<span class="sort-ind" id="si-reg_number"></span></th>
+          <th class="sortable" onclick="sortInflowBy('hub_name')">Hub<span class="sort-ind" id="si-hub_name"></span></th>
+          <th class="sortable" onclick="sortInflowBy('city')">City<span class="sort-ind" id="si-city"></span></th>
+          <th class="sortable" onclick="sortInflowBy('model_name')">Model<span class="sort-ind" id="si-model_name"></span></th>
+          <th class="sortable" onclick="sortInflowBy('submission_type')">Type<span class="sort-ind" id="si-submission_type"></span></th>
+          <th class="sortable" onclick="sortInflowBy('event_time')">Date &amp; Time<span class="sort-ind" id="si-event_time"></span></th>
+        </tr></thead>
         <tbody><tr><td colspan="5" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
       <div id="inflow-pager" class="bl-pager"></div>
@@ -1554,22 +1575,51 @@ function fmtDateTime(ts) {
   return d.getUTCDate() + ' ' + mon + ' ' + h + ':' + String(mn).padStart(2,'0') + ' ' + ampm;
 }
 
+var _hubInflowRowsAll = [];
+var _hubInflowSortKey = 'total';
+var _hubInflowSortDir = 'desc';
+
 function renderHubInflow(inflow) {
   document.getElementById('inflow-count').textContent = inflow.length + ' bikes';
-  const tbody = document.querySelector('#tbl-hub-inflow tbody');
   const hubs = [...new Set(inflow.map(r => r.hub_name).filter(Boolean))].sort();
-  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No inflow today</td></tr>'; return; }
+  if (!hubs.length) {
+    document.querySelector('#tbl-hub-inflow tbody').innerHTML = '<tr><td colspan="6" class="empty">No inflow today</td></tr>';
+    _hubInflowRowsAll = [];
+    return;
+  }
   const TYPES = ['Running Repair', 'Rider Submission', 'Recovery', 'Bike Exchange'];
-  let rows = '', gt = 0, gCounts = [0,0,0,0];
-  hubs.forEach(h => {
+  _hubInflowRowsAll = hubs.map(h => {
     const rows_h = inflow.filter(r => r.hub_name === h);
-    const total  = rows_h.length;
     const counts = TYPES.map(t => rows_h.filter(r => r.submission_type === t).length);
-    gt += total; counts.forEach((c,i) => gCounts[i] += c);
-    rows += `<tr><td>${h}</td><td class="num">${total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}</tr>`;
+    return { hub: h, total: rows_h.length, rr: counts[0], riderSub: counts[1], recovery: counts[2], bikeExchange: counts[3] };
+  });
+  _renderHubInflowRows();
+  _updateSortIndicators('shi-', _hubInflowSortKey, _hubInflowSortDir);
+}
+function sortHubInflowBy(key) {
+  if (_hubInflowSortKey === key) { _hubInflowSortDir = _hubInflowSortDir === 'asc' ? 'desc' : 'asc'; }
+  else { _hubInflowSortKey = key; _hubInflowSortDir = key === 'hub' ? 'asc' : 'desc'; }
+  _renderHubInflowRows();
+  _updateSortIndicators('shi-', _hubInflowSortKey, _hubInflowSortDir);
+}
+function _renderHubInflowRows() {
+  const key = _hubInflowSortKey, dir = _hubInflowSortDir === 'asc' ? 1 : -1;
+  const isText = key === 'hub';
+  const sorted = [..._hubInflowRowsAll].sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (isText) { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+  let rows = '', gt = 0, gCounts = [0,0,0,0];
+  sorted.forEach(r => {
+    const counts = [r.rr, r.riderSub, r.recovery, r.bikeExchange];
+    gt += r.total; counts.forEach((c,i) => gCounts[i] += c);
+    rows += `<tr><td>${r.hub}</td><td class="num">${r.total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}</tr>`;
   });
   rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt}</td>${gCounts.map(c=>`<td class="num">${c||''}</td>`).join('')}</tr>`;
-  tbody.innerHTML = rows;
+  document.querySelector('#tbl-hub-inflow tbody').innerHTML = rows;
 }
 
 const REP_ORDER=['0 days','1-2 days','3-4 days','5-7 days','above 7 days'];
@@ -1619,11 +1669,18 @@ function renderRepairAging(outflow){
   wrap.innerHTML=html;
 }
 
+var _hubOutflowRowsAll = [];
+var _hubOutflowSortKey = 'total';
+var _hubOutflowSortDir = 'desc';
+
 function renderHubOutflow(outflow) {
   document.getElementById('outflow-count').textContent = outflow.length + ' bikes';
-  const tbody = document.querySelector('#tbl-hub-outflow tbody');
   const hubs = [...new Set(outflow.map(r => r.hub_name).filter(Boolean))].sort();
-  if (!hubs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No repairs today</td></tr>'; return; }
+  if (!hubs.length) {
+    document.querySelector('#tbl-hub-outflow tbody').innerHTML = '<tr><td colspan="6" class="empty">No repairs today</td></tr>';
+    _hubOutflowRowsAll = [];
+    return;
+  }
   // OOS/RR/PDI here needs to sum to Total for each hub, so classify off
   // submission_type (the actual OOS-vs-RR-vs-PDI signal) rather than the
   // finer jc_submission_type. Using jc_submission_type meant a bike with
@@ -1631,31 +1688,78 @@ function renderHubOutflow(outflow) {
   // the RR bucket instead (since 'Manual JC' was in the RR type list) --
   // undercounting OOS and overcounting RR for that hub, even though the JC
   // itself is genuinely an OOS repair.
-  let rows = '', gt = 0, gCounts = [0,0,0], gtat = 0;
   const cnt = (arr,pred) => arr.filter(pred).length;
-  hubs.forEach(h => {
+  _hubOutflowRowsAll = hubs.map(h => {
     const rows_h = outflow.filter(r => r.hub_name === h);
-    const total  = rows_h.length;
+    const total = rows_h.length;
     const rr  = cnt(rows_h, r => r.submission_type === 'RR');
     const pdi = cnt(rows_h, r => r.submission_type === 'PDI');
     const oos = cnt(rows_h, r => r.submission_type !== 'RR' && r.submission_type !== 'PDI');
-    const counts = [oos, rr, pdi];
     const tatSum = rows_h.reduce((s,r) => s+(parseFloat(r.oos_to_rfd_tat_days)||0), 0);
-    const avgTat = total ? (tatSum/total).toFixed(1) : '—';
-    gt += total; counts.forEach((c,i) => gCounts[i] += c); gtat += tatSum;
-    rows += `<tr><td>${h}</td><td class="num">${total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}<td class="num">${avgTat}</td></tr>`;
+    return { hub: h, total, oos, rr, pdi, avgTat: total ? tatSum/total : 0, tatSum };
+  });
+  _renderHubOutflowRows();
+  _updateSortIndicators('sho-', _hubOutflowSortKey, _hubOutflowSortDir);
+}
+function sortHubOutflowBy(key) {
+  if (_hubOutflowSortKey === key) { _hubOutflowSortDir = _hubOutflowSortDir === 'asc' ? 'desc' : 'asc'; }
+  else { _hubOutflowSortKey = key; _hubOutflowSortDir = key === 'hub' ? 'asc' : 'desc'; }
+  _renderHubOutflowRows();
+  _updateSortIndicators('sho-', _hubOutflowSortKey, _hubOutflowSortDir);
+}
+function _renderHubOutflowRows() {
+  const key = _hubOutflowSortKey, dir = _hubOutflowSortDir === 'asc' ? 1 : -1;
+  const isText = key === 'hub';
+  const sorted = [..._hubOutflowRowsAll].sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (isText) { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+  let rows = '', gt = 0, gCounts = [0,0,0], gtat = 0;
+  sorted.forEach(r => {
+    const counts = [r.oos, r.rr, r.pdi];
+    gt += r.total; counts.forEach((c,i) => gCounts[i] += c); gtat += r.tatSum;
+    rows += `<tr><td>${r.hub}</td><td class="num">${r.total}</td>${counts.map(c=>`<td class="num">${c||''}</td>`).join('')}<td class="num">${r.avgTat.toFixed(1)}</td></tr>`;
   });
   const overallAvg = gt ? (gtat/gt).toFixed(1) : '—';
   rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt}</td>${gCounts.map(c=>`<td class="num">${c||''}</td>`).join('')}<td class="num">${overallAvg}</td></tr>`;
-  tbody.innerHTML = rows;
+  document.querySelector('#tbl-hub-outflow tbody').innerHTML = rows;
 }
 
 var _inflowAll = [];
 var _inflowPage = 1;
+var _inflowSortKey = 'event_time';
+var _inflowSortDir = 'desc';
+var INFLOW_DATE_KEYS = ['event_time'];
+
 function renderInflowTable(inflow) {
-  _inflowAll = [...inflow].sort((a,b) => new Date(b.event_time||0) - new Date(a.event_time||0));
+  _inflowAll = [...inflow];
+  _inflowPage = 1;
+  _sortInflowAll();
+  _renderInflowPage();
+  _updateSortIndicators('si-', _inflowSortKey, _inflowSortDir);
+}
+function _sortInflowAll() {
+  var key = _inflowSortKey, dir = _inflowSortDir === 'asc' ? 1 : -1;
+  var isDate = INFLOW_DATE_KEYS.indexOf(key) >= 0;
+  _inflowAll.sort(function(a, b) {
+    var av = a[key], bv = b[key];
+    if (isDate) { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
+    else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+function sortInflowBy(key) {
+  if (_inflowSortKey === key) { _inflowSortDir = _inflowSortDir === 'asc' ? 'desc' : 'asc'; }
+  else { _inflowSortKey = key; _inflowSortDir = INFLOW_DATE_KEYS.indexOf(key) >= 0 ? 'desc' : 'asc'; }
+  _sortInflowAll();
   _inflowPage = 1;
   _renderInflowPage();
+  _updateSortIndicators('si-', _inflowSortKey, _inflowSortDir);
 }
 function _renderInflowPage() {
   const tbody = document.querySelector('#tbl-inflow tbody');
