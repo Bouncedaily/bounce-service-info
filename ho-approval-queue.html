@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1100px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 14px}
+.note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:14px}
+.bar{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;flex-wrap:wrap}
+.count{font-size:14px;font-weight:700}
+.bar input{flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px}
+.bar input:focus{outline:none;border-color:var(--red)}
+.jc{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+.jc.approved{border-color:#86efac;box-shadow:0 0 0 1px #86efac}
+.jc.rejected{border-color:#fca5a5;box-shadow:0 0 0 1px #fca5a5}
+.jc-hd{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.jc-title{font-size:15px;font-weight:700}
+.jc-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#f1f5f9;color:var(--text2)}
+.chip.amber{background:#fef3c7;color:#a16207}.chip.red{background:#fee2e2;color:#b91c1c}.chip.parts{background:#eef2ff;color:#3730a3}
+.chip.ok{background:#dcfce7;color:#15803d}.chip.no{background:#fee2e2;color:#b91c1c}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:12.5px}
+th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+.warn{color:var(--amber);font-weight:600}
+.first{color:var(--muted2)}
+.reason{padding:10px 16px 0;font-size:12px;color:var(--muted)}
+.reason b{color:var(--text2);font-weight:600}
+.nolink{padding:12px 16px;font-size:12px;color:var(--muted2);font-style:italic}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.dec{padding:12px 16px;border-top:1px solid var(--border);background:#fafbfd;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.dec textarea{flex:1;min-width:220px;min-height:38px;max-height:120px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:12.5px;font-family:inherit;resize:vertical}
+.dec textarea:focus{outline:none;border-color:var(--blue)}
+.dbtns{display:flex;gap:8px}
+.btn{border:1px solid var(--border2);background:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-ok{border-color:#86efac;color:#15803d}.btn-ok.active,.btn-ok:hover{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-no{border-color:#fca5a5;color:#b91c1c}.btn-no.active,.btn-no:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.decstate{width:100%;font-size:11.5px;color:var(--muted);margin-top:-2px}
+.foot{padding:8px 16px;background:#fafbfd;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.section-lbl{padding:10px 16px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted2);font-weight:700}
+.catchip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:#f1f5f9;color:var(--text2)}
+.catchip.w{background:#ede9fe;color:#5b21b6}.catchip.a{background:#e0f2fe;color:#075985}.catchip.p{background:#fef3c7;color:#a16207}
+.code{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted2)}
+.ok-life{color:#15803d;font-weight:600}.bad-life{color:var(--red);font-weight:600}.na-life{color:var(--muted2)}
+.wbtns{display:flex;gap:6px}
+.wbtn{border:1px solid var(--border2);background:#fff;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.wbtn-ok{border-color:#86efac;color:#15803d}.wbtn-ok.active{background:var(--green);color:#fff;border-color:var(--green)}
+.wbtn-no{border-color:#fca5a5;color:#b91c1c}.wbtn-no.active{background:var(--red);color:#fff;border-color:var(--red)}
+.photos{padding:12px 16px 0;display:flex;gap:10px;flex-wrap:wrap}
+.photos .pitem{width:110px}
+.photos img{width:110px;height:82px;object-fit:cover;border-radius:8px;border:1px solid var(--border2);cursor:zoom-in;display:block;background:#eef2f7}
+.photos .plabel{font-size:10.5px;color:var(--muted);text-align:center;margin-top:4px}
+.nophotos{padding:10px 16px 0;font-size:12px;color:var(--muted2);font-style:italic}
+.lightbox{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:999;padding:24px;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+</style></head>
+<body>
+<div class="wrap">
+<h1>HO Approval Queue</h1>
+<div class="psub">Job cards currently <strong>Open – Waiting for HO Approval</strong>, most-aged first. Record the HO decision and remarks here; the action in DMS still needs to be done separately.</div>
+<div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
+<div class="bar">
+  <span class="count" id="count">Loading…</span>
+  <input type="text" id="filter" placeholder="Filter by bike, hub, JC or technician…" oninput="applyFilter()">
+</div>
+<div id="results"><div class="empty">Loading…</div></div>
+</div>
+<div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+let ALL=[];
+function nf(n){return (n==null?0:Math.round(n)).toLocaleString('en-IN');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function sid(s){return String(s).replace(/[^a-z0-9]/gi,'_');}
+function fmtDate(t){if(!t)return '—';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'});}
+function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
+function currentUser(){try{var s=JSON.parse(localStorage.getItem('bounce_session')||'{}');var u=(s&&typeof s.user==='object'&&s.user)?s.user:s;return u.name||u.email||u.mobile||'';}catch(e){return '';}}
+function tatChip(d){d=Number(d)||0;var cls=d>30?'red':(d>7?'amber':'');return '<span class="chip '+cls+'">Waiting '+d+'d</span>';}
+
+// TODO: confirm/expand this list with Nithish -- standard life (km) per
+// A-category part, matched against the RESOLVED name only (see parseItems).
+const STANDARD_LIFE_KM={'tyre':15000,'tire':15000,'brake pad':12000,'chain':10000};
+function standardLifeFor(name){
+  var n=(name||'').toLowerCase();
+  for(var key in STANDARD_LIFE_KM){ if(n.indexOf(key)>=0) return STANDARD_LIFE_KM[key]; }
+  return null;
+}
+// item_data's iItemNo is one of three shapes:
+//   "--SELECT--"                          -- unselected slot, always qty 0, drop entirely
+//   "CODE-XXXX :: Readable Part Name"     -- has a resolvable name after " :: "
+//   "CODE-XXXX" (bare)                    -- no name anywhere in this data at all
+// There is NO reliable 1:1 correspondence between item_data's array and the
+// separate parts_to_be_changed text list (confirmed against real data: ~98%
+// of job cards have a different count between the two), so this is rendered
+// as its own independent line-items list, never merged by position.
+function parseItems(jc){
+  var raw=jc.item_data;
+  if(raw==null||raw==='') return [];
+  var arr=raw;
+  if(typeof raw==='string'){ try{ arr=JSON.parse(raw); }catch(e){ return []; } }
+  if(!Array.isArray(arr)) return [];
+  return arr.filter(function(it){ return it.iItemNo!=='--SELECT--'; }).map(function(it){
+    var itemNo=it.iItemNo||'';
+    var sep=itemNo.indexOf(' :: ');
+    var name=sep>=0?itemNo.slice(sep+4).trim():null;
+    var code=sep>=0?itemNo.slice(0,sep).trim():(itemNo||it.iLabCode||'');
+    return {
+      key:(it.iLabCode||'')+'|'+(it.iItemNo||''),
+      code:code, name:name, catg:(it.iCatg||'').toUpperCase(), qty:it.iQty
+    };
+  });
+}
+let WARRANTY_MAP={};
+async function loadWarrantyDecisions(){
+  try{
+    var r=await fetch(SB+'/rest/v1/warranty_item_decision?select=*',{headers:HDR});
+    if(!r.ok) return false;
+    var rows=await r.json();
+    var map={};
+    rows.forEach(function(d){ map[d.job_card_number+'||'+d.item_key]=d; });
+    WARRANTY_MAP=map;
+    return true;
+  }catch(e){ return false; }
+}
+function catChip(catg){
+  if(!catg) return '';
+  var cls=catg==='W'?'w':catg==='A'?'a':catg==='P'?'p':'';
+  return '<span class="catchip'+(cls?' '+cls:'')+'">'+esc(catg)+'</span>';
+}
+function lifeCheck(it){
+  if(it.catg!=='A') return '<span class="na-life">—</span>';
+  if(!it.name) return '<span class="na-life">no name to check</span>';
+  var life=standardLifeFor(it.name);
+  if(life==null) return '<span class="na-life">No standard life set</span>';
+  return '<span class="na-life">Std life: '+nf(life)+' km</span>';
+}
+function renderLineItems(jc, items){
+  if(!items.length) return '';
+  var rows=items.map(function(it){
+    var label=it.name?esc(it.name):('<span class="code">'+esc(it.code)+'</span>');
+    var wCell='';
+    if(it.catg==='W'){
+      var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
+      wCell='<div class="wbtns">'+
+        '<button class="wbtn wbtn-ok'+(dec&&dec.decision==='approve'?' active':'')+'" onclick="decideWarranty(\''+esc(jc.job_card_number)+'\',\''+esc(it.key)+'\',\''+esc(it.name||it.code)+'\',\'approve\')">Approve</button>'+
+        '<button class="wbtn wbtn-no'+(dec&&dec.decision==='reject'?' active':'')+'" onclick="decideWarranty(\''+esc(jc.job_card_number)+'\',\''+esc(it.key)+'\',\''+esc(it.name||it.code)+'\',\'reject\')">Reject</button>'+
+        (dec?'<span class="na-life" style="margin-left:6px">'+(dec.decision==='approve'?'Approved':'Rejected')+(dec.decided_by?' by '+esc(dec.decided_by):'')+'</span>':'')+
+        '</div>';
+    } else { wCell=lifeCheck(it); }
+    return '<tr><td>'+label+'</td><td>'+catChip(it.catg)+'</td><td>'+wCell+'</td></tr>';
+  }).join('');
+  return '<div class="section-lbl">Job card line items</div>'+
+    '<table><thead><tr><th>Item</th><th>Cat</th><th>Warranty / life check</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function renderPhotos(jc){
+  var slots=[['end_front_photo','Front'],['end_back_photo','Back'],['end_left_photo','Left'],['end_right_photo','Right']];
+  var have=slots.filter(function(sl){return jc[sl[0]];});
+  if(!have.length) return '<div class="nophotos">No end-of-JC photos available.</div>';
+  return '<div class="section-lbl">End-of-JC photos</div><div class="photos">'+have.map(function(sl){
+    var url=jc[sl[0]];
+    return '<div class="pitem"><img src="'+esc(url)+'" alt="'+sl[1]+'" onclick="openLightbox(\''+esc(url).replace(/'/g,"\\'")+'\')" loading="lazy">'+
+      '<div class="plabel">'+sl[1]+'</div></div>';
+  }).join('')+'</div>';
+}
+function openLightbox(url){ document.getElementById('lightboxImg').src=url; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); document.getElementById('lightboxImg').src=''; }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLightbox(); });
+async function load(){
+  var res=document.getElementById('results');
+  res.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_ho_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok){res.innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';document.getElementById('count').textContent='';return;}
+    ALL=await r.json();
+    var warrOk=await loadWarrantyDecisions();
+    ALL.forEach(function(jc){ jc.__items=parseItems(jc); });
+    updateCount();
+    render(ALL);
+    if(!warrOk){
+      var note=document.createElement('div');
+      note.className='note'; note.style.background='#fef2f2'; note.style.borderColor='#fca5a5'; note.style.color='#991b1b';
+      note.textContent='Warranty decisions failed to load — statuses shown below may be stale. Reload to retry.';
+      res.parentNode.insertBefore(note, res);
+    }
+  }catch(e){res.innerHTML='<div class="empty" style="color:var(--red)">Error.</div>';}
+}
+function updateCount(){
+  var dec=ALL.filter(function(j){return j.decision;}).length;
+  document.getElementById('count').textContent=ALL.length+' waiting · '+dec+' decided';
+}
+function applyFilter(){
+  var q=document.getElementById('filter').value.trim().toLowerCase();
+  render(!q?ALL:ALL.filter(function(j){return ((j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')).toLowerCase().indexOf(q)>=0;}));
+}
+function render(list){
+  var res=document.getElementById('results');
+  if(!list||!list.length){res.innerHTML='<div class="empty">No job cards waiting for HO approval.</div>';return;}
+  res.innerHTML=list.map(renderJC).join('');
+}
+function lastReplaced(p){
+  if(p.days_since==null) return '<span class="first">first time on this bike</span>';
+  var recent=p.days_since<30;
+  var kmpart=(p.km_since!=null && p.km_since>0)?(nf(p.km_since)+' km · '):'';
+  return '<span class="'+(recent?'warn':'')+'">'+kmpart+p.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
+}
+function renderJC(jc){
+  var s=sid(jc.job_card_number);
+  var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
+    (jc.decision==='approve'?'<span class="chip ok">✓ Approved</span>':'')+
+    (jc.decision==='reject'?'<span class="chip no">✗ Rejected</span>':'');
+  var body;
+  if((jc.parts||[]).length){
+    var rows=jc.parts.map(function(p){return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td></tr>';}).join('');
+    body='<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  } else { body='<div class="nolink">No parts listed in DMS for this job card (labour / manual JC).</div>'; }
+  var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
+  var items=jc.__items||[];
+  var lineItems=renderLineItems(jc, items);
+  var photos=renderPhotos(jc);
+  var state = jc.decision ? ('<div class="decstate">'+(jc.decision==='approve'?'Approved':'Rejected')+(jc.decided_by?' by '+esc(jc.decided_by):'')+(jc.decided_at?' · '+fmtDT(jc.decided_at):'')+'</div>') : '';
+  var cls=jc.decision==='approve'?' approved':(jc.decision==='reject'?' rejected':'');
+  var dec='<div class="dec">'+
+    '<textarea id="rm_'+s+'" placeholder="Remarks…">'+esc(jc.remarks||'')+'</textarea>'+
+    '<div class="dbtns">'+
+      '<button class="btn btn-ok'+(jc.decision==='approve'?' active':'')+'" onclick="decide(\''+esc(jc.job_card_number)+'\',\'approve\')">Approve</button>'+
+      '<button class="btn btn-no'+(jc.decision==='reject'?' active':'')+'" onclick="decide(\''+esc(jc.job_card_number)+'\',\'reject\')">Reject</button>'+
+    '</div>'+state+'</div>';
+  return '<div class="jc'+cls+'" id="jc_'+s+'"><div class="jc-hd"><div>'+
+      '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span></div>'+
+      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
+    '</div><div class="chips">'+chips+'</div></div>'+body+lineItems+photos+reason+dec+
+    '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
+}
+async function decide(jcno, decision){
+  var s=sid(jcno);
+  var remarks=document.getElementById('rm_'+s).value;
+  var by=currentUser();
+  var when=new Date().toISOString();
+  var payload={job_card_number:jcno, decision:decision, remarks:remarks, decided_by:by, decided_at:when};
+  try{
+    var r=await fetch(SB+'/rest/v1/ho_approval_decision',{method:'POST',
+      headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(payload)});
+    if(!r.ok){alert('Could not save decision.');return;}
+    var jc=ALL.find(function(x){return x.job_card_number===jcno;});
+    if(jc){jc.decision=decision;jc.remarks=remarks;jc.decided_by=by;jc.decided_at=when;}
+    updateCount(); applyFilter();
+  }catch(e){alert('Could not save decision.');}
+}
+async function decideWarranty(jcno, itemKey, itemLabel, decision){
+  var by=currentUser();
+  var when=new Date().toISOString();
+  var payload={job_card_number:jcno, item_key:itemKey, item_label:itemLabel, decision:decision, decided_by:by, decided_at:when};
+  try{
+    var r=await fetch(SB+'/rest/v1/warranty_item_decision',{method:'POST',
+      headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(payload)});
+    if(!r.ok){alert('Could not save warranty decision.');return;}
+    WARRANTY_MAP[jcno+'||'+itemKey]={decision:decision, decided_by:by, decided_at:when};
+    applyFilter(); // re-render so this item's button state updates
+  }catch(e){alert('Could not save warranty decision.');}
+}
+load();
+</script>
+</body></html>
