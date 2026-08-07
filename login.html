@@ -43,7 +43,7 @@ input::placeholder{color:#475569}
 <body>
 <div class="card">
   <div class="logo">
-    <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg></div>
+    <div class="logo-icon" style="background:#fff;padding:2px"><img src="icons/icon-192.png" width="32" height="32" style="border-radius:7px;object-fit:cover" alt="Bounce Daily"/></div>
     <div class="logo-text">Bounce <span>Service Info</span></div>
   </div>
 
@@ -191,10 +191,25 @@ function doSignIn() {
     headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: currentEmail, password: pw })
   })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.error || !d.access_token) {
-      showMsg('signin', d.error_description || 'Invalid password.', 'err');
+  .then(function(r) {
+    // Wrap so a non-JSON or unexpected body can never leave this hanging --
+    // whatever comes back, we always get a usable {ok, body} pair below.
+    return r.json().then(function(d) { return { ok: r.ok, body: d }; })
+      .catch(function() { return { ok: r.ok, body: null }; });
+  })
+  .then(function(res) {
+    var d = res.body || {};
+    if (!res.ok || !d.access_token) {
+      // Supabase's actual error shape here is {code,error_code,msg} -- not
+      // {error,error_description} like this used to assume. That mismatch
+      // meant nothing ever displayed on a genuinely wrong password: the
+      // fallback text existed, but the button never got explicitly proven
+      // to always fire in every response shape. Checking multiple possible
+      // field names now, plus !res.ok as the primary signal, so any error
+      // shape (rate-limit, disabled account, etc.) still shows something
+      // and always re-enables the button, instead of possibly stalling.
+      var msg = d.msg || d.error_description || d.error || d.error_code || 'Invalid email or password.';
+      showMsg('signin', msg, 'err');
       setBusy('btn-signin', false, 'Sign In');
       return;
     }
@@ -225,9 +240,13 @@ function createPassword() {
       headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: currentEmail, password: pw1 })
     })
-    .then(function(r) { return r.json(); })
-    .then(function(sd) {
-      if (!sd.access_token) {
+    .then(function(r) {
+      return r.json().then(function(sd) { return { ok: r.ok, body: sd }; })
+        .catch(function() { return { ok: r.ok, body: null }; });
+    })
+    .then(function(res) {
+      var sd = res.body || {};
+      if (!res.ok || !sd.access_token) {
         showMsg('create', 'Password created! Please sign in.', 'ok');
         setTimeout(function() { showStep('step-signin'); }, 1500);
         setBusy('btn-create', false, 'Set Password and Sign In');
