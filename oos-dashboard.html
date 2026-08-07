@@ -689,13 +689,14 @@ body { overflow:auto!important; }
             <th>Hub</th>
             <th class="num">Working Days</th>
             <th class="num">Repaired Count</th>
-            <th class="num">Running Repair OOS</th>
+            <th class="num">Running Repair</th>
+            <th class="num">OOS</th>
             <th class="num">Total Labour Hrs</th>
             <th class="num">Avg. Labour Hrs</th>
             <th class="num">Total JC Cost</th>
             <th class="num">Avg. JC Cost</th>
           </tr></thead>
-          <tbody id="tech-tbody"><tr><td colspan="9" class="empty"><span class="spin"></span></td></tr></tbody>
+          <tbody id="tech-tbody"><tr><td colspan="10" class="empty"><span class="spin"></span></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -823,9 +824,10 @@ function renderTechTable(outflow) {
   var map = {};
   rows.forEach(function(r) {
     var key = (r.technician_name||'') + '||' + (r.hub_name||'');
-    if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, rrCount: 0, days: new Set(), labSum: 0, labN: 0, costSum: 0, costN: 0 };
+    if (!map[key]) map[key] = { tech: r.technician_name, hub: r.hub_name, count: 0, rrCount: 0, oosCount: 0, days: new Set(), labSum: 0, labN: 0, costSum: 0, costN: 0 };
     map[key].count++;
     if (r.submission_type === 'RR') map[key].rrCount++;
+    if (r.submission_type === 'OOS') map[key].oosCount++;
     if (r.data_date) map[key].days.add(r.data_date);
     if (r.labour_hours != null) { map[key].labSum += parseFloat(r.labour_hours)||0; map[key].labN++; }
     if (r.total_item_cost != null) { map[key].costSum += parseFloat(r.total_item_cost)||0; map[key].costN++; }
@@ -835,7 +837,7 @@ function renderTechTable(outflow) {
   if (countEl) countEl.textContent = techs.length + ' technicians';
 
   if (!techs.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">No repair data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No repair data</td></tr>';
     return;
   }
 
@@ -850,6 +852,7 @@ function renderTechTable(outflow) {
       '<td class="num">' + t.days.size + '</td>' +
       '<td class="num"><strong>' + t.count + '</strong></td>' +
       '<td class="num">' + t.rrCount + '</td>' +
+      '<td class="num">' + t.oosCount + '</td>' +
       '<td class="num">' + totalLab + '</td>' +
       '<td class="num">' + avgLab + '</td>' +
       '<td class="num">' + totalCost + '</td>' +
