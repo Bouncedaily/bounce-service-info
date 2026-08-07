@@ -1537,7 +1537,14 @@ function setRepairInflow(t,btn){
 function renderRepairAging(outflow){
   const wrap=document.getElementById('rep-aging-wrap');
   if(!wrap) return;
-  let set=(outflow||[]).filter(function(r){return OOS_TYPES.indexOf(effType(r))>=0;});
+  // Was gated on effType(r) being in OOS_TYPES, which is an allowlist of
+  // jc_submission_type values -- 'Manual JC' isn't on it, so a bike repaired
+  // via a manual JC (but with perfectly valid OOS-to-RFD timing) got silently
+  // dropped here while still being counted in the Today's Outflow KPI, which
+  // only excludes RR. Match that: exclude RR, otherwise go by whether the
+  // bike actually has a real OOS-to-RFD turnaround value, regardless of which
+  // sub-type the JC was filed under.
+  let set=(outflow||[]).filter(function(r){return r.submission_type!=='RR';});
   if(REPAIR_INFLOW!=='all') set=set.filter(function(r){return effType(r)===REPAIR_INFLOW;});
   const rowsData=set.map(function(r){return {hub:r.hub_name,b:repBucket(r.oos_to_rfd_tat_days)};}).filter(function(x){return x.hub && x.b;});
   if(!rowsData.length){wrap.innerHTML='<div class="empty">No OOS repairs for selected filters</div>';return;}
