@@ -165,11 +165,11 @@ function lifeCheck(it){
 }
 function renderPartsTable(jc, items){
   var parts = jc.parts || [];
-  // Match each "part to be changed" to a line-item by name (case/space-
-  // insensitive) so a part that appears in both isn't shown twice. Items
-  // with no name at all (bare codes) or a name that doesn't match anything
-  // in parts_to_be_changed can't be matched -- confirmed earlier this is a
-  // real, common case (~29% of line items), not an edge case to ignore.
+  // jc.parts now covers BOTH parts_to_be_changed and item_data-derived names
+  // (server-side, in get_ho_queue) -- every named part gets a real "last
+  // replaced" lookup regardless of which source it came from. in_ptc marks
+  // whether it was actually in the curated Parts to be Changed field; that's
+  // now its own column instead of overloading Last Replaced with it.
   var norm = function(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); };
   var usedKeys = {};
   var rows = parts.map(function(p){
@@ -177,18 +177,19 @@ function renderPartsTable(jc, items){
     if(match) usedKeys[match.key]=true;
     var catCell = match ? catChip(match.catg) : '';
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match)) : '<span class="na-life">—</span>';
-    return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+catCell+'</td><td>'+checkCell+'</td></tr>';
+    var draftCell = p.in_ptc ? '' : '<span class="na-life">Not added in draft JC</span>';
+    return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+checkCell+'</td></tr>';
   });
-  // Line items that never matched a "part to be changed" name -- still real
-  // data (often warranty/labour codes), shown with no "last replaced" info
-  // since there's nothing in parts_to_be_changed to pair them with.
+  // Line items with genuinely no resolvable name at all (bare code, and no
+  // match in part_code_names either) -- can't be looked up in jc_details
+  // without a name, so no last-replaced data is possible for these.
   items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
     var label = it.name?esc(it.name):('<span class="code">'+esc(it.code)+'</span>');
     var checkCell = it.catg==='W' ? warrantyCell(jc, it) : lifeCheck(it);
-    rows.push('<tr><td>'+label+'</td><td class="na-life">not in parts list</td><td>'+catChip(it.catg)+'</td><td>'+checkCell+'</td></tr>');
+    rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="na-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+checkCell+'</td></tr>');
   });
   if(!rows.length) return '<div class="nolink">No parts listed in DMS for this job card (labour / manual JC).</div>';
-  return '<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th><th>Cat</th><th>Warranty / life check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>';
+  return '<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th><th>In draft JC</th><th>Cat</th><th>Warranty / life check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>';
 }
 function warrantyCell(jc, it){
   var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
