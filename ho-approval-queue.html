@@ -177,7 +177,7 @@ function renderPartsTable(jc, items){
     if(match) usedKeys[match.key]=true;
     var catCell = match ? catChip(match.catg) : '';
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match)) : '<span class="na-life">—</span>';
-    var draftCell = p.in_ptc ? '' : '<span class="na-life">Not added in draft JC</span>';
+    var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
@@ -186,7 +186,7 @@ function renderPartsTable(jc, items){
   items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
     var label = it.name?esc(it.name):('<span class="code">'+esc(it.code)+'</span>');
     var checkCell = it.catg==='W' ? warrantyCell(jc, it) : lifeCheck(it);
-    rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="na-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+checkCell+'</td></tr>');
+    rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="bad-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+checkCell+'</td></tr>');
   });
   if(!rows.length) return '<div class="nolink">No parts listed in DMS for this job card (labour / manual JC).</div>';
   return '<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th><th>In draft JC</th><th>Cat</th><th>Warranty / life check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>';
