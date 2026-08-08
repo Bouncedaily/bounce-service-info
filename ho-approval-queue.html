@@ -259,10 +259,9 @@ function onCityFilterChange(keepHub){
   applyFilter();
 }
 function updateCount(shownCount){
-  var dec=ALL.filter(function(j){return j.decision;}).length;
   var dateVal=document.getElementById('dateFilter').value;
   var suffix=dateVal?' shown for '+dateVal+' · ':' shown · ';
-  document.getElementById('count').textContent=(shownCount!=null?shownCount:ALL.length)+suffix+ALL.length+' total waiting · '+dec+' decided';
+  document.getElementById('count').textContent=(shownCount!=null?shownCount:ALL.length)+suffix+ALL.length+' total waiting';
 }
 function applyFilter(){
   var q=document.getElementById('filter').value.trim().toLowerCase();
