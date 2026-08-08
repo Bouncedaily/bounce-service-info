@@ -99,11 +99,28 @@ function standardLifeFor(name){
 // item_data's iItemNo is one of three shapes:
 //   "--SELECT--"                          -- unselected slot, always qty 0, drop entirely
 //   "CODE-XXXX :: Readable Part Name"     -- has a resolvable name after " :: "
-//   "CODE-XXXX" (bare)                    -- no name anywhere in this data at all
+//   "CODE-XXXX" (bare)                    -- no name in item_data itself, but
+//     often resolvable via CODE_NAMES (jc_details.line_item_no's historical
+//     mapping, precomputed server-side -- see part_code_names/refresh_part_
+//     code_names). jc_details' codes carry a trailing "X-NN" that item_data's
+//     bare codes lack (M-0001138XX-00 -> strip "X-00" -> M-0001138X), so the
+//     lookup key strips that same suffix pattern before matching.
 // There is NO reliable 1:1 correspondence between item_data's array and the
 // separate parts_to_be_changed text list (confirmed against real data: ~98%
 // of job cards have a different count between the two), so this is rendered
 // as its own independent line-items list, never merged by position.
+let CODE_NAMES={};
+async function loadCodeNames(){
+  try{
+    var r=await fetch(SB+'/rest/v1/part_code_names?select=code_prefix,item_name',{headers:HDR});
+    if(!r.ok) return false;
+    var rows=await r.json();
+    var map={};
+    rows.forEach(function(row){ map[row.code_prefix]=row.item_name; });
+    CODE_NAMES=map;
+    return true;
+  }catch(e){ return false; }
+}
 function parseItems(jc){
   var raw=jc.item_data;
   if(raw==null||raw==='') return [];
@@ -115,6 +132,7 @@ function parseItems(jc){
     var sep=itemNo.indexOf(' :: ');
     var name=sep>=0?itemNo.slice(sep+4).trim():null;
     var code=sep>=0?itemNo.slice(0,sep).trim():(itemNo||it.iLabCode||'');
+    if(!name && code && CODE_NAMES[code]) name=CODE_NAMES[code];
     return {
       key:(it.iLabCode||'')+'|'+(it.iItemNo||''),
       code:code, name:name, catg:(it.iCatg||'').toUpperCase(), qty:it.iQty
@@ -202,6 +220,7 @@ async function load(){
     if(!r.ok){res.innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';document.getElementById('count').textContent='';return;}
     ALL=await r.json();
     var warrOk=await loadWarrantyDecisions();
+    await loadCodeNames();
     ALL.forEach(function(jc){ jc.__items=parseItems(jc); });
     applyFilter();
     if(!warrOk){
