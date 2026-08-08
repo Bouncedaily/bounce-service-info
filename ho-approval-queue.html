@@ -68,6 +68,8 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
   <span class="count" id="count">Loading…</span>
   <input type="date" id="dateFilter" onchange="applyFilter()" style="max-width:150px">
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="clearDateFilter()">All dates</button>
+  <select id="cityFilter" onchange="onCityFilterChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
+  <select id="hubFilter" onchange="applyFilter()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <input type="text" id="filter" placeholder="Filter by bike, hub, JC or technician…" oninput="applyFilter()">
 </div>
 <div id="results"><div class="empty">Loading…</div></div>
@@ -223,6 +225,7 @@ async function load(){
     var warrOk=await loadWarrantyDecisions();
     await loadCodeNames();
     ALL.forEach(function(jc){ jc.__items=parseItems(jc); });
+    populateCityHubFilters();
     applyFilter();
     if(!warrOk){
       var note=document.createElement('div');
@@ -231,6 +234,29 @@ async function load(){
       res.parentNode.insertBefore(note, res);
     }
   }catch(e){res.innerHTML='<div class="empty" style="color:var(--red)">Error.</div>';}
+}
+let HUBS_BY_CITY={};
+function populateCityHubFilters(){
+  HUBS_BY_CITY={};
+  ALL.forEach(function(j){
+    var city=j.city||'—';
+    if(!HUBS_BY_CITY[city]) HUBS_BY_CITY[city]=new Set();
+    if(j.hub) HUBS_BY_CITY[city].add(j.hub);
+  });
+  var citySel=document.getElementById('cityFilter');
+  var keepCity=citySel.value;
+  citySel.innerHTML='<option value="">All cities</option>'+Object.keys(HUBS_BY_CITY).sort().map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+  citySel.value=keepCity;
+  onCityFilterChange(true);
+}
+function onCityFilterChange(keepHub){
+  var city=document.getElementById('cityFilter').value;
+  var hubSel=document.getElementById('hubFilter');
+  var keepHubVal=keepHub?hubSel.value:'';
+  var hubs=city?[...(HUBS_BY_CITY[city]||[])].sort():[...new Set(ALL.map(function(j){return j.hub;}).filter(Boolean))].sort();
+  hubSel.innerHTML='<option value="">All hubs</option>'+hubs.map(function(h){return '<option value="'+esc(h)+'">'+esc(h)+'</option>';}).join('');
+  hubSel.value=hubs.indexOf(keepHubVal)>=0?keepHubVal:'';
+  applyFilter();
 }
 function updateCount(shownCount){
   var dec=ALL.filter(function(j){return j.decision;}).length;
@@ -241,6 +267,8 @@ function updateCount(shownCount){
 function applyFilter(){
   var q=document.getElementById('filter').value.trim().toLowerCase();
   var dateVal=document.getElementById('dateFilter').value; // '' = all dates
+  var cityVal=document.getElementById('cityFilter').value;
+  var hubVal=document.getElementById('hubFilter').value;
   var list=ALL;
   if(dateVal){
     list=list.filter(function(j){
@@ -250,6 +278,8 @@ function applyFilter(){
       return String(j.latest_status_date).slice(0,10)===dateVal;
     });
   }
+  if(cityVal) list=list.filter(function(j){return j.city===cityVal;});
+  if(hubVal) list=list.filter(function(j){return j.hub===hubVal;});
   if(q){
     list=list.filter(function(j){return ((j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')).toLowerCase().indexOf(q)>=0;});
   }
