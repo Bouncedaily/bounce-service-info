@@ -214,8 +214,8 @@ function warrantyCell(jc, it){
 function renderPhotos(jc){
   var slots=[['end_front_photo','Front'],['end_back_photo','Back'],['end_left_photo','Left'],['end_right_photo','Right']];
   var have=slots.filter(function(sl){return jc[sl[0]];});
-  if(!have.length) return '<div class="nophotos">No end-of-JC photos available.</div>';
-  return '<div class="section-lbl">End-of-JC photos</div><div class="photos">'+have.map(function(sl){
+  if(!have.length) return '<div class="nophotos">No photos available for this submission.</div>';
+  return '<div class="section-lbl">Photos during submission</div><div class="photos">'+have.map(function(sl){
     var url=jc[sl[0]];
     return '<div class="pitem"><img src="'+esc(url)+'" alt="'+sl[1]+'" onclick="openLightbox(\''+esc(url).replace(/'/g,"\\'")+'\')" loading="lazy">'+
       '<div class="plabel">'+sl[1]+'</div></div>';
