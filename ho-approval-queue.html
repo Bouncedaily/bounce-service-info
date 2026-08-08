@@ -173,6 +173,16 @@ function renderPartsTable(jc, items){
   // whether it was actually in the curated Parts to be Changed field; that's
   // now its own column instead of overloading Last Replaced with it.
   var norm = function(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); };
+  // Most parts flag as unusual above qty 1 (a bike normally needs one of
+  // most things). These two are legitimately paired/multi-count parts, so
+  // they get a higher threshold before it's worth flagging.
+  var HIGHER_THRESHOLD_PARTS = ['rear suspension', 'rear winker b2b - lh/rh side'];
+  var qtyThresholdFor = function(name){ return HIGHER_THRESHOLD_PARTS.indexOf(norm(name)) >= 0 ? 2 : 1; };
+  var qtyCell = function(name, qty){
+    if(qty==null) return '<span class="na-life">—</span>';
+    var over = Number(qty) > qtyThresholdFor(name);
+    return '<span class="'+(over?'bad-life':'')+'">'+esc(qty)+'</span>';
+  };
   var usedKeys = {};
   var rows = parts.map(function(p){
     var match = items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
@@ -180,7 +190,7 @@ function renderPartsTable(jc, items){
     var catCell = match ? catChip(match.catg) : '';
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
-    return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
@@ -188,10 +198,10 @@ function renderPartsTable(jc, items){
   items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
     var label = it.name?esc(it.name):('<span class="code">'+esc(it.code)+'</span>');
     var checkCell = it.catg==='W' ? warrantyCell(jc, it) : lifeCheck(it);
-    rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="bad-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+checkCell+'</td></tr>');
+    rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="bad-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+qtyCell(it.name, it.qty)+'</td><td>'+checkCell+'</td></tr>');
   });
   if(!rows.length) return '<div class="nolink">No parts listed in DMS for this job card (labour / manual JC).</div>';
-  return '<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th><th>In draft JC</th><th>Cat</th><th>Warranty / life check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>';
+  return '<table><thead><tr><th>Part to be changed</th><th>Last replaced (this bike)</th><th>In draft JC</th><th>Cat</th><th>Qty</th><th>Warranty / life check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>';
 }
 function warrantyCell(jc, it){
   var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
