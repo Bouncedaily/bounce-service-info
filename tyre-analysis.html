@@ -359,7 +359,7 @@ body { overflow:auto!important; }
 
 
       <!-- TOP FILTER BAR -->
-      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadHub();loadRepeats()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadHub();loadRepeats()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadHub();loadRepeats()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="loadAllReplacements();loadHub();loadRepeats()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
       <!-- KPIs driven by All Replacements filters -->
       <div class="kpi-row" id="kpi-row">
         <div class="kpi"><div class="loading-state" style="padding:12px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div>
@@ -632,7 +632,7 @@ function err(id, msg) {
 }
 
 // ---------- ALL REPLACEMENTS (also drives KPIs + by-part + by-sub) ----------
-function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadHub();loadRepeats();}
+function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadHub();loadRepeats();loadIntervals();}
 
 async function loadAllReplacements() {
   _allPage = 1;
@@ -1026,17 +1026,21 @@ function exportConsumptionXLSX() {
 
 let _intervalsRows = [];
 async function loadIntervals() {
+  spin('intervals-body');
   const body = document.getElementById('intervals-body');
+  const params = {
+    p_city:  document.getElementById('top-city').value  || null,
+    p_part:  document.getElementById('top-part').value  || null,
+    p_start: document.getElementById('top-start').value || null,
+    p_end:   document.getElementById('top-end').value   || null
+  };
   try {
-    const r = await fetch(`${SB_URL}/rest/v1/wear_tear_replacement_intervals?select=*`, {
-      headers: {'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`}
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    _intervalsRows = await r.json();
-    _intervalsRows.sort((a,b) => (b.overall_count||0) - (a.overall_count||0));
+    const result = await rpc('get_wear_tear_intervals', params);
+    if (!result || result.code || result.message) throw new Error(result?.message || result?.code || 'RPC returned null');
+    _intervalsRows = Array.isArray(result) ? result : [];
     renderIntervals();
     const upd = document.getElementById('intervals-updated');
-    if (upd && _intervalsRows.length) upd.textContent = 'Updated ' + fmtD(_intervalsRows[0].updated_at);
+    if (upd) upd.textContent = (params.p_start || params.p_end) ? `${params.p_start||'…'} to ${params.p_end||'…'}` : 'All time';
   } catch(e) {
     console.error('loadIntervals error:', e);
     body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadIntervals();return false;">Retry</a></div>';
