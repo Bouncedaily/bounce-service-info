@@ -76,6 +76,7 @@ tr.row-flag:hover{background:#fee2e2}
 <div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
 <div class="bar">
   <span class="count" id="count">Loading…</span>
+  <span id="syncedAt" style="font-size:11px;color:var(--muted2)"></span>
   <input type="date" id="dateFilter" onchange="applyFilter()" style="max-width:150px">
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="clearDateFilter()">All dates</button>
   <select id="cityFilter" onchange="onCityFilterChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
@@ -269,7 +270,10 @@ async function load(){
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_ho_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     if(!r.ok){res.innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';document.getElementById('count').textContent='';return;}
-    ALL=await r.json();
+    var payload=await r.json();
+    ALL=payload.jcs||[];
+    SYNCED_AT=payload.synced_at||null;
+    renderSyncedAt();
     var warrOk=await loadWarrantyDecisions();
     await loadCodeNames();
     ALL.forEach(function(jc){ jc.__items=parseItems(jc); });
@@ -282,6 +286,16 @@ async function load(){
       res.parentNode.insertBefore(note, res);
     }
   }catch(e){res.innerHTML='<div class="empty" style="color:var(--red)">Error.</div>';}
+}
+let SYNCED_AT=null;
+function renderSyncedAt(){
+  var el=document.getElementById('syncedAt');
+  if(!el) return;
+  if(!SYNCED_AT){ el.textContent=''; return; }
+  var d=new Date(SYNCED_AT);
+  var mins=Math.round((Date.now()-d.getTime())/60000);
+  var ago=mins<1?'just now':mins===1?'1 min ago':mins<60?mins+' min ago':d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  el.textContent='Synced '+ago+' (from DMS, via a 2-min refresh)';
 }
 let HUBS_BY_CITY={};
 function populateCityHubFilters(){
@@ -422,5 +436,6 @@ async function decideWarranty(jcno, itemKey, itemLabel, decision){
   }catch(e){alert('Could not save warranty decision.');}
 }
 load();
+setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 </script>
 </body></html>
