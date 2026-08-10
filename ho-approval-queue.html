@@ -66,6 +66,8 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .verdict-reasons{margin:6px 0 0;padding-left:18px;font-size:12px}
 .verdict-reasons li{margin-bottom:2px}
 .verdict-caveat{font-size:10.5px;color:var(--muted2);margin-top:6px;font-style:italic}
+tr.row-flag{background:#fef2f2}
+tr.row-flag:hover{background:#fee2e2}
 </style></head>
 <body>
 <div class="wrap">
@@ -181,12 +183,22 @@ function catChip(catg){
   var cls=catg==='W'?'w':catg==='A'?'a':catg==='P'?'p':'';
   return '<span class="catchip'+(cls?' '+cls:'')+'">'+esc(catg)+'</span>';
 }
-function lifeCheck(it){
+function lifeCheck(it, kmSince){
   if(it.catg!=='A') return '<span class="na-life">—</span>';
   if(!it.name) return '<span class="na-life">no name to check</span>';
   var life=standardLifeFor(it.name);
   if(life==null) return '<span class="na-life">No standard life set</span>';
-  return '<span class="na-life">Std life: '+nf(life)+' km</span>';
+  var early = isEarlyReplacement(it.name, kmSince);
+  return '<span class="'+(early?'bad-life':'na-life')+'">Std life: '+nf(life)+' km'+(early?' ⚠ replaced at only '+Math.round(100*kmSince/life)+'% of life':'')+'</span>';
+}
+// Flags a part replaced well before its expected life is up -- under 90% of
+// standard life covered. Needs both a known std life for the part AND a
+// real km_since (can't evaluate for "first time on this bike" rows, which
+// have no prior replacement to measure from).
+function isEarlyReplacement(name, kmSince){
+  var life=standardLifeFor(name);
+  if(life==null || kmSince==null) return false;
+  return kmSince < life*0.9;
 }
 // Most parts flag as unusual above qty 1 (a bike normally needs one of
 // most things). These two are legitimately paired/multi-count parts, so
@@ -213,16 +225,17 @@ function renderPartsTable(jc, items){
     var match = items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
     var catCell = match ? catChip(match.catg) : '';
-    var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match)) : '<span class="na-life">—</span>';
+    var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
-    return '<tr><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td>'+checkCell+'</td></tr>';
+    var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
+    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
   // without a name, so no last-replaced data is possible for these.
   items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
     var label = it.name?esc(it.name):('<span class="code">'+esc(it.code)+'</span>');
-    var checkCell = it.catg==='W' ? warrantyCell(jc, it) : lifeCheck(it);
+    var checkCell = it.catg==='W' ? warrantyCell(jc, it) : lifeCheck(it, null);
     rows.push('<tr><td>'+label+'</td><td class="na-life">no name to check</td><td class="bad-life">Not added in draft JC</td><td>'+catChip(it.catg)+'</td><td>'+qtyCell(it.name, it.qty)+'</td><td>'+checkCell+'</td></tr>');
   });
   if(!rows.length) return '<div class="nolink">No parts listed in DMS for this job card (labour / manual JC).</div>';
@@ -349,6 +362,10 @@ function computeVerdict(jc, items){
     if(p.days_since!=null && p.days_since<30) reasons.push({sev:'bad', text:'"'+p.item+'" was replaced only '+p.days_since+'d ago on this bike'});
     var qty = match?match.qty:null;
     if(isQtyFlagged(p.item, qty)) reasons.push({sev:'bad', text:'"'+p.item+'" qty ('+qty+') is unusually high'});
+    if(match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since)){
+      var life=standardLifeFor(match.name);
+      reasons.push({sev:'bad', text:'"'+p.item+'" replaced at only '+nf(p.km_since)+' km, '+Math.round(100*p.km_since/life)+'% of its '+nf(life)+' km standard life'});
+    }
     if(match && match.catg==='W'){
       var dec=WARRANTY_MAP[jc.job_card_number+'||'+match.key];
       if(!dec) reasons.push({sev:'bad', text:'Check mail approval for "'+p.item+'" to punch under warranty'});
@@ -374,7 +391,7 @@ function renderVerdict(v){
   var cls = v.verdict==='review' ? 'verdict-review' : v.verdict==='approve-with-notes' ? 'verdict-notes' : 'verdict-ok';
   var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){return '<li class="'+(r.sev==='bad'?'bad-life':'na-life')+'">'+esc(r.text)+'</li>';}).join('')+'</ul>' : '';
   return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+
-    '<div class="verdict-caveat">Based on qty, recent-replacement, draft-JC and warranty-status signals only -- cost thresholds aren\'t evaluated (no cost data on this JC source). Not a substitute for judgement.</div></div>';
+    '<div class="verdict-caveat">Based on qty, recent-replacement, draft-JC, standard-life and warranty-status signals only -- cost thresholds aren\'t evaluated (no cost data on this JC source). Not a substitute for judgement.</div></div>';
 }
 function renderJC(jc){
   var s=sid(jc.job_card_number);
