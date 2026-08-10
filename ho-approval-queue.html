@@ -351,7 +351,7 @@ function computeVerdict(jc, items){
     if(isQtyFlagged(p.item, qty)) reasons.push({sev:'bad', text:'"'+p.item+'" qty ('+qty+') is unusually high'});
     if(match && match.catg==='W'){
       var dec=WARRANTY_MAP[jc.job_card_number+'||'+match.key];
-      if(!dec) reasons.push({sev:'bad', text:'"'+p.item+'" warranty decision still pending'});
+      if(!dec) reasons.push({sev:'bad', text:'Check mail approval for "'+p.item+'" to punch under warranty'});
       else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+p.item+'" warranty was rejected'});
     }
   });
@@ -359,7 +359,7 @@ function computeVerdict(jc, items){
     if(isQtyFlagged(it.name, it.qty)) reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" qty ('+it.qty+') is unusually high'});
     if(it.catg==='W'){
       var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
-      if(!dec) reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty decision still pending'});
+      if(!dec) reasons.push({sev:'bad', text:'Check mail approval for "'+(it.name||it.code)+'" to punch under warranty'});
       else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty was rejected'});
     }
   });
