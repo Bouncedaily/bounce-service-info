@@ -375,6 +375,16 @@ body { overflow:auto!important; }
         <div class="tbl-wrap"><div id="consumption-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
       </div>
 
+      <!-- Replacement Intervals: 1st vs 2nd (next consecutive) vs overall,
+           and current KM for bikes that have never needed this part -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-hd"><h2>Replacement Intervals</h2><span class="sub" id="intervals-updated">—</span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button class="btn-export" onclick="exportIntervalsXLSX()"><i class="ti ti-table-export"></i> Excel</button>
+          </div></div>
+        <div class="tbl-wrap"><div id="intervals-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
       <!-- By Tyre Type + By Submission Type (share same filter/data as All Replacements) -->
       <div class="grid-2">
         <div class="card">
@@ -1013,6 +1023,62 @@ function exportConsumptionXLSX() {
     ['Part Type','Expected Life (KM)', w3+' Avg', lm+' Avg', tm+' Avg', 'This Month Achievement %', 'Total Cost (YTD)', 'Cost/KM (YTD)'],
     getConsumptionRows());
 }
+
+let _intervalsRows = [];
+async function loadIntervals() {
+  const body = document.getElementById('intervals-body');
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/wear_tear_replacement_intervals?select=*`, {
+      headers: {'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`}
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    _intervalsRows = await r.json();
+    _intervalsRows.sort((a,b) => (b.overall_count||0) - (a.overall_count||0));
+    renderIntervals();
+    const upd = document.getElementById('intervals-updated');
+    if (upd && _intervalsRows.length) upd.textContent = 'Updated ' + fmtD(_intervalsRows[0].updated_at);
+  } catch(e) {
+    console.error('loadIntervals error:', e);
+    body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadIntervals();return false;">Retry</a></div>';
+  }
+}
+function renderIntervals() {
+  const body = document.getElementById('intervals-body');
+  if (!_intervalsRows.length) { body.innerHTML = '<div class="loading-state" style="padding:20px">No data</div>'; return; }
+  const pair = (avg,med,n) => `<td class="num">${fmt(avg)}</td><td class="num" style="color:var(--text2)">${fmt(med)}</td><td class="num" style="color:var(--muted);font-size:11px">${n||0}</td>`;
+  const rows = _intervalsRows.map(r => `<tr>
+    <td>${r.part_bucket}</td>
+    ${pair(r.first_avg_km, r.first_median_km, r.first_count)}
+    ${pair(r.second_avg_km, r.second_median_km, r.second_count)}
+    ${pair(r.overall_avg_km, r.overall_median_km, r.overall_count)}
+    ${pair(r.never_replaced_avg_km, r.never_replaced_median_km, r.never_replaced_count)}
+  </tr>`).join('');
+  body.innerHTML = `<table><thead><tr>
+    <th rowspan="2" style="vertical-align:bottom">Part Type</th>
+    <th colspan="3">1st Replacement</th><th colspan="3">2nd (Next Consecutive)</th>
+    <th colspan="3">Overall</th><th colspan="3">Never Replaced (Current KM)</th>
+  </tr><tr>
+    <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
+    <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
+    <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
+    <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
+  </tr></thead><tbody>${rows}</tbody></table>
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">"1st Replacement" uses odometer at that point (no prior record to diff against) -- one-time factory-fitted parts naturally read higher than later replacements. "2nd" and "Overall" are km between consecutive replacements. "Never Replaced" is current odometer for bikes with zero replacement records for that part -- how far they've run without needing one yet, not a replacement interval.</div>`;
+}
+function getIntervalsRows() {
+  return _intervalsRows.map(r => [r.part_bucket,
+    r.first_avg_km, r.first_median_km, r.first_count,
+    r.second_avg_km, r.second_median_km, r.second_count,
+    r.overall_avg_km, r.overall_median_km, r.overall_count,
+    r.never_replaced_avg_km, r.never_replaced_median_km, r.never_replaced_count]);
+}
+function exportIntervalsXLSX() {
+  exportXLSX('wear_tear_intervals_'+today()+'.xlsx',
+    ['Part Type','1st Avg KM','1st Median KM','1st Bikes','2nd Avg KM','2nd Median KM','2nd Bikes',
+     'Overall Avg KM','Overall Median KM','Overall Bikes','Never Replaced Avg KM','Never Replaced Median KM','Never Replaced Bikes'],
+    getIntervalsRows());
+}
+
 function exportBySubCSV()        { exportCSV('by_sub_'+today()+'.csv',     SUB_COLS,  getBySubRows()); }
 function exportBySubXLSX()       { exportXLSX('by_sub_'+today()+'.xlsx',   SUB_COLS,  getBySubRows()); }
 function exportByHubXLSX()       { exportXLSX('by_hub_'+today()+'.xlsx',   HUB_COLS,  getByHubRows()); }
@@ -1144,6 +1210,7 @@ function applyBikeClientFilters() {
     loadRepeats();
     loadBikeSummary();
     loadConsumption();
+    loadIntervals();
   } catch(e) {
     console.error('Auto-load error:', e);
   }
