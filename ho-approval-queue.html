@@ -438,8 +438,8 @@ function renderRejectionDiff(jc){
     return '<div class="reason"><b>Since last rejection ('+fmtDate(jc.previous_waiting_date)+'):</b> no item-list changes detected.</div>';
   }
   var parts=[];
-  if(added.length) parts.push('<span class="ok-life">+ '+added.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
-  if(removed.length) parts.push('<span class="bad-life">− '+removed.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
+  if(added.length) parts.push('<span class="ok-life">Added '+added.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
+  if(removed.length) parts.push('<span class="bad-life">Removed '+removed.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
   if(catChanged.length) parts.push('<span class="na-life">'+catChanged.map(function(c){return esc(c.name)+' cat '+c.from+'→'+c.to;}).join(', ')+'</span>');
   return '<div class="reason"><b>Since last rejection ('+fmtDate(jc.previous_waiting_date)+'):</b> '+parts.join(' &nbsp;·&nbsp; ')+'</div>';
 }
