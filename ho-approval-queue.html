@@ -81,7 +81,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="clearDateFilter()">All dates</button>
   <select id="cityFilter" onchange="onCityFilterChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
   <select id="hubFilter" onchange="applyFilter()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
-  <input type="text" id="filter" placeholder="Filter by bike, hub, JC or technician…" oninput="applyFilter()">
+  <input type="text" id="filter" placeholder="Filter by bike, hub, JC, technician, submission type or part…" oninput="applyFilter()">
 </div>
 <div id="results"><div class="empty">Loading…</div></div>
 </div>
@@ -342,7 +342,11 @@ function applyFilter(){
   if(cityVal) list=list.filter(function(j){return j.city===cityVal;});
   if(hubVal) list=list.filter(function(j){return j.hub===hubVal;});
   if(q){
-    list=list.filter(function(j){return ((j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')).toLowerCase().indexOf(q)>=0;});
+    list=list.filter(function(j){
+      var partNames=(j.parts||[]).map(function(p){return p.item;}).join(' ');
+      var hay=(j.reg_number||'')+' '+(j.hub||'')+' '+(j.job_card_number||'')+' '+(j.dms_jc_id||'')+' '+(j.technician||'')+' '+(j.submission_type||'')+' '+partNames;
+      return hay.toLowerCase().indexOf(q)>=0;
+    });
   }
   updateCount(list.length);
   render(list);
