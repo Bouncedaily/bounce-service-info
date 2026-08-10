@@ -157,8 +157,7 @@ async function loadCodeNames(){
     return true;
   }catch(e){ return false; }
 }
-function parseItems(jc){
-  var raw=jc.item_data;
+function parseItemDataString(raw){
   if(raw==null||raw==='') return [];
   var arr=raw;
   if(typeof raw==='string'){ try{ arr=JSON.parse(raw); }catch(e){ return []; } }
@@ -175,6 +174,7 @@ function parseItems(jc){
     };
   });
 }
+function parseItems(jc){ return parseItemDataString(jc.item_data); }
 let WARRANTY_MAP={};
 async function loadWarrantyDecisions(){
   try{
@@ -381,6 +381,8 @@ function computeVerdict(jc, items){
   var reasons=[];
   var norm=normName;
   var usedKeys={};
+  if((jc.rejection_count||0)>=2) reasons.push({sev:'bad', text:'Rejected '+jc.rejection_count+' times already \u2014 recheck before approving again'});
+  else if((jc.rejection_count||0)===1) reasons.push({sev:'warn', text:'Rejected once before this submission'});
   (jc.parts||[]).forEach(function(p){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
@@ -419,19 +421,43 @@ function renderVerdict(v){
   return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+
     '<div class="verdict-caveat">Based on qty, recent-replacement, draft-JC, standard-life and warranty-status signals only -- cost thresholds aren\'t evaluated (no cost data on this JC source). Not a substitute for judgement.</div></div>';
 }
+function renderRejectionDiff(jc){
+  if(!(jc.rejection_count>0) || !jc.previous_waiting_item_data) return '';
+  var prevItems=parseItemDataString(jc.previous_waiting_item_data);
+  var curItems=parseItemDataString(jc.item_data);
+  var keyOf=function(it){ return it.name?('n:'+it.name.toLowerCase().trim()):('c:'+it.key); };
+  var prevMap={}; prevItems.forEach(function(it){ prevMap[keyOf(it)]=it; });
+  var curMap={}; curItems.forEach(function(it){ curMap[keyOf(it)]=it; });
+  var added=[], removed=[], catChanged=[];
+  Object.keys(curMap).forEach(function(k){ if(!prevMap[k]) added.push(curMap[k]); });
+  Object.keys(prevMap).forEach(function(k){ if(!curMap[k]) removed.push(prevMap[k]); });
+  Object.keys(curMap).forEach(function(k){
+    if(prevMap[k] && prevMap[k].catg!==curMap[k].catg) catChanged.push({name:curMap[k].name||curMap[k].code, from:prevMap[k].catg, to:curMap[k].catg});
+  });
+  if(!added.length && !removed.length && !catChanged.length){
+    return '<div class="reason"><b>Since last rejection ('+fmtDate(jc.previous_waiting_date)+'):</b> no item-list changes detected.</div>';
+  }
+  var parts=[];
+  if(added.length) parts.push('<span class="ok-life">+ '+added.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
+  if(removed.length) parts.push('<span class="bad-life">− '+removed.map(function(it){return esc(it.name||it.code);}).join(', ')+'</span>');
+  if(catChanged.length) parts.push('<span class="na-life">'+catChanged.map(function(c){return esc(c.name)+' cat '+c.from+'→'+c.to;}).join(', ')+'</span>');
+  return '<div class="reason"><b>Since last rejection ('+fmtDate(jc.previous_waiting_date)+'):</b> '+parts.join(' &nbsp;·&nbsp; ')+'</div>';
+}
 function renderJC(jc){
   var s=sid(jc.job_card_number);
-  var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>';
+  var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
+    ((jc.rejection_count||0)>0?'<span class="chip red">⚠ Rejected '+jc.rejection_count+'x before this submission</span>':'');
   var items=jc.__items||[];
   var verdict=computeVerdict(jc, items);
   var verdictHtml=renderVerdict(verdict);
   var body=renderPartsTable(jc, items);
   var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
+  var rejectionDiff = renderRejectionDiff(jc);
   var photos=renderPhotos(jc);
   return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
       '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
-    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+reason+
+    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+rejectionDiff+reason+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
 async function decideWarranty(jcno, itemKey, itemLabel, decision){
