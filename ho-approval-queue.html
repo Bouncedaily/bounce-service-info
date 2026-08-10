@@ -355,7 +355,7 @@ function computeVerdict(jc, items){
 function renderVerdict(v){
   var label = v.verdict==='review' ? 'Recommend: Review before approving'
     : v.verdict==='approve-with-notes' ? 'Recommend: Approve (minor notes below)'
-    : 'Recommend: Approve — no flags';
+    : 'Recommend: Approve if video attached in DMS is convincing — no other flags';
   var cls = v.verdict==='review' ? 'verdict-review' : v.verdict==='approve-with-notes' ? 'verdict-notes' : 'verdict-ok';
   var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){return '<li class="'+(r.sev==='bad'?'bad-life':'na-life')+'">'+esc(r.text)+'</li>';}).join('')+'</ul>' : '';
   return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+
@@ -363,44 +363,18 @@ function renderVerdict(v){
 }
 function renderJC(jc){
   var s=sid(jc.job_card_number);
-  var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
-    (jc.decision==='approve'?'<span class="chip ok">✓ Approved</span>':'')+
-    (jc.decision==='reject'?'<span class="chip no">✗ Rejected</span>':'');
+  var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>';
   var items=jc.__items||[];
   var verdict=computeVerdict(jc, items);
   var verdictHtml=renderVerdict(verdict);
   var body=renderPartsTable(jc, items);
   var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
   var photos=renderPhotos(jc);
-  var state = jc.decision ? ('<div class="decstate">'+(jc.decision==='approve'?'Approved':'Rejected')+(jc.decided_by?' by '+esc(jc.decided_by):'')+(jc.decided_at?' · '+fmtDT(jc.decided_at):'')+'</div>') : '';
-  var cls=jc.decision==='approve'?' approved':(jc.decision==='reject'?' rejected':'');
-  var dec='<div class="dec">'+
-    '<textarea id="rm_'+s+'" placeholder="Remarks…">'+esc(jc.remarks||'')+'</textarea>'+
-    '<div class="dbtns">'+
-      '<button class="btn btn-ok'+(jc.decision==='approve'?' active':'')+'" onclick="decide(\''+esc(jc.job_card_number)+'\',\'approve\')">Approve</button>'+
-      '<button class="btn btn-no'+(jc.decision==='reject'?' active':'')+'" onclick="decide(\''+esc(jc.job_card_number)+'\',\'reject\')">Reject</button>'+
-    '</div>'+state+'</div>';
-  return '<div class="jc'+cls+'" id="jc_'+s+'"><div class="jc-hd"><div>'+
+  return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span></div>'+
       '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
-    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+reason+dec+
+    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+reason+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
-}
-async function decide(jcno, decision){
-  var s=sid(jcno);
-  var remarks=document.getElementById('rm_'+s).value;
-  var by=currentUser();
-  var when=new Date().toISOString();
-  var payload={job_card_number:jcno, decision:decision, remarks:remarks, decided_by:by, decided_at:when};
-  try{
-    var r=await fetch(SB+'/rest/v1/ho_approval_decision',{method:'POST',
-      headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify(payload)});
-    if(!r.ok){alert('Could not save decision.');return;}
-    var jc=ALL.find(function(x){return x.job_card_number===jcno;});
-    if(jc){jc.decision=decision;jc.remarks=remarks;jc.decided_by=by;jc.decided_at=when;}
-    applyFilter();
-  }catch(e){alert('Could not save decision.');}
 }
 async function decideWarranty(jcno, itemKey, itemLabel, decision){
   var by=currentUser();
