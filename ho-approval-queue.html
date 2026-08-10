@@ -295,7 +295,7 @@ function renderSyncedAt(){
   var d=new Date(SYNCED_AT);
   var mins=Math.round((Date.now()-d.getTime())/60000);
   var ago=mins<1?'just now':mins===1?'1 min ago':mins<60?mins+' min ago':d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
-  el.textContent='Synced '+ago+' (from DMS, via a 2-min refresh)';
+  el.textContent='Synced '+ago;
 }
 let HUBS_BY_CITY={};
 function populateCityHubFilters(){
