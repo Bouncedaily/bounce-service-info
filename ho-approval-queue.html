@@ -58,6 +58,14 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .lightbox{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:999;padding:24px;cursor:zoom-out}
 .lightbox.open{display:flex}
 .lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+.verdict{padding:12px 16px;border-bottom:1px solid var(--border)}
+.verdict-label{font-size:13px;font-weight:700}
+.verdict-ok{background:#f0fdf4}.verdict-ok .verdict-label{color:#15803d}
+.verdict-notes{background:#fffbeb}.verdict-notes .verdict-label{color:#a16207}
+.verdict-review{background:#fef2f2}.verdict-review .verdict-label{color:#b91c1c}
+.verdict-reasons{margin:6px 0 0;padding-left:18px;font-size:12px}
+.verdict-reasons li{margin-bottom:2px}
+.verdict-caveat{font-size:10.5px;color:var(--muted2);margin-top:6px;font-style:italic}
 </style></head>
 <body>
 <div class="wrap">
@@ -165,6 +173,14 @@ function lifeCheck(it){
   if(life==null) return '<span class="na-life">No standard life set</span>';
   return '<span class="na-life">Std life: '+nf(life)+' km</span>';
 }
+// Most parts flag as unusual above qty 1 (a bike normally needs one of
+// most things). These two are legitimately paired/multi-count parts, so
+// they get a higher threshold before it's worth flagging.
+var HIGHER_THRESHOLD_PARTS = ['rear suspension', 'rear winker b2b - lh/rh side'];
+function normName(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function qtyThresholdFor(name){ return HIGHER_THRESHOLD_PARTS.indexOf(normName(name)) >= 0 ? 2 : 1; }
+function isQtyFlagged(name, qty){ return qty!=null && Number(qty) > qtyThresholdFor(name); }
+
 function renderPartsTable(jc, items){
   var parts = jc.parts || [];
   // jc.parts now covers BOTH parts_to_be_changed and item_data-derived names
@@ -172,16 +188,10 @@ function renderPartsTable(jc, items){
   // replaced" lookup regardless of which source it came from. in_ptc marks
   // whether it was actually in the curated Parts to be Changed field; that's
   // now its own column instead of overloading Last Replaced with it.
-  var norm = function(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); };
-  // Most parts flag as unusual above qty 1 (a bike normally needs one of
-  // most things). These two are legitimately paired/multi-count parts, so
-  // they get a higher threshold before it's worth flagging.
-  var HIGHER_THRESHOLD_PARTS = ['rear suspension', 'rear winker b2b - lh/rh side'];
-  var qtyThresholdFor = function(name){ return HIGHER_THRESHOLD_PARTS.indexOf(norm(name)) >= 0 ? 2 : 1; };
+  var norm = normName;
   var qtyCell = function(name, qty){
     if(qty==null) return '<span class="na-life">—</span>';
-    var over = Number(qty) > qtyThresholdFor(name);
-    return '<span class="'+(over?'bad-life':'')+'">'+esc(qty)+'</span>';
+    return '<span class="'+(isQtyFlagged(name,qty)?'bad-life':'')+'">'+esc(qty)+'</span>';
   };
   var usedKeys = {};
   var rows = parts.map(function(p){
@@ -307,12 +317,58 @@ function lastReplaced(p){
   var kmpart=(p.km_since!=null && p.km_since>0)?(nf(p.km_since)+' km · '):'';
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+p.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
 }
+// Combines every rule signal already on the card into one recommendation,
+// instead of leaving HO to individually cross-check each row themselves.
+// NOTE: cost thresholds aren't wired in here -- ap_total/cost data isn't
+// currently on this JC source at all, so that rule genuinely can't be
+// evaluated yet, not an oversight. Flagged explicitly in the reasons list
+// when relevant signals are simply absent, rather than silently assumed OK.
+function computeVerdict(jc, items){
+  var reasons=[];
+  var norm=normName;
+  var usedKeys={};
+  (jc.parts||[]).forEach(function(p){
+    var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
+    if(match) usedKeys[match.key]=true;
+    if(!p.in_ptc) reasons.push({sev:'warn', text:'"'+p.item+'" not added in draft JC'});
+    if(p.days_since!=null && p.days_since<30) reasons.push({sev:'bad', text:'"'+p.item+'" was replaced only '+p.days_since+'d ago on this bike'});
+    var qty = match?match.qty:null;
+    if(isQtyFlagged(p.item, qty)) reasons.push({sev:'bad', text:'"'+p.item+'" qty ('+qty+') is unusually high'});
+    if(match && match.catg==='W'){
+      var dec=WARRANTY_MAP[jc.job_card_number+'||'+match.key];
+      if(!dec) reasons.push({sev:'bad', text:'"'+p.item+'" warranty decision still pending'});
+      else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+p.item+'" warranty was rejected'});
+    }
+  });
+  items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
+    if(isQtyFlagged(it.name, it.qty)) reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" qty ('+it.qty+') is unusually high'});
+    if(it.catg==='W'){
+      var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
+      if(!dec) reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty decision still pending'});
+      else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty was rejected'});
+    }
+  });
+  var hasBad = reasons.some(function(r){ return r.sev==='bad'; });
+  var verdict = hasBad ? 'review' : (reasons.length ? 'approve-with-notes' : 'approve');
+  return {verdict:verdict, reasons:reasons};
+}
+function renderVerdict(v){
+  var label = v.verdict==='review' ? 'Recommend: Review before approving'
+    : v.verdict==='approve-with-notes' ? 'Recommend: Approve (minor notes below)'
+    : 'Recommend: Approve — no flags';
+  var cls = v.verdict==='review' ? 'verdict-review' : v.verdict==='approve-with-notes' ? 'verdict-notes' : 'verdict-ok';
+  var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){return '<li class="'+(r.sev==='bad'?'bad-life':'na-life')+'">'+esc(r.text)+'</li>';}).join('')+'</ul>' : '';
+  return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+
+    '<div class="verdict-caveat">Based on qty, recent-replacement, draft-JC and warranty-status signals only -- cost thresholds aren\'t evaluated (no cost data on this JC source). Not a substitute for judgement.</div></div>';
+}
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
     (jc.decision==='approve'?'<span class="chip ok">✓ Approved</span>':'')+
     (jc.decision==='reject'?'<span class="chip no">✗ Rejected</span>':'');
   var items=jc.__items||[];
+  var verdict=computeVerdict(jc, items);
+  var verdictHtml=renderVerdict(verdict);
   var body=renderPartsTable(jc, items);
   var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
   var photos=renderPhotos(jc);
@@ -327,7 +383,7 @@ function renderJC(jc){
   return '<div class="jc'+cls+'" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span></div>'+
       '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
-    '</div><div class="chips">'+chips+'</div></div>'+body+photos+reason+dec+
+    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+reason+dec+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
 async function decide(jcno, decision){
