@@ -98,12 +98,27 @@ function todayISTStr(){ return new Date(Date.now()+5.5*60*60*1000).toISOString()
 function clearDateFilter(){ document.getElementById('dateFilter').value=''; applyFilter(); }
 function tatChip(d){d=Number(d)||0;var cls=d>30?'red':(d>7?'amber':'');return '<span class="chip '+cls+'">Waiting '+d+'d</span>';}
 
-// TODO: confirm/expand this list with Nithish -- standard life (km) per
-// A-category part, matched against the RESOLVED name only (see parseItems).
-const STANDARD_LIFE_KM={'tyre':15000,'tire':15000,'brake pad':12000,'chain':10000};
+// Confirmed standard life (km) per A-category part. Ordered array, not an
+// object -- order matters: 'energy ride' and 'zoom' must be checked before
+// any generic tyre fallback, since the two tyre variants have DIFFERENT
+// expected lives (25,000 vs 15,000 km) -- a blind 'tyre' substring match
+// would misapply one's threshold to the other. No generic tyre/tire
+// fallback below these two on purpose: an unbranded tyre name should show
+// "No standard life set" rather than silently guessing which variant's
+// number to use.
+const STANDARD_LIFE_KM_RULES = [
+  ['energy ride', 25000],        // Rear Tyre (Energy Ride)
+  ['zoom', 15000],               // Front Tyre (Zoom), Rear Tyre 12" (Zoom)
+  ['brake pad', 6500],           // Front/Rear Brake Pad (same value both)
+  ['brake shoe', 10000],         // FR/RR Brake Shoe (same value both)
+  ['cone set', 10000],
+  ['chain', 10000]
+];
 function standardLifeFor(name){
   var n=(name||'').toLowerCase();
-  for(var key in STANDARD_LIFE_KM){ if(n.indexOf(key)>=0) return STANDARD_LIFE_KM[key]; }
+  for(var i=0;i<STANDARD_LIFE_KM_RULES.length;i++){
+    if(n.indexOf(STANDARD_LIFE_KM_RULES[i][0])>=0) return STANDARD_LIFE_KM_RULES[i][1];
+  }
   return null;
 }
 // item_data's iItemNo is one of three shapes:
