@@ -379,7 +379,13 @@ body { overflow:auto!important; }
            and current KM for bikes that have never needed this part -->
       <div class="card" style="margin-bottom:20px">
         <div class="card-hd"><h2>Replacement Intervals</h2><span class="sub" id="intervals-updated">—</span>
-          <div style="display:flex;gap:6px;margin-left:auto">
+          <div style="display:flex;gap:8px;margin-left:auto;align-items:center">
+            <label style="font-size:11px;color:var(--muted,#64748b)">Deployed</label>
+            <select id="intervals-deployed-year" onchange="loadIntervals()" style="padding:4px 8px;border:1px solid var(--border2,#cbd5e1);border-radius:6px;font-size:12px">
+              <option value="">Any year</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+            </select>
             <button class="btn-export" onclick="exportIntervalsXLSX()"><i class="ti ti-table-export"></i> Excel</button>
           </div></div>
         <div class="tbl-wrap"><div id="intervals-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
@@ -1028,11 +1034,13 @@ let _intervalsRows = [];
 async function loadIntervals() {
   spin('intervals-body');
   const body = document.getElementById('intervals-body');
+  const deployedYear = document.getElementById('intervals-deployed-year').value;
   const params = {
     p_city:  document.getElementById('top-city').value  || null,
     p_part:  document.getElementById('top-part').value  || null,
     p_start: document.getElementById('top-start').value || null,
-    p_end:   document.getElementById('top-end').value   || null
+    p_end:   document.getElementById('top-end').value   || null,
+    p_deployed_year: deployedYear ? parseInt(deployedYear) : null
   };
   try {
     const result = await rpc('get_wear_tear_intervals', params);
@@ -1040,7 +1048,7 @@ async function loadIntervals() {
     _intervalsRows = Array.isArray(result) ? result : [];
     renderIntervals();
     const upd = document.getElementById('intervals-updated');
-    if (upd) upd.textContent = (params.p_start || params.p_end) ? `${params.p_start||'…'} to ${params.p_end||'…'}` : 'All time';
+    if (upd) upd.textContent = ((params.p_start || params.p_end) ? `${params.p_start||'…'} to ${params.p_end||'…'}` : 'All time') + (deployedYear ? ` · deployed ${deployedYear}` : '');
   } catch(e) {
     console.error('loadIntervals error:', e);
     body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadIntervals();return false;">Retry</a></div>';
