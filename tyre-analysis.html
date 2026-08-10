@@ -1063,7 +1063,7 @@ function renderIntervals() {
     <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
     <th class="num">Avg</th><th class="num">Median</th><th class="num">Bikes</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">"1st Replacement" uses odometer at that point (no prior record to diff against) -- one-time factory-fitted parts naturally read higher than later replacements. "2nd" and "Overall" are km between consecutive replacements. "Never Replaced" is current odometer for bikes with zero replacement records for that part -- how far they've run without needing one yet, not a replacement interval.</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">"1st Replacement" uses odometer at that point (no prior record to diff against) -- one-time factory-fitted parts naturally read higher than later replacements. "2nd (Next Consecutive)" = every replacement after the 1st, combined -- intentionally the same figures as "Overall" for that reason. "Never Replaced" is current odometer for bikes with zero replacement records for that part -- how far they've run without needing one yet, not a replacement interval.</div>`;
 }
 function getIntervalsRows() {
   return _intervalsRows.map(r => [r.part_bucket,
