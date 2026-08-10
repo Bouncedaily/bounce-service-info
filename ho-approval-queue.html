@@ -78,6 +78,8 @@ tr.row-flag:hover{background:#fee2e2}
   <span class="count" id="count">Loading…</span>
   <span id="syncedAt" style="font-size:11px;color:var(--muted2)"></span>
   <input type="date" id="dateFilter" onchange="applyFilter()" style="max-width:150px">
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setDateFilter('today')">Today</button>
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setDateFilter('yesterday')">Yesterday</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="clearDateFilter()">All dates</button>
   <select id="cityFilter" onchange="onCityFilterChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
   <select id="hubFilter" onchange="applyFilter()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
@@ -99,6 +101,12 @@ function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString(
 function currentUser(){try{var s=JSON.parse(localStorage.getItem('bounce_session')||'{}');var u=(s&&typeof s.user==='object'&&s.user)?s.user:s;return u.name||u.email||u.mobile||'';}catch(e){return '';}}
 function todayISTStr(){ return new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10); }
 function clearDateFilter(){ document.getElementById('dateFilter').value=''; applyFilter(); }
+function setDateFilter(which){
+  var d=new Date(Date.now()+5.5*60*60*1000); // IST
+  if(which==='yesterday') d.setDate(d.getDate()-1);
+  document.getElementById('dateFilter').value=d.toISOString().slice(0,10);
+  applyFilter();
+}
 function tatChip(d){d=Number(d)||0;var cls=d>30?'red':(d>7?'amber':'');return '<span class="chip '+cls+'">Waiting '+d+'d</span>';}
 
 // Confirmed standard life (km) per A-category part. Ordered array, not an
