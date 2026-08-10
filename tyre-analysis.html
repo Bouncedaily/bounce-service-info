@@ -995,21 +995,22 @@ function renderConsumption() {
     <td class="num" style="font-weight:600">${fmt(r.this_month_avg_km)}</td>
     <td class="num" ${achClass(r.this_month_achievement_pct)}>${r.this_month_achievement_pct==null?'—':r.this_month_achievement_pct+'%'}</td>
     <td class="num">${fmtC(r.total_cost)}</td>
+    <td class="num" style="color:var(--accent,#0891b2);font-weight:600">${r.cost_per_km==null?'—':'₹'+r.cost_per_km}</td>
   </tr>`).join('');
   body.innerHTML = `<table><thead><tr>
     <th>Part Type</th><th class="num">Expected Life (KM)</th>
     <th class="num">${w3} Avg</th><th class="num">${lm} Avg</th><th class="num">${tm} Avg</th>
-    <th class="num">This Month Achievement</th><th class="num">Total Cost (₹) — YTD</th>
+    <th class="num">This Month Achievement</th><th class="num">Total Cost (₹) — YTD</th><th class="num">Cost/KM (₹) — YTD</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Excludes replacements flagged "Bad Odo Data". Rolling window advances automatically each month, refreshed nightly. Cost/KM omitted pending confirmation of what it should divide by.</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below, so the two reconcile for the same date range. Rolling window advances automatically each month, refreshed nightly. Cost/KM = (Total Cost ÷ Replacements) ÷ Avg KM, matching the formula already used in "By Part Type"'s Cost/KM column.</div>`;
 }
 function getConsumptionRows() {
-  return _consumptionRows.map(r => [r.part_bucket, r.expected_life_km, r.window3_avg_km, r.last_month_avg_km, r.this_month_avg_km, r.this_month_achievement_pct, r.total_cost]);
+  return _consumptionRows.map(r => [r.part_bucket, r.expected_life_km, r.window3_avg_km, r.last_month_avg_km, r.this_month_avg_km, r.this_month_achievement_pct, r.total_cost, r.cost_per_km]);
 }
 function exportConsumptionXLSX() {
   const w3 = _consumptionRows[0]?.window3_label||'W3', lm = _consumptionRows[0]?.last_month_label||'LM', tm = _consumptionRows[0]?.this_month_label||'TM';
   exportXLSX('wear_tear_consumption_'+today()+'.xlsx',
-    ['Part Type','Expected Life (KM)', w3+' Avg', lm+' Avg', tm+' Avg', 'This Month Achievement %', 'Total Cost (YTD)'],
+    ['Part Type','Expected Life (KM)', w3+' Avg', lm+' Avg', tm+' Avg', 'This Month Achievement %', 'Total Cost (YTD)', 'Cost/KM (YTD)'],
     getConsumptionRows());
 }
 function exportBySubCSV()        { exportCSV('by_sub_'+today()+'.csv',     SUB_COLS,  getBySubRows()); }
