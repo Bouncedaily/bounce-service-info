@@ -237,7 +237,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
@@ -365,8 +365,8 @@ function render(list){
   if(!list||!list.length){res.innerHTML='<div class="empty">No job cards waiting for HO approval'+(dateVal?' entering that status on '+dateVal:'')+'. <a href="#" onclick="clearDateFilter();return false;">Show all dates</a></div>';return;}
   res.innerHTML=list.map(renderJC).join('');
 }
-function lastReplaced(p){
-  if(p.days_since==null) return '<span class="first">first time on this bike</span>';
+function lastReplaced(p, currOdo){
+  if(p.days_since==null) return '<span class="first">first time on this bike'+(currOdo!=null?' - '+nf(currOdo):'')+'</span>';
   var recent=p.days_since<30;
   var kmpart=(p.km_since!=null && p.km_since>0)?(nf(p.km_since)+' km · '):'';
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+p.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
