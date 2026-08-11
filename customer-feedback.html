@@ -44,6 +44,8 @@ td.wrap-c{white-space:normal;max-width:340px;color:var(--text2)}
 .delta-up{color:var(--green);font-weight:700}
 .delta-down{color:var(--red);font-weight:700}
 .delta-flat{color:var(--muted2)}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
 </style></head>
 <body>
 <div class="wrap">
@@ -240,18 +242,43 @@ async function loadComparison(){
     renderComparison(d.rows);
   }catch(e){el.innerHTML='<div class="empty">Could not load.</div>';}
 }
+let CMP_ROWS=[];
+let CMP_SORT_KEY='this_avg';
+let CMP_SORT_DIR='asc'; // worst rating first by default
+function sortCmpBy(key){
+  if(CMP_SORT_KEY===key){ CMP_SORT_DIR = CMP_SORT_DIR==='asc'?'desc':'asc'; }
+  else { CMP_SORT_KEY=key; CMP_SORT_DIR = key==='hub' ? 'asc' : 'asc'; }
+  renderComparison(CMP_ROWS);
+}
+function cmpArrow(key){
+  if(CMP_SORT_KEY!==key) return '';
+  return ' '+(CMP_SORT_DIR==='asc'?'▲':'▼');
+}
 function renderComparison(rows){
   var el=document.getElementById('comparison');
-  if(!rows||!rows.length){el.innerHTML='<div class="empty">No feedback for these filters</div>';return;}
+  CMP_ROWS=rows||CMP_ROWS;
+  if(!rows||!rows.length){ if(!CMP_ROWS.length){el.innerHTML='<div class="empty">No feedback for these filters</div>';return;} }
   var byCity={};
-  rows.forEach(function(r){ (byCity[r.city]=byCity[r.city]||[]).push(r); });
+  CMP_ROWS.forEach(function(r){ (byCity[r.city]=byCity[r.city]||[]).push(r); });
   var html='';
   Object.keys(byCity).sort().forEach(function(city){
     html+='<div class="cityhd"><strong style="font-size:12.5px">'+esc(city)+'</strong></div>';
-    html+='<table><thead><tr><th>'+esc(city)+' Hub</th>'+
-      '<th class="num">This Month Count</th><th class="num">This Month Avg</th>'+
-      '<th class="num">Last Month Count</th><th class="num">Last Month Avg</th><th class="num">Δ Rating</th></tr></thead><tbody>';
-    byCity[city].forEach(function(h){
+    html+='<table><thead><tr>'+
+      '<th class="sortable" onclick="sortCmpBy(\'hub\')">'+esc(city)+' Hub'+cmpArrow('hub')+'</th>'+
+      '<th class="num sortable" onclick="sortCmpBy(\'this_c\')">This Month Count'+cmpArrow('this_c')+'</th>'+
+      '<th class="num sortable" onclick="sortCmpBy(\'this_avg\')">This Month Avg'+cmpArrow('this_avg')+'</th>'+
+      '<th class="num sortable" onclick="sortCmpBy(\'last_c\')">Last Month Count'+cmpArrow('last_c')+'</th>'+
+      '<th class="num sortable" onclick="sortCmpBy(\'last_avg\')">Last Month Avg'+cmpArrow('last_avg')+'</th>'+
+      '<th class="num sortable" onclick="sortCmpBy(\'delta\')">Δ Rating'+cmpArrow('delta')+'</th>'+
+      '</tr></thead><tbody>';
+    var list=byCity[city].slice().sort(function(a,b){
+      var av=a[CMP_SORT_KEY], bv=b[CMP_SORT_KEY];
+      if(CMP_SORT_KEY==='hub'){ av=(av||'').toLowerCase(); bv=(bv||'').toLowerCase(); }
+      else { av = av==null ? -Infinity : Number(av); bv = bv==null ? -Infinity : Number(bv); }
+      var dir = CMP_SORT_DIR==='asc' ? 1 : -1;
+      if(av<bv) return -1*dir; if(av>bv) return 1*dir; return 0;
+    });
+    list.forEach(function(h){
       var tAvg=h.this_avg!=null?Number(h.this_avg).toFixed(2):'—';
       var lAvg=h.last_avg!=null?Number(h.last_avg).toFixed(2):'—';
       html+='<tr><td>'+esc(h.hub)+'</td><td class="num">'+(h.this_c??'—')+'</td><td class="num">'+tAvg+'</td>'+
