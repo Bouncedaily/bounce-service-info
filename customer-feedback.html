@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1200px;margin:0 auto}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.card-hd{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.card-hd h2{margin:0;font-size:13px;font-weight:700}
+.card-hd .sub{color:var(--muted);font-size:11.5px}
+.filters{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.fg input,.fg select{padding:7px 10px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;background:#fff}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--red)}
+.apply{background:var(--red);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;height:34px}
+.quick{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;height:34px}
+.quick button{padding:0 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:var(--text)}
+.quick button:last-child{border-right:none}
+.quick button.on{background:var(--red);color:#fff;font-weight:600}
+.ms{position:relative}
+.ms-btn{min-width:150px;text-align:left;padding:7px 26px 7px 10px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right 10px center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+.ms-btn:focus{outline:none;border-color:var(--red)}
+.ms-panel{position:absolute;z-index:20;top:38px;left:0;min-width:200px;max-height:260px;overflow-y:auto;background:#fff;border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px}
+.ms-panel label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.ms-panel label:hover{background:#f1f5f9}
+.ms-panel label.all{border-bottom:1px solid var(--border);border-radius:0;margin-bottom:4px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+td.num,th.num{text-align:right}
+td.wrap-c{white-space:normal;max-width:340px;color:var(--text2)}
+.cityhd{padding:8px 14px;background:#f8fafc;border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.rpill{display:inline-block;min-width:34px;text-align:center;padding:1px 7px;border-radius:6px;font-weight:700;font-size:11.5px}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--red);border-radius:50%;animation:s .7s linear infinite;vertical-align:middle}
+@keyframes s{to{transform:rotate(360deg)}}
+.rawtop{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);font-size:11.5px;color:var(--muted)}
+.delta-up{color:var(--green);font-weight:700}
+.delta-down{color:var(--red);font-weight:700}
+.delta-flat{color:var(--muted2)}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Customer Feedback</h1>
+<div class="psub">Rider ratings by city and hub, with the underlying raw feedback. Choose a date range and filter by city, hub or submission type.</div>
+
+<div class="filters">
+  <div class="fg"><label>From</label><input type="date" id="f-from"></div>
+  <div class="fg"><label>To</label><input type="date" id="f-to"></div>
+  <div class="fg"><label>Quick range</label>
+    <div class="quick">
+      <button data-r="today" onclick="quick('today')">Today</button>
+      <button data-r="7" class="on" onclick="quick('7')">7d</button>
+      <button data-r="30" onclick="quick('30')">30d</button>
+    </div>
+  </div>
+  <div class="fg"><label>City</label>
+    <div class="ms"><button type="button" class="ms-btn" id="btn-city" onclick="toggleMs('city',event)">All cities</button>
+      <div class="ms-panel" id="panel-city" style="display:none"></div></div>
+  </div>
+  <div class="fg"><label>Hub</label>
+    <div class="ms"><button type="button" class="ms-btn" id="btn-hub" onclick="toggleMs('hub',event)">All hubs</button>
+      <div class="ms-panel" id="panel-hub" style="display:none"></div></div>
+  </div>
+  <div class="fg"><label>Submission Type</label><select id="f-type" onchange="load();loadComparison()"><option value="">All types</option></select></div>
+  <button class="apply" onclick="load()">Apply</button>
+</div>
+
+<div class="card">
+  <div class="card-hd"><h2>Summary</h2><span class="sub" id="sum-sub">by city &amp; hub</span></div>
+  <div id="summary"><div class="empty"><span class="spin"></span></div></div>
+</div>
+
+<div class="card">
+  <div class="card-hd"><h2>Compare This Month vs Last Month</h2><span class="sub" id="cmp-sub">—</span>
+    <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="cmp-align" checked onchange="loadComparison()"> Compare same elapsed days
+    </label>
+  </div>
+  <div id="comparison"><div class="empty"><span class="spin"></span></div></div>
+</div>
+
+<div class="card">
+  <div class="rawtop"><span><strong style="color:var(--text)">Raw feedback</strong></span><span id="raw-count"></span></div>
+  <div id="raw"><div class="empty"><span class="spin"></span></div></div>
+</div>
+</div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+let HUBS=[];               // [{city,hub}]
+let CITIES=[];             // [city]
+const SEL={city:[],hub:[]};// empty = all
+let DIMS_DONE=false;
+const TYPE={intrip_repair:'In-trip Repair',bike_exchange:'Bike Exchange'};
+function ist(){return new Date(Date.now()+5.5*3600*1000);}
+function iso(d){return d.toISOString().slice(0,10);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function quick(r){
+  document.querySelectorAll('.quick button').forEach(b=>b.classList.toggle('on',b.dataset.r===r));
+  var to=ist(), from=new Date(to);
+  if(r==='today'){} else if(r==='7'){from.setDate(from.getDate()-6);} else if(r==='30'){from.setDate(from.getDate()-29);}
+  document.getElementById('f-from').value=iso(from);
+  document.getElementById('f-to').value=iso(to);
+  load();
+}
+function clearQuick(){document.querySelectorAll('.quick button').forEach(b=>b.classList.remove('on'));}
+document.getElementById('f-from').addEventListener('change',function(){clearQuick();load();});
+document.getElementById('f-to').addEventListener('change',function(){clearQuick();load();});
+
+/* ---- multiselect ---- */
+function toggleMs(key,ev){
+  ev.stopPropagation();
+  var p=document.getElementById('panel-'+key);
+  var other=document.getElementById('panel-'+(key==='city'?'hub':'city'));
+  if(other)other.style.display='none';
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
+document.addEventListener('click',function(){document.getElementById('panel-city').style.display='none';document.getElementById('panel-hub').style.display='none';});
+function hubOptions(){ var cs=SEL.city; var list=HUBS.filter(h=>!cs.length||cs.indexOf(h.city)>=0).map(h=>h.hub); return [...new Set(list)].sort(); }
+function buildPanel(key){
+  var panel=document.getElementById('panel-'+key);
+  var opts = key==='city' ? CITIES : hubOptions();
+  var allChecked = SEL[key].length===0;
+  var html='<label class="all"><input type="checkbox" '+(allChecked?'checked':'')+' onchange="msAll(\''+key+'\',this)"> All '+(key==='city'?'cities':'hubs')+'</label>';
+  html+=opts.map(function(o){return '<label><input type="checkbox" value="'+esc(o)+'" '+(SEL[key].indexOf(o)>=0?'checked':'')+' onchange="msPick(\''+key+'\')"> '+esc(o)+'</label>';}).join('');
+  panel.innerHTML=html;
+}
+function msAll(key,cb){
+  if(cb.checked){ SEL[key]=[]; }
+  buildPanel(key); msLabel(key);
+  if(key==='city'){ SEL.hub=[]; buildPanel('hub'); msLabel('hub'); }
+  load(); loadComparison();
+}
+function msPick(key){
+  var panel=document.getElementById('panel-'+key);
+  SEL[key]=[...panel.querySelectorAll('input[type=checkbox]:not(.all input)')].filter(x=>x.value&&x.checked).map(x=>x.value);
+  buildPanel(key); msLabel(key);
+  if(key==='city'){ // prune hub selection to valid, rebuild hub list
+    var valid=hubOptions(); SEL.hub=SEL.hub.filter(h=>valid.indexOf(h)>=0);
+    buildPanel('hub'); msLabel('hub');
+  }
+  load(); loadComparison();
+}
+function msLabel(key){
+  var btn=document.getElementById('btn-'+key);
+  var arr=SEL[key];
+  if(!arr.length){ btn.textContent = key==='city'?'All cities':'All hubs'; }
+  else if(arr.length===1){ btn.textContent=arr[0]; }
+  else { btn.textContent=arr.length+' '+(key==='city'?'cities':'hubs')+' selected'; }
+}
+
+function ratingStatus(avg,neg){
+  if(avg==null) return ['var(--muted2)','—'];
+  if(avg<4.0) return ['var(--red)','Needs attention'];
+  if(avg>=4.3&&neg<=15) return ['var(--green)','Healthy'];
+  return ['var(--amber)','Watch'];
+}
+function rColor(r){return r>=4?'var(--green)':(r<=2?'var(--red)':'var(--amber)');}
+function rBg(r){return r>=4?'#dcfce7':(r<=2?'#fee2e2':'#fef3c7');}
+async function load(){
+  var from=document.getElementById('f-from').value, to=document.getElementById('f-to').value;
+  var type=document.getElementById('f-type').value||null;
+  if(!from||!to) return;
+  document.getElementById('summary').innerHTML='<div class="empty"><span class="spin"></span></div>';
+  document.getElementById('raw').innerHTML='<div class="empty"><span class="spin"></span></div>';
+  var cLbl=SEL.city.length?SEL.city.join(', '):''; var hLbl=SEL.hub.length?SEL.hub.join(', '):'';
+  document.getElementById('sum-sub').textContent=from+' → '+to+(cLbl?' · '+cLbl:'')+(hLbl?' · '+hLbl:'')+(type?' · '+(TYPE[type]||type):'');
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_feedback',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_from:from,p_to:to,p_cities:SEL.city.length?SEL.city:null,p_hubs:SEL.hub.length?SEL.hub:null,p_type:type})});
+    if(!r.ok){fail();return;}
+    var d=await r.json();
+    if(!DIMS_DONE && d.cities){ fillDims(d); }
+    renderSummary(d.summary); renderRaw(d.raw,d.total);
+  }catch(e){fail();}
+}
+function fail(){document.getElementById('summary').innerHTML='<div class="empty">Could not load.</div>';document.getElementById('raw').innerHTML='';}
+function fillDims(d){
+  CITIES=d.cities||[]; HUBS=d.hubs||[];
+  var typeSel=document.getElementById('f-type');
+  typeSel.innerHTML='<option value="">All types</option>'+(d.types||[]).map(t=>'<option value="'+esc(t)+'">'+esc(TYPE[t]||t)+'</option>').join('');
+  buildPanel('city'); msLabel('city'); buildPanel('hub'); msLabel('hub');
+  DIMS_DONE=true;
+}
+function renderSummary(cities){
+  var el=document.getElementById('summary');
+  if(!cities||!cities.length){el.innerHTML='<div class="empty">No feedback for these filters</div>';return;}
+  var html='';
+  cities.forEach(function(ct){
+    var cs=ratingStatus(ct.avg_rating,ct.neg_pct);
+    var cavg=ct.avg_rating!=null?Number(ct.avg_rating).toFixed(2):'—';
+    html+='<div class="cityhd"><strong style="font-size:12.5px">'+esc(ct.city)+'</strong>'+
+      '<span style="color:var(--muted);font-size:11.5px">'+ct.c+' feedback · avg '+cavg+' · '+ct.pos_pct+'% positive · '+ct.neg_pct+'% negative</span>'+
+      '<span style="margin-left:auto" title="'+cs[1]+'"><span class="dot" style="background:'+cs[0]+'"></span></span></div>';
+    html+='<table><thead><tr><th>'+esc(ct.city)+' Hub</th><th class="num">Feedback Count</th><th class="num">Avg Rating</th><th class="num">Positive % (4–5★)</th><th class="num">Negative % (1–2★)</th><th class="num">Status</th></tr></thead><tbody>';
+    (ct.hubs||[]).forEach(function(h){
+      var st=ratingStatus(h.avg_rating,h.neg_pct);
+      var havg=h.avg_rating!=null?Number(h.avg_rating).toFixed(2):'—';
+      html+='<tr><td>'+esc(h.hub)+'</td><td class="num">'+h.c+'</td><td class="num">'+havg+'</td><td class="num">'+h.pos_pct+'%</td><td class="num">'+h.neg_pct+'%</td><td class="num" title="'+st[1]+'"><span class="dot" style="background:'+st[0]+'"></span></td></tr>';
+    });
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+function renderRaw(raw,total){
+  var el=document.getElementById('raw');
+  document.getElementById('raw-count').textContent=(total||0)+' feedback'+(total>3000?' (showing latest 3000)':'');
+  if(!raw||!raw.length){el.innerHTML='<div class="empty">No feedback for these filters</div>';return;}
+  var rows=raw.map(function(r){
+    return '<tr><td>'+esc(r.city)+'</td><td>'+esc(r.hub)+'</td><td>'+esc(TYPE[r.submission_type]||r.submission_type||'')+'</td>'+
+      '<td class="num"><span class="rpill" style="background:'+rBg(r.rating)+';color:'+rColor(r.rating)+'">'+r.rating+'</span></td>'+
+      '<td class="wrap-c">'+esc(r.comment||'')+'</td><td>'+esc(r.submitted_at)+'</td></tr>';
+  }).join('');
+  el.innerHTML='<table><thead><tr><th>City</th><th>Hub</th><th>Submission Type</th><th class="num">Rating</th><th>Comment</th><th>Submitted</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function deltaCell(d){
+  if(d==null) return '<span class="delta-flat">—</span>';
+  var arrow = d>0?'▲':(d<0?'▼':'—');
+  var cls = d>0?'delta-up':(d<0?'delta-down':'delta-flat');
+  return '<span class="'+cls+'">'+arrow+' '+(d>0?'+':'')+d.toFixed(2)+'</span>';
+}
+async function loadComparison(){
+  var el=document.getElementById('comparison');
+  el.innerHTML='<div class="empty"><span class="spin"></span></div>';
+  var align=document.getElementById('cmp-align').checked;
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_feedback_month_comparison',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_cities:SEL.city.length?SEL.city:null,p_hubs:SEL.hub.length?SEL.hub:null,p_type:document.getElementById('f-type').value||null,p_align_days:align})});
+    if(!r.ok){el.innerHTML='<div class="empty">Could not load.</div>';return;}
+    var d=await r.json();
+    document.getElementById('cmp-sub').textContent=d.this_month_label+' vs '+d.last_month_label+(align?' (same elapsed days)':' (full last month)');
+    renderComparison(d.rows);
+  }catch(e){el.innerHTML='<div class="empty">Could not load.</div>';}
+}
+function renderComparison(rows){
+  var el=document.getElementById('comparison');
+  if(!rows||!rows.length){el.innerHTML='<div class="empty">No feedback for these filters</div>';return;}
+  var byCity={};
+  rows.forEach(function(r){ (byCity[r.city]=byCity[r.city]||[]).push(r); });
+  var html='';
+  Object.keys(byCity).sort().forEach(function(city){
+    html+='<div class="cityhd"><strong style="font-size:12.5px">'+esc(city)+'</strong></div>';
+    html+='<table><thead><tr><th>'+esc(city)+' Hub</th>'+
+      '<th class="num">This Month Count</th><th class="num">This Month Avg</th>'+
+      '<th class="num">Last Month Count</th><th class="num">Last Month Avg</th><th class="num">Δ Rating</th></tr></thead><tbody>';
+    byCity[city].forEach(function(h){
+      var tAvg=h.this_avg!=null?Number(h.this_avg).toFixed(2):'—';
+      var lAvg=h.last_avg!=null?Number(h.last_avg).toFixed(2):'—';
+      html+='<tr><td>'+esc(h.hub)+'</td><td class="num">'+(h.this_c??'—')+'</td><td class="num">'+tAvg+'</td>'+
+        '<td class="num">'+(h.last_c??'—')+'</td><td class="num">'+lAvg+'</td><td class="num">'+deltaCell(h.delta)+'</td></tr>';
+    });
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+quick('7');
+loadComparison();
+</script>
+</body></html>
