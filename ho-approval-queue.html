@@ -106,7 +106,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return
 function sid(s){return String(s).replace(/[^a-z0-9]/gi,'_');}
 function fmtDate(t){if(!t)return '—';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit',timeZone:'Asia/Kolkata'});}
 function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'Asia/Kolkata'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});}
-function currentUser(){try{var s=JSON.parse(localStorage.getItem('bounce_session')||'{}');var u=(s&&typeof s.user==='object'&&s.user)?s.user:s;return u.name||u.email||u.mobile||'';}catch(e){return '';}}
+function currentUser(){try{var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}');return s.email||'';}catch(e){return '';}}
 function todayISTStr(){ return new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10); }
 function clearDateFilter(){ document.getElementById('dateFilter').value=''; applyFilter(); }
 function setDateFilter(which){
