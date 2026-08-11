@@ -456,7 +456,7 @@ function renderJC(jc){
   var photos=renderPhotos(jc);
   return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
-      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Status changed '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
+      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Status changed '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+' · Deployed '+fmtDate(jc.deployed_date)+'</div>'+
     '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+rejectionDiff+reason+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
