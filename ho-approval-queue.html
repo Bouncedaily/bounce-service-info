@@ -77,10 +77,40 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .verdict-caveat{font-size:10.5px;color:var(--muted2);margin-top:6px;font-style:italic}
 tr.row-flag{background:#fef2f2}
 tr.row-flag:hover{background:#fee2e2}
+.hqtabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.hqtab-btn{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.hqtab-btn.active{color:var(--red);border-bottom-color:var(--red)}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-tile .kpi-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.kpi-tile .kpi-val{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.perf-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.perf-card h2{font-size:14px;margin:0 0 12px;font-weight:700}
+.perf-legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.perf-legend span{display:inline-flex;align-items:center;gap:6px}
+.perf-legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+.perf-legend .ln{width:16px;height:2px;display:inline-block}
+.perf-svg{width:100%;height:auto;display:block}
+.perf-svg text{fill:var(--muted)}
+.perf-svg .vl{fill:var(--text);font-size:10px;font-weight:600}
+.perf-tbl th{cursor:pointer;user-select:none;white-space:nowrap}
+.perf-tbl th .arr{font-size:10px;color:var(--muted2);margin-left:3px}
+.perf-tbl th.act{color:var(--text)}.perf-tbl th.act .arr{color:var(--red)}
+.perf-bar{height:9px;border-radius:3px;display:inline-block;vertical-align:middle}
+.perf-note{color:var(--muted);font-size:12px;margin-top:8px}
+.perf-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+@media (max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 </style></head>
 <body>
 <div class="wrap">
 <h1>HO Approval Queue</h1>
+<div class="hqtabs">
+  <button id="hqtab-queue-btn" class="hqtab-btn active" onclick="hqTab('queue')">Queue</button>
+  <button id="hqtab-perf-btn" class="hqtab-btn" onclick="hqTab('perf')">HO Approval Performance</button>
+</div>
+
+<div id="hqtab-queue">
 <div class="psub">Job cards currently <strong>Open – Waiting for HO Approval</strong>, most-aged first. Record the HO decision and remarks here; the action in DMS still needs to be done separately.</div>
 <div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
 <div class="bar">
@@ -95,6 +125,84 @@ tr.row-flag:hover{background:#fee2e2}
   <input type="text" id="filter" placeholder="Filter by bike, hub, JC, technician, submission type or part…" oninput="applyFilter()">
 </div>
 <div id="results"><div class="empty">Loading…</div></div>
+</div>
+
+<div id="hqtab-perf" style="display:none">
+<div class="psub">How fast HO is approving, whether SLA is being met, how much rework is happening, and which hubs need attention.</div>
+
+<div class="perf-filters">
+  <span style="font-size:12px;color:var(--muted);font-weight:600">Dates</span>
+  <input type="date" id="pf-from" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+  <span style="color:var(--muted)">to</span>
+  <input type="date" id="pf-to" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(0,this)">This wk</button>
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(1,this)">Last wk</button>
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(2,this)">2 wks</button>
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(4,this)">30d</button>
+  <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">Hub</span>
+  <select id="pf-hub" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+  <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">Type</span>
+  <select id="pf-type" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+    <option value="all">All</option><option value="intrip">Intrip</option><option value="endtrip">Endtrip</option>
+  </select>
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfReset()">Reset</button>
+</div>
+
+<div id="pf-sub" style="font-size:12px;color:var(--muted);margin:-4px 0 14px"></div>
+
+<div class="kpi-grid" id="pf-kpis"></div>
+
+<div class="perf-card">
+  <h2>Daily TAT Trend</h2>
+  <div class="perf-legend">
+    <span><i class="ln" style="background:var(--blue)"></i>Avg</span>
+    <span><i class="ln" style="background:var(--green)"></i>Median</span>
+    <span><i class="ln" style="background:var(--red)"></i>P90</span>
+    <span><i class="ln" style="background:var(--amber);border-top:2px dashed var(--amber);background:none;height:0"></i>30-min SLA</span>
+  </div>
+  <svg id="pf-daily" class="perf-svg" viewBox="0 0 940 300"></svg>
+</div>
+
+<div class="perf-card">
+  <h2>Hourly TAT <span style="font-weight:400;font-size:12px;color:var(--muted)">— bar = avg TAT, dot = request volume</span></h2>
+  <div class="perf-legend">
+    <span><i class="sw" style="background:var(--green)"></i>Avg TAT ≤30 min</span>
+    <span><i class="sw" style="background:var(--red)"></i>Avg TAT &gt;30 min</span>
+    <span><i class="sw" style="background:var(--muted2);border-radius:50%;width:8px;height:8px"></i>Request volume</span>
+  </div>
+  <svg id="pf-hourly" class="perf-svg" viewBox="0 0 940 320"></svg>
+</div>
+
+<div class="perf-card">
+  <h2>Approval Cycles <span style="font-weight:400;font-size:12px;color:var(--muted)">— how many attempts each JC ultimately needed</span></h2>
+  <div style="overflow-x:auto"><table class="perf-tbl" id="pf-cycles"><thead><tr>
+    <th>Hub</th><th>1st try</th><th>2nd</th><th>3rd</th><th>4th</th><th>5+</th><th>Total JCs</th><th>First-Pass %</th>
+  </tr></thead><tbody></tbody></table></div>
+  <div class="perf-note">First-Pass % = JCs approved in 1 attempt ÷ total JCs (higher = less rework). <span style="color:var(--green)">green ≥85%</span> · <span style="color:var(--amber)">75–85%</span> · <span style="color:var(--red)">&lt;75%</span>.</div>
+</div>
+
+<div class="perf-card">
+  <h2>Hub Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+  <div style="overflow-x:auto"><table class="perf-tbl" id="pf-hubs"><thead><tr>
+    <th data-k="hub">Hub<span class="arr"></span></th>
+    <th data-k="n">Requests<span class="arr"></span></th>
+    <th data-k="avg">Avg TAT<span class="arr"></span></th>
+    <th data-k="p90">P90<span class="arr"></span></th>
+    <th data-k="sla">SLA %<span class="arr"></span></th>
+    <th data-k="rej">Reject %<span class="arr"></span></th>
+    <th data-k="fp">First Pass %<span class="arr"></span></th>
+  </tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="perf-card">
+  <h2>Top 10% Slowest Requests <span style="font-weight:400;font-size:12px;color:var(--muted)">— the tail driving SLA misses</span></h2>
+  <div class="perf-note" id="pf-top10-note" style="margin:0 0 10px"></div>
+  <div style="overflow-x:auto"><table class="perf-tbl" id="pf-top10"><thead><tr>
+    <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Hour</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
+  </tr></thead><tbody></tbody></table></div>
+</div>
+
+</div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -517,5 +625,223 @@ async function decideWarranty(jcno, itemKey, itemLabel, decision){
 }
 load();
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
+
+// ══════════════════ HO Approval Performance tab ══════════════════
+let PF_INIT=false;
+function hqTab(t){
+  document.getElementById('hqtab-queue').style.display=(t==='queue')?'':'none';
+  document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
+  document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
+  document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
+  if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
+}
+
+const PF_WINDOW_DAYS=30;
+let PFD={hubs:[],rows:[],hubCity:{},dmin:'',dmax:''};
+let pfFrom='', pfTo='', pfSort='avg', pfSortDir=-1;
+
+function pfCss(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim();}
+function pfHl(h){return (h%12===0?12:h%12)+(h<12?'a':'p');}
+function pfLogY(v,ih,hi){const lo=1;v=Math.max(v||lo,lo);return ih-(Math.log10(v)-Math.log10(lo))/(Math.log10(hi)-Math.log10(lo))*ih;}
+function pfNiceHi(m){m=Math.max(m||0,1)*1.15;for(const c of [3,6,10,20,30,60,100,200,300,600,1000,2000,5000])if(c>=m)return c;return 10000;}
+function pfQuantile(arr,q){if(!arr.length)return null;const a=[...arr].sort((x,y)=>x-y);const p=(a.length-1)*q,b=Math.floor(p),r=p-b;return a[b+1]!==undefined?a[b]+r*(a[b+1]-a[b]):a[b];}
+const pfMean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
+function pfFmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function pfMonday(s){const d=new Date(s+'T00:00:00');const off=(d.getDay()+6)%7;d.setDate(d.getDate()-off);return d;}
+
+async function perfBoot(){
+  const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
+  const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id';
+  const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
+  let all=[],off=0;const PAGE=1000;
+  for(;;){
+    const res=await fetch(base+'&limit='+PAGE+'&offset='+off,{headers:HDR});
+    if(!res.ok){console.error('perf load failed',res.status);break;}
+    const data=await res.json();
+    all=all.concat(data); if(data.length<PAGE)break; off+=PAGE;
+  }
+  const hubs=[...new Set(all.map(r=>r.requested_hub).filter(Boolean))].sort();
+  const ix=Object.fromEntries(hubs.map((h,i)=>[h,i]));
+  const hubCity={};
+  all.forEach(r=>{ if(r.requested_hub!=null) hubCity[ix[r.requested_hub]]=r.city||'Other'; });
+  const rows=all.map(r=>[ix[r.requested_hub],r.request_date,r.request_hour,r.tat_minutes,r.outcome_code,r.approval_cycle,r.intrip?1:0,r.tat_work_minutes,r.dms_jc_id]);
+  const ds=rows.map(r=>r[1]).sort();
+  PFD={hubs,rows,hubCity,dmin:ds[0]||since,dmax:ds[ds.length-1]||since};
+
+  const hubSel=document.getElementById('pf-hub');
+  hubs.forEach(h=>{ const o=document.createElement('option'); o.value=h; o.textContent=h; hubSel.appendChild(o); });
+
+  const s=new Date(PFD.dmax+'T00:00:00'); s.setDate(s.getDate()-(PF_WINDOW_DAYS-1));
+  pfFrom=pfFmtD(s); if(pfFrom<PFD.dmin) pfFrom=PFD.dmin; pfTo=PFD.dmax;
+  document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-from').min=PFD.dmin; document.getElementById('pf-from').max=PFD.dmax;
+  document.getElementById('pf-to').value=pfTo; document.getElementById('pf-to').min=PFD.dmin; document.getElementById('pf-to').max=PFD.dmax;
+  perfDraw();
+}
+
+function perfPreset(w,btn){
+  const mon=pfMonday(PFD.dmax); mon.setDate(mon.getDate()-7*w);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  let f=pfFmtD(mon), t=(w===0)?PFD.dmax:pfFmtD(sun);
+  if(f<PFD.dmin) f=PFD.dmin; if(t>PFD.dmax) t=PFD.dmax;
+  pfFrom=f; pfTo=t; document.getElementById('pf-from').value=f; document.getElementById('pf-to').value=t; perfDraw();
+}
+function perfReset(){
+  pfFrom=PFD.dmin; pfTo=PFD.dmax;
+  document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-to').value=pfTo;
+  document.getElementById('pf-hub').value=''; document.getElementById('pf-type').value='all';
+  perfDraw();
+}
+
+
+function pfTAT(r){ return r[3]; } // raw clock-time TAT in minutes
+function pfFilt(){
+  const hub=document.getElementById('pf-hub').value, typ=document.getElementById('pf-type').value;
+  return PFD.rows.filter(r=> r[1]>=pfFrom && r[1]<=pfTo
+    && (!hub || PFD.hubs[r[0]]===hub)
+    && (typ==='all' || r[6]===(typ==='intrip'?1:0)) );
+}
+
+function perfDraw(){
+  pfFrom=document.getElementById('pf-from').value||pfFrom; pfTo=document.getElementById('pf-to').value||pfTo;
+  const rows=pfFilt();
+  const resp=rows.filter(r=>pfTAT(r)!=null);
+  const tats=resp.map(pfTAT);
+  const rej=rows.filter(r=>r[4]===1).length, tot=rows.length;
+  const slaOk=resp.filter(r=>pfTAT(r)<=30).length;
+  const slaPct=resp.length?(slaOk/resp.length*100):null;
+
+  // first-pass %: bucket each JC by how many attempts it ultimately needed
+  const cyc={};
+  rows.forEach(r=>{ cyc[r[5]]=(cyc[r[5]]||0)+1; });
+  const g=k=>cyc[k]||0;
+  const totalJCs=g(1), jc1=g(1)-g(2);
+  const firstPassPct=totalJCs?(jc1/totalJCs*100):null;
+
+  const hubLbl=document.getElementById('pf-hub').value||'All hubs';
+  const typLbl=document.getElementById('pf-type').value==='all'?'All':(document.getElementById('pf-type').value==='intrip'?'Intrip':'Endtrip');
+  document.getElementById('pf-sub').textContent=`${pfFrom} → ${pfTo} · ${hubLbl} · ${typLbl} · ${tot} requests · ${resp.length} responded (IST)`;
+
+  const kpis=[
+    ['Total Requests', tot.toLocaleString('en-IN')],
+    ['SLA %', slaPct==null?'—':slaPct.toFixed(1)+'%', slaPct==null?null:(slaPct>=85?'good':slaPct>=70?'warn':'bad')],
+    ['Avg TAT', tats.length?pfMean(tats).toFixed(1)+'m':'—'],
+    ['P90 TAT', tats.length?pfQuantile(tats,.9).toFixed(1)+'m':'—'],
+    ['Reject %', tot?(rej/tot*100).toFixed(1)+'%':'—'],
+    ['First-Pass %', firstPassPct==null?'—':firstPassPct.toFixed(1)+'%', firstPassPct==null?null:(firstPassPct>=85?'good':firstPassPct>=75?'warn':'bad')],
+  ];
+  document.getElementById('pf-kpis').innerHTML=kpis.map(k=>{
+    const col=k[2]==='good'?pfCss('--green'):k[2]==='warn'?pfCss('--amber'):k[2]==='bad'?pfCss('--red'):pfCss('--text');
+    return `<div class="kpi-tile"><div class="kpi-label">${k[0]}</div><div class="kpi-val" style="color:${col}">${k[1]}</div></div>`;
+  }).join('');
+
+  pfDrawDaily(resp); pfDrawHourly(resp); pfDrawCycles(rows); pfDrawHubs(rows); pfDrawTop10(resp);
+}
+
+function pfDrawDaily(resp){
+  const svg=document.getElementById('pf-daily'),W=940,H=300,L=42,R=14,T=14,B=30,iw=W-L-R,ih=H-T-B;
+  const by={}; resp.forEach(r=>{ (by[r[1]]=by[r[1]]||[]).push(pfTAT(r)); });
+  const days=Object.keys(by).sort();
+  if(!days.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
+  const d=days.map(k=>({d:k,avg:pfMean(by[k]),med:pfQuantile(by[k],.5),p90:pfQuantile(by[k],.9)}));
+  const hi=pfNiceHi(Math.max(...d.map(x=>x.p90)));
+  const x=i=>days.length>1?i/(days.length-1)*iw:iw/2;
+  let s=`<g transform="translate(${L},${T})">`;
+  [1,10,100,1000].forEach(g=>{ if(g>hi)return; const y=pfLogY(g,ih,hi); s+=`<line x1="0" y1="${y}" x2="${iw}" y2="${y}" stroke="${pfCss('--border')}"/><text x="-8" y="${y+3}" text-anchor="end" font-size="10">${g}</text>`; });
+  if(hi>=30){ const yr=pfLogY(30,ih,hi); s+=`<line x1="0" y1="${yr}" x2="${iw}" y2="${yr}" stroke="${pfCss('--amber')}" stroke-dasharray="4 4"/>`; }
+  const line=(k,c)=>{ const p=d.map((r,i)=>`${x(i)},${pfLogY(r[k],ih,hi)}`).join(' '); s+=`<polyline points="${p}" fill="none" stroke="${c}" stroke-width="2"/>`;
+    d.forEach((r,i)=>{ s+=`<circle cx="${x(i)}" cy="${pfLogY(r[k],ih,hi)}" r="2.5" fill="${c}"/>`; }); };
+  line('p90',pfCss('--red')); line('avg',pfCss('--blue')); line('med',pfCss('--green'));
+  d.forEach((r,i)=>{ const lab=r.avg>=100?Math.round(r.avg):r.avg.toFixed(1); s+=`<text class="vl" x="${x(i)}" y="${pfLogY(r.avg,ih,hi)-6}" text-anchor="middle">${lab}</text>`; });
+  const step=Math.ceil(days.length/12);
+  d.forEach((r,i)=>{ if(i%step===0||i===d.length-1) s+=`<text x="${x(i)}" y="${ih+15}" text-anchor="middle" font-size="9">${r.d.slice(8)}/${r.d.slice(5,7)}</text>`; });
+  s+='</g>'; svg.innerHTML=s;
+}
+
+function pfDrawHourly(resp){
+  const svg=document.getElementById('pf-hourly'),W=940,H=320,L=42,R=42,T=20,B=34,iw=W-L-R,ih=H-T-B;
+  const by={}; resp.forEach(r=>{ (by[r[2]]=by[r[2]]||[]).push(pfTAT(r)); });
+  if(!resp.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
+  const hrs=[...Array(24)].map((_,h)=>({h, avg:by[h]?pfMean(by[h]):null, n:by[h]?by[h].length:0}));
+  const hi=pfNiceHi(Math.max(...hrs.map(x=>x.avg||0)));
+  const maxN=Math.max(1,...hrs.map(x=>x.n));
+  const gap=iw/24, bw=gap*0.6;
+  let s=`<g transform="translate(${L},${T})">`;
+  [[8,10],[20,24]].forEach(([a,b])=>{ s+=`<rect x="${a*gap}" y="0" width="${(b-a)*gap}" height="${ih}" fill="${pfCss('--red')}" opacity="0.05"/>`; });
+  [1,10,100,1000].forEach(g=>{ if(g>hi)return; const y=pfLogY(g,ih,hi); s+=`<line x1="0" y1="${y}" x2="${iw}" y2="${y}" stroke="${pfCss('--border')}"/><text x="-8" y="${y+3}" text-anchor="end" font-size="10">${g}</text>`; });
+  hrs.forEach(r=>{
+    if(r.avg==null)return;
+    const xx=r.h*gap+(gap-bw)/2, y=pfLogY(r.avg,ih,hi), col=r.avg<=30?pfCss('--green'):pfCss('--red');
+    s+=`<rect x="${xx}" y="${y}" width="${bw}" height="${ih-y}" rx="3" fill="${col}"/>`;
+    const lab=r.avg>=100?Math.round(r.avg):r.avg.toFixed(1);
+    s+=`<text class="vl" x="${xx+bw/2}" y="${y-4}" text-anchor="middle">${lab}</text>`;
+  });
+  // volume overlay on its own linear right-hand scale
+  const volY=n=>ih-(n/maxN*ih);
+  const pts=hrs.map(r=>`${r.h*gap+gap/2},${volY(r.n)}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" stroke="${pfCss('--muted2')}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  hrs.forEach(r=>{ if(r.n>0) s+=`<circle cx="${r.h*gap+gap/2}" cy="${volY(r.n)}" r="3" fill="${pfCss('--muted2')}"/>`; });
+  s+=`<text x="${iw+8}" y="4" font-size="9" text-anchor="start">n=${maxN}</text><text x="${iw+8}" y="${ih}" font-size="9" text-anchor="start">n=0</text>`;
+  hrs.forEach(r=>{ if(r.h%2===0) s+=`<text x="${r.h*gap+gap/2}" y="${ih+15}" text-anchor="middle" font-size="9">${pfHl(r.h)}</text>`; });
+  s+='</g>'; svg.innerHTML=s;
+}
+
+function pfDrawCycles(rows){
+  const cyc={};
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (cyc[h]=cyc[h]||{}); cyc[h][r[5]]=(cyc[h][r[5]]||0)+1; });
+  let list=Object.entries(cyc).map(([h,c])=>{ const g=k=>c[k]||0;
+    const total=g(1), jc1=g(1)-g(2), jc2=g(2)-g(3), jc3=g(3)-g(4), jc4=g(4)-g(5), jc5=g(5);
+    return {hub:h,jc1,jc2,jc3,jc4,jc5,total,pct:total?jc1/total*100:0};
+  }).filter(x=>x.total>=5);
+  list.sort((x,y)=>x.pct-y.pct);
+  const G={jc1:0,jc2:0,jc3:0,jc4:0,jc5:0,total:0};
+  list.forEach(h=>['jc1','jc2','jc3','jc4','jc5','total'].forEach(k=>G[k]+=h[k]));
+  const tb=document.querySelector('#pf-cycles tbody');
+  if(!list.length){ tb.innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`; return; }
+  const pctCell=p=>{ const c=p>=85?pfCss('--green'):p>=75?pfCss('--amber'):pfCss('--red'); return `<td style="color:${c};font-weight:700">${p.toFixed(0)}%</td>`; };
+  const row=(h,bold)=>`<tr${bold?' style="font-weight:700;border-top:2px solid var(--border2)"':''}><td>${h.hub}</td><td>${h.jc1}</td><td>${h.jc2}</td><td>${h.jc3}</td><td>${h.jc4}</td><td>${h.jc5}</td><td>${h.total}</td>`+
+    (bold?`<td style="font-weight:700">${(h.total?h.jc1/h.total*100:0).toFixed(0)}%</td>`:pctCell(h.pct))+`</tr>`;
+  tb.innerHTML=list.map(h=>row(h,false)).join('')+row({hub:'Grand Total',...G},true);
+}
+
+function pfDrawHubs(rows){
+  const agg={};
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (agg[h]=agg[h]||{t:[],rej:0,n:0}); const a=agg[h]; a.n++; if(r[4]===1)a.rej++; const v=pfTAT(r); if(v!=null)a.t.push(v); });
+  const cyc={};
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (cyc[h]=cyc[h]||{}); cyc[h][r[5]]=(cyc[h][r[5]]||0)+1; });
+  let list=Object.entries(agg).filter(([_,a])=>a.n>=5).map(([h,a])=>{
+    const c=cyc[h]||{}, g=k=>c[k]||0, total=g(1), jc1=g(1)-g(2);
+    return {hub:h, n:a.n, avg:a.t.length?pfMean(a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+      sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:a.rej/a.n*100, fp:total?jc1/total*100:0};
+  });
+  list.sort((x,y)=>{ const xv=x[pfSort], yv=y[pfSort]; const v=xv>yv?1:xv<yv?-1:0; return v*pfSortDir; });
+  const mx=Math.max(1,...list.map(h=>h.avg)); const tb=document.querySelector('#pf-hubs tbody');
+  if(!list.length){ tb.innerHTML=`<tr><td colspan="7" class="empty">No data in range</td></tr>`; return; }
+  const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
+  const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
+  tb.innerHTML=list.map(h=>`<tr><td>${h.hub}</td><td>${h.n}</td>`+
+    `<td><span class="perf-bar" style="width:${Math.max(2,h.avg/mx*100)}px;background:${h.avg<=30?pfCss('--green'):h.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${h.avg.toFixed(1)}</td>`+
+    `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`).join('');
+}
+[...document.querySelectorAll('#pf-hubs th[data-k]')].forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k;
+  if(pfSort===k) pfSortDir*=-1; else { pfSort=k; pfSortDir=(k==='hub')?1:-1; }
+  document.querySelectorAll('#pf-hubs th').forEach(t=>{ const a=t.querySelector('.arr'); const act=t.dataset.k===pfSort;
+    t.classList.toggle('act',act); if(a) a.textContent=act?(pfSortDir<0?'▼':'▲'):'⇅'; });
+  perfDraw();
+});
+
+function pfDrawTop10(resp){
+  const note=document.getElementById('pf-top10-note'), tb=document.querySelector('#pf-top10 tbody');
+  const sorted=[...resp].sort((a,b)=>pfTAT(b)-pfTAT(a));
+  const k=Math.ceil(sorted.length*0.10);
+  if(!k){ note.textContent='No responded requests in the current view.'; tb.innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`; return; }
+  const top=sorted.slice(0,k), thr=pfTAT(top[top.length-1]);
+  const CAP=300, show=top.slice(0,CAP), OUT=['Approved','Rejected/Reopened','Pending'];
+  note.innerHTML=`Slowest <b>10%</b> of responded requests in the current view: <b>${k}</b> requests with TAT ≥ <b>${thr.toFixed(1)} min</b>.`+
+    (k>CAP?` <span style="color:var(--muted)">Showing top ${CAP} — narrow the date/hub filter to see the rest.</span>`:'');
+  tb.innerHTML=show.map(r=>{ const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
+    return `<tr><td>${r[8]??'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td><td>${pfHl(r[2])}</td>`+
+      `<td>${r[5]}</td><td>${OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`; }).join('');
+}
 </script>
 </body></html>
