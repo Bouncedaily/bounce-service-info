@@ -864,8 +864,15 @@ function downloadPartRaw(){
   var csv='﻿'+hdr.join(',')+'\n'+rows.map(function(r){return r.map(function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(TP_ITEM||'part')+'_summary.csv'; a.click();
 }
+var _tpSortKey='a_amount', _tpSortDir='desc';
+function sortTopPartsBy(key){
+  if(_tpSortKey===key){ _tpSortDir = _tpSortDir==='asc'?'desc':'asc'; }
+  else { _tpSortKey=key; _tpSortDir = key==='item' ? 'asc' : 'desc'; }
+  _renderTopPartsTable();
+}
+function _tpArrow(key){ return _tpSortKey===key ? (' '+(_tpSortDir==='asc'?'▲':'▼')) : ''; }
+
 function renderTopParts(d){
-  var el=document.getElementById('tpTable');
   var rows=d.rows||[];
   window._tpCurrentRows = rows;
   window._tpCurrentTotals = {a_total: d.a_total, b_total: d.b_total};
@@ -874,7 +881,7 @@ function renderTopParts(d){
   document.getElementById('tpSubTitle').textContent = rows.length+' parts · A ₹'+tpINR(d.a_total)+' vs B ₹'+tpINR(d.b_total)+' · '+up+' parts costlier in A';
 
   var mv=document.getElementById('tpMovers');
-  if(!rows.length){ mv.innerHTML=''; el.innerHTML='<div class="loading-state">No parts for these filters</div>'; return; }
+  if(!rows.length){ mv.innerHTML=''; document.getElementById('tpTable').innerHTML='<div class="loading-state">No parts for these filters</div>'; return; }
 
   var dl=rows.map(function(r){return {item:r.item, dv:Math.round(r.a_amount-r.b_amount)};});
   var gain=dl.filter(function(x){return x.dv>0;}).sort(function(a,b){return b.dv-a.dv;}).slice(0,3);
@@ -888,9 +895,31 @@ function renderTopParts(d){
     (drop.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Biggest drops</span>'+chips(drop,false)+'</div>':'')+
   '</div>';
 
+  _renderTopPartsTable();
+  if(!window._tpRowInit){ window._tpRowInit=true;
+    document.getElementById('tpTable').addEventListener('click', function(e){ var tr=e.target&&e.target.closest?e.target.closest('tr[data-item]'):null; if(tr) loadPartRaw(tr.getAttribute('data-item')); });
+  }
+}
+
+function _renderTopPartsTable(){
+  var el=document.getElementById('tpTable');
+  var rows=(window._tpCurrentRows||[]).slice();
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   var maxA=Math.max.apply(null,rows.map(function(r){return r.a_pct||0;}))||1;
   var maxB=Math.max.apply(null,rows.map(function(r){return r.b_pct||0;}))||1;
-  var th='padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--card)';
+
+  var isText = _tpSortKey==='item';
+  rows.sort(function(a,b){
+    var av, bv;
+    if(_tpSortKey==='change'){ av=(a.a_amount||0)-(a.b_amount||0); bv=(b.a_amount||0)-(b.b_amount||0); }
+    else { av=a[_tpSortKey]; bv=b[_tpSortKey]; }
+    if(isText){ av=(av||'').toLowerCase(); bv=(bv||'').toLowerCase(); }
+    else { av = av==null ? -Infinity : Number(av); bv = bv==null ? -Infinity : Number(bv); }
+    var dir = _tpSortDir==='asc' ? 1 : -1;
+    if(av<bv) return -1*dir; if(av>bv) return 1*dir; return 0;
+  });
+
+  var th='padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--card);cursor:pointer;user-select:none';
   var thL=th.replace('text-align:right','text-align:left');
   var td='padding:8px 12px;text-align:right;font-size:12.5px;border-bottom:1px solid var(--border);white-space:nowrap';
   var tdL=td.replace('text-align:right','text-align:left');
@@ -908,10 +937,16 @@ function renderTopParts(d){
     return '<td style="'+td+';background:'+bg+';color:'+col+';font-weight:600">'+(dv>0?'+':'')+tpINR(dv)+arrow+'<span style="font-weight:500;font-size:11px;opacity:.75"> '+pctStr+'</span></td>';
   }
   var html='<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-    '<th style="'+thL+'">Part Name</th>'+
-    '<th style="'+th+'">A · Qty</th><th style="'+th+'">A · Amount (₹)</th><th style="'+th+'">A · Contrib %</th><th style="'+th+'">A · Avg km</th>'+
-    '<th style="'+th+'">B · Qty</th><th style="'+th+'">B · Amount (₹)</th><th style="'+th+'">B · Contrib %</th><th style="'+th+'">B · Avg km</th>'+
-    '<th style="'+th+'">Change A vs B (₹)</th></tr></thead><tbody>';
+    '<th style="'+thL+'" onclick="sortTopPartsBy(\'item\')">Part Name'+_tpArrow('item')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'a_qty\')">A · Qty'+_tpArrow('a_qty')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'a_amount\')">A · Amount (₹)'+_tpArrow('a_amount')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'a_pct\')">A · Contrib %'+_tpArrow('a_pct')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'a_avgkm\')">A · Avg km'+_tpArrow('a_avgkm')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'b_qty\')">B · Qty'+_tpArrow('b_qty')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'b_amount\')">B · Amount (₹)'+_tpArrow('b_amount')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'b_pct\')">B · Contrib %'+_tpArrow('b_pct')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'b_avgkm\')">B · Avg km'+_tpArrow('b_avgkm')+'</th>'+
+    '<th style="'+th+'" onclick="sortTopPartsBy(\'change\')">Change A vs B (₹)'+_tpArrow('change')+'</th></tr></thead><tbody>';
   html+=rows.map(function(r){
     return '<tr class="tp-row" data-item="'+esc(r.item)+'" style="cursor:pointer"><td style="'+tdL+';font-weight:500">'+esc(r.item)+'</td>'+
       '<td style="'+td+'">'+tpINR(r.a_qty)+'</td><td style="'+td+'">'+tpINR(r.a_amount)+'</td>'+barCell(r.a_pct,maxA,'37,99,235')+'<td style="'+td+'">'+(r.a_avgkm?tpINR(r.a_avgkm)+' km':'—')+'</td>'+
@@ -920,9 +955,6 @@ function renderTopParts(d){
   }).join('');
   html+='</tbody></table>';
   el.className=''; el.innerHTML=html;
-  if(!window._tpRowInit){ window._tpRowInit=true;
-    el.addEventListener('click', function(e){ var tr=e.target&&e.target.closest?e.target.closest('tr[data-item]'):null; if(tr) loadPartRaw(tr.getAttribute('data-item')); });
-  }
 }
 
 function exportTopPartsCSV(){
