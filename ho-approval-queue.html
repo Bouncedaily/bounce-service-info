@@ -96,8 +96,8 @@ let ALL=[];
 function nf(n){return (n==null?0:Math.round(n)).toLocaleString('en-IN');}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function sid(s){return String(s).replace(/[^a-z0-9]/gi,'_');}
-function fmtDate(t){if(!t)return '—';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'});}
-function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
+function fmtDate(t){if(!t)return '—';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit',timeZone:'Asia/Kolkata'});}
+function fmtDT(t){if(!t)return '';var d=new Date(t);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'Asia/Kolkata'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});}
 function currentUser(){try{var s=JSON.parse(localStorage.getItem('bounce_session')||'{}');var u=(s&&typeof s.user==='object'&&s.user)?s.user:s;return u.name||u.email||u.mobile||'';}catch(e){return '';}}
 function todayISTStr(){ return new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10); }
 function clearDateFilter(){ document.getElementById('dateFilter').value=''; applyFilter(); }
@@ -302,7 +302,7 @@ function renderSyncedAt(){
   if(!SYNCED_AT){ el.textContent=''; return; }
   var d=new Date(SYNCED_AT);
   var mins=Math.round((Date.now()-d.getTime())/60000);
-  var ago=mins<1?'just now':mins===1?'1 min ago':mins<60?mins+' min ago':d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  var ago=mins<1?'just now':mins===1?'1 min ago':mins<60?mins+' min ago':d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'});
   el.textContent='Synced '+ago;
 }
 let HUBS_BY_CITY={};
@@ -456,7 +456,7 @@ function renderJC(jc){
   var photos=renderPhotos(jc);
   return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
-      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+(jc.opened_date?' '+new Date(jc.opened_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
+      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Opened '+fmtDate(jc.opened_date)+(jc.opened_date?' '+new Date(jc.opened_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+'</div>'+
     '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+body+photos+rejectionDiff+reason+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
