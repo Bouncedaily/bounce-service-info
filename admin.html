@@ -124,8 +124,8 @@
         </div>
         <div class="tbl">
           <table>
-            <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th></tr></thead>
-            <tbody id="health-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+            <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th><th>Action</th></tr></thead>
+            <tbody id="health-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -424,7 +424,7 @@ async function loadActivity() {
 // ── SYSTEM HEALTH ──
 async function loadCronHealth() {
   const tbody = document.getElementById('health-tbody');
-  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
   try {
     const r = await rpc('get_cron_health', {});
     const jobs = await r.json();
@@ -436,17 +436,39 @@ async function loadCronHealth() {
       const badge24h = (j.fail_24h > 0)
         ? `<span style="color:#fca5a5;font-weight:600">${j.fail_24h} failed</span> / ${j.ok_24h} ok`
         : `${j.ok_24h} ok`;
-      return `<tr${failed?' style="background:rgba(220,38,38,.06)"':''}>
+      return `<tr${failed?' style="background:rgba(220,38,38,.06)"':''} id="health-row-${j.jobname}">
         <td style="font-weight:600;font-family:monospace;font-size:12px">${j.jobname}</td>
         <td style="font-family:monospace;font-size:11.5px;color:var(--muted)">${j.schedule}</td>
         <td style="font-size:12px;color:var(--muted)">${fmt(j.last_run_at)}</td>
         <td>${statusPill}</td>
         <td style="font-size:12px">${badge24h}</td>
+        <td><button class="btn" style="background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="rerunJob('${j.jobname}', this)">↻ Re-run</button></td>
       </tr>`;
-    }).join('') : '<tr><td colspan="5" class="empty">No scheduled jobs</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="empty">No scheduled jobs</td></tr>';
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Could not load.</td></tr>';
   }
+}
+
+async function rerunJob(jobname, btn) {
+  btn.disabled = true; btn.textContent = 'Running…';
+  try {
+    const r = await rpc('rerun_cron_job', { p_jobname: jobname });
+    const d = await r.json();
+    if (d.success) {
+      showToast(`✅ ${jobname} ran successfully (${d.duration_ms}ms)`);
+    } else {
+      showToast(`❌ ${jobname} failed: ${d.error}`, 'err');
+    }
+  } catch(e) {
+    showToast(`❌ Network error re-running ${jobname}`, 'err');
+  }
+  btn.disabled = false; btn.textContent = '↻ Re-run';
+  // Note: manual runs via this RPC don't create a row in cron.job_run_details
+  // (that table only logs actual pg_cron-triggered executions), so the
+  // Status/Last Run columns above intentionally won't flip to "succeeded"
+  // from this -- only the job's own next scheduled run will do that. The
+  // toast above is the real signal for whether THIS run worked.
 }
 
 // ── DASHBOARD USAGE ──
