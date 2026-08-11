@@ -359,7 +359,7 @@ body { overflow:auto!important; }
 
 
       <!-- TOP FILTER BAR -->
-      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="loadAllReplacements();loadHub();loadRepeats();loadIntervals()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadRepeats();loadIntervals()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="loadAllReplacements();loadRepeats();loadIntervals()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
       <!-- KPIs driven by All Replacements filters -->
       <div class="kpi-row" id="kpi-row">
         <div class="kpi"><div class="loading-state" style="padding:12px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div>
@@ -407,30 +407,6 @@ body { overflow:auto!important; }
             </div></div>
           <div class="tbl-wrap"><div id="by-sub-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         </div>
-      </div>
-
-      <!-- By Hub -->
-      <div class="card">
-        <div class="card-hd">
-          <h2>By Hub</h2><span class="sub" id="hub-count">—</span>
-          <div class="card-hd-actions">
-            <button class="export-btn" onclick="exportByHubXLSX()"><i class="ti ti-table-export" style="font-size:12px;vertical-align:-1px;margin-right:3px"></i>Excel</button>
-          
-          </div>
-        </div>
-        <div class="tbl-filter-bar">
-          <div class="fg"><label>City</label>
-            <select id="hub-city" onchange="loadHub()">
-              <option value="">All cities</option>
-              <option>Bangalore</option><option>NCR</option><option>Hyderabad</option>
-            </select>
-          </div>
-          <div class="fg"><label>Hub</label>
-            <select id="hub-hub" onchange="loadHub()"><option value="">All hubs</option></select>
-          </div>
-          <button class="export-btn" onclick="clearFilters('hub')"><i class="ti ti-x" style="font-size:11px;margin-right:3px"></i>Clear</button>
-        </div>
-        <div class="tbl-wrap"><div id="by-hub-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
       </div>
 
       <!-- Repeat Replacements -->
@@ -586,7 +562,6 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 // State
 let _mainResult  = null;
-let _hubResult   = null;
 let _repeatResult= null;
 let _bikeRows    = [], _bikePage = 1, _allBikeRows = [];
 let _allRows     = [], _allPage  = 1;
@@ -608,7 +583,7 @@ const subTag = s => {
 // Hubs list for dropdowns
 const ALL_HUBS = ['Banaswadi','Bellandur','Bilekahalli','Hebbal','Hoodi','HSR Layout','RR Nagar','Yeshwanthpur','Fathe nagar','Miyapur','Gurugram','Indirapuram','Indirapuram 2','Okhla','Rohini','Saket'];
 function populateHubDropdowns() {
-  ['f-hub','hub-hub','rep-hub','bs-hub'].forEach(id => {
+  ['f-hub','rep-hub','bs-hub'].forEach(id => {
     const sel = document.getElementById(id);
     ALL_HUBS.forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
   });
@@ -638,7 +613,7 @@ function err(id, msg) {
 }
 
 // ---------- ALL REPLACEMENTS (also drives KPIs + by-part + by-sub) ----------
-function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadHub();loadRepeats();loadIntervals();}
+function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadRepeats();loadIntervals();}
 
 async function loadAllReplacements() {
   _allPage = 1;
@@ -788,43 +763,6 @@ async function changePage(dir) {
   document.getElementById('all-tbl-wrap').scrollTop = 0;
 }
 
-// ---------- BY HUB ----------
-async function loadHub() {
-  spin('by-hub-body');
-  document.getElementById('hub-count').textContent = '—';
-  const params = {
-    p_city:  document.getElementById('hub-city').value || document.getElementById('top-city').value || null,
-    p_part:  document.getElementById('top-part').value || null,
-    p_start: document.getElementById('top-start').value || null,
-    p_end:   document.getElementById('top-end').value || null,
-    p_page:  1
-  };
-  const res = await rpc('get_tyre_analysis', params);
-  if (!res || res.code || res.message) { err('by-hub-body', res?.message); return; }
-
-  let hubs = res.by_hub || [];
-  const hubFilter = document.getElementById('hub-hub').value;
-  if (hubFilter) hubs = hubs.filter(h => h.hub_name === hubFilter);
-
-  document.getElementById('hub-count').textContent = `${hubs.length} hubs`;
-  const maxH = Math.max(1,...hubs.map(h=>h.replacements||0));
-  _hubResult = hubs;
-  document.getElementById('by-hub-body').innerHTML = hubs.length ? `
-    <table><thead><tr><th>Hub</th><th>City</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th></tr></thead>
-    <tbody>${hubs.map(h=>`<tr>
-      <td style="font-weight:600">${h.hub_name||'—'}</td>
-      <td><span class="pill ${cityPill(h.city)}">${h.city||'—'}</span></td>
-      <td><div style="display:flex;align-items:center;gap:6px">
-        <div style="width:${Math.round(h.replacements/maxH*80)}px;height:6px;background:var(--red);border-radius:3px"></div>
-        <span style="font-weight:700">${h.replacements}</span></div></td>
-      <td style="color:var(--text2)">${h.unique_bikes}</td>
-      <td style="font-family:var(--mono);font-weight:600">${fmt(h.avg_km)} km</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${fmt(h.min_km)} km</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${fmt(h.max_km)} km</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${fmtC(h.total_cost)}</td>
-    </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
-}
-
 // ---------- REPEAT REPLACEMENTS ----------
 async function loadRepeats() {
   spin('repeat-body');
@@ -957,9 +895,6 @@ function getByPartRows() {
 function getBySubRows() {
   return (_mainResult && _mainResult.by_sub ? _mainResult.by_sub : []).map(function(r){return [r.submission_type,r.replacements,r.unique_bikes,r.avg_km||'',r.total_cost||''];});
 }
-function getByHubRows() {
-  return (_hubResult||[]).map(function(r){return [r.hub_name,r.city,r.replacements,r.unique_bikes,r.avg_km||'',r.min_km||'',r.max_km||'',r.total_cost||''];});
-}
 function getRepeatRows() {
   return (_repeatResult||[]).map(function(r){return [r.reg_number,r.city,r.hub_name,r.part_group,r.times_replaced,r.avg_km||'',r.min_km||'',r.max_km||'',r.first_date,r.last_date,r.first_date&&r.last_date?Math.round((new Date(r.last_date)-new Date(r.first_date))/(1000*60*60*24)):'',r.jc_nos||'',r.sub_types];});
 }
@@ -972,7 +907,6 @@ function getAllRows() {
 
 var PART_COLS = ['Part Bucket','Replacements','Unique Bikes','Avg KM','Median KM','Min KM','Max KM','Total Cost','Cost per KM (Rs)'];
 var SUB_COLS  = ['Submission Type','Replacements','Unique Bikes','Avg KM','Total Cost'];
-var HUB_COLS  = ['Hub','City','Replacements','Unique Bikes','Avg KM','Min KM','Max KM','Total Cost'];
 var REP_COLS  = ['Reg No','City','Hub','Part','Times','Avg KM','Min KM','Max KM','First Date','Last Date','Duration (days)','JC Nos','Sub Types'];
 var BIKE_COLS = ['Reg No','City','Hub','Repl (Filtered)','Overall Repl','Curr ODO','Avg ODO/Instance','KM This','KM Last','KM on Part'];
 var ALL_COLS  = ['Reg No','City','Hub','Part Bucket','Item Name','Last Replaced Part','Prev ODO','Curr ODO','KM on Part','Date','Last Repl Date','Sub Type','DMS Cat','JC No'];
@@ -1093,7 +1027,6 @@ function exportIntervalsXLSX() {
 
 function exportBySubCSV()        { exportCSV('by_sub_'+today()+'.csv',     SUB_COLS,  getBySubRows()); }
 function exportBySubXLSX()       { exportXLSX('by_sub_'+today()+'.xlsx',   SUB_COLS,  getBySubRows()); }
-function exportByHubXLSX()       { exportXLSX('by_hub_'+today()+'.xlsx',   HUB_COLS,  getByHubRows()); }
 function exportRepeatsXLSX()     { exportXLSX('repeats_'+today()+'.xlsx',  REP_COLS,  getRepeatRows()); }
 function exportBikeSummaryXLSX() { exportXLSX('bike_summary_'+today()+'.xlsx', BIKE_COLS, getBikeRows()); }
 function exportAllXLSX()         { exportXLSX('all_replacements_'+today()+'.xlsx', ALL_COLS, getAllRows()); }
@@ -1122,14 +1055,6 @@ function exportAll() {
   );
 }
 
-function exportByHub() {
-  if (!_hubResult?.length) return;
-  exportCSV(`by_hub_${today()}.csv`,
-    ['Hub','City','Replacements','Unique Bikes','Avg KM','Min KM','Max KM','Total Cost'],
-    _hubResult.map(h=>[h.hub_name,h.city,h.replacements,h.unique_bikes,h.avg_km||'',h.min_km||'',h.max_km||'',h.total_cost||''])
-  );
-}
-
 function exportRepeats() {
   if (!_repeatResult?.length) return;
   exportCSV(`repeat_replacements_${today()}.csv`,
@@ -1150,11 +1075,7 @@ const today = () => new Date().toISOString().slice(0,10);
 
 // ---------- CLEAR FILTERS ----------
 function clearFilters(table) {
-  if (table === 'hub') {
-    document.getElementById('hub-city').value = '';
-    document.getElementById('hub-hub').value  = '';
-    loadHub();
-  } else if (table === 'rep') {
+  if (table === 'rep') {
     document.getElementById('rep-hub').value       = '';
     document.getElementById('rep-min-times').value = '2';
     loadRepeats();
@@ -1218,7 +1139,6 @@ function applyBikeClientFilters() {
     document.getElementById('bs-start').value = monthStart;
     document.getElementById('bs-end').value   = today;
     loadAllReplacements();
-    loadHub();
     loadRepeats();
     loadBikeSummary();
     loadConsumption();
