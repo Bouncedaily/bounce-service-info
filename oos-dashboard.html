@@ -756,6 +756,31 @@ function fetchWithTimeout(url, opts, ms) {
   return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(function(){ clearTimeout(timer); });
 }
 
+// Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
+// "Flipkart hub - Bilekahalli", "Famcare hub - Hoodi") but report under the
+// parent hub everywhere on this dashboard. Generic pattern match (not a
+// hardcoded partner list), checked against real hub names actually present
+// in bike_fleet -- same principle already used for Parts Tracker and
+// Customer Feedback. Built once from the initial summary fetch, reused by
+// every subsequent inflow/outflow refetch (date-range changes etc.) so the
+// mapping stays consistent without rebuilding it each time.
+let HUB_TO_PARENT = {};
+function buildHubToParent(allHubNames) {
+  var known = new Set(allHubNames.filter(Boolean));
+  var map = {};
+  known.forEach(function(h) {
+    var m = h.match(/^.+ hub - (.+)$/i);
+    map[h] = (m && known.has(m[1])) ? m[1] : h;
+  });
+  return map;
+}
+function applyHubMerge(rows) {
+  rows.forEach(function(r) {
+    if (r.hub_name && HUB_TO_PARENT[r.hub_name]) r.hub_name = HUB_TO_PARENT[r.hub_name];
+  });
+  return rows;
+}
+
 async function fetchData() {
   // Q1: summary — only city/model/status, all bikes (~11K rows, 3 tiny cols)
   // Q2: OOS detail — only OOS bikes with aging/repair cols (~464 rows)
@@ -769,6 +794,8 @@ async function fetchData() {
   const [summary, oosDetail, inflow, outflow] = await Promise.all([
     summaryR.json(), oosR.json(), inflowR.json(), outflowR.json()
   ]);
+  HUB_TO_PARENT = buildHubToParent((Array.isArray(summary) ? summary : []).map(r => r.hub_name));
+  applyHubMerge(summary); applyHubMerge(oosDetail); applyHubMerge(inflow); applyHubMerge(outflow);
   return { summary, oosDetail, inflow, outflow };
 }
 
@@ -1061,8 +1088,8 @@ async function fetchAndRenderBikeList(from, to) {
     ]);
     const inflow  = await inflowR.json();
     const outflow = await outflowR.json();
-    RAW.inflow  = Array.isArray(inflow)  ? inflow  : [];
-    RAW.outflow = Array.isArray(outflow) ? outflow : [];
+    RAW.inflow  = applyHubMerge(Array.isArray(inflow)  ? inflow  : []);
+    RAW.outflow = applyHubMerge(Array.isArray(outflow) ? outflow : []);
     try { var _fo = applyFilters(RAW).outflow; LAST_OUTFLOW = _fo; renderRepairAging(_fo); } catch(e) {}
   } catch(e) { console.error('fetchAndRenderBikeList error', e); }
 }
