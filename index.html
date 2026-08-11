@@ -403,12 +403,13 @@ function liShowEmail() {
   document.getElementById('ls-signin').style.display='none';
   document.getElementById('ls-create').style.display='none';
   document.getElementById('li-msg-email').textContent='';
+  document.getElementById('li-msg-email').className='login-msg';
 }
 
 function liMsg(id, txt, type) {
   var el = document.getElementById(id);
   el.textContent = txt;
-  el.style.color = type==='err' ? '#ef4444' : '#22c55e';
+  el.className = 'login-msg ' + (type || '');
 }
 
 function liSetBusy(btnId, busy, label) {
