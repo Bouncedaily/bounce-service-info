@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
   <link rel="stylesheet" href="bounce-theme.css"/>
   <style>
-    .wrap{padding:24px;max-width:960px}
+    .wrap{padding:24px}
     .main{flex:1;overflow-y:auto;height:100vh}
     .content{min-height:100%}
     .ptitle{font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px}
@@ -17,7 +17,7 @@
     .card-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
     .card-hd h2{font-size:13px;font-weight:700;color:var(--text)}
     .card-hd .sub{font-size:11px;color:var(--muted)}
-    .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 18px}
+    .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px}
     .stat{background:var(--bg);border-radius:8px;padding:14px 16px}
     .stat-val{font-size:24px;font-weight:800;color:var(--text)}
     .stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
@@ -52,36 +52,7 @@
   </style>
 </head>
 <body>
-<div class="sb-overlay" style="display:none" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
-<button class="sb-hamburger" id="sb-hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780722254"></script>
-<nav class="sidebar collapsed" aria-label="Main navigation" id="sidebar">
-  <button class="sb-toggle" id="sb-toggle" aria-label="Toggle sidebar" aria-expanded="true" aria-controls="sidebar" onclick="toggleSidebar()"><i class="ti ti-layout-sidebar" id="sb-arrow"></i></button>
-  <div class="sb-brand">
-    <img class="sb-logo-img" src="https://bouncedaily.in/logo  (1).png"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bounce">
-    <div class="sb-logo-fallback" style="display:none"><i class="ti ti-brand-battery" style="font-size:16px;color:#fff"></i></div>
-    <span class="sb-name">Bounce <span>Service Info</span></span>
-  </div>
-    <div class="sb-sec">ANALYTICS</div>
-  <a class="sb-item" href="dashboard.html" data-tip="RMC Dashboard"><i class="ti ti-chart-bar sb-icon" aria-hidden="true"></i><span class="sb-label">RMC Dashboard</span></a>
-  <a class="sb-item" href="fleet-km.html" data-tip="Fleet KM Analysis"><i class="ti ti-motorbike sb-icon" aria-hidden="true"></i><span class="sb-label">Fleet KM Analysis</span></a>
-  <a class="sb-item" href="parts-testing.html" data-tip="Parts Testing"><i class="ti ti-test-pipe sb-icon" aria-hidden="true"></i><span class="sb-label">Parts Testing</span></a>
-  <a class="sb-item" href="tyre-analysis.html" data-tip="Wear &amp; Tear Deep Dive"><i class="ti ti-chart-dots sb-icon" aria-hidden="true"></i><span class="sb-label">Wear &amp; Tear Deep Dive</span></a>
-  <a class="sb-item" href="hub-control-tower.html" data-tip="Hub Control Tower"><i class="ti ti-dashboard sb-icon" aria-hidden="true"></i><span class="sb-label">Hub Control Tower</span></a>
-  <a class="sb-item" href="hub-tv.html"><i class="ti ti-device-tv sb-icon"></i><span class="sb-label">Hub TV View</span></a>
-  <a class="sb-item" href="msl-dashboard.html"><i class="ti ti-package sb-icon"></i><span class="sb-label">MSL Dashboard</span></a>
-
-  
-  <div class="sb-sec">ADMIN</div>
-  <a class="sb-item active" href="admin.html" data-tip="Admin"><i class="ti ti-shield sb-icon" aria-hidden="true"></i><span class="sb-label">Admin</span></a>
-  <div class="sb-spacer"></div>
-  <div style="padding:10px 12px;border-top:1px solid var(--sb-border)">
-    <div id="sb-user-email" style="font-size:11px;color:#64748b;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-    <button onclick="authLogout()" style="width:100%;padding:5px 8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Sign Out</button>
-  </div>
-  <div class="sb-foot"><span class="sb-dot"></span><span class="sb-text">Live · Supabase</span></div>
-</nav><div class="main">
+<div class="main">
   <button class="sb-open-btn" id="sb-open-btn" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><i class="ti ti-menu-2" aria-hidden="true"></i></button>
   <div class="content">
     <div class="wrap">
@@ -95,7 +66,30 @@
           <div class="stat"><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Users</div></div>
           <div class="stat"><div class="stat-val" id="s-active">—</div><div class="stat-lbl">Active Users</div></div>
           <div class="stat"><div class="stat-val" id="s-admins">—</div><div class="stat-lbl">Admins</div></div>
+          <div class="stat"><div class="stat-val" id="s-today">—</div><div class="stat-lbl">Today's Logins</div></div>
         </div>
+      </div>
+
+      <div id="hau-tabs" style="display:flex;gap:24px;margin:4px 4px 14px;border-bottom:1px solid #e5e9f0">
+        <div class="hau-tab" data-t="allowed" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid #f53b3b;color:#0f172a">Allowed Users</div>
+        <div class="hau-tab" data-t="hubaudit" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Hub Audit Users</div>
+      </div>
+      <!-- Hub Audit Users -->
+      <div class="card" id="hau-card" style="display:none">
+        <div class="card-hd"><h2>Hub Audit Users</h2><span class="sub">Audit roles, hubs &amp; CAPA ownership</span></div>
+        <div class="add-form">
+          <div><label>Name</label><input type="text" id="hau-name"/></div>
+          <div><label>Email</label><input type="email" id="hau-email" placeholder="user@bounceshare.com"/></div>
+          <div><label>Role</label><select id="hau-role"><option value="auditor">Auditor</option><option value="hub_manager">Hub Manager</option><option value="service_manager">Service Manager</option><option value="city_head">City Head</option><option value="ops_head">Ops Head</option><option value="service_head">Service Head</option><option value="founder">Founder</option></select></div>
+          <div><label>City</label><select id="hau-city"></select></div>
+          <div><label>Hub</label><select id="hau-hub"></select></div>
+          <div><label>Can audit</label><br><input type="checkbox" id="hau-audit"/></div>
+          <div><label>Admin</label><br><input type="checkbox" id="hau-admin"/></div>
+          <button class="btn btn-primary" onclick="haU_save()">+ Add / Save</button>
+          <button class="btn" onclick="haU_reset()">Clear</button>
+        </div>
+        <div id="hau-msg" style="color:#dc2626;font-size:12px;margin-top:6px"></div>
+        <div id="hau-list" style="margin-top:10px">Loading…</div>
       </div>
 
       <!-- Users -->
@@ -108,24 +102,41 @@
           <button class="btn btn-primary" onclick="addUser()">+ Add User</button>
         </div>
         <div class="fmsg" id="add-msg"></div>
+        <div style="display:flex;gap:10px;align-items:center;margin:10px 18px">
+          <input type="text" id="user-search" placeholder="Search name or email…" oninput="filterUsers()" style="flex:1;max-width:280px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12.5px">
+          <div id="bulk-bar" style="display:none;align-items:center;gap:8px;margin-left:auto">
+            <span style="font-size:11.5px;color:var(--muted)"><span id="bulk-count">0</span> selected</span>
+            <button class="btn btn-danger" onclick="bulkRevoke()">Revoke Selected</button>
+          </div>
+        </div>
         <div class="tbl">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
-            <tbody id="users-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+            <thead><tr><th style="width:24px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this)"></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Access Requests -->
+      <!-- System Health -->
       <div class="card">
-        <div class="card-hd">
-          <h2>Access Requests <span class="badge" id="req-badge" style="display:none">0</span></h2>
-          <span class="sub">Emails that tried to login but aren't authorised</span>
+        <div class="card-hd"><h2>System Health</h2><span class="sub">Scheduled sync jobs — last run status</span>
+          <button class="btn" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="loadCronHealth()">↻ Refresh</button>
         </div>
         <div class="tbl">
           <table>
-            <thead><tr><th>Email</th><th>Requested At</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="req-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+            <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th></tr></thead>
+            <tbody id="health-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Dashboard Usage -->
+      <div class="card">
+        <div class="card-hd"><h2>Dashboard Usage</h2><span class="sub">Which dashboards each user has actually opened</span></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>User</th><th>Dashboards Used</th><th>Total Views</th><th>Last Active</th></tr></thead>
+            <tbody id="usage-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -141,18 +152,30 @@
         </div>
       </div>
 
+      <!-- Audit Log -->
+      <div class="card">
+        <div class="card-hd"><h2>Audit Log</h2><span class="sub">Who changed what, and when</span></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+            <tbody id="audit-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
 const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const AUTH_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const ADMIN = 'nithish@bounceshare.com';
 
 // Get session
 const sess = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || '{}');
-if (!sess.email) { window.location.href = 'login.html'; }
+if (!sess.email) { console.warn('No session in admin iframe — portal should handle auth'); }
 
 // Close sidebar on nav link click (mobile)
   document.querySelectorAll('.sb-item').forEach(el => {
@@ -161,6 +184,9 @@ if (!sess.email) { window.location.href = 'login.html'; }
   document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('sb-user-email');
   if (el) el.textContent = sess.email || '';
+  loadUsers();
+  
+  loadActivity();
 
   // Sidebar toggle
   if (localStorage.getItem('sb_collapsed') === '0') {
@@ -168,7 +194,6 @@ if (!sess.email) { window.location.href = 'login.html'; }
     const arr = document.getElementById('sb-arrow');
     if (sb)  sb.classList.remove('collapsed');
     if (arr) arr.className = 'ti ti-layout-sidebar-right';
-  }
   } else {
     const openBtn = document.getElementById('sb-open-btn');
     if (openBtn) openBtn.style.display = 'flex';
@@ -180,10 +205,27 @@ if (!sess.email) { window.location.href = 'login.html'; }
 
 
 async function get(path) {
-  const r = await fetch(`${SB}/rest/v1/${path}`, {
-    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Accept':'application/json'}
-  });
-  return r.json();
+  let tok = ANON_KEY;
+  try {
+    const s = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session_bak') || '{}');
+    tok = s.access_token || ANON_KEY;
+  } catch(e) {}
+  try {
+    let r = await fetch(`${SB}/rest/v1/${path}`, {
+      headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${tok}`,'Accept':'application/json'}
+    });
+    if (r.status === 401) {
+      // Token expired/invalid — retry with anon key (RLS allows anon read)
+      r = await fetch(`${SB}/rest/v1/${path}`, {
+        headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Accept':'application/json'}
+      });
+    }
+    const d = await r.json();
+    return Array.isArray(d) ? d : [];
+  } catch(e) {
+    console.error('get error:', path, e);
+    return [];
+  }
 }
 
 async function rpc(fn, body) {
@@ -200,28 +242,64 @@ function fmt(dt) {
 }
 
 // ── USERS ──
+let ALL_USERS = [];
+async function logAudit(target, action, details) {
+  try { await rpc('log_permission_action', {p_actor: sess.email||'unknown', p_target: target, p_action: action, p_details: details||null}); } catch(e) {}
+}
 async function loadUsers() {
   const users = await get('allowed_users?order=added_at.asc');
+  ALL_USERS = users;
+  if (!users || !users.length) {
+    document.getElementById('s-total').textContent = '0';
+    document.getElementById('s-active').textContent = '0';
+    document.getElementById('s-admins').textContent = '0';
+    document.getElementById('s-today').textContent = '0';
+    document.getElementById('users-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#94a3b8">No users found — check console for errors</td></tr>';
+    return;
+  }
   document.getElementById('s-total').textContent = users.length;
   document.getElementById('s-active').textContent = users.filter(u=>u.is_active).length;
   document.getElementById('s-admins').textContent = users.filter(u=>u.role==='admin').length;
-
+  var _ist=function(x){return new Date(new Date(x).getTime()+5.5*3600*1000).toISOString().slice(0,10);};var _t=_ist(Date.now());
+  document.getElementById('s-today').textContent = users.filter(function(u){return u.last_login && _ist(u.last_login)===_t;}).length;
+  renderUsers(users);
+}
+function filterUsers() {
+  const q = document.getElementById('user-search').value.trim().toLowerCase();
+  const filtered = !q ? ALL_USERS : ALL_USERS.filter(u =>
+    (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+  renderUsers(filtered);
+}
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.user-select-cb').forEach(el => { if (!el.disabled) el.checked = cb.checked; });
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const checked = [...document.querySelectorAll('.user-select-cb:checked')];
+  const bar = document.getElementById('bulk-bar');
+  document.getElementById('bulk-count').textContent = checked.length;
+  bar.style.display = checked.length ? 'flex' : 'none';
+}
+async function bulkRevoke() {
+  const emails = [...document.querySelectorAll('.user-select-cb:checked')].map(el => el.dataset.email);
+  if (!emails.length) return;
+  if (!confirm(`Revoke access for ${emails.length} user(s)?`)) return;
+  for (const email of emails) {
+    await rpc('remove_allowed_user',{user_email:email});
+    logAudit(email, 'revoke', {bulk:true});
+  }
+  showToast(`⚠️ Revoked ${emails.length} user(s)`, 'err');
+  loadUsers();
+  loadAuditLog();
+}
+function renderUsers(users) {
+  const DASH_ACCESS = [['rmc','RMC Dashboard'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval Queue'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['ho_tat','HO Approval TAT'],['parts_tracker','Parts Tracker']];
   document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
-    const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,cost_savings:false};
+    const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,oos:false};
     const isProt = u.email===ADMIN;
-    const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `
-      <fieldset style="border:none;padding:0;margin:0">
-        <legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Dashboard Access</legend>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.rmc?'checked':''} onchange="setPerm('${u.email}','rmc',this.checked)"> RMC</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.fleet_km?'checked':''} onchange="setPerm('${u.email}','fleet_km',this.checked)"> Fleet KM</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.parts_testing?'checked':''} onchange="setPerm('${u.email}','parts_testing',this.checked)"> Parts</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.wear_tear?'checked':''} onchange="setPerm('${u.email}','wear_tear',this.checked)"> Wear &amp; Tear</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.hub_control_tower?'checked':''} onchange="setPerm('${u.email}','hub_control_tower',this.checked)"> Hub Tower</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.msl_dashboard?'checked':''} onchange="setPerm('${u.email}','msl_dashboard',this.checked)"> MSL</label>
-        <label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" ${p.hub_tv?'checked':''} onchange="setPerm('${u.email}','hub_tv',this.checked)"> Hub TV</label>
-        <label style="font-size:11px;cursor:pointer"><input type="checkbox" ${p.cost_savings?'checked':''} onchange="setPerm('${u.email}','cost_savings',this.checked)"> Cost Savings</label>
-      </fieldset>`;
+    const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `<fieldset style="border:none;padding:0;margin:0"><legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Sidebar Access</legend>${DASH_ACCESS.map(it=>`<label style="font-size:11px;margin-right:8px;cursor:pointer;display:inline-block"><input type="checkbox" ${p[it[0]]?'checked':''} onchange="setPerm('${u.email}','${it[0]}',this.checked)"> ${it[1]}</label>`).join('')}</fieldset>`;
     return `<tr data-email="${u.email}">
+      <td><input type="checkbox" class="user-select-cb" data-email="${u.email}" ${isProt?'disabled':''} onchange="updateBulkBar()"></td>
       <td class="user-name" style="font-weight:600">${u.name||'—'}</td>
       <td>${u.email}</td>
       <td class="user-role"><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
@@ -230,11 +308,12 @@ async function loadUsers() {
       <td style="font-size:12px;color:var(--muted)">${fmt(u.last_login)}</td>
       <td class="user-action">${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
         u.is_active
-          ? `<button class="btn btn-green" style="margin-right:4px" onclick="editUser('${u.email}','${u.name||''}','${u.role}')">Edit</button><button class="btn btn-danger" onclick="revokeUser('${u.email}')">Revoke</button>`
+          ? `<button class="btn btn-green" style="margin-right:4px" onclick="editUser('${u.email}','${u.name||''}','${u.role}')">Edit</button><button class="btn" style="margin-right:4px;background:#f59e0b;color:#fff" onclick="resetPassword('${u.email}')">Reset Pwd</button><button class="btn btn-danger" onclick="revokeUser('${u.email}')">Revoke</button>`
           : `<button class="btn btn-green" onclick="restoreUser('${u.email}')">Restore</button>`
       }</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty">No users</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty">No users</td></tr>';
+  updateBulkBar();
 }
 
 async function addUser() {
@@ -246,9 +325,11 @@ async function addUser() {
   const r = await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
   if (r.ok) {
     showToast('✅ ' + name + ' added successfully');
+    logAudit(email, 'add_user', {name, role});
     document.getElementById('new-email').value='';
     document.getElementById('new-name').value='';
     loadUsers();
+    loadAuditLog();
   } else {
     const e = await r.json().catch(()=>({}));
     showMsg(msg,'err',`Failed: ${e.message||e.hint||JSON.stringify(e)}`);
@@ -285,15 +366,31 @@ async function saveUser(email) {
   const role = document.getElementById('edit-role')?.value;
   if (!name) return;
   const r = await rpc('add_allowed_user', {user_email:email, user_name:name, user_role:role, added_by_email:sess.email});
-  if (r.ok) { showToast('✅ User updated'); loadUsers(); }
+  if (r.ok) { showToast('✅ User updated'); logAudit(email, 'edit_user', {name, role}); loadUsers(); loadAuditLog(); }
   else showToast('❌ Failed to update', 'err');
+}
+
+async function resetPassword(email) {
+  if (!confirm(`Reset password for ${email}?\nThey will be asked to create a new password on next login.`)) return;
+  try {
+    const res = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
+      body: JSON.stringify({ action: 'reset_user_password', email })
+    });
+    const r = await res.json();
+    if (r.success) { showToast('✅ Password reset — user will create new password on next login'); logAudit(email, 'reset_password'); loadUsers(); loadAuditLog(); }
+    else showToast('❌ Failed: ' + (r?.error || 'unknown'), 'err');
+  } catch(e) { showToast('❌ Network error', 'err'); }
 }
 
 async function revokeUser(email) {
   if (!confirm(`Revoke access for ${email}?`)) return;
   await rpc('remove_allowed_user',{user_email:email});
+  logAudit(email, 'revoke');
   showToast('⚠️ Access revoked for ' + email, 'err');
   loadUsers();
+  loadAuditLog();
 }
 
 async function restoreUser(email) {
@@ -302,50 +399,18 @@ async function restoreUser(email) {
     headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify({is_active:true})
   });
+  logAudit(email, 'restore');
   loadUsers();
+  loadAuditLog();
 }
 
 async function setPerm(email, key, val) {
   const users = await get(`allowed_users?email=eq.${encodeURIComponent(email)}`);
   if (!users.length) return;
-  const perms = {...(users[0].permissions||{rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,cost_savings:false}),[key]:val};
+  const perms = {...(users[0].permissions||{rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,oos:false}),[key]:val};
   await rpc('update_user_permissions',{user_email:email,user_permissions:perms});
-}
-
-// ── REQUESTS ──
-async function loadRequests() {
-  const reqs = await get('login_requests?order=requested_at.desc&limit=50');
-  const pending = reqs.filter(r=>r.status==='pending');
-  const badge = document.getElementById('req-badge');
-  if (pending.length) { badge.textContent=pending.length; badge.style.display='inline-flex'; }
-  else badge.style.display='none';
-
-  document.getElementById('req-tbody').innerHTML = reqs.length ? reqs.map(r=>`
-    <tr>
-      <td style="font-weight:600">${r.email}</td>
-      <td style="font-size:12px;color:var(--muted)">${fmt(r.requested_at)}</td>
-      <td><span class="pill p-${r.status}">${r.status}</span></td>
-      <td>${r.status==='pending'
-        ? `<button class="btn btn-green" onclick="approveReq('${r.id}','${r.email}')">Approve</button>
-           <button class="btn btn-danger" onclick="rejectReq('${r.id}')">Reject</button>`
-        : `<span style="color:var(--muted);font-size:11px">${r.reviewed_by||'—'}</span>`
-      }</td>
-    </tr>`).join('')
-  : '<tr><td colspan="4" class="empty">No requests yet</td></tr>';
-}
-
-async function approveReq(id, email) {
-  const name = prompt(`Name for ${email}:`);
-  if (!name) return;
-  const role = confirm('Admin role? Cancel = Viewer') ? 'admin' : 'viewer';
-  await rpc('approve_login_request',{request_id:id,reviewed_by_email:sess.email});
-  await rpc('add_allowed_user',{user_email:email,user_name:name,user_role:role,added_by_email:sess.email});
-  loadRequests(); loadUsers();
-}
-
-async function rejectReq(id) {
-  await rpc('reject_login_request',{request_id:id,reviewed_by_email:sess.email});
-  loadRequests();
+  logAudit(email, 'set_perm', {key, val});
+  loadAuditLog();
 }
 
 // ── ACTIVITY ──
@@ -356,12 +421,84 @@ async function loadActivity() {
     : '<tr><td colspan="2" class="empty">No activity yet</td></tr>';
 }
 
+// ── SYSTEM HEALTH ──
+async function loadCronHealth() {
+  const tbody = document.getElementById('health-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  try {
+    const r = await rpc('get_cron_health', {});
+    const jobs = await r.json();
+    tbody.innerHTML = jobs.length ? jobs.map(j => {
+      const failed = j.last_status === 'failed';
+      const statusPill = j.last_status
+        ? `<span class="pill" style="background:${failed?'#450a0a':'#052e16'};color:${failed?'#fca5a5':'#4ade80'}" title="${(j.last_error||'').replace(/"/g,'&quot;')}">${j.last_status}</span>`
+        : '<span style="color:var(--muted);font-size:11px">never run</span>';
+      const badge24h = (j.fail_24h > 0)
+        ? `<span style="color:#fca5a5;font-weight:600">${j.fail_24h} failed</span> / ${j.ok_24h} ok`
+        : `${j.ok_24h} ok`;
+      return `<tr${failed?' style="background:rgba(220,38,38,.06)"':''}>
+        <td style="font-weight:600;font-family:monospace;font-size:12px">${j.jobname}</td>
+        <td style="font-family:monospace;font-size:11.5px;color:var(--muted)">${j.schedule}</td>
+        <td style="font-size:12px;color:var(--muted)">${fmt(j.last_run_at)}</td>
+        <td>${statusPill}</td>
+        <td style="font-size:12px">${badge24h}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="5" class="empty">No scheduled jobs</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load.</td></tr>';
+  }
+}
+
+// ── DASHBOARD USAGE ──
+async function loadDashboardUsage() {
+  const tbody = document.getElementById('usage-tbody');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+  try {
+    const r = await rpc('get_dashboard_usage_by_user', {});
+    const rows = await r.json();
+    rows.sort((a,b) => new Date(b.last_active) - new Date(a.last_active));
+    tbody.innerHTML = rows.length ? rows.map(u => {
+      const dashList = (u.dashboards||[]).map(d => `<span class="pill" style="background:var(--bg);color:var(--text);margin:2px 3px 2px 0;font-weight:500" title="${d.views} view${d.views===1?'':'s'}, last ${fmt(d.last_used)}">${d.dashboard} (${d.views})</span>`).join('');
+      return `<tr>
+        <td style="font-weight:600">${u.email}</td>
+        <td>${dashList}</td>
+        <td style="font-size:12.5px">${u.total_views}</td>
+        <td style="font-size:12px;color:var(--muted)">${fmt(u.last_active)}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="4" class="empty">No usage data yet</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>';
+  }
+}
+
+// ── AUDIT LOG ──
+async function loadAuditLog() {
+  const tbody = document.getElementById('audit-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  try {
+    const r = await rpc('get_permission_audit_log', {p_limit: 100});
+    const rows = await r.json();
+    tbody.innerHTML = rows.length ? rows.map(a => {
+      const details = a.details ? `<span style="font-size:11px;color:var(--muted);font-family:monospace">${JSON.stringify(a.details)}</span>` : '';
+      return `<tr>
+        <td style="font-size:12px;color:var(--muted)">${fmt(a.created_at)}</td>
+        <td style="font-weight:600;font-size:12.5px">${a.actor_email}</td>
+        <td><span class="pill" style="background:var(--bg);color:var(--text)">${a.action}</span></td>
+        <td style="font-size:12.5px">${a.target_email}</td>
+        <td>${details}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="5" class="empty">No actions logged yet</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load.</td></tr>';
+  }
+}
+
 function showMsg(el,type,text){
   el.className=`fmsg ${type}`; el.textContent=text;
   setTimeout(()=>el.style.display='none',4000);
 }
 
-loadUsers(); loadRequests(); loadActivity();
+loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAuditLog();
 
 
 // ── SIDEBAR CONTROL ──────────────────────────────────────
@@ -416,5 +553,71 @@ loadUsers(); loadRequests(); loadActivity();
   setSidebarOpen(shouldBeOpen);
 })();
 // ─────────────────────────────────────────────────────────
+</script>
+<script>
+(function(){
+  const HAU_SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+  const HAU_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+  function tok(){try{var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}');return s.access_token||HAU_ANON;}catch(e){return HAU_ANON;}}
+  function hh(x){return Object.assign({'apikey':HAU_ANON,'Authorization':'Bearer '+tok(),'Accept-Profile':'hub_audit','Content-Profile':'hub_audit','Content-Type':'application/json'},x||{});}
+  async function refreshToken(){
+    try{
+      var s=JSON.parse(localStorage.getItem('sb_session')||'{}');
+      if(!s.refresh_token) return null;
+      var r=await fetch(HAU_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':HAU_ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      var d=await r.json();
+      if(d&&d.access_token){ s.access_token=d.access_token; if(d.refresh_token)s.refresh_token=d.refresh_token; localStorage.setItem('sb_session',JSON.stringify(s)); try{sessionStorage.setItem('sb_session',JSON.stringify(s));}catch(e){} return d.access_token; }
+    }catch(e){}
+    return null;
+  }
+  async function api(p,o){
+    o=o||{};
+    async function once(){var r=await fetch(HAU_SB+'/rest/v1/'+p,Object.assign({},o,{headers:hh(o.headers||{})}));var t=await r.text();return {r:r,d:t?JSON.parse(t):null};}
+    var res=await once();
+    if(!res.r.ok && (res.r.status===401 || (res.d&&/jwt|token/i.test(res.d.message||'')))){
+      if(await refreshToken()) res=await once();   // token expired -> refresh & retry once
+    }
+    if(!res.r.ok){
+      var msg=(res.d&&res.d.message)||('HTTP '+res.r.status);
+      if(res.r.status===401||/jwt|token/i.test(msg)) msg='Session expired — please refresh the page.';
+      throw new Error(msg);
+    }
+    return res.d;
+  }
+  var HUBS=[],USERS=[],EDIT_ID=null;
+  function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var RLBL={auditor:'Auditor',hub_manager:'Hub Manager',service_manager:'Service Manager',city_head:'City Head',regional_manager_ops:'Regional Manager - Ops',regional_manager_service:'Regional Manager - Service',ops_head:'Ops Head',service_head:'Service Head',founder:'Founder'};
+  function hubName(id){var h=HUBS.find(function(x){return x.id===id;});return h?h.name:'';}
+  async function boot(){
+    if(!document.getElementById('hau-list'))return;
+    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
+    try{HUBS=await api('hubs?select=id,name,city&is_active=eq.true&order=city.asc,name.asc');}catch(e){}
+    var cs=Array.from(new Set(HUBS.map(function(h){return h.city;}))).sort();
+    var cy=document.getElementById('hau-city');if(cy)cy.innerHTML='<option value="">—</option>'+cs.map(function(c){return '<option>'+esc(c)+'</option>';}).join('');
+    var hb=document.getElementById('hau-hub');if(hb)hb.innerHTML='<option value="">—</option>'+HUBS.map(function(h){return '<option value="'+h.id+'">'+esc(h.name)+' — '+esc(h.city)+'</option>';}).join('');
+    load();
+  }
+  async function load(){var el=document.getElementById('hau-list');try{USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');render();}catch(e){el.innerHTML='<span style="color:#dc2626">'+esc(e.message)+'</span>';}}
+  function render(){var el=document.getElementById('hau-list');if(!USERS.length){el.innerHTML='No Hub Audit users yet.';return;}el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:4px">Name</th><th style="text-align:left;padding:4px">Email</th><th style="text-align:left;padding:4px">Role</th><th style="text-align:left;padding:4px">Hub/City</th><th></th></tr></thead><tbody>'+USERS.map(function(u,i){return '<tr style="border-top:1px solid #eee"><td style="padding:4px">'+esc(u.name)+(u.is_admin?' <b>(admin)</b>':'')+'</td><td style="padding:4px">'+esc(u.email)+'</td><td style="padding:4px">'+(RLBL[u.role]||u.role)+(u.can_audit?' · audits':'')+(u.is_active===false?' · inactive':'')+'</td><td style="padding:4px">'+esc(u.hub_id?hubName(u.hub_id):(u.city||''))+'</td><td style="padding:4px"><button class="btn" onclick="haU_edit('+i+')">Edit</button></td></tr>';}).join('')+'</tbody></table>';}
+  window.haU_edit=function(i){var u=USERS[i];EDIT_ID=u.id;document.getElementById('hau-name').value=u.name||'';var em=document.getElementById('hau-email');em.value=u.email||'';em.disabled=true;document.getElementById('hau-role').value=u.role||'auditor';document.getElementById('hau-city').value=u.city||'';document.getElementById('hau-hub').value=u.hub_id||'';document.getElementById('hau-audit').checked=!!u.can_audit;document.getElementById('hau-admin').checked=!!u.is_admin;document.getElementById('hau-card').scrollIntoView({behavior:'smooth',block:'start'});};
+  window.haU_reset=function(){EDIT_ID=null;document.getElementById('hau-name').value='';var em=document.getElementById('hau-email');em.value='';em.disabled=false;document.getElementById('hau-role').value='auditor';document.getElementById('hau-city').value='';document.getElementById('hau-hub').value='';document.getElementById('hau-audit').checked=false;document.getElementById('hau-admin').checked=false;document.getElementById('hau-msg').textContent='';};
+  window.haU_save=async function(){
+    var m=document.getElementById('hau-msg');m.textContent='';
+    var name=document.getElementById('hau-name').value.trim();
+    var email=document.getElementById('hau-email').value.trim().toLowerCase();
+    var role=document.getElementById('hau-role').value;
+    var city=document.getElementById('hau-city').value||null;
+    var hub=document.getElementById('hau-hub').value||null;
+    if(!name||!email){m.textContent='Name and email required.';return;}
+    if((role==='hub_manager'||role==='service_manager')&&!hub){m.textContent='Hub required for Hub/Service Manager.';return;}
+    var body={name:name,role:role,city:city,hub_id:hub,can_audit:document.getElementById('hau-audit').checked,is_admin:document.getElementById('hau-admin').checked,is_active:true};
+    try{
+      if(EDIT_ID){await api('auditors?id=eq.'+EDIT_ID,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});}
+      else{body.email=email;await api('auditors',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});}
+      haU_reset();load();
+    }catch(e){m.textContent='Save failed: '+e.message;}
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
 </script>
 </body></html>
