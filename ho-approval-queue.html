@@ -451,6 +451,37 @@ function renderRejectionDiff(jc){
   if(catChanged.length) parts.push('<span class="na-life">'+catChanged.map(function(c){return esc(c.name)+' cat '+c.from+'→'+c.to;}).join(', ')+'</span>');
   return '<div class="reason"><b>Since last rejection ('+fmtDate(jc.previous_waiting_date)+'):</b> '+parts.join(' &nbsp;·&nbsp; ')+'</div>';
 }
+// Maps each watched part_bucket to the same keyword STANDARD_LIFE_KM_RULES
+// already uses for that part, so "already being handled by this JC"
+// suppression matches the same granularity as the rest of this dashboard's
+// life-check logic (front/rear brake pad share one keyword since they share
+// one std life, same for brake shoe and the two Zoom tyre variants).
+var OVERDUE_KEYWORD={
+  'Rear Tyre (Energy Ride / 12Inch)':'energy ride',
+  'Front Tyre (Zoom)':'zoom',
+  'Rear Tyre 12 Inch (Zoom)':'zoom',
+  'Cone Set Assy':'cone set',
+  'Rear Brake Pad':'brake pad',
+  'Front Brake Pad':'brake pad',
+  'Rr Brake Shoe Set - Drum':'brake shoe',
+  'Fr Brake Shoe Set - Drum':'brake shoe'
+};
+function renderOverdueWatch(jc, items){
+  var watch=jc.overdue_watch||[];
+  if(!watch.length) return '';
+  var itemNames=items.map(function(it){ return (it.name||'').toLowerCase(); }).join(' | ');
+  var remaining=watch.filter(function(w){
+    var kw=OVERDUE_KEYWORD[w.part_bucket];
+    return !(kw && itemNames.indexOf(kw)>=0);
+  });
+  if(!remaining.length) return '';
+  var lines=remaining.map(function(w){
+    return '<li>'+esc(w.part_bucket)+' — running at '+nf(w.km_since)+' km (std life '+nf(w.expected_life_km)+' km)</li>';
+  }).join('');
+  return '<div class="verdict verdict-review" style="border-top:1px solid var(--border)"><div class="verdict-label">⚠ Other parts likely overdue — check or replace</div>'+
+    '<ul class="verdict-reasons">'+lines+'</ul>'+
+    '<div class="verdict-caveat">Not on this job card\'s own parts list. Based on last known replacement in our records (or current odometer if never replaced) vs standard life.</div></div>';
+}
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
@@ -458,6 +489,7 @@ function renderJC(jc){
   var items=jc.__items||[];
   var verdict=computeVerdict(jc, items);
   var verdictHtml=renderVerdict(verdict);
+  var overdueWatchHtml=renderOverdueWatch(jc, items);
   var body=renderPartsTable(jc, items);
   var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
   var rejectionDiff = renderRejectionDiff(jc);
@@ -465,7 +497,7 @@ function renderJC(jc){
   return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
       '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Requested At '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+' · Deployed '+fmtDate(jc.deployed_date)+'</div>'+
-    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+
+    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+overdueWatchHtml+
     '<div class="jc-split"><div>'+body+rejectionDiff+'</div><div class="jc-side">'+photos+reason+'</div></div>'+
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
