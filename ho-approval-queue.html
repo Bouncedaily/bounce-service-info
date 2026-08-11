@@ -66,11 +66,12 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .lightbox{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:999;padding:24px;cursor:zoom-out}
 .lightbox.open{display:flex}
 .lightbox img{max-width:100%;max-height:100%;border-radius:8px}
-.verdict{padding:12px 16px;border-bottom:1px solid var(--border)}
+.verdict{padding:12px 16px;margin:12px 0;border-radius:8px;border:1px solid transparent}
 .verdict-label{font-size:13px;font-weight:700}
-.verdict-ok{background:#f0fdf4}.verdict-ok .verdict-label{color:#15803d}
-.verdict-notes{background:#fffbeb}.verdict-notes .verdict-label{color:#a16207}
-.verdict-review{background:#fef2f2}.verdict-review .verdict-label{color:#b91c1c}
+.verdict-ok{background:#f0fdf4;border-color:#bbf7d0}.verdict-ok .verdict-label{color:#15803d}
+.verdict-notes{background:#fffbeb;border-color:#fde68a}.verdict-notes .verdict-label{color:#a16207}
+.verdict-review{background:#fef2f2;border-color:#fecaca}.verdict-review .verdict-label{color:#b91c1c}
+.verdict-watch{background:#fff7ed;border-color:#fed7aa;margin-top:16px}.verdict-watch .verdict-label{color:#c2410c}
 .verdict-reasons{margin:6px 0 0;padding-left:18px;font-size:12px}
 .verdict-reasons li{margin-bottom:2px}
 .verdict-caveat{font-size:10.5px;color:var(--muted2);margin-top:6px;font-style:italic}
@@ -478,7 +479,7 @@ function renderOverdueWatch(jc, items){
   var lines=remaining.map(function(w){
     return '<li>'+esc(w.part_bucket)+' — running at '+nf(w.km_since)+' km (std life '+nf(w.expected_life_km)+' km)</li>';
   }).join('');
-  return '<div class="verdict verdict-review" style="border-top:1px solid var(--border)"><div class="verdict-label">⚠ Other parts likely overdue — check or replace</div>'+
+  return '<div class="verdict verdict-watch"><div class="verdict-label">⚠ Other parts likely overdue — check or replace</div>'+
     '<ul class="verdict-reasons">'+lines+'</ul>'+
     '<div class="verdict-caveat">Not on this job card\'s own parts list. Based on last known replacement in our records (or current odometer if never replaced) vs standard life.</div></div>';
 }
