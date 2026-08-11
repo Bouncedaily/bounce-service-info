@@ -382,7 +382,7 @@ function computeVerdict(jc, items){
   var norm=normName;
   var usedKeys={};
   if((jc.rejection_count||0)>=2) reasons.push({sev:'bad', text:'Rejected '+jc.rejection_count+' times already \u2014 recheck before approving again'});
-  else if((jc.rejection_count||0)===1) reasons.push({sev:'warn', text:'Rejected once before this submission'});
+  else if((jc.rejection_count||0)===1) reasons.push({sev:'warn', text:'Rejected once before this request'});
   (jc.parts||[]).forEach(function(p){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
@@ -446,7 +446,7 @@ function renderRejectionDiff(jc){
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
-    ((jc.rejection_count||0)>0?'<span class="chip red">⚠ Rejected '+jc.rejection_count+'x before this submission</span>':'');
+    ((jc.rejection_count||0)>0?'<span class="chip red">⚠ Rejected '+jc.rejection_count+'x before this request</span>':'');
   var items=jc.__items||[];
   var verdict=computeVerdict(jc, items);
   var verdictHtml=renderVerdict(verdict);
