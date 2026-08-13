@@ -1081,10 +1081,18 @@ async function fetchAndRenderBikeList(from, to) {
   var dateParam = fromParam + toParam;
   // If no date filter, default to today
   if (!dateParam) dateParam = `&data_date=eq.${todayISTDate()}`;
+  // outflow_today is a rolling table: it only accepts writes for "yesterday"
+  // during a brief post-midnight settling window, then is frozen for good.
+  // If sync was ever paused (outage, etc.) during that day, outflow_today
+  // stays permanently short for that date. outflow_hist is the complete
+  // archive, so route any range that isn't purely "today" to outflow_hist.
+  var today = todayISTDate();
+  var isTodayOnly = (!from || from === today) && (!to || to === today);
+  var outflowTable = isTodayOnly ? 'outflow_today' : 'outflow_hist';
   try {
     const [inflowR, outflowR] = await Promise.all([
       fetch(`${SB}/rest/v1/inflow_today?select=*${dateParam}&order=event_time.desc&limit=5000`, { headers: HDR }),
-      fetch(`${SB}/rest/v1/outflow_today?select=*${dateParam}&order=repaired_datetime.desc&limit=5000`, { headers: HDR }),
+      fetch(`${SB}/rest/v1/${outflowTable}?select=*${dateParam}&order=repaired_datetime.desc&limit=5000`, { headers: HDR }),
     ]);
     const inflow  = await inflowR.json();
     const outflow = await outflowR.json();
