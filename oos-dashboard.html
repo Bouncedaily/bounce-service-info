@@ -786,7 +786,7 @@ async function fetchData() {
   // Q2: OOS detail — only OOS bikes with aging/repair cols (~464 rows)
   // Q3+4: inflow/outflow — small tables
   const [summaryR, oosR, inflowR, outflowR] = await Promise.all([
-    fetchWithTimeout(`${SB}/rest/v1/bike_fleet?select=city,hub_name,model_name,status&limit=20000`, { headers: HDR }, 15000),
+    fetchWithTimeout(`${SB}/rest/v1/bike_fleet?select=reg_number,city,hub_name,model_name,status&limit=20000`, { headers: HDR }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/bike_fleet?select=city,hub_name,model_name,oos_aging_bucket,repair_category,oos_age,reg_number,oos_sub_status,current_odometer,latest_oos_date,total_labour_hrs&status=eq.OOS&limit=2000`, { headers: HDR }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/inflow_today?select=*&data_date=eq.${todayISTDate()}&order=event_time.desc`, { headers: HDR }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/outflow_today?select=*&data_date=eq.${todayISTDate()}&order=repaired_datetime.desc`, { headers: HDR }, 15000),
@@ -1260,10 +1260,18 @@ function render({ summary, oosDetail, inflow, outflow }) {
   });
 }
 
+let CM_SUMMARY = [];
+let CM_OOS_BY_REG = {};
+
 function cityModelRows(summary, oosDetail, key, tblId) {
+  CM_SUMMARY = summary;
+  CM_OOS_BY_REG = {};
+  oosDetail.forEach(r => { if (r.reg_number) CM_OOS_BY_REG[r.reg_number] = r; });
+
   const groups = [...new Set(summary.map(r => r[key]).filter(Boolean))].sort();
   const tbody = document.querySelector('#' + tblId + ' tbody');
   if (!groups.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No data</td></tr>'; return; }
+  const K = JSON.stringify(key);
   let rows = '', gt = 0, go = 0, gpdi = 0, grfd = 0, gact = 0;
   groups.forEach(g => {
     const t = summary.filter(r => r[key]===g).length;
@@ -1273,10 +1281,23 @@ function cityModelRows(summary, oosDetail, key, tblId) {
     const act = summary.filter(r => r[key]===g && r.status === 'Active_rental').length;
     const p = pct(o, t);
     gt += t; go += o; gpdi += pdi; grfd += rfd; gact += act;
-    rows += `<tr><td>${g}</td><td class="num">${t.toLocaleString('en-IN')}</td><td class="num">${o.toLocaleString('en-IN')}</td><td class="pct ${pctClass(p)}">${p}</td><td class="num">${pdi.toLocaleString('en-IN')}</td><td class="num">${rfd.toLocaleString('en-IN')}</td><td class="num">${act.toLocaleString('en-IN')}</td></tr>`;
+    const G = JSON.stringify(g);
+    rows += `<tr><td>${g}</td>`+
+      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},null)'>${t.toLocaleString('en-IN')}</td>`+
+      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("OOS")})'>${o.toLocaleString('en-IN')}</td>`+
+      `<td class="pct ${pctClass(p)}">${p}</td>`+
+      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("pdi")})'>${pdi.toLocaleString('en-IN')}</td>`+
+      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("RFD")})'>${rfd.toLocaleString('en-IN')}</td>`+
+      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("Active_rental")})'>${act.toLocaleString('en-IN')}</td></tr>`;
   });
   const tp = pct(go, gt);
-  rows += `<tr class="tfoot"><td>Total</td><td class="num">${gt.toLocaleString('en-IN')}</td><td class="num">${go.toLocaleString('en-IN')}</td><td class="pct ${pctClass(tp)}">${tp}</td><td class="num">${gpdi.toLocaleString('en-IN')}</td><td class="num">${grfd.toLocaleString('en-IN')}</td><td class="num">${gact.toLocaleString('en-IN')}</td></tr>`;
+  rows += `<tr class="tfoot"><td>Total</td>`+
+    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,null)'>${gt.toLocaleString('en-IN')}</td>`+
+    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("OOS")})'>${go.toLocaleString('en-IN')}</td>`+
+    `<td class="pct ${pctClass(tp)}">${tp}</td>`+
+    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("pdi")})'>${gpdi.toLocaleString('en-IN')}</td>`+
+    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("RFD")})'>${grfd.toLocaleString('en-IN')}</td>`+
+    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("Active_rental")})'>${gact.toLocaleString('en-IN')}</td></tr>`;
   tbody.innerHTML = rows;
 }
 
@@ -1420,6 +1441,30 @@ function ddBadgeClass(cat) {
   return 'default';
 }
 
+async function openCityModelDrilldown(dimKey, dimValue, status) {
+  const rows = CM_SUMMARY.filter(r =>
+    (dimValue === null || r[dimKey] === dimValue) &&
+    (status === null || r.status === status)
+  ).map(r => Object.assign({}, r, CM_OOS_BY_REG[r.reg_number] || {}));
+  rows.sort((a, b) => (b.oos_age || 0) - (a.oos_age || 0));
+  DD_CURRENT_ROWS = rows;
+
+  const valueLabel = dimValue === null ? 'All' : dimValue;
+  const statusLabel = status === null ? 'All Bikes' : status === 'OOS' ? 'OOS' : status === 'pdi' ? 'PDI' : status === 'RFD' ? 'RFD' : 'Active Rental';
+  DD_CURRENT_TITLE = `${valueLabel} — ${statusLabel}`;
+
+  document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
+  document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
+  document.getElementById('dd-overlay').classList.add('open');
+  document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody>';
+
+  const remarksOk = await loadRemarksFor(rows);
+  if (!remarksOk) {
+    document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ Remarks failed to load — what you see below may be blank even where a remark exists. <a href="#" onclick="loadRemarksFor(DD_CURRENT_ROWS).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
+  }
+  renderDDTable(rows);
+}
+
 async function openOOSDrilldown(dimKey, dimValue, hub) {
   const rows = LAST_OOS_DETAIL.filter(r =>
     (dimValue === null || r[dimKey] === dimValue) &&
@@ -1447,7 +1492,7 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
@@ -1455,6 +1500,7 @@ function renderDDTable(rows) {
     html += `<tr>
       <td style="font-weight:600">${r.reg_number || '—'}</td>
       <td>${r.hub_name || '—'}</td>
+      <td>${r.status || (r.oos_age != null ? 'OOS' : '—')}</td>
       <td>${r.repair_category || '—'}</td>
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
       <td class="num">${labourHrs != null ? Number(labourHrs).toFixed(1) : '—'}</td>
@@ -1476,13 +1522,14 @@ document.addEventListener('keydown', e => {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
     const labourHrs = r.total_labour_hrs;
+    const status = r.status || (r.oos_age != null ? 'OOS' : '');
     return [
-      r.reg_number, r.hub_name, r.city, r.repair_category,
+      r.reg_number, r.hub_name, r.city, status, r.repair_category,
       r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
     ];
   });
