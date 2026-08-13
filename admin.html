@@ -73,6 +73,7 @@
       <div id="hau-tabs" style="display:flex;gap:24px;margin:4px 4px 14px;border-bottom:1px solid #e5e9f0">
         <div class="hau-tab" data-t="allowed" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid #f53b3b;color:#0f172a">Allowed Users</div>
         <div class="hau-tab" data-t="hubaudit" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Hub Audit Users</div>
+        <div class="hau-tab" data-t="syshealth" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">System Health</div>
       </div>
       <!-- Hub Audit Users -->
       <div class="card" id="hau-card" style="display:none">
@@ -118,7 +119,7 @@
       </div>
 
       <!-- System Health -->
-      <div class="card">
+      <div class="card" id="syshealth-card" style="display:none">
         <div class="card-hd"><h2>System Health</h2><span class="sub">Scheduled sync jobs — last run status</span>
           <button class="btn" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="loadCronHealth()">↻ Refresh</button>
         </div>
@@ -612,7 +613,7 @@ loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAud
   function hubName(id){var h=HUBS.find(function(x){return x.id===id;});return h?h.name:'';}
   async function boot(){
     if(!document.getElementById('hau-list'))return;
-    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
+    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');var healthCard=document.getElementById('syshealth-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');if(healthCard)healthCard.style.display=(sel==='syshealth'?'':'none');}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
     try{HUBS=await api('hubs?select=id,name,city&is_active=eq.true&order=city.asc,name.asc');}catch(e){}
     var cs=Array.from(new Set(HUBS.map(function(h){return h.city;}))).sort();
     var cy=document.getElementById('hau-city');if(cy)cy.innerHTML='<option value="">—</option>'+cs.map(function(c){return '<option>'+esc(c)+'</option>';}).join('');
