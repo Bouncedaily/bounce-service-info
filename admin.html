@@ -294,7 +294,7 @@ async function bulkRevoke() {
   loadAuditLog();
 }
 function renderUsers(users) {
-  const DASH_ACCESS = [['rmc','RMC Dashboard'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval Queue'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['ho_tat','HO Approval TAT'],['parts_tracker','Parts Tracker']];
+  const DASH_ACCESS = [['rmc','RMC Dashboard'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval Queue'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker']];
   document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
     const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,oos:false};
     const isProt = u.email===ADMIN;
