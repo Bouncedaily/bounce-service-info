@@ -139,6 +139,8 @@ tr.row-flag:hover{background:#fee2e2}
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(1,this)">Last wk</button>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(2,this)">2 wks</button>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(4,this)">30d</button>
+  <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">City</span>
+  <select id="pf-city" onchange="onPfCityChange()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
   <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">Hub</span>
   <select id="pf-hub" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">Type</span>
@@ -668,13 +670,28 @@ async function perfBoot(){
   const ds=rows.map(r=>r[1]).sort();
   PFD={hubs,rows,hubCity,dmin:ds[0]||since,dmax:ds[ds.length-1]||since};
 
-  const hubSel=document.getElementById('pf-hub');
-  hubs.forEach(h=>{ const o=document.createElement('option'); o.value=h; o.textContent=h; hubSel.appendChild(o); });
+  const citySel=document.getElementById('pf-city');
+  const cities=[...new Set(Object.values(hubCity))].sort();
+  cities.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; citySel.appendChild(o); });
+  pfPopulateHubs('');
 
   const s=new Date(PFD.dmax+'T00:00:00'); s.setDate(s.getDate()-(PF_WINDOW_DAYS-1));
   pfFrom=pfFmtD(s); if(pfFrom<PFD.dmin) pfFrom=PFD.dmin; pfTo=PFD.dmax;
   document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-from').min=PFD.dmin; document.getElementById('pf-from').max=PFD.dmax;
   document.getElementById('pf-to').value=pfTo; document.getElementById('pf-to').min=PFD.dmin; document.getElementById('pf-to').max=PFD.dmax;
+  perfDraw();
+}
+
+function pfPopulateHubs(city){
+  const hubSel=document.getElementById('pf-hub');
+  const keep=hubSel.value;
+  const hubs=city ? PFD.hubs.filter((h,i)=>PFD.hubCity[i]===city) : PFD.hubs;
+  hubSel.innerHTML='<option value="">All hubs</option>'+hubs.map(h=>'<option value="'+h+'">'+h+'</option>').join('');
+  hubSel.value = hubs.includes(keep) ? keep : '';
+}
+
+function onPfCityChange(){
+  pfPopulateHubs(document.getElementById('pf-city').value);
   perfDraw();
 }
 
@@ -688,15 +705,17 @@ function perfPreset(w,btn){
 function perfReset(){
   pfFrom=PFD.dmin; pfTo=PFD.dmax;
   document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-to').value=pfTo;
-  document.getElementById('pf-hub').value=''; document.getElementById('pf-type').value='all';
+  document.getElementById('pf-city').value=''; pfPopulateHubs('');
+  document.getElementById('pf-type').value='all';
   perfDraw();
 }
 
 
 function pfTAT(r){ return r[3]; } // raw clock-time TAT in minutes
 function pfFilt(){
-  const hub=document.getElementById('pf-hub').value, typ=document.getElementById('pf-type').value;
+  const city=document.getElementById('pf-city').value, hub=document.getElementById('pf-hub').value, typ=document.getElementById('pf-type').value;
   return PFD.rows.filter(r=> r[1]>=pfFrom && r[1]<=pfTo
+    && (!city || PFD.hubCity[r[0]]===city)
     && (!hub || PFD.hubs[r[0]]===hub)
     && (typ==='all' || r[6]===(typ==='intrip'?1:0)) );
 }
