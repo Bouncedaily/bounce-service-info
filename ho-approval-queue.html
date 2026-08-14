@@ -706,13 +706,15 @@ async function perfBoot(){
     const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
     const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status,reg_number';
     const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
-    let all=[],off=0;const PAGE=1000;
-    for(;;){
-      const res=await fetch(base+'&limit='+PAGE+'&offset='+off,{headers:HDR});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data=await res.json();
-      all=all.concat(data); if(data.length<PAGE)break; off+=PAGE;
-    }
+    // Single large-limit fetch instead of looping in 1000-row pages -- each
+    // round trip through this project's REST API carries several seconds of
+    // fixed connection overhead on its current compute tier (confirmed: the
+    // raw DB query itself answers in ~13ms, but a full API round trip took
+    // 7s+ in testing). ~35 days is currently ~16k rows; 40000 gives headroom
+    // as volume grows before this needs revisiting.
+    const res=await fetch(base+'&limit=40000',{headers:HDR});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const all=await res.json();
     if(!all.length) throw new Error('No rows returned');
     try{ sessionStorage.setItem(PF_CACHE_KEY, JSON.stringify({at:Date.now(), all})); }catch(e){} // sessionStorage has a size cap -- silently skip caching if the dataset is too large for it, cold fetch just always applies then
     perfBootFinish(all);
