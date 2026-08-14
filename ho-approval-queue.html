@@ -184,6 +184,15 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div class="perf-card">
+  <h2>Reject % &amp; First-Pass % Trend <span style="font-weight:400;font-size:12px;color:var(--muted)">— is rework getting better or worse over time</span></h2>
+  <div class="perf-legend">
+    <span><i class="ln" style="background:var(--red)"></i>Reject %</span>
+    <span><i class="ln" style="background:var(--green)"></i>First-Pass %</span>
+  </div>
+  <svg id="pf-reject-trend" class="perf-svg" viewBox="0 0 940 260"></svg>
+</div>
+
+<div class="perf-card">
   <h2>Hourly TAT <span style="font-weight:400;font-size:12px;color:var(--muted)">— bar = avg TAT, dot = request volume</span></h2>
   <div class="perf-legend">
     <span><i class="sw" style="background:var(--green)"></i>Avg TAT ≤30 min</span>
@@ -193,6 +202,17 @@ tr.row-flag:hover{background:#fee2e2}
   <div id="hourly-city-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px"></div>
   <svg id="pf-hourly" class="perf-svg" viewBox="0 0 940 320"></svg>
   <div style="font-size:11px;color:var(--muted);margin-top:6px">Click a bar to see the requests behind that hour's number.</div>
+</div>
+
+<div class="perf-card">
+  <h2>Day &amp; Hour Heatmap <span style="font-weight:400;font-size:12px;color:var(--muted)">— avg TAT by day of week &amp; hour</span></h2>
+  <div class="perf-legend">
+    <span><i class="sw" style="background:var(--green)"></i>≤30 min</span>
+    <span><i class="sw" style="background:var(--amber)"></i>30–90 min</span>
+    <span><i class="sw" style="background:var(--red)"></i>&gt;90 min</span>
+    <span style="color:var(--muted)">Click a cell for details</span>
+  </div>
+  <svg id="pf-heatmap" class="perf-svg" viewBox="0 0 940 260"></svg>
 </div>
 
 <div class="hr-overlay" id="hr-overlay" onclick="if(event.target===this)closeHourDrilldown()">
@@ -228,6 +248,22 @@ tr.row-flag:hover{background:#fee2e2}
     <th data-k="sla">SLA %<span class="arr"></span></th>
     <th data-k="rej">Reject %<span class="arr"></span></th>
     <th data-k="fp">First Pass %<span class="arr"></span></th>
+  </tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="perf-card">
+  <h2>City Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+  <div style="overflow-x:auto"><table class="perf-tbl" id="pf-cities"><thead><tr>
+    <th data-ck="city">City<span class="arr"></span></th>
+    <th data-ck="n">Requests<span class="arr"></span></th>
+    <th data-ck="avg">Avg TAT<span class="arr"></span></th>
+    <th data-ck="min">Min<span class="arr"></span></th>
+    <th data-ck="med">Median<span class="arr"></span></th>
+    <th data-ck="max">Max<span class="arr"></span></th>
+    <th data-ck="p90">P90<span class="arr"></span></th>
+    <th data-ck="sla">SLA %<span class="arr"></span></th>
+    <th data-ck="rej">Reject %<span class="arr"></span></th>
+    <th data-ck="fp">First Pass %<span class="arr"></span></th>
   </tr></thead><tbody></tbody></table></div>
 </div>
 
@@ -850,7 +886,7 @@ function perfDraw(){
     return `<div class="kpi-tile"><div class="kpi-label">${k[0]}</div><div class="kpi-val" style="color:${col}">${k[1]}</div></div>`;
   }).join('');
 
-  pfDrawDaily(resp); pfDrawHourly(resp); pfDrawCycles(rows); pfDrawHubs(rows); pfDrawTop10(resp);
+  pfDrawDaily(resp); pfDrawHourly(resp); pfDrawRejectTrend(rows); pfDrawCycles(rows); pfDrawHubs(rows); pfDrawCities(rows); pfDrawHeatmap(resp); pfDrawTop10(resp);
 }
 
 function pfDrawDaily(resp){
@@ -873,16 +909,52 @@ function pfDrawDaily(resp){
   s+='</g>'; svg.innerHTML=s;
 }
 
+function pfDrawRejectTrend(rows){
+  const svg=document.getElementById('pf-reject-trend'),W=940,H=260,L=42,R=14,T=14,B=30,iw=W-L-R,ih=H-T-B;
+  const byDate={}; rows.forEach(r=>{ (byDate[r[1]]=byDate[r[1]]||[]).push(r); });
+  const days=Object.keys(byDate).sort();
+  if(!days.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
+  // Same max-cycle-per-JC methodology as everywhere else on this page, just
+  // bucketed by day instead of by hub/city -- a JC counts as rejected once
+  // if it reaches cycle 2+ using only that day's own rows (a JC whose cycle
+  // spans multiple days gets attributed to whichever day pushed it past
+  // cycle 1, consistent with how each day's own numbers would look at the
+  // time).
+  const d=days.map(k=>{
+    const byJC={};
+    byDate[k].forEach(r=>{ byJC[r[8]]=Math.max(byJC[r[8]]||0, r[5]); });
+    const cycles=Object.values(byJC), total=cycles.length;
+    const rejected=cycles.filter(c=>c>=2).length, firstPass=cycles.filter(c=>c===1).length;
+    return {d:k, total, rejPct: total?rejected/total*100:0, fpPct: total?firstPass/total*100:0};
+  });
+  const linY=v=>ih-(v/100*ih);
+  const x=i=>days.length>1?i/(days.length-1)*iw:iw/2;
+  let s=`<g transform="translate(${L},${T})">`;
+  [0,25,50,75,100].forEach(g=>{ const y=linY(g); s+=`<line x1="0" y1="${y}" x2="${iw}" y2="${y}" stroke="${pfCss('--border')}"/><text x="-8" y="${y+3}" text-anchor="end" font-size="10">${g}%</text>`; });
+  const line=(k,c)=>{ const p=d.map((r,i)=>`${x(i)},${linY(r[k])}`).join(' '); s+=`<polyline points="${p}" fill="none" stroke="${c}" stroke-width="2"/>`;
+    d.forEach((r,i)=>{ s+=`<circle cx="${x(i)}" cy="${linY(r[k])}" r="2.5" fill="${c}"><title>${r.d}: ${r.total} JCs</title></circle>`; }); };
+  line('fpPct',pfCss('--green')); line('rejPct',pfCss('--red'));
+  d.forEach((r,i)=>{ s+=`<text class="vl" x="${x(i)}" y="${linY(r.rejPct)+13}" text-anchor="middle" fill="${pfCss('--red')}">${r.rejPct.toFixed(0)}</text>`; });
+  const step=Math.ceil(days.length/12);
+  d.forEach((r,i)=>{ if(i%step===0||i===d.length-1) s+=`<text x="${x(i)}" y="${ih+15}" text-anchor="middle" font-size="9">${r.d.slice(8)}/${r.d.slice(5,7)}</text>`; });
+  s+='</g>'; svg.innerHTML=s;
+}
 let hourlyCity = '';
 let HOURLY_LAST_RESP = [];
 let HOURLY_FILTERED = [];
 
-function openHourDrilldown(hour){
+const DOW_NAMES=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function pfDow(dateStr){ return (new Date(dateStr+'T00:00:00').getDay()+6)%7; } // 0=Mon..6=Sun
+
+function openHourDrilldown(hour, dow, source){
   const OUT=['Approved','Rejected/Reopened','Pending'];
-  const rows=HOURLY_FILTERED.filter(r=>r[2]===hour).sort((a,b)=>pfTAT(b)-pfTAT(a));
-  document.getElementById('hr-title').textContent=`${pfHl(hour)} — ${rows.length} request${rows.length===1?'':'s'}`;
+  let rows=(source||HOURLY_FILTERED).filter(r=>r[2]===hour);
+  if(dow!=null) rows=rows.filter(r=>pfDow(r[1])===dow);
+  rows=rows.sort((a,b)=>pfTAT(b)-pfTAT(a));
+  const dowLbl=dow!=null?DOW_NAMES[dow]+' ':'';
+  document.getElementById('hr-title').textContent=`${dowLbl}${pfHl(hour)} — ${rows.length} request${rows.length===1?'':'s'}`;
   const avg=rows.length?pfMean(rows.map(pfTAT)):0;
-  document.getElementById('hr-sub').textContent=`Avg TAT ${avg.toFixed(1)} min${hourlyCity?' · '+hourlyCity:''}`;
+  document.getElementById('hr-sub').textContent=`Avg TAT ${avg.toFixed(1)} min${dow==null&&hourlyCity?' · '+hourlyCity:''}`;
   document.querySelector('#hr-table tbody').innerHTML=rows.map(r=>{
     const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
     return `<tr><td>${r[8]??'—'}</td><td style="font-weight:600">${r[10]||'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${PFD.hubCity[r[0]]||'—'}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td>`+
@@ -893,6 +965,32 @@ function openHourDrilldown(hour){
 
 function closeHourDrilldown(){
   document.getElementById('hr-overlay').classList.remove('open');
+}
+
+let HEATMAP_RESP=[];
+
+function pfDrawHeatmap(resp){
+  HEATMAP_RESP=resp;
+  const svg=document.getElementById('pf-heatmap'),W=940,H=260,L=60,R=14,T=14,B=30,iw=W-L-R,ih=H-T-B;
+  if(!resp.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
+  const cell={}; // cell[dow][hour] = [tat,...]
+  resp.forEach(r=>{ const dw=pfDow(r[1]), h=r[2]; (cell[dw]=cell[dw]||{}); (cell[dw][h]=cell[dw][h]||[]).push(pfTAT(r)); });
+  const cw=iw/24, ch=ih/7;
+  let s=`<g transform="translate(${L},${T})">`;
+  for(let dw=0;dw<7;dw++){
+    s+=`<text x="-8" y="${dw*ch+ch/2+4}" text-anchor="end" font-size="10">${DOW_NAMES[dw]}</text>`;
+    for(let h=0;h<24;h++){
+      const vals=(cell[dw]&&cell[dw][h])||[];
+      const avg=vals.length?pfMean(vals):null;
+      const fill=avg==null?'#f1f3f5':(avg<=30?pfCss('--green'):avg<=90?pfCss('--amber'):pfCss('--red'));
+      const op=avg==null?1:Math.min(1, 0.35+vals.length/20);
+      s+=`<rect x="${h*cw}" y="${dw*ch}" width="${cw-1}" height="${ch-1}" rx="2" fill="${fill}" opacity="${op}" style="cursor:${avg==null?'default':'pointer'}"`+
+        (avg==null?'':` onclick='openHourDrilldown(${h},${dw},HEATMAP_RESP)'`)+
+        `><title>${DOW_NAMES[dw]} ${pfHl(h)}: ${avg==null?'no data':avg.toFixed(1)+' min avg, '+vals.length+' request'+(vals.length===1?'':'s')}</title></rect>`;
+    }
+  }
+  for(let h=0;h<24;h+=2){ s+=`<text x="${h*cw+cw/2}" y="${ih+15}" text-anchor="middle" font-size="9">${pfHl(h)}</text>`; }
+  s+='</g>'; svg.innerHTML=s;
 }
 
 function renderHourlyCityPills(cities){
@@ -1003,11 +1101,48 @@ function pfDrawHubs(rows){
     `<td>${h.min.toFixed(1)}</td><td>${h.med.toFixed(1)}</td><td>${h.max.toFixed(1)}</td>`+
     `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`).join('');
 }
+
+let citySort='avg', citySortDir=-1;
+
+function pfDrawCities(rows){
+  const agg={};
+  rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other'; (agg[c]=agg[c]||{t:[]}); const a=agg[c]; const v=pfTAT(r); if(v!=null)a.t.push(v); });
+  const byJC=pfRejectByJC(rows);
+  const rejAgg={};
+  Object.values(byJC).forEach(jc=>{ const c=PFD.hubCity[jc.hub]||'Other'; (rejAgg[c]=rejAgg[c]||{n:0,rej:0}); rejAgg[c].n++; if(jc.rejected)rejAgg[c].rej++; });
+  const nByCity={};
+  rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other'; nByCity[c]=(nByCity[c]||0)+1; });
+  const byCityJC={};
+  rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other', jc=r[8]; (byCityJC[c]=byCityJC[c]||{}); byCityJC[c][jc]=Math.max(byCityJC[c][jc]||0, r[5]); });
+  let list=Object.entries(agg).map(([c,a])=>{
+    const maxCycles=Object.values(byCityJC[c]||{});
+    const total=maxCycles.length, jc1=maxCycles.filter(x=>x===1).length;
+    const rj=rejAgg[c]||{n:0,rej:0};
+    return {city:c, n:nByCity[c], avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+      sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
+  });
+  list.sort((x,y)=>{ const xv=x[citySort], yv=y[citySort]; const v=xv>yv?1:xv<yv?-1:0; return v*citySortDir; });
+  const mx=Math.max(1,...list.map(c=>c.avg)); const tb=document.querySelector('#pf-cities tbody');
+  if(!list.length){ tb.innerHTML=`<tr><td colspan="10" class="empty">No data in range</td></tr>`; return; }
+  const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
+  const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
+  tb.innerHTML=list.map(c=>`<tr><td>${c.city}</td><td>${c.n}</td>`+
+    `<td><span class="perf-bar" style="width:${Math.max(2,c.avg/mx*100)}px;background:${c.avg<=30?pfCss('--green'):c.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${c.avg.toFixed(1)}</td>`+
+    `<td>${c.min.toFixed(1)}</td><td>${c.med.toFixed(1)}</td><td>${c.max.toFixed(1)}</td>`+
+    `<td>${c.p90.toFixed(1)}</td><td>${pct(c.sla,85,70)}</td><td>${pctInv(c.rej,5,15)}</td><td>${pct(c.fp,85,75)}</td></tr>`).join('');
+}
 [...document.querySelectorAll('#pf-hubs th[data-k]')].forEach(th=>th.onclick=()=>{
   const k=th.dataset.k;
   if(pfSort===k) pfSortDir*=-1; else { pfSort=k; pfSortDir=(k==='hub')?1:-1; }
   document.querySelectorAll('#pf-hubs th').forEach(t=>{ const a=t.querySelector('.arr'); const act=t.dataset.k===pfSort;
     t.classList.toggle('act',act); if(a) a.textContent=act?(pfSortDir<0?'▼':'▲'):'⇅'; });
+  perfDraw();
+});
+[...document.querySelectorAll('#pf-cities th[data-ck]')].forEach(th=>th.onclick=()=>{
+  const k=th.dataset.ck;
+  if(citySort===k) citySortDir*=-1; else { citySort=k; citySortDir=(k==='city')?1:-1; }
+  document.querySelectorAll('#pf-cities th').forEach(t=>{ const a=t.querySelector('.arr'); const act=t.dataset.ck===citySort;
+    t.classList.toggle('act',act); if(a) a.textContent=act?(citySortDir<0?'▼':'▲'):'⇅'; });
   perfDraw();
 });
 
