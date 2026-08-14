@@ -720,12 +720,34 @@ function pfFilt(){
     && (typ==='all' || r[6]===(typ==='intrip'?1:0)) );
 }
 
+// The system is supposed to tag a rejected job card's next row with
+// response_status = 'Job Re-Open (HO Reject)', but a system-side bug means
+// that status never actually gets written. In practice, when HO rejects a
+// job card, it just re-enters the queue as a normal 'Open - Waiting for HO
+// Approval' row with approval_cycle bumped to 2+ -- indistinguishable at
+// the row level from a legitimate second approval request for newly
+// discovered work. Until that's fixed at the source, we treat "asked for
+// approval again" as "was rejected" -- counted once per job card (not per
+// row), since one job card can cycle through several rejected rounds.
+function pfRejectByJC(rows){
+  const byJC={};
+  rows.forEach(r=>{
+    const jc=r[8];
+    if(!byJC[jc]) byJC[jc]={hub:r[0], rejected:false};
+    if(r[9]==='Open - Waiting for HO Approval' && r[5]>=2) byJC[jc].rejected=true;
+  });
+  return byJC;
+}
+
 function perfDraw(){
   pfFrom=document.getElementById('pf-from').value||pfFrom; pfTo=document.getElementById('pf-to').value||pfTo;
   const rows=pfFilt();
   const resp=rows.filter(r=>pfTAT(r)!=null);
   const tats=resp.map(pfTAT);
-  const rej=rows.filter(r=>r[9]==='Job Re-Open (HO Reject)').length, tot=rows.length;
+  const tot=rows.length;
+  const byJC=pfRejectByJC(rows), jcIds=Object.keys(byJC);
+  const rejectedJCs=jcIds.filter(id=>byJC[id].rejected).length;
+  const rejPct=jcIds.length?(rejectedJCs/jcIds.length*100):null;
   const slaOk=resp.filter(r=>pfTAT(r)<=30).length;
   const slaPct=resp.length?(slaOk/resp.length*100):null;
 
@@ -738,14 +760,14 @@ function perfDraw(){
 
   const hubLbl=document.getElementById('pf-hub').value||'All hubs';
   const typLbl=document.getElementById('pf-type').value==='all'?'All':(document.getElementById('pf-type').value==='intrip'?'Intrip':'Endtrip');
-  document.getElementById('pf-sub').textContent=`${pfFrom} → ${pfTo} · ${hubLbl} · ${typLbl} · ${tot} requests · ${resp.length} responded (IST)`;
+  document.getElementById('pf-sub').textContent=`${pfFrom} → ${pfTo} · ${hubLbl} · ${typLbl} · ${tot} requests · ${resp.length} responded · ${jcIds.length} job cards (IST)`;
 
   const kpis=[
     ['Total Requests', tot.toLocaleString('en-IN')],
     ['SLA %', slaPct==null?'—':slaPct.toFixed(1)+'%', slaPct==null?null:(slaPct>=85?'good':slaPct>=70?'warn':'bad')],
     ['Avg TAT', tats.length?pfMean(tats).toFixed(1)+'m':'—'],
     ['P90 TAT', tats.length?pfQuantile(tats,.9).toFixed(1)+'m':'—'],
-    ['Reject %', tot?(rej/tot*100).toFixed(1)+'%':'—'],
+    ['Reject %', rejPct==null?'—':rejPct.toFixed(1)+'%', rejPct==null?null:(rejPct<=5?'good':rejPct<=15?'warn':'bad')],
     ['First-Pass %', firstPassPct==null?'—':firstPassPct.toFixed(1)+'%', firstPassPct==null?null:(firstPassPct>=85?'good':firstPassPct>=75?'warn':'bad')],
   ];
   document.getElementById('pf-kpis').innerHTML=kpis.map(k=>{
@@ -824,13 +846,19 @@ function pfDrawCycles(rows){
 
 function pfDrawHubs(rows){
   const agg={};
-  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (agg[h]=agg[h]||{t:[],rej:0,n:0}); const a=agg[h]; a.n++; if(r[9]==='Job Re-Open (HO Reject)')a.rej++; const v=pfTAT(r); if(v!=null)a.t.push(v); });
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (agg[h]=agg[h]||{t:[]}); const a=agg[h]; const v=pfTAT(r); if(v!=null)a.t.push(v); });
+  const byJC=pfRejectByJC(rows);
+  const rejAgg={};
+  Object.values(byJC).forEach(jc=>{ const h=PFD.hubs[jc.hub]; (rejAgg[h]=rejAgg[h]||{n:0,rej:0}); rejAgg[h].n++; if(jc.rejected)rejAgg[h].rej++; });
+  const nByHub={};
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; nByHub[h]=(nByHub[h]||0)+1; });
   const cyc={};
   rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (cyc[h]=cyc[h]||{}); cyc[h][r[5]]=(cyc[h][r[5]]||0)+1; });
-  let list=Object.entries(agg).filter(([_,a])=>a.n>=5).map(([h,a])=>{
+  let list=Object.entries(agg).filter(([h,_])=>nByHub[h]>=5).map(([h,a])=>{
     const c=cyc[h]||{}, g=k=>c[k]||0, total=g(1), jc1=g(1)-g(2);
-    return {hub:h, n:a.n, avg:a.t.length?pfMean(a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
-      sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:a.rej/a.n*100, fp:total?jc1/total*100:0};
+    const rj=rejAgg[h]||{n:0,rej:0};
+    return {hub:h, n:nByHub[h], avg:a.t.length?pfMean(a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+      sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[pfSort], yv=y[pfSort]; const v=xv>yv?1:xv<yv?-1:0; return v*pfSortDir; });
   const mx=Math.max(1,...list.map(h=>h.avg)); const tb=document.querySelector('#pf-hubs tbody');
