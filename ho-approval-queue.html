@@ -722,19 +722,24 @@ function pfFilt(){
 
 // The system is supposed to tag a rejected job card's next row with
 // response_status = 'Job Re-Open (HO Reject)', but a system-side bug means
-// that status never actually gets written. In practice, when HO rejects a
-// job card, it just re-enters the queue as a normal 'Open - Waiting for HO
-// Approval' row with approval_cycle bumped to 2+ -- indistinguishable at
-// the row level from a legitimate second approval request for newly
-// discovered work. Until that's fixed at the source, we treat "asked for
-// approval again" as "was rejected" -- counted once per job card (not per
-// row), since one job card can cycle through several rejected rounds.
+// that status never actually gets written. Checking for the intermediate
+// 'Open - Waiting for HO Approval' row at cycle 2+ instead also
+// undercounts, because this table looks like periodic status snapshots,
+// not a full transition log -- a JC can jump straight from cycle 1 to a
+// cycle-2+ 'Closed'/null row, skipping past the moment it briefly sat in
+// 'Open - Waiting for HO Approval'. The reliable signal is simpler: cycle
+// only increments at all when a job card gets sent back for another round
+// -- for any reason including a straight reject. So a JC that ever reaches
+// approval_cycle >= 2 is counted as rejected once, regardless of which
+// status happened to be captured. This also makes Reject % reconcile
+// exactly with the Approval Cycle table's First-Pass % (Reject % = 100 -
+// First-Pass %), instead of the two silently disagreeing.
 function pfRejectByJC(rows){
   const byJC={};
   rows.forEach(r=>{
     const jc=r[8];
     if(!byJC[jc]) byJC[jc]={hub:r[0], rejected:false};
-    if(r[9]==='Open - Waiting for HO Approval' && r[5]>=2) byJC[jc].rejected=true;
+    if(r[5]>=2) byJC[jc].rejected=true;
   });
   return byJC;
 }
