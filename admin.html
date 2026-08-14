@@ -50,6 +50,7 @@
     .fmsg.ok{background:#052e16;border:1px solid #16a34a;color:#4ade80;display:block}
     .fmsg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
   </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="main">
@@ -74,6 +75,7 @@
         <div class="hau-tab" data-t="allowed" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid #f53b3b;color:#0f172a">Allowed Users</div>
         <div class="hau-tab" data-t="hubaudit" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Hub Audit Users</div>
         <div class="hau-tab" data-t="syshealth" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">System Health</div>
+        <div class="hau-tab" data-t="rmcupload" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">RMC Upload</div>
       </div>
       <!-- Hub Audit Users -->
       <div class="card" id="hau-card" style="display:none">
@@ -131,7 +133,34 @@
         </div>
       </div>
 
-      <!-- Dashboard Usage -->
+      <!-- RMC Upload -->
+      <div class="card" id="rmcupload-card" style="display:none">
+        <div class="card-hd"><h2>RMC Job Card Upload</h2><span class="sub">Upload the monthly PAMSale-style Excel export for RMC cost data</span></div>
+        <div style="padding:0 0 16px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="file" id="rmc-file-input" accept=".xlsx,.xls" style="font-size:13px">
+            <button class="btn" id="rmc-upload-btn" onclick="rmcUploadFile()" disabled style="background:#f53b3b;color:#fff;border:none">Upload</button>
+            <span id="rmc-upload-status" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">
+            Expects columns: Location, Billing No., Job No, Billing Date, Bill Type, Book Name, Reg Number, City, Model Name,
+            Part ID/Labor Category ID, Part Name/Labor Cateogry Name, Category, Qty, Amount, Issue Catg, Kms.Run, Draft JC,
+            Manual JC remarks, Lab Time, Mechanic, Part Return catg, Bike status, Job Card Opened Date, Job Card Billed Date,
+            Hub Name, Pricing Type, User ID, Submission Method, Reason for Ending, Submission Type, RFD Created At, RFD Status,
+            Technician Name, DMS JC ID, Executive Name, TAT (Days), JC Detail, Production Batch, Vehicle Sub Status,
+            Recovery TAT (Days), Recovery TAT Bucket, User Age Bucket, Non Charged Damage Items,
+            Avg Daily KM (Last 30 Days Before JC), Avg Daily KM Bucket.
+            <br>Re-uploading rows with the same Billing No. + Job No. + Part/Labor ID updates them in place rather than duplicating.
+          </div>
+        </div>
+        <div class="card-hd" style="border-top:1px solid var(--border);padding-top:14px"><h2 style="font-size:14px">Upload History</h2></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Uploaded</th><th>By</th><th>File</th><th>Date Range</th><th>Rows (raw / inserted)</th><th>Status</th></tr></thead>
+            <tbody id="rmc-upload-history-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
       <div class="card" id="usage-card">
         <div class="card-hd"><h2>Dashboard Usage</h2><span class="sub">Which dashboards each user has actually opened</span></div>
         <div class="tbl">
@@ -521,6 +550,131 @@ function showMsg(el,type,text){
   setTimeout(()=>el.style.display='none',4000);
 }
 
+// ── RMC Job Card Upload ──────────────────────────────────────────────
+const RMC_COLS = [
+  ['Location','location','text'], ['Billing No.','billing_no','text'], ['Job No','job_no','text'],
+  ['Billing Date','billing_date','date'], ['Bill Type','bill_type','text'], ['Book Name','book_name','text'],
+  ['Reg Number','reg_number','text'], ['City','city','text'], ['Model Name','model_name','text'],
+  ['Part ID/Labor Category ID','part_or_labor_id','text'], ['Part Name/Labor Cateogry Name','part_or_labor_name','text'],
+  ['Category','category','text'], ['Qty','qty','num'], ['Amount','amount','num'],
+  ['Issue Catg','issue_catg','text'], ['Kms.Run','kms_run','num'], ['Draft JC','draft_jc','text'],
+  ['Manual JC remarks','manual_jc_remarks','text'], ['Lab Time','lab_time','num'], ['Mechanic','mechanic','text'],
+  ['Part Return catg','part_return_catg','text'], ['Bike status','bike_status','text'],
+  ['Job Card Opened Date','jc_opened_date','date'], ['Job Card Billed Date','jc_billed_date','date'],
+  ['Hub Name','hub_name','text'], ['Pricing Type','pricing_type','text'], ['User ID','user_id','text'],
+  ['Submission Method','submission_method','text'], ['Reason for Ending','reason_for_ending','text'],
+  ['Submission Type','submission_type','text'], ['RFD Created At','rfd_created_at','datetime'],
+  ['RFD Status','rfd_status','text'], ['Technician Name','technician_name','text'], ['DMS JC ID','dms_jc_id','text'],
+  ['Executive Name','executive_name','text'], ['TAT (Days)','tat_days','num'], ['JC Detail','jc_detail','text'],
+  ['Production Batch','production_batch','text'], ['Vehicle Sub Status','vehicle_sub_status','text'],
+  ['Recovery TAT (Days)','recovery_tat_days','num'], ['Recovery TAT Bucket','recovery_tat_bucket','text'],
+  ['User Age Bucket','user_age_bucket','text'], ['Non Charged Damage Items','non_charged_damage_items','text'],
+  ['Avg Daily KM (Last 30 Days Before JC)','avg_daily_km_last30','num'], ['Avg Daily KM Bucket','avg_daily_km_bucket','text'],
+];
+
+document.getElementById('rmc-file-input').addEventListener('change', function(){
+  document.getElementById('rmc-upload-btn').disabled = !this.files.length;
+});
+
+function rmcConvVal(v, type){
+  if (v === undefined || v === null || v === '') return null;
+  if (type === 'num') { const n = parseFloat(v); return isNaN(n) ? null : n; }
+  if (type === 'date' || type === 'datetime') {
+    if (v instanceof Date) return type === 'date' ? v.toISOString().slice(0,10) : v.toISOString();
+    return String(v); // fallback: pass through as-is, Postgres will attempt to parse common formats
+  }
+  return String(v).trim();
+}
+
+async function rmcUploadFile(){
+  const input = document.getElementById('rmc-file-input');
+  const status = document.getElementById('rmc-upload-status');
+  const btn = document.getElementById('rmc-upload-btn');
+  const file = input.files[0];
+  if (!file) return;
+  btn.disabled = true;
+  status.textContent = 'Reading file…';
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    if (!rawRows.length) { status.textContent = '⚠ No rows found in the first sheet.'; btn.disabled = false; return; }
+
+    // Warn (don't block) on missing expected headers -- Excel exports drift over time
+    const fileHeaders = new Set(Object.keys(rawRows[0]));
+    const missing = RMC_COLS.filter(([h]) => !fileHeaders.has(h)).map(([h]) => h);
+    if (missing.length) {
+      status.innerHTML = `⚠ Missing columns: ${missing.join(', ')}. Uploading anyway with those fields blank — <a href="#" onclick="rmcUploadFile();return false;" style="color:var(--red)">cancel and check the file</a> if this looks wrong.`;
+    }
+
+    status.textContent = `Mapping ${rawRows.length} rows…`;
+    const mapped = rawRows.map(r => {
+      const out = {};
+      RMC_COLS.forEach(([header, col, type]) => { out[col] = rmcConvVal(r[header], type); });
+      return out;
+    }).filter(r => r.billing_no || r.job_no); // skip fully-blank trailing rows Excel sometimes exports
+
+    const dates = mapped.map(r => r.billing_date).filter(Boolean).sort();
+    const dateStart = dates[0] || null, dateEnd = dates[dates.length-1] || null;
+
+    const batchId = crypto.randomUUID();
+    mapped.forEach(r => { r.upload_batch_id = batchId; });
+
+    status.textContent = `Uploading ${mapped.length} rows…`;
+    const CHUNK = 500;
+    let inserted = 0;
+    for (let i = 0; i < mapped.length; i += CHUNK) {
+      const chunk = mapped.slice(i, i + CHUNK);
+      const r = await fetch(`${SB}/rest/v1/rmc_jc_lines?on_conflict=billing_no,part_or_labor_id,job_no`, {
+        method: 'POST',
+        headers: { ...HDR, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(chunk)
+      });
+      if (!r.ok) { throw new Error(`Row ${i}-${i+chunk.length}: HTTP ${r.status} — ${(await r.text()).slice(0,200)}`); }
+      inserted += chunk.length;
+      status.textContent = `Uploaded ${inserted} / ${mapped.length} rows…`;
+    }
+
+    await fetch(`${SB}/rest/v1/rmc_jc_upload_batches`, {
+      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: batchId, uploaded_by: currentUser(), source_filename: file.name,
+        date_range_start: dateStart, date_range_end: dateEnd,
+        raw_row_count: rawRows.length, inserted_row_count: inserted, status: 'ok'
+      })
+    });
+
+    status.innerHTML = `✅ Done — ${inserted} rows uploaded (${dateStart || '?'} → ${dateEnd || '?'})`;
+    input.value = '';
+    loadRmcUploadHistory();
+  } catch (err) {
+    console.error('RMC upload failed', err);
+    status.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span>`;
+  } finally {
+    btn.disabled = true;
+  }
+}
+
+async function loadRmcUploadHistory(){
+  const tbody = document.getElementById('rmc-upload-history-tbody');
+  try {
+    const r = await fetch(`${SB}/rest/v1/rmc_jc_upload_batches?select=*&order=uploaded_at.desc&limit=25`, { headers: HDR });
+    const rows = await r.json();
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No uploads yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(b => `<tr>
+      <td>${new Date(b.uploaded_at).toLocaleString()}</td>
+      <td>${b.uploaded_by || '—'}</td>
+      <td>${b.source_filename || '—'}</td>
+      <td>${b.date_range_start || '?'} → ${b.date_range_end || '?'}</td>
+      <td>${b.raw_row_count ?? '—'} / ${b.inserted_row_count ?? '—'}</td>
+      <td>${b.status === 'ok' ? '<span style="color:var(--green)">✅ ok</span>' : `<span style="color:var(--red)">${b.status}</span>`}</td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load history</td></tr>';
+  }
+}
+
 loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAuditLog();
 
 
@@ -613,7 +767,7 @@ loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAud
   function hubName(id){var h=HUBS.find(function(x){return x.id===id;});return h?h.name:'';}
   async function boot(){
     if(!document.getElementById('hau-list'))return;
-    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');var healthCard=document.getElementById('syshealth-card');var usageCard=document.getElementById('usage-card');var activityCard=document.getElementById('activity-card');var auditlogCard=document.getElementById('auditlog-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');if(healthCard)healthCard.style.display=(sel==='syshealth'?'':'none');var hideDupes=(sel==='syshealth');if(usageCard)usageCard.style.display=(hideDupes?'none':'');if(activityCard)activityCard.style.display=(hideDupes?'none':'');if(auditlogCard)auditlogCard.style.display=(hideDupes?'none':'');}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
+    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');var healthCard=document.getElementById('syshealth-card');var usageCard=document.getElementById('usage-card');var activityCard=document.getElementById('activity-card');var auditlogCard=document.getElementById('auditlog-card');var rmcCard=document.getElementById('rmcupload-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');if(healthCard)healthCard.style.display=(sel==='syshealth'?'':'none');if(rmcCard)rmcCard.style.display=(sel==='rmcupload'?'':'none');var hideDupes=(sel==='syshealth'||sel==='rmcupload');if(usageCard)usageCard.style.display=(hideDupes?'none':'');if(activityCard)activityCard.style.display=(hideDupes?'none':'');if(auditlogCard)auditlogCard.style.display=(hideDupes?'none':'');if(sel==='rmcupload')loadRmcUploadHistory();}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
     try{HUBS=await api('hubs?select=id,name,city&is_active=eq.true&order=city.asc,name.asc');}catch(e){}
     var cs=Array.from(new Set(HUBS.map(function(h){return h.city;}))).sort();
     var cy=document.getElementById('hau-city');if(cy)cy.innerHTML='<option value="">—</option>'+cs.map(function(c){return '<option>'+esc(c)+'</option>';}).join('');
