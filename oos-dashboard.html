@@ -410,6 +410,8 @@ tr:hover td { background:var(--bg); }
 /* ── DRILLDOWN CELLS + MODAL ── */
 td.cell-click { cursor:pointer; color:var(--red); font-weight:600; transition:background .1s; }
 td.cell-click:hover { background:#fef2f2; text-decoration:underline; }
+td.num-click { cursor:pointer; transition:background .1s; }
+td.num-click:hover { background:#fef2f2; text-decoration:underline; }
 .dd-overlay {
   display:none; position:fixed; inset:0; z-index:2000;
   background:rgba(15,23,42,.45); align-items:flex-start; justify-content:center; padding-top:60px;
@@ -1283,21 +1285,21 @@ function cityModelRows(summary, oosDetail, key, tblId) {
     gt += t; go += o; gpdi += pdi; grfd += rfd; gact += act;
     const G = JSON.stringify(g);
     rows += `<tr><td>${g}</td>`+
-      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},null)'>${t.toLocaleString('en-IN')}</td>`+
-      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("OOS")})'>${o.toLocaleString('en-IN')}</td>`+
+      `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},null)'>${t.toLocaleString('en-IN')}</td>`+
+      `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("OOS")})'>${o.toLocaleString('en-IN')}</td>`+
       `<td class="pct ${pctClass(p)}">${p}</td>`+
-      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("pdi")})'>${pdi.toLocaleString('en-IN')}</td>`+
-      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("RFD")})'>${rfd.toLocaleString('en-IN')}</td>`+
-      `<td class="num cell-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("Active_rental")})'>${act.toLocaleString('en-IN')}</td></tr>`;
+      `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("pdi")})'>${pdi.toLocaleString('en-IN')}</td>`+
+      `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("RFD")})'>${rfd.toLocaleString('en-IN')}</td>`+
+      `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("Active_rental")})'>${act.toLocaleString('en-IN')}</td></tr>`;
   });
   const tp = pct(go, gt);
   rows += `<tr class="tfoot"><td>Total</td>`+
-    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,null)'>${gt.toLocaleString('en-IN')}</td>`+
-    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("OOS")})'>${go.toLocaleString('en-IN')}</td>`+
+    `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,null)'>${gt.toLocaleString('en-IN')}</td>`+
+    `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("OOS")})'>${go.toLocaleString('en-IN')}</td>`+
     `<td class="pct ${pctClass(tp)}">${tp}</td>`+
-    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("pdi")})'>${gpdi.toLocaleString('en-IN')}</td>`+
-    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("RFD")})'>${grfd.toLocaleString('en-IN')}</td>`+
-    `<td class="num cell-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("Active_rental")})'>${gact.toLocaleString('en-IN')}</td></tr>`;
+    `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("pdi")})'>${gpdi.toLocaleString('en-IN')}</td>`+
+    `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("RFD")})'>${grfd.toLocaleString('en-IN')}</td>`+
+    `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("Active_rental")})'>${gact.toLocaleString('en-IN')}</td></tr>`;
   tbody.innerHTML = rows;
 }
 
