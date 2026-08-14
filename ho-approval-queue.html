@@ -64,6 +64,14 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 @media (max-width:900px){.jc-split{grid-template-columns:1fr}.jc-side{padding:12px 16px}}
 .nophotos{padding:10px 16px 0;font-size:12px;color:var(--muted2);font-style:italic}
 .lightbox{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:999;padding:24px;cursor:zoom-out}
+.hr-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:998;padding:24px}
+.hr-overlay.open{display:flex}
+.hr-modal{background:var(--card);border-radius:12px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.hr-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.hr-modal-hd h3{margin:0;font-size:15px}
+.hr-modal-hd button{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)}
+.hr-modal-body{overflow-y:auto;padding:0 20px 20px}
+.hr-sub{font-size:12px;color:var(--muted);padding:8px 20px 0}
 .lightbox.open{display:flex}
 .lightbox img{max-width:100%;max-height:100%;border-radius:8px}
 .verdict{padding:12px 16px;margin:12px 0;border-radius:8px;border:1px solid transparent}
@@ -184,6 +192,19 @@ tr.row-flag:hover{background:#fee2e2}
   </div>
   <div id="hourly-city-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px"></div>
   <svg id="pf-hourly" class="perf-svg" viewBox="0 0 940 320"></svg>
+  <div style="font-size:11px;color:var(--muted);margin-top:6px">Click a bar to see the requests behind that hour's number.</div>
+</div>
+
+<div class="hr-overlay" id="hr-overlay" onclick="if(event.target===this)closeHourDrilldown()">
+  <div class="hr-modal">
+    <div class="hr-modal-hd"><h3 id="hr-title"></h3><button onclick="closeHourDrilldown()">✕</button></div>
+    <div class="hr-sub" id="hr-sub"></div>
+    <div class="hr-modal-body">
+      <table class="perf-tbl" id="hr-table"><thead><tr>
+        <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </div>
 </div>
 
 <div class="perf-card">
@@ -641,6 +662,7 @@ async function decideWarranty(jcno, itemKey, itemLabel, decision){
   }catch(e){alert('Could not save warranty decision.');}
 }
 load();
+try{ if(localStorage.getItem('hq_last_tab')==='perf') hqTab('perf'); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
 // ══════════════════ HO Approval Performance tab ══════════════════
@@ -650,6 +672,7 @@ function hqTab(t){
   document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
+  try{localStorage.setItem('hq_last_tab',t);}catch(e){}
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
 }
 
@@ -666,7 +689,19 @@ const pfMean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
 function pfFmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function pfMonday(s){const d=new Date(s+'T00:00:00');const off=(d.getDay()+6)%7;d.setDate(d.getDate()-off);return d;}
 
+const PF_CACHE_KEY='hq_perf_cache_v1';
+const PF_CACHE_MAX_AGE_MS=3*60*1000; // 3 min -- fresh enough for a TAT dashboard, avoids a full refetch on every tab switch/refresh
+
 async function perfBoot(){
+  document.getElementById('pf-sub').textContent='Loading performance data…';
+  try{
+    const cached=JSON.parse(sessionStorage.getItem(PF_CACHE_KEY)||'null');
+    if(cached && (Date.now()-cached.at)<PF_CACHE_MAX_AGE_MS){
+      perfBootFinish(cached.all);
+      return;
+    }
+  }catch(e){}
+
   const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
   const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status';
   const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
@@ -677,6 +712,12 @@ async function perfBoot(){
     const data=await res.json();
     all=all.concat(data); if(data.length<PAGE)break; off+=PAGE;
   }
+  try{ sessionStorage.setItem(PF_CACHE_KEY, JSON.stringify({at:Date.now(), all})); }catch(e){} // sessionStorage has a size cap -- silently skip caching if the dataset is too large for it, cold fetch just always applies then
+  perfBootFinish(all);
+}
+
+function perfBootFinish(all){
+  const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
   const hubs=[...new Set(all.map(r=>r.requested_hub).filter(Boolean))].sort();
   const ix=Object.fromEntries(hubs.map((h,i)=>[h,i]));
   const hubCity={};
@@ -823,6 +864,25 @@ function pfDrawDaily(resp){
 
 let hourlyCity = '';
 let HOURLY_LAST_RESP = [];
+let HOURLY_FILTERED = [];
+
+function openHourDrilldown(hour){
+  const OUT=['Approved','Rejected/Reopened','Pending'];
+  const rows=HOURLY_FILTERED.filter(r=>r[2]===hour).sort((a,b)=>pfTAT(b)-pfTAT(a));
+  document.getElementById('hr-title').textContent=`${pfHl(hour)} — ${rows.length} request${rows.length===1?'':'s'}`;
+  const avg=rows.length?pfMean(rows.map(pfTAT)):0;
+  document.getElementById('hr-sub').textContent=`Avg TAT ${avg.toFixed(1)} min${hourlyCity?' · '+hourlyCity:''}`;
+  document.querySelector('#hr-table tbody').innerHTML=rows.map(r=>{
+    const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
+    return `<tr><td>${r[8]??'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td>`+
+      `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">No data</td></tr>';
+  document.getElementById('hr-overlay').classList.add('open');
+}
+
+function closeHourDrilldown(){
+  document.getElementById('hr-overlay').classList.remove('open');
+}
 
 function renderHourlyCityPills(cities){
   const el=document.getElementById('hourly-city-pills');
@@ -839,6 +899,7 @@ function setHourlyCity(c){
 function pfDrawHourly(resp){
   HOURLY_LAST_RESP=resp;
   const filtered = hourlyCity ? resp.filter(r=>PFD.hubCity[r[0]]===hourlyCity) : resp;
+  HOURLY_FILTERED=filtered;
   const svg=document.getElementById('pf-hourly'),W=940,H=320,L=42,R=42,T=20,B=34,iw=W-L-R,ih=H-T-B;
   const by={}; filtered.forEach(r=>{ (by[r[2]]=by[r[2]]||[]).push(pfTAT(r)); });
   if(!filtered.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
@@ -852,15 +913,15 @@ function pfDrawHourly(resp){
   hrs.forEach(r=>{
     if(r.avg==null)return;
     const xx=r.h*gap+(gap-bw)/2, y=pfLogY(r.avg,ih,hi), col=r.avg<=30?pfCss('--green'):pfCss('--red');
-    s+=`<rect x="${xx}" y="${y}" width="${bw}" height="${ih-y}" rx="3" fill="${col}"/>`;
+    s+=`<rect x="${xx}" y="${y}" width="${bw}" height="${ih-y}" rx="3" fill="${col}" style="cursor:pointer" onclick="openHourDrilldown(${r.h})"><title>${pfHl(r.h)}: ${r.n} request${r.n===1?'':'s'}, avg ${r.avg.toFixed(1)} min — click for details</title></rect>`;
     const lab=r.avg>=100?Math.round(r.avg):r.avg.toFixed(1);
-    s+=`<text class="vl" x="${xx+bw/2}" y="${y-4}" text-anchor="middle">${lab}</text>`;
+    s+=`<text class="vl" x="${xx+bw/2}" y="${y-4}" text-anchor="middle" style="pointer-events:none">${lab}</text>`;
   });
   // volume overlay on its own linear right-hand scale
   const volY=n=>ih-(n/maxN*ih);
   const pts=hrs.map(r=>`${r.h*gap+gap/2},${volY(r.n)}`).join(' ');
   s+=`<polyline points="${pts}" fill="none" stroke="${pfCss('--muted2')}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
-  hrs.forEach(r=>{ if(r.n>0) s+=`<circle cx="${r.h*gap+gap/2}" cy="${volY(r.n)}" r="3" fill="${pfCss('--muted2')}"/>`; });
+  hrs.forEach(r=>{ if(r.n>0) s+=`<circle cx="${r.h*gap+gap/2}" cy="${volY(r.n)}" r="4" fill="${pfCss('--muted2')}" style="cursor:pointer"><title>${pfHl(r.h)}: ${r.n} request${r.n===1?'':'s'}</title></circle>`; });
   s+=`<text x="${iw+8}" y="4" font-size="9" text-anchor="start">n=${maxN}</text><text x="${iw+8}" y="${ih}" font-size="9" text-anchor="start">n=0</text>`;
   hrs.forEach(r=>{ if(r.h%2===0) s+=`<text x="${r.h*gap+gap/2}" y="${ih+15}" text-anchor="middle" font-size="9">${pfHl(r.h)}</text>`; });
   s+='</g>'; svg.innerHTML=s;
