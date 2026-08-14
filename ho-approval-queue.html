@@ -108,7 +108,9 @@ tr.row-flag:hover{background:#fee2e2}
 }
 .pg-btn:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
 .pg-btn:disabled { opacity: .4; cursor: not-allowed; }
-.pg-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
+.pg-btn.active { background: var(--red); color: #fff; border-color: var(--red); }.city-pill { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border2); background: var(--card); color: var(--text); font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
+.city-pill:hover { border-color: var(--red); color: var(--red); }
+.city-pill.active { background: var(--red); color: #fff; border-color: var(--red); }
 </style></head>
 <body>
 <div class="wrap">
@@ -180,6 +182,7 @@ tr.row-flag:hover{background:#fee2e2}
     <span><i class="sw" style="background:var(--red)"></i>Avg TAT &gt;30 min</span>
     <span><i class="sw" style="background:var(--muted2);border-radius:50%;width:8px;height:8px"></i>Request volume</span>
   </div>
+  <div id="hourly-city-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px"></div>
   <svg id="pf-hourly" class="perf-svg" viewBox="0 0 940 320"></svg>
 </div>
 
@@ -686,6 +689,7 @@ async function perfBoot(){
   const cities=[...new Set(Object.values(hubCity))].sort();
   cities.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; citySel.appendChild(o); });
   pfPopulateHubs('');
+  renderHourlyCityPills(cities);
 
   const s=new Date(PFD.dmax+'T00:00:00'); s.setDate(s.getDate()-(PF_WINDOW_DAYS-1));
   pfFrom=pfFmtD(s); if(pfFrom<PFD.dmin) pfFrom=PFD.dmin; pfTo=PFD.dmax;
@@ -817,10 +821,27 @@ function pfDrawDaily(resp){
   s+='</g>'; svg.innerHTML=s;
 }
 
+let hourlyCity = '';
+let HOURLY_LAST_RESP = [];
+
+function renderHourlyCityPills(cities){
+  const el=document.getElementById('hourly-city-pills');
+  const all=['', ...cities];
+  el.innerHTML=all.map(c=>`<button class="city-pill ${c===hourlyCity?'active':''}" onclick="setHourlyCity(${JSON.stringify(c)})">${c||'All cities'}</button>`).join('');
+}
+
+function setHourlyCity(c){
+  hourlyCity=c;
+  renderHourlyCityPills([...new Set(Object.values(PFD.hubCity))].sort());
+  pfDrawHourly(HOURLY_LAST_RESP);
+}
+
 function pfDrawHourly(resp){
+  HOURLY_LAST_RESP=resp;
+  const filtered = hourlyCity ? resp.filter(r=>PFD.hubCity[r[0]]===hourlyCity) : resp;
   const svg=document.getElementById('pf-hourly'),W=940,H=320,L=42,R=42,T=20,B=34,iw=W-L-R,ih=H-T-B;
-  const by={}; resp.forEach(r=>{ (by[r[2]]=by[r[2]]||[]).push(pfTAT(r)); });
-  if(!resp.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
+  const by={}; filtered.forEach(r=>{ (by[r[2]]=by[r[2]]||[]).push(pfTAT(r)); });
+  if(!filtered.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No data</text>`; return; }
   const hrs=[...Array(24)].map((_,h)=>({h, avg:by[h]?pfMean(by[h]):null, n:by[h]?by[h].length:0}));
   const hi=pfNiceHi(Math.max(...hrs.map(x=>x.avg||0)));
   const maxN=Math.max(1,...hrs.map(x=>x.n));
