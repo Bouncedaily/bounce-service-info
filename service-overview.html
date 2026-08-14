@@ -9,7 +9,7 @@
   <script src="auth-guard.js?v=1780722254"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    body { overflow-y: auto; height: auto; }
+    html, body { overflow-y: auto !important; height: auto !important; }
     .wrap { padding: 24px; max-width: 1500px; margin: 0 auto; }
     .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
     .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
@@ -312,11 +312,10 @@ function renderSavings(row) {
 }
 
 async function loadHubs() {
-  const r = await fetch(`${SB}/rest/v1/bike_fleet?select=hub_name&limit=20000`, { headers: HDR });
-  const rows = await r.json();
-  const hubs = [...new Set(rows.map(x=>x.hub_name).filter(Boolean))].sort();
+  const r = await fetch(`${SB}/rest/v1/rpc/get_distinct_hubs`, { method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}' });
+  const hubs = await r.json();
   const sel = document.getElementById('f-hub');
-  hubs.forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
+  (hubs||[]).forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
 }
 
 (function init() {
@@ -324,7 +323,7 @@ async function loadHubs() {
   const from = to.slice(0,8) + '01';
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
-  loadHubs().then(loadAll);
+  Promise.all([loadHubs(), loadAll()]);
 })();
 </script>
 </body>
