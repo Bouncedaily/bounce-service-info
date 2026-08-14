@@ -125,6 +125,7 @@
     <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Part Cost</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Labour Cost</div><div class="kv">—</div></div>
+    <div class="kpi"><div class="kl">Job Cards</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Cost / km (W&amp;T)</div><div class="kv">—</div></div>
   </div>
 
@@ -216,16 +217,17 @@ async function loadAll() {
 
   document.getElementById('syncedLbl').textContent = `${from} → ${to} vs ${bFrom} → ${bTo} (last month) · synced ${new Date().toLocaleTimeString()}`;
 
-  const [flow, cost, parts, savings] = await Promise.all([
+  const [flow, cost, parts, savings, costPerKmRows] = await Promise.all([
     rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
     rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
     rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 }),
     fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => []),
+    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => []),
   ]);
 
   renderFleet(flow);
   renderFlow(flow);
-  renderCost(cost);
+  renderCost(cost, costPerKmRows);
   renderParts(parts);
   renderSavings(savings && savings[0]);
   loadTechnicians(from, to, city, hub);
@@ -274,23 +276,28 @@ async function loadTechnicians(from, to, city, hub) {
   ).join('') : '<tr><td colspan="8" class="empty">No data in range</td></tr>';
 }
 
-function renderCost(cost) {
+function renderCost(cost, costPerKmRows) {
   if (!cost) return;
   const kv = document.querySelectorAll('#costKpis .kv');
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
   kv[1].textContent = fmtC(cost.a_total.part_cost);
   kv[2].textContent = fmtC(cost.a_total.labour_cost);
+  kv[3].innerHTML = fmtN(cost.a_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
+  const totalCost = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_cost)||0), 0);
+  const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
+  kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
 
-  const rowsHtml = (rows, aKey, bKey, nameKey) => rows.length ? rows.sort((x,y)=>(y[aKey]||0)-(x[aKey]||0)).map(r =>
-    `<tr><td>${r[nameKey]||'—'}</td><td class="num">${fmtC(r[aKey])}</td><td class="num">${fmtC(r[bKey])}</td></tr>`
+  const cell = (amt, jc, cpj) => `${fmtC(amt)}<div style="font-size:10px;color:var(--muted);font-weight:400">${fmtN(jc)} JC · ${fmtC(cpj)}/JC</div>`;
+  const rowsHtml = (rows, nameKey) => rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
+    `<tr><td>${r[nameKey]||'—'}</td><td class="num">${cell(r.a_amt,r.a_jc,r.a_cpj)}</td><td class="num">${cell(r.b_amt,r.b_jc,r.b_cpj)}</td></tr>`
   ).join('') : '<tr><td colspan="3" class="empty">No data</td></tr>';
 
-  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'a_amt', 'b_amt', 'type');
-  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'a_amt', 'b_amt', 'city');
-  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'a_amt', 'b_amt', 'model');
+  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type');
+  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city');
+  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model');
 
   document.getElementById('costHubBody').innerHTML = (cost.by_hub||[]).length ? (cost.by_hub||[]).map(r =>
-    `<tr><td>${r.hub||'—'}</td><td class="num">${fmtC(r.a_amt)}</td><td class="num">${fmtC(r.b_amt)}</td><td class="num">${deltaSpan(r.a_amt, r.b_amt)}</td></tr>`
+    `<tr><td>${r.hub||'—'}</td><td class="num">${cell(r.a_amt,r.a_jc,r.a_cpj)}</td><td class="num">${cell(r.b_amt,r.b_jc,r.b_cpj)}</td><td class="num">${deltaSpan(r.a_amt, r.b_amt)}</td></tr>`
   ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
 }
 
