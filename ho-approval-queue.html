@@ -740,7 +740,10 @@ function perfBootFinish(all){
   pfPopulateHubs('');
   renderHourlyCityPills(cities);
 
-  const s=new Date(PFD.dmax+'T00:00:00'); s.setDate(s.getDate()-(PF_WINDOW_DAYS-1));
+  // Default view: this calendar month (1st to latest data date), not a
+  // rolling 30-day window -- the 30d preset button still covers that case.
+  const dmaxDate=new Date(PFD.dmax+'T00:00:00');
+  const s=new Date(dmaxDate.getFullYear(), dmaxDate.getMonth(), 1);
   pfFrom=pfFmtD(s); if(pfFrom<PFD.dmin) pfFrom=PFD.dmin; pfTo=PFD.dmax;
   document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-from').min=PFD.dmin; document.getElementById('pf-from').max=PFD.dmax;
   document.getElementById('pf-to').value=pfTo; document.getElementById('pf-to').min=PFD.dmin; document.getElementById('pf-to').max=PFD.dmax;
