@@ -132,40 +132,41 @@
   <div class="row2">
     <div class="panel">
       <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
-      <table><thead><tr><th>TAT Bucket</th><th class="num">This period</th><th class="num">Last month</th></tr></thead>
-        <tbody id="costTatBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
+      <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th></tr></thead>
+        <tbody id="costTatBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
     <div class="panel">
       <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
-      <table><thead><tr><th>Category</th><th class="num">This period</th><th class="num">Last month</th></tr></thead>
-        <tbody id="costCatgBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
+      <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th></tr></thead>
+        <tbody id="costCatgBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
   </div>
 
-  <div class="row3">
-    <div class="panel">
-      <h3>By submission type</h3>
-      <table><thead><tr><th>Type</th><th class="num">This period</th><th class="num">Last month</th></tr></thead>
-        <tbody id="costSubBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
-    </div>
+  <div class="panel">
+    <h3>By submission type</h3>
+    <div style="overflow-x:auto"><table><thead><tr><th>Type</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th></tr></thead>
+      <tbody id="costSubBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table></div>
+  </div>
+
+  <div class="row2">
     <div class="panel">
       <h3>By city</h3>
-      <table><thead><tr><th>City</th><th class="num">This period</th><th class="num">Last month</th></tr></thead>
-        <tbody id="costCityBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
+      <div style="overflow-x:auto"><table><thead><tr><th>City</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th></tr></thead>
+        <tbody id="costCityBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
     <div class="panel">
       <h3>By model</h3>
-      <table><thead><tr><th>Model</th><th class="num">This period</th><th class="num">Last month</th></tr></thead>
-        <tbody id="costModelBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table>
+      <div style="overflow-x:auto"><table><thead><tr><th>Model</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th></tr></thead>
+        <tbody id="costModelBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
   </div>
 
   <div class="row2">
     <div class="panel">
       <h3>By hub (top 15)</h3>
-      <div style="max-height:320px;overflow-y:auto">
-        <table><thead><tr><th>Hub</th><th class="num">This period</th><th class="num">Last month</th><th class="num">Δ</th></tr></thead>
-          <tbody id="costHubBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table>
+      <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
+        <table><thead><tr><th>Hub</th><th class="num">This period ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Last month ₹</th><th class="num">JC</th><th class="num">Avg/JC</th><th class="num">Δ</th></tr></thead>
+          <tbody id="costHubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
       </div>
     </div>
     <div class="panel">
@@ -292,7 +293,12 @@ async function loadTechnicians(from, to, city, hub) {
   ).join('') : '<tr><td colspan="8" class="empty">No data in range</td></tr>';
 }
 
-function cell(amt, jc, cpj) { return `${fmtC(amt)}<div style="font-size:10px;color:var(--muted);font-weight:400">${fmtN(jc)} JC · ${fmtC(cpj)}/JC</div>`; }
+function costRow(nameCell, r, extraCols) {
+  return `<tr><td>${nameCell}</td>` +
+    `<td class="num">${fmtC(r.a_amt)}</td><td class="num">${fmtN(r.a_jc)}</td><td class="num">${fmtC(r.a_cpj)}</td>` +
+    `<td class="num">${fmtC(r.b_amt)}</td><td class="num">${fmtN(r.b_jc)}</td><td class="num">${fmtC(r.b_cpj)}</td>` +
+    `${extraCols||''}</tr>`;
+}
 
 function renderCost(cost, costPerKmRows) {
   if (!cost) return;
@@ -306,22 +312,22 @@ function renderCost(cost, costPerKmRows) {
   kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
 
   const rowsHtml = (rows, nameKey) => rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
-    `<tr><td>${r[nameKey]||'—'}</td><td class="num">${cell(r.a_amt,r.a_jc,r.a_cpj)}</td><td class="num">${cell(r.b_amt,r.b_jc,r.b_cpj)}</td></tr>`
-  ).join('') : '<tr><td colspan="3" class="empty">No data</td></tr>';
+    costRow(r[nameKey]||'—', r)
+  ).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
 
   document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type');
   document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city');
   document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model');
 
   document.getElementById('costHubBody').innerHTML = (cost.by_hub||[]).length ? (cost.by_hub||[]).map(r =>
-    `<tr><td>${r.hub||'—'}</td><td class="num">${cell(r.a_amt,r.a_jc,r.a_cpj)}</td><td class="num">${cell(r.b_amt,r.b_jc,r.b_cpj)}</td><td class="num">${deltaSpan(r.a_amt, r.b_amt)}</td></tr>`
-  ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
+    costRow(r.hub||'—', r, `<td class="num">${deltaSpan(r.a_amt, r.b_amt)}</td>`)
+  ).join('') : '<tr><td colspan="8" class="empty">No data</td></tr>';
 }
 
 function renderTatAndCatg(tatBucket, issueCatg) {
   const rowsHtml = (rows, nameKey) => (rows||[]).length ? (rows||[]).map(r =>
-    `<tr><td>${r[nameKey]||'—'}</td><td class="num">${cell(r.a_amt,r.a_jc,r.a_cpj)}</td><td class="num">${cell(r.b_amt,r.b_jc,r.b_cpj)}</td></tr>`
-  ).join('') : '<tr><td colspan="3" class="empty">No data</td></tr>';
+    costRow(r[nameKey]||'—', r)
+  ).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
   document.getElementById('costTatBody').innerHTML = rowsHtml(tatBucket, 'bucket');
   document.getElementById('costCatgBody').innerHTML = rowsHtml(issueCatg, 'catg');
 }
