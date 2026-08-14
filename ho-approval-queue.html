@@ -827,7 +827,7 @@ let HOURLY_LAST_RESP = [];
 function renderHourlyCityPills(cities){
   const el=document.getElementById('hourly-city-pills');
   const all=['', ...cities];
-  el.innerHTML=all.map(c=>`<button class="city-pill ${c===hourlyCity?'active':''}" onclick="setHourlyCity(${JSON.stringify(c)})">${c||'All cities'}</button>`).join('');
+  el.innerHTML=all.map(c=>`<button class="city-pill ${c===hourlyCity?'active':''}" onclick='setHourlyCity(${JSON.stringify(c)})'>${c||'All cities'}</button>`).join('');
 }
 
 function setHourlyCity(c){
