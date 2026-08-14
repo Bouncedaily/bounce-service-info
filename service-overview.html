@@ -301,7 +301,13 @@ function costRow(nameCell, r) {
 }
 
 function renderCost(cost, costPerKmRows) {
-  if (!cost) return;
+  if (!cost) {
+    document.querySelectorAll('#costKpis .kv').forEach(el => el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>');
+    const errRow = (n) => `<tr><td colspan="${n}" class="empty" style="color:var(--red)">⚠ Cost data failed to load — try Apply again, or narrow the date range if it keeps failing.</td></tr>`;
+    ['costSubBody','costCityBody','costModelBody'].forEach(id => document.getElementById(id).innerHTML = errRow(8));
+    document.getElementById('costHubBody').innerHTML = errRow(8);
+    return;
+  }
   const kv = document.querySelectorAll('#costKpis .kv');
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
   kv[1].textContent = fmtC(cost.a_total.part_cost);
