@@ -100,7 +100,15 @@ tr.row-flag:hover{background:#fee2e2}
 .perf-note{color:var(--muted);font-size:12px;margin-top:8px}
 .perf-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 @media (max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media (max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}.pagination { display: flex; align-items: center; gap: 6px; padding: 10px 14px; justify-content: flex-end; }
+.pg-btn {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border2);
+  background: var(--card); color: var(--text); font-size: 11px;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.pg-btn:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+.pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pg-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
 </style></head>
 <body>
 <div class="wrap">
@@ -205,6 +213,7 @@ tr.row-flag:hover{background:#fee2e2}
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-top10"><thead><tr>
     <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Hour</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
   </tr></thead><tbody></tbody></table></div>
+  <div class="pagination" id="top10-pagination"></div>
 </div>
 
 </div>
@@ -909,18 +918,59 @@ function pfDrawHubs(rows){
   perfDraw();
 });
 
+const TOP10_PAGE_SIZE = 25;
+let top10Page = 1;
+let TOP10_ROWS = [];
+
 function pfDrawTop10(resp){
-  const note=document.getElementById('pf-top10-note'), tb=document.querySelector('#pf-top10 tbody');
+  const note=document.getElementById('pf-top10-note');
   const sorted=[...resp].sort((a,b)=>pfTAT(b)-pfTAT(a));
   const k=Math.ceil(sorted.length*0.10);
-  if(!k){ note.textContent='No responded requests in the current view.'; tb.innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`; return; }
-  const top=sorted.slice(0,k), thr=pfTAT(top[top.length-1]);
-  const CAP=300, show=top.slice(0,CAP), OUT=['Approved','Rejected/Reopened','Pending'];
-  note.innerHTML=`Slowest <b>10%</b> of responded requests in the current view: <b>${k}</b> requests with TAT ≥ <b>${thr.toFixed(1)} min</b>.`+
-    (k>CAP?` <span style="color:var(--muted)">Showing top ${CAP} — narrow the date/hub filter to see the rest.</span>`:'');
+  if(!k){
+    note.textContent='No responded requests in the current view.';
+    document.querySelector('#pf-top10 tbody').innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`;
+    document.getElementById('top10-pagination').innerHTML='';
+    return;
+  }
+  TOP10_ROWS=sorted.slice(0,k);
+  top10Page=1;
+  const thr=pfTAT(TOP10_ROWS[TOP10_ROWS.length-1]);
+  note.innerHTML=`Slowest <b>10%</b> of responded requests in the current view: <b>${k}</b> requests with TAT ≥ <b>${thr.toFixed(1)} min</b>.`;
+  renderTop10Page();
+}
+
+function renderTop10Page(){
+  const tb=document.querySelector('#pf-top10 tbody'), OUT=['Approved','Rejected/Reopened','Pending'];
+  const start=(top10Page-1)*TOP10_PAGE_SIZE, show=TOP10_ROWS.slice(start,start+TOP10_PAGE_SIZE);
   tb.innerHTML=show.map(r=>{ const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
     return `<tr><td>${r[8]??'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td><td>${pfHl(r[2])}</td>`+
       `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`; }).join('');
+  renderTop10Pagination();
+}
+
+function renderTop10Pagination(){
+  const total=TOP10_ROWS.length, pages=Math.ceil(total/TOP10_PAGE_SIZE);
+  const el=document.getElementById('top10-pagination');
+  if(pages<=1){ el.innerHTML=''; return; }
+  let html=`<button class="pg-btn" onclick="goTop10Page(${top10Page-1})" ${top10Page===1?'disabled':''}>‹</button>`;
+  const range=[];
+  for(let i=1;i<=pages;i++){
+    if(i===1||i===pages||Math.abs(i-top10Page)<=2) range.push(i);
+    else if(range[range.length-1]!=='…') range.push('…');
+  }
+  range.forEach(p=>{
+    if(p==='…') html+=`<span style="font-size:11px;color:var(--muted);padding:0 4px">…</span>`;
+    else html+=`<button class="pg-btn ${p===top10Page?'active':''}" onclick="goTop10Page(${p})">${p}</button>`;
+  });
+  html+=`<button class="pg-btn" onclick="goTop10Page(${top10Page+1})" ${top10Page===pages?'disabled':''}>›</button>`;
+  el.innerHTML=html;
+}
+
+function goTop10Page(p){
+  const pages=Math.ceil(TOP10_ROWS.length/TOP10_PAGE_SIZE);
+  if(p<1||p>pages) return;
+  top10Page=p;
+  renderTop10Page();
 }
 </script>
 </body></html>
