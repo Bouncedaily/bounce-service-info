@@ -662,7 +662,7 @@ async function decideWarranty(jcno, itemKey, itemLabel, decision){
   }catch(e){alert('Could not save warranty decision.');}
 }
 load();
-try{ if(localStorage.getItem('hq_last_tab')==='perf') hqTab('perf'); }catch(e){}
+try{ if(localStorage.getItem('hq_last_tab')==='perf') setTimeout(()=>hqTab('perf'), 0); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
 // ══════════════════ HO Approval Performance tab ══════════════════
@@ -702,18 +702,24 @@ async function perfBoot(){
     }
   }catch(e){}
 
-  const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
-  const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status';
-  const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
-  let all=[],off=0;const PAGE=1000;
-  for(;;){
-    const res=await fetch(base+'&limit='+PAGE+'&offset='+off,{headers:HDR});
-    if(!res.ok){console.error('perf load failed',res.status);break;}
-    const data=await res.json();
-    all=all.concat(data); if(data.length<PAGE)break; off+=PAGE;
+  try{
+    const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
+    const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status';
+    const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
+    let all=[],off=0;const PAGE=1000;
+    for(;;){
+      const res=await fetch(base+'&limit='+PAGE+'&offset='+off,{headers:HDR});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data=await res.json();
+      all=all.concat(data); if(data.length<PAGE)break; off+=PAGE;
+    }
+    if(!all.length) throw new Error('No rows returned');
+    try{ sessionStorage.setItem(PF_CACHE_KEY, JSON.stringify({at:Date.now(), all})); }catch(e){} // sessionStorage has a size cap -- silently skip caching if the dataset is too large for it, cold fetch just always applies then
+    perfBootFinish(all);
+  }catch(err){
+    console.error('perf load failed', err);
+    document.getElementById('pf-sub').innerHTML=`<span style="color:var(--red)">⚠ Could not load performance data (${err.message}). <a href="#" onclick="PF_INIT=false;perfBoot();return false;" style="color:var(--red);text-decoration:underline">Retry</a></span>`;
   }
-  try{ sessionStorage.setItem(PF_CACHE_KEY, JSON.stringify({at:Date.now(), all})); }catch(e){} // sessionStorage has a size cap -- silently skip caching if the dataset is too large for it, cold fetch just always applies then
-  perfBootFinish(all);
 }
 
 function perfBootFinish(all){
@@ -723,8 +729,8 @@ function perfBootFinish(all){
   const hubCity={};
   all.forEach(r=>{ if(r.requested_hub!=null) hubCity[ix[r.requested_hub]]=r.city||'Other'; });
   const rows=all.map(r=>[ix[r.requested_hub],r.request_date,r.request_hour,r.tat_minutes,r.outcome_code,r.approval_cycle,r.intrip?1:0,r.tat_work_minutes,r.dms_jc_id,r.response_status]);
-  const ds=rows.map(r=>r[1]).sort();
-  PFD={hubs,rows,hubCity,dmin:ds[0]||since,dmax:ds[ds.length-1]||since};
+  const ds=rows.map(r=>r[1]).filter(Boolean).sort();
+  PFD={hubs,rows,hubCity,dmin:ds.length?ds[0]:since,dmax:ds.length?ds[ds.length-1]:since};
 
   const citySel=document.getElementById('pf-city');
   const cities=[...new Set(Object.values(hubCity))].sort();
