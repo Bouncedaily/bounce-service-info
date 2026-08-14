@@ -150,7 +150,7 @@
             Technician Name, DMS JC ID, Executive Name, TAT (Days), JC Detail, Production Batch, Vehicle Sub Status,
             Recovery TAT (Days), Recovery TAT Bucket, User Age Bucket, Non Charged Damage Items,
             Avg Daily KM (Last 30 Days Before JC), Avg Daily KM Bucket.
-            <br>Re-uploading rows with the same Billing No. + Job No. + Part/Labor ID updates them in place rather than duplicating.
+            <br>Re-uploading a job card (matched by Location + Job No + Reg Number) replaces <b>all</b> its line items with what's in the new file — no leftover/stale lines from before, and job cards not present in the new file are left untouched.
           </div>
         </div>
         <div class="card-hd" style="border-top:1px solid var(--border);padding-top:14px"><h2 style="font-size:14px">Upload History</h2></div>
@@ -626,15 +626,22 @@ async function rmcUploadFile(){
     let inserted = 0;
     for (let i = 0; i < mapped.length; i += CHUNK) {
       const chunk = mapped.slice(i, i + CHUNK);
-      const r = await fetch(`${SB}/rest/v1/rmc_jc_lines?on_conflict=billing_no,part_or_labor_id,job_no`, {
+      const r = await fetch(`${SB}/rest/v1/rmc_jc_lines`, {
         method: 'POST',
-        headers: { ...HDR, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        headers: { ...HDR, 'Content-Type': 'application/json' },
         body: JSON.stringify(chunk)
       });
       if (!r.ok) { throw new Error(`Row ${i}-${i+chunk.length}: HTTP ${r.status} — ${(await r.text()).slice(0,200)}`); }
       inserted += chunk.length;
       status.textContent = `Uploaded ${inserted} / ${mapped.length} rows…`;
     }
+
+    status.textContent = `Replacing older lines for job cards in this file…`;
+    const reconcileRes = await fetch(`${SB}/rest/v1/rpc/reconcile_rmc_upload`, {
+      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_batch_id: batchId })
+    });
+    const deletedCount = reconcileRes.ok ? await reconcileRes.json() : null;
 
     await fetch(`${SB}/rest/v1/rmc_jc_upload_batches`, {
       method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
@@ -645,7 +652,8 @@ async function rmcUploadFile(){
       })
     });
 
-    status.innerHTML = `✅ Done — ${inserted} rows uploaded (${dateStart || '?'} → ${dateEnd || '?'})`;
+    const dedupMsg = deletedCount != null ? ` — replaced ${deletedCount} older line${deletedCount===1?'':'s'} for job cards updated in this file` : ' — ⚠ could not verify old-line cleanup, check manually';
+    status.innerHTML = `✅ Done — ${inserted} rows uploaded (${dateStart || '?'} → ${dateEnd || '?'})${dedupMsg}`;
     input.value = '';
     loadRmcUploadHistory();
   } catch (err) {
