@@ -757,10 +757,12 @@ function perfDraw(){
   const slaPct=resp.length?(slaOk/resp.length*100):null;
 
   // first-pass %: bucket each JC by how many attempts it ultimately needed
-  const cyc={};
-  rows.forEach(r=>{ cyc[r[5]]=(cyc[r[5]]||0)+1; });
-  const g=k=>cyc[k]||0;
-  const totalJCs=g(1), jc1=g(1)-g(2);
+  // (max cycle reached per unique JC -- see pfDrawCycles for why not a
+  // row-count-subtraction shortcut)
+  const maxCycleByJC={};
+  rows.forEach(r=>{ maxCycleByJC[r[8]]=Math.max(maxCycleByJC[r[8]]||0, r[5]); });
+  const maxCycles=Object.values(maxCycleByJC);
+  const totalJCs=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
   const firstPassPct=totalJCs?(jc1/totalJCs*100):null;
 
   const hubLbl=document.getElementById('pf-hub').value||'All hubs';
@@ -832,10 +834,25 @@ function pfDrawHourly(resp){
 }
 
 function pfDrawCycles(rows){
-  const cyc={};
-  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (cyc[h]=cyc[h]||{}); cyc[h][r[5]]=(cyc[h][r[5]]||0)+1; });
-  let list=Object.entries(cyc).map(([h,c])=>{ const g=k=>c[k]||0;
-    const total=g(1), jc1=g(1)-g(2), jc2=g(2)-g(3), jc3=g(3)-g(4), jc4=g(4)-g(5), jc5=g(5);
+  // Bucket each unique job card by the highest approval_cycle it reached in
+  // this window, rather than inferring counts from row-count subtraction
+  // per cycle number -- the subtraction trick (rows-at-cycle-1 as a stand-in
+  // for "total JCs") undercounts whenever a JC's first in-range row is
+  // already cycle 2+ (its actual cycle-1 event happened just before the
+  // date window started). This also makes "Total JCs" here agree with the
+  // unique-JC counts used elsewhere on this page (Reject %, First-Pass %).
+  const byHubJC={};
+  rows.forEach(r=>{
+    const h=PFD.hubs[r[0]], jc=r[8];
+    (byHubJC[h]=byHubJC[h]||{});
+    byHubJC[h][jc]=Math.max(byHubJC[h][jc]||0, r[5]);
+  });
+  let list=Object.entries(byHubJC).map(([h,jcs])=>{
+    const maxCycles=Object.values(jcs);
+    const total=maxCycles.length;
+    const jc1=maxCycles.filter(c=>c===1).length, jc2=maxCycles.filter(c=>c===2).length,
+          jc3=maxCycles.filter(c=>c===3).length, jc4=maxCycles.filter(c=>c===4).length,
+          jc5=maxCycles.filter(c=>c>=5).length;
     return {hub:h,jc1,jc2,jc3,jc4,jc5,total,pct:total?jc1/total*100:0};
   }).filter(x=>x.total>=5);
   list.sort((x,y)=>x.pct-y.pct);
@@ -857,10 +874,16 @@ function pfDrawHubs(rows){
   Object.values(byJC).forEach(jc=>{ const h=PFD.hubs[jc.hub]; (rejAgg[h]=rejAgg[h]||{n:0,rej:0}); rejAgg[h].n++; if(jc.rejected)rejAgg[h].rej++; });
   const nByHub={};
   rows.forEach(r=>{ const h=PFD.hubs[r[0]]; nByHub[h]=(nByHub[h]||0)+1; });
-  const cyc={};
-  rows.forEach(r=>{ const h=PFD.hubs[r[0]]; (cyc[h]=cyc[h]||{}); cyc[h][r[5]]=(cyc[h][r[5]]||0)+1; });
+  // Same unique-JC max-cycle bucketing as pfDrawCycles/perfDraw, so this
+  // column's "total" (unique JCs) agrees with the Approval Cycles table's
+  // Total JCs for the same hub, rather than the old rows-at-cycle-1
+  // shortcut which undercounted JCs whose first in-range row was already
+  // cycle 2+.
+  const byHubJC={};
+  rows.forEach(r=>{ const h=PFD.hubs[r[0]], jc=r[8]; (byHubJC[h]=byHubJC[h]||{}); byHubJC[h][jc]=Math.max(byHubJC[h][jc]||0, r[5]); });
   let list=Object.entries(agg).filter(([h,_])=>nByHub[h]>=5).map(([h,a])=>{
-    const c=cyc[h]||{}, g=k=>c[k]||0, total=g(1), jc1=g(1)-g(2);
+    const maxCycles=Object.values(byHubJC[h]||{});
+    const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[h]||{n:0,rej:0};
     return {hub:h, n:nByHub[h], avg:a.t.length?pfMean(a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
