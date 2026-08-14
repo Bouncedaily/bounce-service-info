@@ -66,7 +66,7 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .lightbox{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:999;padding:24px;cursor:zoom-out}
 .hr-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:998;padding:24px}
 .hr-overlay.open{display:flex}
-.hr-modal{background:var(--card);border-radius:12px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.hr-modal{background:var(--card);border-radius:12px;max-width:960px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .hr-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
 .hr-modal-hd h3{margin:0;font-size:15px}
 .hr-modal-hd button{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)}
@@ -201,7 +201,7 @@ tr.row-flag:hover{background:#fee2e2}
     <div class="hr-sub" id="hr-sub"></div>
     <div class="hr-modal-body">
       <table class="perf-tbl" id="hr-table"><thead><tr>
-        <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
+        <th>DMS JC</th><th>Reg No</th><th>Hub</th><th>City</th><th>Type</th><th>Date</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
       </tr></thead><tbody></tbody></table>
     </div>
   </div>
@@ -704,7 +704,7 @@ async function perfBoot(){
 
   try{
     const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
-    const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status';
+    const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status,reg_number';
     const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
     let all=[],off=0;const PAGE=1000;
     for(;;){
@@ -728,7 +728,7 @@ function perfBootFinish(all){
   const ix=Object.fromEntries(hubs.map((h,i)=>[h,i]));
   const hubCity={};
   all.forEach(r=>{ if(r.requested_hub!=null) hubCity[ix[r.requested_hub]]=r.city||'Other'; });
-  const rows=all.map(r=>[ix[r.requested_hub],r.request_date,r.request_hour,r.tat_minutes,r.outcome_code,r.approval_cycle,r.intrip?1:0,r.tat_work_minutes,r.dms_jc_id,r.response_status]);
+  const rows=all.map(r=>[ix[r.requested_hub],r.request_date,r.request_hour,r.tat_minutes,r.outcome_code,r.approval_cycle,r.intrip?1:0,r.tat_work_minutes,r.dms_jc_id,r.response_status,r.reg_number]);
   const ds=rows.map(r=>r[1]).filter(Boolean).sort();
   PFD={hubs,rows,hubCity,dmin:ds.length?ds[0]:since,dmax:ds.length?ds[ds.length-1]:since};
 
@@ -880,9 +880,9 @@ function openHourDrilldown(hour){
   document.getElementById('hr-sub').textContent=`Avg TAT ${avg.toFixed(1)} min${hourlyCity?' · '+hourlyCity:''}`;
   document.querySelector('#hr-table tbody').innerHTML=rows.map(r=>{
     const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
-    return `<tr><td>${r[8]??'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td>`+
+    return `<tr><td>${r[8]??'—'}</td><td style="font-weight:600">${r[10]||'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${PFD.hubCity[r[0]]||'—'}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td>`+
       `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`;
-  }).join('') || '<tr><td colspan="7" class="empty">No data</td></tr>';
+  }).join('') || '<tr><td colspan="9" class="empty">No data</td></tr>';
   document.getElementById('hr-overlay').classList.add('open');
 }
 
