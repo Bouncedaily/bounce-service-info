@@ -189,6 +189,9 @@ tr.row-flag:hover{background:#fee2e2}
     <th data-k="hub">Hub<span class="arr"></span></th>
     <th data-k="n">Requests<span class="arr"></span></th>
     <th data-k="avg">Avg TAT<span class="arr"></span></th>
+    <th data-k="min">Min<span class="arr"></span></th>
+    <th data-k="med">Median<span class="arr"></span></th>
+    <th data-k="max">Max<span class="arr"></span></th>
     <th data-k="p90">P90<span class="arr"></span></th>
     <th data-k="sla">SLA %<span class="arr"></span></th>
     <th data-k="rej">Reject %<span class="arr"></span></th>
@@ -885,7 +888,7 @@ function pfDrawHubs(rows){
     const maxCycles=Object.values(byHubJC[h]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[h]||{n:0,rej:0};
-    return {hub:h, n:nByHub[h], avg:a.t.length?pfMean(a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    return {hub:h, n:nByHub[h], avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[pfSort], yv=y[pfSort]; const v=xv>yv?1:xv<yv?-1:0; return v*pfSortDir; });
@@ -895,6 +898,7 @@ function pfDrawHubs(rows){
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
   tb.innerHTML=list.map(h=>`<tr><td>${h.hub}</td><td>${h.n}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,h.avg/mx*100)}px;background:${h.avg<=30?pfCss('--green'):h.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${h.avg.toFixed(1)}</td>`+
+    `<td>${h.min.toFixed(1)}</td><td>${h.med.toFixed(1)}</td><td>${h.max.toFixed(1)}</td>`+
     `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`).join('');
 }
 [...document.querySelectorAll('#pf-hubs th[data-k]')].forEach(th=>th.onclick=()=>{
