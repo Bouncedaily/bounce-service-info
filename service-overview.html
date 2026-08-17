@@ -53,13 +53,47 @@
     .kpi .ks { font-size: 11px; color: var(--muted); }
     .kpi .ks.up { color: #dc2626; }
     .kpi .ks.down { color: #16a34a; }
+    .kpi-row.hero .kpi { padding: 20px 18px; }
+    .kpi-row.hero .kv { font-size: 32px; }
+    .kpi-row.hero .kl { font-size: 11px; }
+
+    .zone-live { border-left: 4px solid #2563eb; padding-left: 18px; margin-bottom: 4px; }
+    .zone-lag { border-left: 4px solid #f59e0b; padding-left: 18px; margin-bottom: 4px; }
+    .zone-badge { font-size: 9px; font-weight: 800; padding: 2px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: .05em; }
+    .zone-badge.live { background: rgba(37,99,235,.12); color: #2563eb; }
+    .zone-badge.lag { background: rgba(245,158,11,.18); color: #b45309; }
 
     .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; min-width: 0; }
-    .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+    .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .panel.compact { padding: 12px 14px; border-color: rgba(148,148,148,.18); }
+    .panel.compact h3 { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    .panel.compact table { font-size: 11px; }
     .chart-box { height: 220px; }
     .row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
     @media(max-width:960px) { .row2, .row3 { grid-template-columns: 1fr; } }
+
+    .more-breakdowns { margin-bottom: 14px; }
+    .more-breakdowns summary {
+      cursor: pointer; list-style: none; font-size: 12px; font-weight: 700; color: var(--muted);
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .more-breakdowns summary::-webkit-details-marker { display: none; }
+    .more-breakdowns summary::before { content: '▸'; font-size: 10px; }
+    .more-breakdowns[open] summary::before { content: '▾'; }
+    .more-breakdowns[open] summary { border-radius: 10px 10px 0 0; margin-bottom: 0; border-bottom: none; }
+    .more-breakdowns-body { border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; padding: 14px; }
+
+    .table-tools { display: flex; gap: 6px; align-items: center; font-weight: 400; }
+    .tbl-search {
+      padding: 5px 9px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text); font-size: 11px; outline: none; font-family: inherit; width: 140px;
+    }
+    .tbl-export { padding: 5px 10px; font-size: 10px; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    th.sortable .arrow { font-size: 9px; opacity: .5; margin-left: 2px; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { text-align: left; padding: 7px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -112,15 +146,16 @@
     <span class="synced-lbl" id="syncedLbl"></span>
   </div>
 
-  <div class="section-lbl" id="sec1"><span class="n">1</span> OOS % flow — live fleet status</div>
-  <div class="kpi-row" id="fleetKpis">
+  <div class="zone-live">
+  <div class="section-lbl" id="sec1"><span class="n">1</span> OOS % flow — live fleet status <span class="zone-badge live">Live</span></div>
+  <div class="kpi-row hero" id="fleetKpis">
     <div class="kpi"><div class="kl">Total Bikes</div><div class="kv">—</div></div>
     <div class="kpi accent"><div class="kl">OOS Bikes</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">OOS %</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">RFD %</div><div class="kv">—</div></div>
   </div>
 
-  <div class="section-lbl" id="sec2"><span class="n">2</span> Inflow / outflow of vehicles</div>
+  <div class="section-lbl" id="sec2"><span class="n">2</span> Inflow / outflow of vehicles <span class="zone-badge live">Live</span></div>
   <div class="row2">
     <div class="panel">
       <h3>Daily inflow vs outflow</h3>
@@ -135,23 +170,39 @@
     </div>
   </div>
 
-  <div class="section-lbl" id="sec3"><span class="n">3</span> Inflow / outflow per technician</div>
+  <div class="section-lbl" id="sec3"><span class="n">3</span> Inflow / outflow per technician <span class="zone-badge live">Live</span></div>
   <div class="panel">
-    <h3>Technician leaderboard (outflow-side — repairs closed)</h3>
+    <h3>Technician leaderboard (outflow-side — repairs closed)
+      <span class="table-tools">
+        <input type="text" class="tbl-search" placeholder="Search technician…" oninput="filterTable('techBody', this.value)">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('techTable','technician_leaderboard')">⬇ CSV</button>
+      </span>
+    </h3>
     <div style="max-height:320px;overflow-y:auto">
-      <table>
-        <thead><tr><th>Technician</th><th>Hub</th><th class="num">Jobs</th><th class="num">Labour Hrs</th><th class="num">Jobs/Day</th><th class="num">OOS</th><th class="num">RR</th><th class="num">PDI</th></tr></thead>
+      <table id="techTable">
+        <thead><tr>
+          <th class="sortable" onclick="sortTable('techTable',0,false)">Technician</th>
+          <th>Hub</th>
+          <th class="num sortable" onclick="sortTable('techTable',2,true)">Jobs</th>
+          <th class="num">Labour Hrs</th>
+          <th class="num">Jobs/Day</th>
+          <th class="num sortable" onclick="sortTable('techTable',5,true)">OOS</th>
+          <th class="num">RR</th>
+          <th class="num">PDI</th>
+        </tr></thead>
         <tbody id="techBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
+  </div>
 
+  <div class="zone-lag">
   <div class="mtd-warn">
     <i class="ti ti-alert-triangle" style="font-size:16px;margin-top:1px"></i>
     <div>MTD cost below reflects only <b>billed</b> job cards for the selected range. Bikes that came in recently haven't been billed yet, so a low number here doesn't mean a good month — read it alongside sections 1–3, not instead of them. Comparison period is the <b>same date range, previous month</b> (matching the monthly RMC deck), not a full calendar month.</div>
   </div>
 
-  <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure)</div>
+  <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure) <span class="zone-badge lag">Billed · Lags</span></div>
   <div class="kpi-row" id="costKpis">
     <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Part Cost</div><div class="kv">—</div></div>
@@ -160,43 +211,48 @@
     <div class="kpi"><div class="kl">Cost / km (W&amp;T)</div><div class="kv">—</div></div>
   </div>
 
-  <div class="row2">
-    <div class="panel">
-      <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-        <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-        <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
-    </div>
-  </div>
-
   <div class="panel">
-    <h3>By submission type</h3>
-    <div style="overflow-x:auto"><table><thead><tr><th>Type</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+    <h3>By submission type
+      <span class="table-tools">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('subTable','cost_by_submission_type')">⬇ CSV</button>
+      </span>
+    </h3>
+    <div style="overflow-x:auto"><table id="subTable"><thead><tr>
+      <th class="sortable" onclick="sortTable('subTable',0,false)">Type</th>
+      <th class="num sortable" onclick="sortTable('subTable',1,true)">This period JCs</th>
+      <th class="num sortable" onclick="sortTable('subTable',2,true)">This period ₹</th>
+      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
       <tbody id="costSubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
-  <div class="row2">
-    <div class="panel">
-      <h3>By city</h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>City</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-        <tbody id="costCityBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h3>By model</h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>Model</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-        <tbody id="costModelBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
-    </div>
+  <div class="panel">
+    <h3>By city
+      <span class="table-tools">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('cityTable','cost_by_city')">⬇ CSV</button>
+      </span>
+    </h3>
+    <div style="overflow-x:auto"><table id="cityTable"><thead><tr>
+      <th class="sortable" onclick="sortTable('cityTable',0,false)">City</th>
+      <th class="num sortable" onclick="sortTable('cityTable',1,true)">This period JCs</th>
+      <th class="num sortable" onclick="sortTable('cityTable',2,true)">This period ₹</th>
+      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+      <tbody id="costCityBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="row2">
     <div class="panel">
-      <h3>By hub (top 15)</h3>
+      <h3>By hub (top 15)
+        <span class="table-tools">
+          <input type="text" class="tbl-search" placeholder="Search hub…" oninput="filterTable('costHubBody', this.value)">
+          <button class="btn chip tbl-export" onclick="exportTableCSV('hubTable','cost_by_hub')">⬇ CSV</button>
+        </span>
+      </h3>
       <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
-        <table><thead><tr><th>Hub</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+        <table id="hubTable"><thead><tr>
+          <th class="sortable" onclick="sortTable('hubTable',0,false)">Hub</th>
+          <th class="num sortable" onclick="sortTable('hubTable',1,true)">This period JCs</th>
+          <th class="num sortable" onclick="sortTable('hubTable',2,true)">This period ₹</th>
+          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
           <tbody id="costHubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
       </div>
     </div>
@@ -213,11 +269,50 @@
   </div>
 
   <div class="panel">
-    <h3>Top 10 parts by cost — vs last month (same as Parts Dashboard)</h3>
-    <table>
-      <thead><tr><th>Part</th><th class="num">This period ₹</th><th class="num">Last month ₹</th><th class="num">Δ</th></tr></thead>
+    <h3>Top 10 parts by cost — vs last month (same as Parts Dashboard)
+      <span class="table-tools">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('partsTable','top_parts_by_cost')">⬇ CSV</button>
+      </span>
+    </h3>
+    <table id="partsTable">
+      <thead><tr>
+        <th>Part</th>
+        <th class="num sortable" onclick="sortTable('partsTable',1,true)">This period ₹</th>
+        <th class="num">Last month ₹</th><th class="num">Δ</th></tr></thead>
       <tbody id="topPartsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
     </table>
+  </div>
+
+  <details class="more-breakdowns">
+    <summary>Show more breakdowns — TAT bucket · Issue category · By model</summary>
+    <div class="more-breakdowns-body">
+      <div class="row2">
+        <div class="panel compact">
+          <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
+          <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+            <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+        </div>
+        <div class="panel compact">
+          <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
+          <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+            <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="panel compact" style="margin-top:14px">
+        <h3>By model
+          <span class="table-tools">
+            <button class="btn chip tbl-export" onclick="exportTableCSV('modelTable','cost_by_model')">⬇ CSV</button>
+          </span>
+        </h3>
+        <div style="overflow-x:auto"><table id="modelTable"><thead><tr>
+          <th class="sortable" onclick="sortTable('modelTable',0,false)">Model</th>
+          <th class="num sortable" onclick="sortTable('modelTable',1,true)">This period JCs</th>
+          <th class="num sortable" onclick="sortTable('modelTable',2,true)">This period ₹</th>
+          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+          <tbody id="costModelBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </details>
   </div>
 
 </div>
@@ -285,6 +380,54 @@ function setLoadingStates() {
   document.getElementById('costModelBody').innerHTML = loadingRow(8);
   document.getElementById('costHubBody').innerHTML = loadingRow(8);
   document.getElementById('topPartsBody').innerHTML = loadingRow(4);
+}
+
+function filterTable(tbodyId, query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
+
+function exportTableCSV(tableId, filename) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll('tr')).filter(tr => tr.style.display !== 'none');
+  const csv = rows.map(tr => Array.from(tr.children).map(cell => {
+    let text = cell.textContent.replace(/\s+/g, ' ').trim();
+    if (text.includes(',') || text.includes('"')) text = '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${filename}_${todayIST()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+const sortState = {};
+function sortTable(tableId, colIndex, numeric) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  const allRows = Array.from(tbody.querySelectorAll('tr'));
+  const totalsRows = allRows.filter(tr => tr.classList.contains('totals-row'));
+  const rows = allRows.filter(tr => !tr.classList.contains('totals-row') && tr.children.length > colIndex);
+  const key = `${tableId}-${colIndex}`;
+  const dir = sortState[key] === 'asc' ? 'desc' : 'asc';
+  sortState[key] = dir;
+  rows.sort((a, b) => {
+    let av = a.children[colIndex].textContent.replace(/[₹,\s]/g, '');
+    let bv = b.children[colIndex].textContent.replace(/[₹,\s]/g, '');
+    if (numeric) { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+  totalsRows.forEach(r => tbody.appendChild(r));
 }
 
 function jumpTo(id) {
@@ -439,7 +582,7 @@ function totalsRow(rows, label) {
   const aJc = sum('a_jc'), aAmt = sum('a_amt'), bJc = sum('b_jc'), bAmt = sum('b_amt');
   const aCpj = aJc > 0 ? Math.round(aAmt/aJc) : 0;
   const bCpj = bJc > 0 ? Math.round(bAmt/bJc) : 0;
-  return `<tr style="font-weight:800;border-top:2px solid var(--border)"><td>${label}</td>` +
+  return `<tr class="totals-row" style="font-weight:800;border-top:2px solid var(--border)"><td>${label}</td>` +
     `<td class="num">${fmtN(aJc)}</td><td class="num">${fmtC(aAmt)}</td><td class="num">${fmtC(aCpj)}</td>` +
     `<td class="num">${deltaSpan(aCpj, bCpj)}</td>` +
     `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td></tr>`;
