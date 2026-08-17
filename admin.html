@@ -634,13 +634,15 @@ async function rmcUploadFile(){
       const chunk = mapped.slice(i, i + CHUNK);
       let lastErr = null;
       let ok = false;
-      // Retry a chunk up to 3 times on transient DB overload (statement timeout / 5xx)
-      // before giving up — the Supabase Nano-tier DB occasionally chokes under
-      // concurrent cron load, and most such failures clear up within a few seconds.
-      for (let attempt = 0; attempt < 3 && !ok; attempt++) {
+      // Retry a chunk up to 6 times on transient DB overload (statement timeout / 5xx)
+      // before giving up. Backoff grows to ~15s between attempts — long enough to ride
+      // out a concurrent autovacuum on this table (seen running 35s+ in practice) or a
+      // Nano-tier cron collision, both of which usually clear on their own.
+      for (let attempt = 0; attempt < 6 && !ok; attempt++) {
         if (attempt > 0) {
-          status.textContent = `Row ${i}-${i+chunk.length} hit a DB hiccup, retrying (attempt ${attempt+1}/3)…`;
-          await sleep(2000 * attempt); // 2s, then 4s
+          const waitMs = Math.min(3000 * attempt, 15000); // 3s,6s,9s,12s,15s
+          status.textContent = `Row ${i}-${i+chunk.length} hit a DB hiccup, retrying in ${Math.round(waitMs/1000)}s (attempt ${attempt+1}/6)…`;
+          await sleep(waitMs);
         }
         try {
           const r = await fetch(`${SB}/rest/v1/rmc_jc_lines`, {
