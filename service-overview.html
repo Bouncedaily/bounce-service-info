@@ -73,33 +73,39 @@
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
     @media(max-width:960px) { .row2, .row3 { grid-template-columns: 1fr; } }
 
-    /* Mobile: show only the columns that matter for a glance (Name, This period ₹, Δ, Last month ₹);
+    /* Mobile: show only the columns that matter for a glance (Name, This period ₹, Δ, Trend);
        full data stays intact underneath for CSV export and desktop use — just visually condensed. */
     @media(max-width:640px) {
       #subTable td:nth-child(2), #subTable th:nth-child(2),
       #subTable td:nth-child(4), #subTable th:nth-child(4),
-      #subTable td:nth-child(6), #subTable th:nth-child(6),
+      #subTable td:nth-child(7), #subTable th:nth-child(7),
       #subTable td:nth-child(8), #subTable th:nth-child(8),
+      #subTable td:nth-child(9), #subTable th:nth-child(9),
       #cityTable td:nth-child(2), #cityTable th:nth-child(2),
       #cityTable td:nth-child(4), #cityTable th:nth-child(4),
-      #cityTable td:nth-child(6), #cityTable th:nth-child(6),
+      #cityTable td:nth-child(7), #cityTable th:nth-child(7),
       #cityTable td:nth-child(8), #cityTable th:nth-child(8),
+      #cityTable td:nth-child(9), #cityTable th:nth-child(9),
       #hubTable td:nth-child(2), #hubTable th:nth-child(2),
       #hubTable td:nth-child(4), #hubTable th:nth-child(4),
-      #hubTable td:nth-child(6), #hubTable th:nth-child(6),
+      #hubTable td:nth-child(7), #hubTable th:nth-child(7),
       #hubTable td:nth-child(8), #hubTable th:nth-child(8),
+      #hubTable td:nth-child(9), #hubTable th:nth-child(9),
       #modelTable td:nth-child(2), #modelTable th:nth-child(2),
       #modelTable td:nth-child(4), #modelTable th:nth-child(4),
-      #modelTable td:nth-child(6), #modelTable th:nth-child(6),
+      #modelTable td:nth-child(7), #modelTable th:nth-child(7),
       #modelTable td:nth-child(8), #modelTable th:nth-child(8),
+      #modelTable td:nth-child(9), #modelTable th:nth-child(9),
       #tatTable td:nth-child(2), #tatTable th:nth-child(2),
       #tatTable td:nth-child(4), #tatTable th:nth-child(4),
-      #tatTable td:nth-child(6), #tatTable th:nth-child(6),
+      #tatTable td:nth-child(7), #tatTable th:nth-child(7),
       #tatTable td:nth-child(8), #tatTable th:nth-child(8),
+      #tatTable td:nth-child(9), #tatTable th:nth-child(9),
       #catgTable td:nth-child(2), #catgTable th:nth-child(2),
       #catgTable td:nth-child(4), #catgTable th:nth-child(4),
-      #catgTable td:nth-child(6), #catgTable th:nth-child(6),
-      #catgTable td:nth-child(8), #catgTable th:nth-child(8) { display: none; }
+      #catgTable td:nth-child(7), #catgTable th:nth-child(7),
+      #catgTable td:nth-child(8), #catgTable th:nth-child(8),
+      #catgTable td:nth-child(9), #catgTable th:nth-child(9) { display: none; }
 
       /* Technician leaderboard: keep Technician, Hub, Jobs, OOS; hide Labour Hrs, Jobs/Day, RR, PDI */
       #techTable td:nth-child(4), #techTable th:nth-child(4),
@@ -260,8 +266,8 @@
       <th class="sortable" onclick="sortTable('subTable',0,false)">Type</th>
       <th class="num sortable" onclick="sortTable('subTable',1,true)">This period JCs</th>
       <th class="num sortable" onclick="sortTable('subTable',2,true)">This period ₹</th>
-      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-      <tbody id="costSubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+      <tbody id="costSubBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="panel">
@@ -274,8 +280,8 @@
       <th class="sortable" onclick="sortTable('cityTable',0,false)">City</th>
       <th class="num sortable" onclick="sortTable('cityTable',1,true)">This period JCs</th>
       <th class="num sortable" onclick="sortTable('cityTable',2,true)">This period ₹</th>
-      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-      <tbody id="costCityBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+      <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+      <tbody id="costCityBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="row2">
@@ -291,8 +297,8 @@
           <th class="sortable" onclick="sortTable('hubTable',0,false)">Hub</th>
           <th class="num sortable" onclick="sortTable('hubTable',1,true)">This period JCs</th>
           <th class="num sortable" onclick="sortTable('hubTable',2,true)">This period ₹</th>
-          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-          <tbody id="costHubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+          <tbody id="costHubBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table>
       </div>
     </div>
     <div class="panel">
@@ -330,13 +336,13 @@
       <div class="row2">
         <div class="panel compact">
           <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
-          <div style="overflow-x:auto"><table id="tatTable"><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-            <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+          <div style="overflow-x:auto"><table id="tatTable"><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+            <tbody id="costTatBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
         </div>
         <div class="panel compact">
           <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
-          <div style="overflow-x:auto"><table id="catgTable"><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-            <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+          <div style="overflow-x:auto"><table id="catgTable"><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+            <tbody id="costCatgBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
         </div>
       </div>
       <div class="panel compact" style="margin-top:14px">
@@ -349,8 +355,8 @@
           <th class="sortable" onclick="sortTable('modelTable',0,false)">Model</th>
           <th class="num sortable" onclick="sortTable('modelTable',1,true)">This period JCs</th>
           <th class="num sortable" onclick="sortTable('modelTable',2,true)">This period ₹</th>
-          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-          <tbody id="costModelBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+          <tbody id="costModelBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
       </div>
     </div>
   </details>
@@ -414,12 +420,12 @@ function setLoadingStates() {
   const loadingRow = (n) => `<tr><td colspan="${n}" class="empty">Loading…</td></tr>`;
   document.getElementById('flowTypeBody').innerHTML = loadingRow(3);
   document.getElementById('techBody').innerHTML = loadingRow(8);
-  document.getElementById('costTatBody').innerHTML = loadingRow(8);
-  document.getElementById('costCatgBody').innerHTML = loadingRow(8);
-  document.getElementById('costSubBody').innerHTML = loadingRow(8);
-  document.getElementById('costCityBody').innerHTML = loadingRow(8);
-  document.getElementById('costModelBody').innerHTML = loadingRow(8);
-  document.getElementById('costHubBody').innerHTML = loadingRow(8);
+  document.getElementById('costTatBody').innerHTML = loadingRow(9);
+  document.getElementById('costCatgBody').innerHTML = loadingRow(9);
+  document.getElementById('costSubBody').innerHTML = loadingRow(9);
+  document.getElementById('costCityBody').innerHTML = loadingRow(9);
+  document.getElementById('costModelBody').innerHTML = loadingRow(9);
+  document.getElementById('costHubBody').innerHTML = loadingRow(9);
   document.getElementById('topPartsBody').innerHTML = loadingRow(6);
 }
 
@@ -520,17 +526,31 @@ async function loadAll() {
   rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub })
     .then(flow => { renderFleet(flow); renderFlow(flow); sectionDone(); });
 
-  // Section 4 KPIs + cost tables — cost and cost-per-km need each other, kept together
+  // Section 4 KPIs + cost tables — cost, cost-per-km, and 4 trend series (submission_type/city/hub/model) rendered together
   Promise.all([
     rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
     fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => null),
-  ]).then(([cost, costPerKmRows]) => { renderCost(cost, costPerKmRows); sectionDone(); });
+    rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+    rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+    rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+    rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+  ]).then(([cost, costPerKmRows, trendSub, trendCity, trendHub, trendModel]) => {
+    renderCost(cost, costPerKmRows, {
+      submission_type: trendMap(trendSub),
+      city: trendMap(trendCity),
+      hub: trendMap(trendHub),
+      model: trendMap(trendModel),
+    });
+    sectionDone();
+  });
 
-  // TAT bucket + issue category — rendered together, independent of cost/flow
+  // TAT bucket + issue category + their trend series — rendered together, independent of cost/flow
   Promise.all([
     rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
     rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-  ]).then(([tatBucket, issueCatg]) => { renderTatAndCatg(tatBucket, issueCatg); sectionDone(); });
+    rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+    rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
+  ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => { renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg); sectionDone(); });
 
   // Top parts
   rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
@@ -610,10 +630,33 @@ async function loadTechnicians(from, to, city, hub) {
   sectionDone();
 }
 
-function costRow(nameCell, r) {
+function sparklineSVG(series) {
+  if (!series || series.length < 2) return '<span style="color:var(--muted)">—</span>';
+  const vals = series.map(s => s.cost_per_jc);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const w = 64, h = 22, pad = 2;
+  const range = (max - min) || 1;
+  const pts = vals.map((v, i) => {
+    const x = pad + (i * (w - 2*pad) / (vals.length - 1));
+    const y = h - pad - ((v - min) / range) * (h - 2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const color = vals[vals.length - 1] > vals[0] ? '#dc2626' : '#16a34a';
+  const title = series.map(s => `${s.month}: ₹${s.cost_per_jc}/JC`).join('\n');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="vertical-align:middle"><title>${title}</title><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6"/></svg>`;
+}
+
+function trendMap(trendData) {
+  const map = {};
+  (trendData || []).forEach(d => { map[d.dim_value] = d.series; });
+  return map;
+}
+
+function costRow(nameCell, r, trendSeries) {
   return `<tr><td>${nameCell}</td>` +
     `<td class="num">${fmtN(r.a_jc)}</td><td class="num">${fmtC(r.a_amt)}</td><td class="num">${fmtC(r.a_cpj)}</td>` +
     `<td class="num">${deltaSpan(r.a_cpj, r.b_cpj)}</td>` +
+    `<td class="num">${sparklineSVG(trendSeries)}</td>` +
     `<td class="num">${fmtN(r.b_jc)}</td><td class="num">${fmtC(r.b_amt)}</td><td class="num">${fmtC(r.b_cpj)}</td></tr>`;
 }
 
@@ -626,15 +669,17 @@ function totalsRow(rows, label) {
   return `<tr class="totals-row" style="font-weight:800;border-top:2px solid var(--border)"><td>${label}</td>` +
     `<td class="num">${fmtN(aJc)}</td><td class="num">${fmtC(aAmt)}</td><td class="num">${fmtC(aCpj)}</td>` +
     `<td class="num">${deltaSpan(aCpj, bCpj)}</td>` +
+    `<td class="num">—</td>` +
     `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td></tr>`;
 }
 
-function renderCost(cost, costPerKmRows) {
+function renderCost(cost, costPerKmRows, trends) {
+  trends = trends || {};
   if (!cost) {
     document.querySelectorAll('#costKpis .kv').forEach(el => el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>');
     const errRow = (n) => `<tr><td colspan="${n}" class="empty" style="color:var(--red)">⚠ Cost data failed to load — try Apply again, or narrow the date range if it keeps failing.</td></tr>`;
-    ['costSubBody','costCityBody','costModelBody'].forEach(id => document.getElementById(id).innerHTML = errRow(8));
-    document.getElementById('costHubBody').innerHTML = errRow(8);
+    ['costSubBody','costCityBody','costModelBody'].forEach(id => document.getElementById(id).innerHTML = errRow(9));
+    document.getElementById('costHubBody').innerHTML = errRow(9);
     return;
   }
   const kv = document.querySelectorAll('#costKpis .kv');
@@ -646,27 +691,32 @@ function renderCost(cost, costPerKmRows) {
   const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
   kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
 
-  const rowsHtml = (rows, nameKey, totalLabel) => rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
-    costRow(r[nameKey]||'—', r)
-  ).join('') + totalsRow(rows, totalLabel) : '<tr><td colspan="7" class="empty">No data</td></tr>';
+  const rowsHtml = (rows, nameKey, totalLabel, trendKey) => {
+    const tmap = trends[trendKey] || {};
+    return rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
+      costRow(r[nameKey]||'—', r, tmap[r[nameKey]])
+    ).join('') + totalsRow(rows, totalLabel) : '<tr><td colspan="9" class="empty">No data</td></tr>';
+  };
 
-  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type', 'Total');
-  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city', 'Total');
-  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model', 'Total');
+  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type', 'Total', 'submission_type');
+  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city', 'Total', 'city');
+  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model', 'Total', 'model');
 
   const hubRows = cost.by_hub||[];
+  const hubTrend = trends.hub || {};
   document.getElementById('costHubBody').innerHTML = hubRows.length ?
-    hubRows.map(r => costRow(r.hub||'—', r)).join('') + totalsRow(hubRows, 'Total (top 15 shown)')
-    : '<tr><td colspan="8" class="empty">No data</td></tr>';
+    hubRows.map(r => costRow(r.hub||'—', r, hubTrend[r.hub])).join('') + totalsRow(hubRows, 'Total (top 15 shown)')
+    : '<tr><td colspan="9" class="empty">No data</td></tr>';
 }
 
-function renderTatAndCatg(tatBucket, issueCatg) {
-  const rowsHtml = (rows, nameKey) => {
-    if (rows === null) return '<tr><td colspan="7" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again, or narrow the date range if it keeps failing.</td></tr>';
-    return (rows||[]).length ? rows.map(r => costRow(r[nameKey]||'—', r)).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
+function renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg) {
+  const tatMap = trendMap(trendTat), catgMap = trendMap(trendCatg);
+  const rowsHtml = (rows, nameKey, tmap) => {
+    if (rows === null) return '<tr><td colspan="9" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again, or narrow the date range if it keeps failing.</td></tr>';
+    return (rows||[]).length ? rows.map(r => costRow(r[nameKey]||'—', r, tmap[r[nameKey]])).join('') : '<tr><td colspan="9" class="empty">No data</td></tr>';
   };
-  document.getElementById('costTatBody').innerHTML = rowsHtml(tatBucket, 'bucket');
-  document.getElementById('costCatgBody').innerHTML = rowsHtml(issueCatg, 'catg');
+  document.getElementById('costTatBody').innerHTML = rowsHtml(tatBucket, 'bucket', tatMap);
+  document.getElementById('costCatgBody').innerHTML = rowsHtml(issueCatg, 'catg', catgMap);
 }
 
 function renderParts(parts) {
