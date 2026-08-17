@@ -123,6 +123,7 @@ tr.row-flag:hover{background:#fee2e2}
 <div class="hqtabs">
   <button id="hqtab-queue-btn" class="hqtab-btn active" onclick="hqTab('queue')">Queue</button>
   <button id="hqtab-perf-btn" class="hqtab-btn" onclick="hqTab('perf')">Performance</button>
+  <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')">Approval Quality</button>
 </div>
 
 <div id="hqtab-queue">
@@ -274,6 +275,24 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 </div>
+
+<div id="hqtab-quality" style="display:none">
+<div class="psub">Wear &amp; Tear parts that were already billed (i.e. already passed HO approval) but were replaced either well before their standard life is up, or within 30 days of the same part's last replacement on that bike. This is a retrospective check on approval quality — every row here is something HO approved that a stricter check would have flagged.</div>
+<div class="note">Same-day replacement pairs (days since last replacement = 0) are excluded — those are near-certainly the known duplicate-JC-record issue between the old DMS and Ops App, not genuine early replacements.</div>
+<div class="bar">
+  <span class="count" id="qCount">Loading…</span>
+  <input type="date" id="qFrom" onchange="qualityLoad()" style="max-width:150px">
+  <span style="font-size:12px;color:var(--muted)">to</span>
+  <input type="date" id="qTo" onchange="qualityLoad()" style="max-width:150px">
+  <select id="qCity" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+    <option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option>
+  </select>
+  <select id="qHub" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+  <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
+</div>
+<div id="qResults"><div class="empty">Loading…</div></div>
+</div>
+
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -681,18 +700,22 @@ function renderJC(jc){
     '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
 }
 load();
-try{ if(localStorage.getItem('hq_last_tab')==='perf') setTimeout(()=>hqTab('perf'), 0); }catch(e){}
+try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
 // ══════════════════ HO Approval Performance tab ══════════════════
 let PF_INIT=false;
+let QUALITY_INIT=false;
 function hqTab(t){
   document.getElementById('hqtab-queue').style.display=(t==='queue')?'':'none';
   document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
+  document.getElementById('hqtab-quality').style.display=(t==='quality')?'':'none';
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
+  document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
   try{localStorage.setItem('hq_last_tab',t);}catch(e){}
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
+  if(t==='quality' && !QUALITY_INIT){ QUALITY_INIT=true; qualityBoot(); }
 }
 
 const PF_WINDOW_DAYS=30;
@@ -1182,6 +1205,91 @@ function goTop10Page(p){
   if(p<1||p>pages) return;
   top10Page=p;
   renderTop10Page();
+}
+
+// ══════════════════ HO Approval Quality tab ══════════════════
+// Retrospective check: Wear & Tear parts that were already billed (i.e.
+// already passed HO approval) but were replaced either well before their
+// standard life is up, or within 30 days of the same part's last
+// replacement on that bike. Uses get_ho_approval_quality RPC, which mirrors
+// the same standard-life rules and 90%-of-life threshold already used in
+// the live queue's lifeCheck()/isEarlyReplacement() above, just run
+// retrospectively against the full jc_details history instead of only the
+// currently-pending queue.
+let QUALITY_DATA=null;
+function qualityDefaultFrom(){
+  var d=new Date(Date.now()+5.5*60*60*1000);
+  d.setDate(d.getDate()-30);
+  return d.toISOString().slice(0,10);
+}
+async function qualityLoadHubs(){
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_distinct_hubs',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
+    var hubs=await r.json();
+    var sel=document.getElementById('qHub');
+    (hubs||[]).forEach(function(h){ var o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+  }catch(e){}
+}
+async function qualityBoot(){
+  document.getElementById('qFrom').value=qualityDefaultFrom();
+  document.getElementById('qTo').value=new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
+  await qualityLoadHubs();
+  qualityLoad();
+}
+async function qualityLoad(){
+  var from=document.getElementById('qFrom').value;
+  var to=document.getElementById('qTo').value;
+  var city=document.getElementById('qCity').value||null;
+  var hub=document.getElementById('qHub').value||null;
+  document.getElementById('qCount').textContent='Loading…';
+  document.getElementById('qResults').innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_ho_approval_quality',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_from:from,p_to:to,p_city:city,p_hub:hub,p_min_pct:90})});
+    if(!r.ok){ document.getElementById('qResults').innerHTML='<div class="empty" style="color:var(--red)">⚠ Failed to load — try again.</div>'; document.getElementById('qCount').textContent=''; return; }
+    QUALITY_DATA=await r.json();
+    qualityRender();
+  }catch(e){
+    document.getElementById('qResults').innerHTML='<div class="empty" style="color:var(--red)">⚠ Failed to load — try again.</div>';
+    document.getElementById('qCount').textContent='';
+  }
+}
+function qualityLastReplaced(row){
+  if(row.days_since==null) return '<span class="na-life">—</span>';
+  var recent=row.days_since<30;
+  var kmpart=(row.km_since!=null && row.km_since>0)?(nf(row.km_since)+' km · '):'';
+  return '<span class="'+(recent?'warn':'')+'">'+kmpart+row.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
+}
+function qualityLifeCheck(row){
+  if(row.life_km==null) return '<span class="na-life">—</span>';
+  var early=row.pct_of_life!=null && row.pct_of_life<90;
+  return '<span class="'+(early?'bad-life':'na-life')+'">Std life: '+nf(row.life_km)+' km'+(early?' ⚠ replaced at only '+row.pct_of_life+'% of life':'')+'</span>';
+}
+function qualityRender(){
+  if(!QUALITY_DATA) return;
+  var q=(document.getElementById('qSearch').value||'').toLowerCase().trim();
+  var rows=QUALITY_DATA.rows||[];
+  if(q){
+    rows=rows.filter(function(r){
+      return (r.reg_number||'').toLowerCase().indexOf(q)>=0 ||
+        (r.hub||'').toLowerCase().indexOf(q)>=0 ||
+        (r.technician||'').toLowerCase().indexOf(q)>=0 ||
+        (String(r.job_card||'')).toLowerCase().indexOf(q)>=0 ||
+        (r.item||'').toLowerCase().indexOf(q)>=0;
+    });
+  }
+  var total=QUALITY_DATA.total_wear_tear_jcs||0, flagged=QUALITY_DATA.flagged_count||0;
+  var pct=total>0?Math.round(100*flagged/total):0;
+  document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)';
+  if(!rows.length){ document.getElementById('qResults').innerHTML='<div class="empty">No flagged replacements match this filter.</div>'; return; }
+  var html='<table><thead><tr><th>Job Card</th><th>Vehicle</th><th>City</th><th>Hub</th><th>Technician</th><th>Submission Type</th><th>Item</th><th>Amount</th><th>Billed Date</th><th>Last Replaced</th><th>Life Check</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html+='<tr><td>'+esc(r.job_card)+'</td><td>'+esc(r.reg_number||'—')+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
+      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+esc(r.item)+'</td>'+
+      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('qResults').innerHTML=html;
 }
 </script>
 </body></html>
