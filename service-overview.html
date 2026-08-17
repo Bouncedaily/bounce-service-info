@@ -73,6 +73,45 @@
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
     @media(max-width:960px) { .row2, .row3 { grid-template-columns: 1fr; } }
 
+    /* Mobile: show only the columns that matter for a glance (Name, This period ₹, Δ, Last month ₹);
+       full data stays intact underneath for CSV export and desktop use — just visually condensed. */
+    @media(max-width:640px) {
+      #subTable td:nth-child(2), #subTable th:nth-child(2),
+      #subTable td:nth-child(4), #subTable th:nth-child(4),
+      #subTable td:nth-child(6), #subTable th:nth-child(6),
+      #subTable td:nth-child(8), #subTable th:nth-child(8),
+      #cityTable td:nth-child(2), #cityTable th:nth-child(2),
+      #cityTable td:nth-child(4), #cityTable th:nth-child(4),
+      #cityTable td:nth-child(6), #cityTable th:nth-child(6),
+      #cityTable td:nth-child(8), #cityTable th:nth-child(8),
+      #hubTable td:nth-child(2), #hubTable th:nth-child(2),
+      #hubTable td:nth-child(4), #hubTable th:nth-child(4),
+      #hubTable td:nth-child(6), #hubTable th:nth-child(6),
+      #hubTable td:nth-child(8), #hubTable th:nth-child(8),
+      #modelTable td:nth-child(2), #modelTable th:nth-child(2),
+      #modelTable td:nth-child(4), #modelTable th:nth-child(4),
+      #modelTable td:nth-child(6), #modelTable th:nth-child(6),
+      #modelTable td:nth-child(8), #modelTable th:nth-child(8),
+      #tatTable td:nth-child(2), #tatTable th:nth-child(2),
+      #tatTable td:nth-child(4), #tatTable th:nth-child(4),
+      #tatTable td:nth-child(6), #tatTable th:nth-child(6),
+      #tatTable td:nth-child(8), #tatTable th:nth-child(8),
+      #catgTable td:nth-child(2), #catgTable th:nth-child(2),
+      #catgTable td:nth-child(4), #catgTable th:nth-child(4),
+      #catgTable td:nth-child(6), #catgTable th:nth-child(6),
+      #catgTable td:nth-child(8), #catgTable th:nth-child(8) { display: none; }
+
+      /* Technician leaderboard: keep Technician, Hub, Jobs, OOS; hide Labour Hrs, Jobs/Day, RR, PDI */
+      #techTable td:nth-child(4), #techTable th:nth-child(4),
+      #techTable td:nth-child(5), #techTable th:nth-child(5),
+      #techTable td:nth-child(7), #techTable th:nth-child(7),
+      #techTable td:nth-child(8), #techTable th:nth-child(8) { display: none; }
+
+      /* Top parts: keep Part, This period ₹, Last month ₹, Δ; hide the Qty columns */
+      #partsTable td:nth-child(2), #partsTable th:nth-child(2),
+      #partsTable td:nth-child(4), #partsTable th:nth-child(4) { display: none; }
+    }
+
     .more-breakdowns { margin-bottom: 14px; }
     .more-breakdowns summary {
       cursor: pointer; list-style: none; font-size: 12px; font-weight: 700; color: var(--muted);
@@ -291,12 +330,12 @@
       <div class="row2">
         <div class="panel compact">
           <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
-          <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+          <div style="overflow-x:auto"><table id="tatTable"><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
             <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
         </div>
         <div class="panel compact">
           <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
-          <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+          <div style="overflow-x:auto"><table id="catgTable"><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
             <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
         </div>
       </div>
