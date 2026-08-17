@@ -156,8 +156,8 @@
         <div class="card-hd" style="border-top:1px solid var(--border);padding-top:14px"><h2 style="font-size:14px">Upload History</h2></div>
         <div class="tbl">
           <table>
-            <thead><tr><th>Uploaded</th><th>By</th><th>File</th><th>Date Range</th><th>Rows (raw / inserted)</th><th>Status</th></tr></thead>
-            <tbody id="rmc-upload-history-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+            <thead><tr><th>Uploaded</th><th>By</th><th>File</th><th>Date Range</th><th>Rows (raw / inserted)</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="rmc-upload-history-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -712,12 +712,14 @@ async function rmcUploadFile(){
   }
 }
 
+let RMC_HISTORY_CACHE = [];
 async function loadRmcUploadHistory(){
   const tbody = document.getElementById('rmc-upload-history-tbody');
   try {
     const r = await fetch(`${SB}/rest/v1/rmc_jc_upload_batches?select=*&order=uploaded_at.desc&limit=25`, { headers: HDR });
     const rows = await r.json();
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No uploads yet</td></tr>'; return; }
+    RMC_HISTORY_CACHE = rows;
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No uploads yet</td></tr>'; return; }
     tbody.innerHTML = rows.map(b => `<tr>
       <td>${new Date(b.uploaded_at).toLocaleString()}</td>
       <td>${b.uploaded_by || '—'}</td>
@@ -725,9 +727,30 @@ async function loadRmcUploadHistory(){
       <td>${b.date_range_start || '?'} → ${b.date_range_end || '?'}</td>
       <td>${b.raw_row_count ?? '—'} / ${b.inserted_row_count ?? '—'}</td>
       <td>${b.status === 'ok' ? '<span style="color:var(--green)">✅ ok</span>' : `<span style="color:var(--red)">${b.status}</span>`}</td>
+      <td><button class="btn" style="padding:4px 10px;font-size:11px;color:var(--red);border-color:var(--red)" onclick="deleteRmcBatch('${b.id}')">Delete</button></td>
     </tr>`).join('');
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load history</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Failed to load history</td></tr>';
+  }
+}
+
+async function deleteRmcBatch(batchId){
+  const batch = RMC_HISTORY_CACHE.find(b => b.id === batchId);
+  const label = batch ? (batch.source_filename || batchId) : batchId;
+  const rowCount = batch ? (batch.inserted_row_count ?? '?') : '?';
+  if (!confirm(`Delete "${label}"?\n\nThis permanently removes all ${rowCount} line item(s) from this upload and cannot be undone.`)) return;
+  try {
+    const delLines = await fetch(`${SB}/rest/v1/rmc_jc_lines?upload_batch_id=eq.${batchId}`, {
+      method: 'DELETE', headers: HDR
+    });
+    if (!delLines.ok) { alert(`Could not delete line items: HTTP ${delLines.status} — ${(await delLines.text()).slice(0,200)}`); return; }
+    const delBatch = await fetch(`${SB}/rest/v1/rmc_jc_upload_batches?id=eq.${batchId}`, {
+      method: 'DELETE', headers: HDR
+    });
+    if (!delBatch.ok) { alert(`Line items were deleted, but the batch record itself could not be removed: HTTP ${delBatch.status}`); }
+    loadRmcUploadHistory();
+  } catch(e) {
+    alert('Delete failed: ' + e.message);
   }
 }
 
