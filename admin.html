@@ -206,6 +206,11 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // to exist by that code but was never actually declared — that's the
 // "HDR is not defined" bug.
 const HDR = { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY };
+// Used by the RMC Job Card Upload section to log who uploaded each batch.
+// Same missing-declaration issue as HDR above — assumed to exist (it's
+// defined this way in ho-approval-queue.html) but was never actually
+// declared here, causing "currentUser is not defined" on upload.
+function currentUser(){try{var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}');return s.email||'';}catch(e){return '';}}
 const ADMIN = 'nithish@bounceshare.com';
 
 // Get session
