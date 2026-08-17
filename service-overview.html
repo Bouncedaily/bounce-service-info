@@ -248,10 +248,8 @@
   </div>
 
   <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure) <span class="zone-badge lag">Billed · Lags</span></div>
-  <div class="kpi-row" id="costKpis">
+  <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
-    <div class="kpi"><div class="kl">Part Cost</div><div class="kv">—</div></div>
-    <div class="kpi"><div class="kl">Labour Cost</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Job Cards</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Cost / km (W&amp;T)</div><div class="kv">—</div></div>
   </div>
@@ -684,12 +682,10 @@ function renderCost(cost, costPerKmRows, trends) {
   }
   const kv = document.querySelectorAll('#costKpis .kv');
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
-  kv[1].innerHTML = fmtC(cost.a_total.part_cost) + ' ' + deltaSpan(cost.a_total.part_cost, cost.b_total.part_cost);
-  kv[2].innerHTML = fmtC(cost.a_total.labour_cost) + ' ' + deltaSpan(cost.a_total.labour_cost, cost.b_total.labour_cost);
-  kv[3].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
+  kv[1].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
   const totalCost = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_cost)||0), 0);
   const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
-  kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
+  kv[2].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
 
   const rowsHtml = (rows, nameKey, totalLabel, trendKey) => {
     const tmap = trends[trendKey] || {};
