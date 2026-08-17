@@ -29,6 +29,18 @@
     .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
     .btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
     .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+    .btn.chip { padding: 6px 11px; font-size: 11px; font-weight: 600; }
+    .btn.chip.active { background: var(--red); border-color: var(--red); color: #fff; }
+    .preset-row { display: flex; gap: 6px; }
+
+    .section-nav {
+      position: sticky; top: 0; z-index: 20; display: flex; gap: 18px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 9px 16px; margin-bottom: 16px; font-size: 11px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .section-nav a { color: var(--muted); cursor: pointer; text-decoration: none; }
+    .section-nav a:hover { color: var(--red); }
 
     .section-lbl { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 10px; display: flex; align-items: center; gap: 8px; }
     .section-lbl .n { background: var(--red); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
@@ -70,7 +82,22 @@
   <div class="page-title">Service Overview</div>
   <div class="page-sub">Fleet flow first, cost second — inflow/outflow and OOS lead, RMC cost lags behind by design</div>
 
+  <div class="section-nav">
+    <a onclick="jumpTo('sec1')">1 · OOS</a>
+    <a onclick="jumpTo('sec2')">2 · Flow</a>
+    <a onclick="jumpTo('sec3')">3 · Technicians</a>
+    <a onclick="jumpTo('sec4')">4 · Cost</a>
+  </div>
+
   <div class="ctl-bar">
+    <div class="fg"><label>Quick range</label>
+      <div class="preset-row">
+        <button type="button" class="btn chip" id="preset-today" onclick="setPreset('today')">Today</button>
+        <button type="button" class="btn chip" id="preset-week" onclick="setPreset('week')">This Week</button>
+        <button type="button" class="btn chip" id="preset-mtd" onclick="setPreset('mtd')">MTD</button>
+        <button type="button" class="btn chip" id="preset-lastmonth" onclick="setPreset('lastmonth')">Last Month</button>
+      </div>
+    </div>
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
     <div class="fg"><label>To</label><input type="date" id="f-to"></div>
     <div class="fg"><label>City</label>
@@ -85,7 +112,7 @@
     <span class="synced-lbl" id="syncedLbl"></span>
   </div>
 
-  <div class="section-lbl"><span class="n">1</span> OOS % flow — live fleet status</div>
+  <div class="section-lbl" id="sec1"><span class="n">1</span> OOS % flow — live fleet status</div>
   <div class="kpi-row" id="fleetKpis">
     <div class="kpi"><div class="kl">Total Bikes</div><div class="kv">—</div></div>
     <div class="kpi accent"><div class="kl">OOS Bikes</div><div class="kv">—</div></div>
@@ -93,7 +120,7 @@
     <div class="kpi"><div class="kl">RFD %</div><div class="kv">—</div></div>
   </div>
 
-  <div class="section-lbl"><span class="n">2</span> Inflow / outflow of vehicles</div>
+  <div class="section-lbl" id="sec2"><span class="n">2</span> Inflow / outflow of vehicles</div>
   <div class="row2">
     <div class="panel">
       <h3>Daily inflow vs outflow</h3>
@@ -108,7 +135,7 @@
     </div>
   </div>
 
-  <div class="section-lbl"><span class="n">3</span> Inflow / outflow per technician</div>
+  <div class="section-lbl" id="sec3"><span class="n">3</span> Inflow / outflow per technician</div>
   <div class="panel">
     <h3>Technician leaderboard (outflow-side — repairs closed)</h3>
     <div style="max-height:320px;overflow-y:auto">
@@ -124,7 +151,7 @@
     <div>MTD cost below reflects only <b>billed</b> job cards for the selected range. Bikes that came in recently haven't been billed yet, so a low number here doesn't mean a good month — read it alongside sections 1–3, not instead of them. Comparison period is the <b>same date range, previous month</b> (matching the monthly RMC deck), not a full calendar month.</div>
   </div>
 
-  <div class="section-lbl"><span class="n">4</span> Cost (RMC deck structure)</div>
+  <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure)</div>
   <div class="kpi-row" id="costKpis">
     <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Part Cost</div><div class="kv">—</div></div>
@@ -136,31 +163,31 @@
   <div class="row2">
     <div class="panel">
       <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
         <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
     <div class="panel">
       <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
         <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
   </div>
 
   <div class="panel">
     <h3>By submission type</h3>
-    <div style="overflow-x:auto"><table><thead><tr><th>Type</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+    <div style="overflow-x:auto"><table><thead><tr><th>Type</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
       <tbody id="costSubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="row2">
     <div class="panel">
       <h3>By city</h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>City</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>City</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
         <tbody id="costCityBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
     <div class="panel">
       <h3>By model</h3>
-      <div style="overflow-x:auto"><table><thead><tr><th>Model</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>Model</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
         <tbody id="costModelBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
     </div>
   </div>
@@ -169,7 +196,7 @@
     <div class="panel">
       <h3>By hub (top 15)</h3>
       <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
-        <table><thead><tr><th>Hub</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th><th class="num">Δ Avg/JC</th></tr></thead>
+        <table><thead><tr><th>Hub</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
           <tbody id="costHubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
       </div>
     </div>
@@ -258,6 +285,39 @@ function setLoadingStates() {
   document.getElementById('costModelBody').innerHTML = loadingRow(8);
   document.getElementById('costHubBody').innerHTML = loadingRow(8);
   document.getElementById('topPartsBody').innerHTML = loadingRow(4);
+}
+
+function jumpTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setPreset(kind) {
+  document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active'));
+  document.getElementById('preset-' + kind).classList.add('active');
+
+  const to = todayIST();
+  const nowDate = new Date(to + 'T00:00:00');
+  let from, toVal = to;
+  if (kind === 'today') {
+    from = to;
+  } else if (kind === 'week') {
+    const day = nowDate.getDay();
+    const diffToMonday = (day === 0) ? 6 : day - 1;
+    const monday = new Date(nowDate); monday.setDate(monday.getDate() - diffToMonday);
+    from = monday.toISOString().slice(0,10);
+  } else if (kind === 'mtd') {
+    from = to.slice(0,8) + '01';
+  } else if (kind === 'lastmonth') {
+    const firstThisMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+    const lastMonthEnd = new Date(firstThisMonth); lastMonthEnd.setDate(0);
+    const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+    from = lastMonthStart.toISOString().slice(0,10);
+    toVal = lastMonthEnd.toISOString().slice(0,10);
+  }
+  document.getElementById('f-from').value = from;
+  document.getElementById('f-to').value = toVal;
+  loadAll();
 }
 
 async function loadAll() {
@@ -369,8 +429,8 @@ async function loadTechnicians(from, to, city, hub) {
 function costRow(nameCell, r) {
   return `<tr><td>${nameCell}</td>` +
     `<td class="num">${fmtN(r.a_jc)}</td><td class="num">${fmtC(r.a_amt)}</td><td class="num">${fmtC(r.a_cpj)}</td>` +
-    `<td class="num">${fmtN(r.b_jc)}</td><td class="num">${fmtC(r.b_amt)}</td><td class="num">${fmtC(r.b_cpj)}</td>` +
-    `<td class="num">${deltaSpan(r.a_cpj, r.b_cpj)}</td></tr>`;
+    `<td class="num">${deltaSpan(r.a_cpj, r.b_cpj)}</td>` +
+    `<td class="num">${fmtN(r.b_jc)}</td><td class="num">${fmtC(r.b_amt)}</td><td class="num">${fmtC(r.b_cpj)}</td></tr>`;
 }
 
 function totalsRow(rows, label) {
@@ -381,8 +441,8 @@ function totalsRow(rows, label) {
   const bCpj = bJc > 0 ? Math.round(bAmt/bJc) : 0;
   return `<tr style="font-weight:800;border-top:2px solid var(--border)"><td>${label}</td>` +
     `<td class="num">${fmtN(aJc)}</td><td class="num">${fmtC(aAmt)}</td><td class="num">${fmtC(aCpj)}</td>` +
-    `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td>` +
-    `<td class="num">${deltaSpan(aCpj, bCpj)}</td></tr>`;
+    `<td class="num">${deltaSpan(aCpj, bCpj)}</td>` +
+    `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td></tr>`;
 }
 
 function renderCost(cost, costPerKmRows) {
@@ -395,9 +455,9 @@ function renderCost(cost, costPerKmRows) {
   }
   const kv = document.querySelectorAll('#costKpis .kv');
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
-  kv[1].textContent = fmtC(cost.a_total.part_cost);
-  kv[2].textContent = fmtC(cost.a_total.labour_cost);
-  kv[3].innerHTML = fmtN(cost.a_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
+  kv[1].innerHTML = fmtC(cost.a_total.part_cost) + ' ' + deltaSpan(cost.a_total.part_cost, cost.b_total.part_cost);
+  kv[2].innerHTML = fmtC(cost.a_total.labour_cost) + ' ' + deltaSpan(cost.a_total.labour_cost, cost.b_total.labour_cost);
+  kv[3].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
   const totalCost = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_cost)||0), 0);
   const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
   kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
@@ -459,7 +519,10 @@ async function loadHubs() {
   const from = to.slice(0,8) + '01';
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
+  document.getElementById('preset-mtd').classList.add('active');
   document.getElementById('f-autorefresh').addEventListener('change', toggleAutoRefresh);
+  document.getElementById('f-from').addEventListener('change', () => document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active')));
+  document.getElementById('f-to').addEventListener('change', () => document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active')));
   Promise.all([loadHubs(), loadAll()]);
 })();
 </script>
