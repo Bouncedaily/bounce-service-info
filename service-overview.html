@@ -331,9 +331,10 @@ function renderCost(cost, costPerKmRows) {
 }
 
 function renderTatAndCatg(tatBucket, issueCatg) {
-  const rowsHtml = (rows, nameKey) => (rows||[]).length ? (rows||[]).map(r =>
-    costRow(r[nameKey]||'—', r)
-  ).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
+  const rowsHtml = (rows, nameKey) => {
+    if (rows === null) return '<tr><td colspan="7" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again, or narrow the date range if it keeps failing.</td></tr>';
+    return (rows||[]).length ? rows.map(r => costRow(r[nameKey]||'—', r)).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
+  };
   document.getElementById('costTatBody').innerHTML = rowsHtml(tatBucket, 'bucket');
   document.getElementById('costCatgBody').innerHTML = rowsHtml(issueCatg, 'catg');
 }
