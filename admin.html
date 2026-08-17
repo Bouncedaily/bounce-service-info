@@ -625,9 +625,6 @@ async function rmcUploadFile(){
       return out;
     }).filter(r => r.billing_no || r.job_no); // skip fully-blank trailing rows Excel sometimes exports
 
-    const dates = mapped.map(r => r.billing_date).filter(Boolean).sort();
-    const dateStart = dates[0] || null, dateEnd = dates[dates.length-1] || null;
-
     const batchId = crypto.randomUUID();
     mapped.forEach(r => { r.upload_batch_id = batchId; });
 
@@ -673,6 +670,26 @@ async function rmcUploadFile(){
       body: JSON.stringify({ p_batch_id: batchId })
     });
     const deletedCount = reconcileRes.ok ? await reconcileRes.json() : null;
+
+    // Ask Postgres for the real min/max billing_date of what actually got inserted,
+    // rather than trusting a client-side string sort. A plain JS .sort() only works
+    // if every row's date string is in identical format — in a "merged" file built
+    // from two separate exports, one half's date cells often get parsed differently
+    // by the Excel reader than the other, and a lexicographic sort over mixed formats
+    // silently produces a wrong range (seen in practice: a June+July file logging as
+    // July-only). Postgres already parsed every row correctly on insert (that part
+    // was never wrong), so just ask it for the truth instead of recomputing client-side.
+    let dateStart = null, dateEnd = null;
+    try {
+      const rangeRes = await fetch(`${SB}/rest/v1/rpc/get_rmc_batch_date_range`, {
+        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_batch_id: batchId })
+      });
+      if (rangeRes.ok) {
+        const range = await rangeRes.json();
+        dateStart = range.min_date || null; dateEnd = range.max_date || null;
+      }
+    } catch (e) { console.error('date range lookup failed', e); }
 
     await fetch(`${SB}/rest/v1/rmc_jc_upload_batches`, {
       method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
