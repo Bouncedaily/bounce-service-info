@@ -201,6 +201,11 @@
 const SB  = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const AUTH_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co/functions/v1/auth-user';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+// Shared header pair for the RMC Job Card Upload section below (rest of this
+// file builds headers inline per-call with ANON_KEY; this const was assumed
+// to exist by that code but was never actually declared — that's the
+// "HDR is not defined" bug.
+const HDR = { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY };
 const ADMIN = 'nithish@bounceshare.com';
 
 // Get session
