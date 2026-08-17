@@ -78,6 +78,10 @@
     </div>
     <div class="fg"><label>Hub</label><select id="f-hub"><option value="">All Hubs</option></select></div>
     <button class="btn primary" onclick="loadAll()">Apply</button>
+    <div class="fg" style="flex-direction:row;align-items:center;gap:6px">
+      <input type="checkbox" id="f-autorefresh" style="width:auto;cursor:pointer">
+      <label style="text-transform:none;font-size:11px;cursor:pointer" for="f-autorefresh">Auto-refresh (5 min)</label>
+    </div>
     <span class="synced-lbl" id="syncedLbl"></span>
   </div>
 
@@ -215,10 +219,45 @@ function deltaSpan(a, b) {
   return `<span class="${cls}">${sign}${pct.toFixed(0)}%</span>`;
 }
 
-async function rpc(name, body) {
-  const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!r.ok) { console.error(name, 'failed', r.status, await r.text()); return null; }
-  return r.json();
+function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+async function rpc(name, body, isRetry) {
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) {
+      console.error(name, 'failed', r.status, await r.text());
+      if (!isRetry) { await sleep(2500); return rpc(name, body, true); }
+      return null;
+    }
+    return r.json();
+  } catch (e) {
+    console.error(name, 'network error', e);
+    if (!isRetry) { await sleep(2500); return rpc(name, body, true); }
+    return null;
+  }
+}
+
+let pendingSections = 0;
+function sectionDone() {
+  pendingSections--;
+  if (pendingSections <= 0) {
+    const lbl = document.getElementById('syncedLbl');
+    lbl.textContent = lbl.textContent.replace(/· syncing…$/, `· synced ${new Date().toLocaleTimeString()}`);
+  }
+}
+
+function setLoadingStates() {
+  document.querySelectorAll('#fleetKpis .kv, #costKpis .kv').forEach(el => el.textContent = '—');
+  const loadingRow = (n) => `<tr><td colspan="${n}" class="empty">Loading…</td></tr>`;
+  document.getElementById('flowTypeBody').innerHTML = loadingRow(3);
+  document.getElementById('techBody').innerHTML = loadingRow(8);
+  document.getElementById('costTatBody').innerHTML = loadingRow(8);
+  document.getElementById('costCatgBody').innerHTML = loadingRow(8);
+  document.getElementById('costSubBody').innerHTML = loadingRow(8);
+  document.getElementById('costCityBody').innerHTML = loadingRow(8);
+  document.getElementById('costModelBody').innerHTML = loadingRow(8);
+  document.getElementById('costHubBody').innerHTML = loadingRow(8);
+  document.getElementById('topPartsBody').innerHTML = loadingRow(4);
 }
 
 async function loadAll() {
@@ -229,31 +268,53 @@ async function loadAll() {
   const [bFrom, bTo] = sameRangeLastMonth(from, to);
   const monthKey = from.slice(0,7);
 
-  document.getElementById('syncedLbl').textContent = `${from} → ${to} vs ${bFrom} → ${bTo} (last month) · synced ${new Date().toLocaleTimeString()}`;
+  document.getElementById('syncedLbl').textContent = `${from} → ${to} vs ${bFrom} → ${bTo} (last month) · syncing…`;
+  setLoadingStates();
+  pendingSections = 6; // flow, cost+costPerKm pair, tat+catg pair, parts, savings, technicians
 
-  const [flow, cost, parts, savings, costPerKmRows, tatBucket, issueCatg] = await Promise.all([
-    rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
+  // Section 1 & 2 — flow (renders as soon as it's ready, doesn't wait on cost etc.)
+  rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub })
+    .then(flow => { renderFleet(flow); renderFlow(flow); sectionDone(); });
+
+  // Section 4 KPIs + cost tables — cost and cost-per-km need each other, kept together
+  Promise.all([
     rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-    rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 }),
-    fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => []),
-    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => []),
+    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => null),
+  ]).then(([cost, costPerKmRows]) => { renderCost(cost, costPerKmRows); sectionDone(); });
+
+  // TAT bucket + issue category — rendered together, independent of cost/flow
+  Promise.all([
     rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
     rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-  ]);
+  ]).then(([tatBucket, issueCatg]) => { renderTatAndCatg(tatBucket, issueCatg); sectionDone(); });
 
-  renderFleet(flow);
-  renderFlow(flow);
-  renderCost(cost, costPerKmRows);
-  renderTatAndCatg(tatBucket, issueCatg);
-  renderParts(parts);
-  renderSavings(savings && savings[0]);
+  // Top parts
+  rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
+    .then(parts => { renderParts(parts); sectionDone(); });
+
+  // Savings
+  fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => null)
+    .then(savings => { renderSavings(savings && savings[0]); sectionDone(); });
+
+  // Technicians (calls sectionDone internally)
   loadTechnicians(from, to, city, hub);
 }
 
+function toggleAutoRefresh() {
+  if (window.__autoRefreshTimer) { clearInterval(window.__autoRefreshTimer); window.__autoRefreshTimer = null; }
+  if (document.getElementById('f-autorefresh').checked) {
+    window.__autoRefreshTimer = setInterval(loadAll, 5 * 60 * 1000);
+  }
+}
+
 function renderFleet(flow) {
+  const cards = document.querySelectorAll('#fleetKpis .kv');
+  if (flow === null) {
+    cards.forEach(el => el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>');
+    return;
+  }
   if (!flow || !flow.fleet) return;
   const f = flow.fleet;
-  const cards = document.querySelectorAll('#fleetKpis .kv');
   cards[0].textContent = fmtN(f.total);
   cards[1].textContent = fmtN(f.oos);
   cards[2].textContent = f.oos_pct + '%';
@@ -261,6 +322,11 @@ function renderFleet(flow) {
 }
 
 function renderFlow(flow) {
+  if (flow === null) {
+    if (flowChartInst) { flowChartInst.destroy(); flowChartInst = null; }
+    document.getElementById('flowTypeBody').innerHTML = '<tr><td colspan="3" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again.</td></tr>';
+    return;
+  }
   if (!flow) return;
   const days = [...new Set([...(flow.inflow_daily||[]).map(d=>d.date), ...(flow.outflow_daily||[]).map(d=>d.date)])].sort();
   const inMap = Object.fromEntries((flow.inflow_daily||[]).map(d=>[d.date,d.n]));
@@ -287,10 +353,17 @@ function renderFlow(flow) {
 
 async function loadTechnicians(from, to, city, hub) {
   const data = await rpc('get_tech_productivity', { p_start: from, p_end: to, p_city: city, p_hub: hub });
+  const body = document.getElementById('techBody');
+  if (data === null) {
+    body.innerHTML = '<tr><td colspan="8" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again.</td></tr>';
+    sectionDone();
+    return;
+  }
   const rows = (data && data.leaderboard) || [];
-  document.getElementById('techBody').innerHTML = rows.length ? rows.slice(0,20).map(r =>
+  body.innerHTML = rows.length ? rows.slice(0,20).map(r =>
     `<tr><td>${r.technician_name}</td><td>${r.hub||'—'}</td><td class="num">${fmtN(r.jobs)}</td><td class="num">${r.labour_hrs}</td><td class="num">${r.jobs_per_day}</td><td class="num">${fmtN(r.oos)}</td><td class="num">${fmtN(r.rr)}</td><td class="num">${fmtN(r.pdi)}</td></tr>`
   ).join('') : '<tr><td colspan="8" class="empty">No data in range</td></tr>';
+  sectionDone();
 }
 
 function costRow(nameCell, r) {
@@ -298,6 +371,18 @@ function costRow(nameCell, r) {
     `<td class="num">${fmtN(r.a_jc)}</td><td class="num">${fmtC(r.a_amt)}</td><td class="num">${fmtC(r.a_cpj)}</td>` +
     `<td class="num">${fmtN(r.b_jc)}</td><td class="num">${fmtC(r.b_amt)}</td><td class="num">${fmtC(r.b_cpj)}</td>` +
     `<td class="num">${deltaSpan(r.a_cpj, r.b_cpj)}</td></tr>`;
+}
+
+function totalsRow(rows, label) {
+  if (!rows.length) return '';
+  const sum = (key) => rows.reduce((s,r) => s + (Number(r[key])||0), 0);
+  const aJc = sum('a_jc'), aAmt = sum('a_amt'), bJc = sum('b_jc'), bAmt = sum('b_amt');
+  const aCpj = aJc > 0 ? Math.round(aAmt/aJc) : 0;
+  const bCpj = bJc > 0 ? Math.round(bAmt/bJc) : 0;
+  return `<tr style="font-weight:800;border-top:2px solid var(--border)"><td>${label}</td>` +
+    `<td class="num">${fmtN(aJc)}</td><td class="num">${fmtC(aAmt)}</td><td class="num">${fmtC(aCpj)}</td>` +
+    `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td>` +
+    `<td class="num">${deltaSpan(aCpj, bCpj)}</td></tr>`;
 }
 
 function renderCost(cost, costPerKmRows) {
@@ -317,17 +402,18 @@ function renderCost(cost, costPerKmRows) {
   const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
   kv[4].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
 
-  const rowsHtml = (rows, nameKey) => rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
+  const rowsHtml = (rows, nameKey, totalLabel) => rows.length ? rows.sort((x,y)=>(y.a_amt||0)-(x.a_amt||0)).map(r =>
     costRow(r[nameKey]||'—', r)
-  ).join('') : '<tr><td colspan="7" class="empty">No data</td></tr>';
+  ).join('') + totalsRow(rows, totalLabel) : '<tr><td colspan="7" class="empty">No data</td></tr>';
 
-  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type');
-  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city');
-  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model');
+  document.getElementById('costSubBody').innerHTML = rowsHtml(cost.by_submission_type||[], 'type', 'Total');
+  document.getElementById('costCityBody').innerHTML = rowsHtml(cost.by_city||[], 'city', 'Total');
+  document.getElementById('costModelBody').innerHTML = rowsHtml(cost.by_model||[], 'model', 'Total');
 
-  document.getElementById('costHubBody').innerHTML = (cost.by_hub||[]).length ? (cost.by_hub||[]).map(r =>
-    costRow(r.hub||'—', r)
-  ).join('') : '<tr><td colspan="8" class="empty">No data</td></tr>';
+  const hubRows = cost.by_hub||[];
+  document.getElementById('costHubBody').innerHTML = hubRows.length ?
+    hubRows.map(r => costRow(r.hub||'—', r)).join('') + totalsRow(hubRows, 'Total (top 15 shown)')
+    : '<tr><td colspan="8" class="empty">No data</td></tr>';
 }
 
 function renderTatAndCatg(tatBucket, issueCatg) {
@@ -340,8 +426,13 @@ function renderTatAndCatg(tatBucket, issueCatg) {
 }
 
 function renderParts(parts) {
+  const body = document.getElementById('topPartsBody');
+  if (parts === null) {
+    body.innerHTML = '<tr><td colspan="4" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again.</td></tr>';
+    return;
+  }
   const rows = (parts && parts.rows) || [];
-  document.getElementById('topPartsBody').innerHTML = rows.length ? rows.map(r =>
+  body.innerHTML = rows.length ? rows.map(r =>
     `<tr><td>${r.item}</td><td class="num">${fmtN(r.a_amount)}</td><td class="num">${fmtN(r.b_amount)}</td><td class="num">${deltaSpan(r.a_amount, r.b_amount)}</td></tr>`
   ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
 }
@@ -368,6 +459,7 @@ async function loadHubs() {
   const from = to.slice(0,8) + '01';
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
+  document.getElementById('f-autorefresh').addEventListener('change', toggleAutoRefresh);
   Promise.all([loadHubs(), loadAll()]);
 })();
 </script>
