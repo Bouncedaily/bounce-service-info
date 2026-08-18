@@ -371,11 +371,17 @@ let flowChartInst = null;
 function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
 function fmtN(n) { return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-IN'); }
 function todayIST() { return new Date(Date.now() + 5.5*3600*1000).toISOString().slice(0,10); }
-function addDays(dateStr, days) { const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+function addDays(dateStr, days) { const d = new Date(dateStr+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+days); return d.toISOString().slice(0,10); }
 function sameRangeLastMonth(from, to) {
-  const f = new Date(from+'T00:00:00'), t = new Date(to+'T00:00:00');
-  const bf = new Date(f.getFullYear(), f.getMonth()-1, f.getDate());
-  const bt = new Date(t.getFullYear(), t.getMonth()-1, t.getDate());
+  // Bug fixed here: building these with the plain Date constructor (local
+  // timezone) and then calling toISOString() (UTC) silently shifted every
+  // date back by one day for anyone in IST (UTC+5:30) — local midnight
+  // becomes 18:30 the *previous* day once converted to UTC. Parsing as UTC
+  // and building the shifted date with Date.UTC() keeps everything in the
+  // same timezone space throughout, so no shift occurs.
+  const f = new Date(from+'T00:00:00Z'), t = new Date(to+'T00:00:00Z');
+  const bf = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth()-1, f.getUTCDate()));
+  const bt = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth()-1, t.getUTCDate()));
   return [bf.toISOString().slice(0,10), bt.toISOString().slice(0,10)];
 }
 function deltaSpan(a, b) {
@@ -485,21 +491,21 @@ function setPreset(kind) {
   document.getElementById('preset-' + kind).classList.add('active');
 
   const to = todayIST();
-  const nowDate = new Date(to + 'T00:00:00');
+  const nowDate = new Date(to + 'T00:00:00Z');
   let from, toVal = to;
   if (kind === 'today') {
     from = to;
   } else if (kind === 'week') {
-    const day = nowDate.getDay();
+    const day = nowDate.getUTCDay();
     const diffToMonday = (day === 0) ? 6 : day - 1;
-    const monday = new Date(nowDate); monday.setDate(monday.getDate() - diffToMonday);
+    const monday = new Date(nowDate); monday.setUTCDate(monday.getUTCDate() - diffToMonday);
     from = monday.toISOString().slice(0,10);
   } else if (kind === 'mtd') {
     from = to.slice(0,8) + '01';
   } else if (kind === 'lastmonth') {
-    const firstThisMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
-    const lastMonthEnd = new Date(firstThisMonth); lastMonthEnd.setDate(0);
-    const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+    const firstThisMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1));
+    const lastMonthEnd = new Date(firstThisMonth); lastMonthEnd.setUTCDate(0);
+    const lastMonthStart = new Date(Date.UTC(lastMonthEnd.getUTCFullYear(), lastMonthEnd.getUTCMonth(), 1));
     from = lastMonthStart.toISOString().slice(0,10);
     toVal = lastMonthEnd.toISOString().slice(0,10);
   }
