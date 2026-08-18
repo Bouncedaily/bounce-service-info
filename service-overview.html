@@ -289,32 +289,20 @@
       <tbody id="costCityBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
   </div>
 
-  <div class="row2">
-    <div class="panel">
-      <h3>By hub (top 15)
-        <span class="table-tools">
-          <input type="text" class="tbl-search" placeholder="Search hub…" oninput="filterTable('costHubBody', this.value)">
-          <button class="btn chip tbl-export" onclick="exportTableCSV('hubTable','cost_by_hub')">⬇ CSV</button>
-        </span>
-      </h3>
-      <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
-        <table id="hubTable"><thead><tr>
-          <th class="sortable" onclick="sortTable('hubTable',0,false)">Hub</th>
-          <th class="num sortable" onclick="sortTable('hubTable',1,true)">This period JCs</th>
-          <th class="num sortable" onclick="sortTable('hubTable',2,true)">This period ₹</th>
-          <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-          <tbody id="costHubBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>Savings this month</h3>
-      <table>
-        <tr><td>Scrap revenue</td><td class="num" id="savScrap">—</td></tr>
-        <tr><td>Supplier CN</td><td class="num" id="savCn">—</td></tr>
-        <tr><td>SMPL manpower</td><td class="num" id="savSmpl">—</td></tr>
-        <tr><td>Other refurb</td><td class="num" id="savOther">—</td></tr>
-        <tr style="font-weight:800"><td>Total</td><td class="num" id="savTotal">—</td></tr>
-      </table>
+  <div class="panel">
+    <h3>By hub (top 15)
+      <span class="table-tools">
+        <input type="text" class="tbl-search" placeholder="Search hub…" oninput="filterTable('costHubBody', this.value)">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('hubTable','cost_by_hub')">⬇ CSV</button>
+      </span>
+    </h3>
+    <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
+      <table id="hubTable"><thead><tr>
+        <th class="sortable" onclick="sortTable('hubTable',0,false)">Hub</th>
+        <th class="num sortable" onclick="sortTable('hubTable',1,true)">This period JCs</th>
+        <th class="num sortable" onclick="sortTable('hubTable',2,true)">This period ₹</th>
+        <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Trend (6mo)</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
+        <tbody id="costHubBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table>
     </div>
   </div>
 
@@ -642,11 +630,10 @@ async function loadAll() {
   const city = document.getElementById('f-city').value || null;
   const hub = document.getElementById('f-hub').value || null;
   const [bFrom, bTo] = sameRangeLastMonth(from, to);
-  const monthKey = from.slice(0,7);
 
   document.getElementById('syncedLbl').textContent = `${from} → ${to} vs ${bFrom} → ${bTo} (last month) · syncing…`;
   setLoadingStates();
-  pendingSections = 7; // flow, cost+costPerKm pair, tat+catg pair, parts, vehicles, savings, technicians
+  pendingSections = 6; // flow, cost+costPerKm pair, tat+catg pair, parts, vehicles, technicians
 
   // Section 1 & 2 — flow (renders as soon as it's ready, doesn't wait on cost etc.)
   rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub })
@@ -654,10 +641,6 @@ async function loadAll() {
 
   // Section 4 — cost, TAT/issue category, parts, vehicles, all issue-category-filterable
   loadSection4();
-
-  // Savings
-  fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => null)
-    .then(savings => safeRender(() => renderSavings(savings && savings[0])));
 
   // Technicians (calls sectionDone internally)
   loadTechnicians(from, to, city, hub);
@@ -791,8 +774,10 @@ function renderCost(cost, costPerKmRows, trends) {
   cost.a_total = cost.a_total || zeroTotal;
   cost.b_total = cost.b_total || zeroTotal;
   const kv = document.querySelectorAll('#costKpis .kv');
-  kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
-  kv[1].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
+  kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost) +
+    `<div style="font-size:11px;color:var(--muted);font-weight:400">vs ${fmtC(cost.b_total.total_cost)} last month</div>`;
+  kv[1].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) +
+    `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC · vs ${fmtN(cost.b_total.jc)} last month</div>`;
   const totalCost = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_cost)||0), 0);
   const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
   kv[2].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
@@ -835,16 +820,6 @@ function renderParts(parts) {
   body.innerHTML = rows.length ? rows.map(r =>
     `<tr><td>${r.item}</td><td class="num">${fmtN(r.a_qty)}</td><td class="num">${fmtN(r.a_amount)}</td><td class="num">${fmtN(r.b_qty)}</td><td class="num">${fmtN(r.b_amount)}</td><td class="num">${deltaSpan(r.a_amount, r.b_amount)}</td></tr>`
   ).join('') : '<tr><td colspan="6" class="empty">No data</td></tr>';
-}
-
-function renderSavings(row) {
-  if (!row) { ['savScrap','savCn','savSmpl','savOther','savTotal'].forEach(id => document.getElementById(id).textContent = '—'); return; }
-  const scrap = parseFloat(row.scrap_revenue)||0, cn = parseFloat(row.supplier_cn)||0, smpl = parseFloat(row.smpl_manpower)||0, other = parseFloat(row.other_refurb_manual)||0;
-  document.getElementById('savScrap').textContent = fmtC(scrap);
-  document.getElementById('savCn').textContent = fmtC(cn);
-  document.getElementById('savSmpl').textContent = fmtC(smpl);
-  document.getElementById('savOther').textContent = fmtC(other);
-  document.getElementById('savTotal').textContent = fmtC(scrap+cn+smpl+other);
 }
 
 async function loadHubs() {
