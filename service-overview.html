@@ -256,9 +256,9 @@
     <span style="font-size:11px;color:var(--muted)">filters every table below</span>
   </div>
   <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(3,1fr)">
-    <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
+    <div class="kpi"><div class="kl">RMC Gross (Parts)</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Job Cards</div><div class="kv">—</div></div>
-    <div class="kpi"><div class="kl">Cost / km (W&amp;T)</div><div class="kv">—</div></div>
+    <div class="kpi"><div class="kl">Avg Cost/JC</div><div class="kv">—</div></div>
   </div>
 
   <div class="panel">
@@ -290,7 +290,7 @@
   </div>
 
   <div class="panel">
-    <h3>By hub (top 15)
+    <h3>By hub
       <span class="table-tools">
         <input type="text" class="tbl-search" placeholder="Search hub…" oninput="filterTable('costHubBody', this.value)">
         <button class="btn chip tbl-export" onclick="exportTableCSV('hubTable','cost_by_hub')">⬇ CSV</button>
@@ -596,13 +596,12 @@ function loadSection4() {
 
   Promise.all([
     rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => null),
     rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
     rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
     rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
     rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
-  ]).then(([cost, costPerKmRows, trendSub, trendCity, trendHub, trendModel]) => {
-    safeRender(() => renderCost(cost, costPerKmRows, {
+  ]).then(([cost, trendSub, trendCity, trendHub, trendModel]) => {
+    safeRender(() => renderCost(cost, {
       submission_type: trendMap(trendSub),
       city: trendMap(trendCity),
       hub: trendMap(trendHub),
@@ -757,7 +756,7 @@ function totalsRow(rows, label) {
     `<td class="num">${fmtN(bJc)}</td><td class="num">${fmtC(bAmt)}</td><td class="num">${fmtC(bCpj)}</td></tr>`;
 }
 
-function renderCost(cost, costPerKmRows, trends) {
+function renderCost(cost, trends) {
   trends = trends || {};
   if (!cost) {
     document.querySelectorAll('#costKpis .kv').forEach(el => el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>');
@@ -777,10 +776,9 @@ function renderCost(cost, costPerKmRows, trends) {
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost) +
     `<div style="font-size:11px;color:var(--muted);font-weight:400">vs ${fmtC(cost.b_total.total_cost)} last month</div>`;
   kv[1].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) +
-    `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC · vs ${fmtN(cost.b_total.jc)} last month</div>`;
-  const totalCost = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_cost)||0), 0);
-  const totalKm = (costPerKmRows||[]).reduce((s,r) => s + (parseFloat(r.total_km)||0), 0);
-  kv[2].textContent = totalKm > 0 ? '₹' + (totalCost/totalKm).toFixed(2) : '—';
+    `<div style="font-size:11px;color:var(--muted);font-weight:400">vs ${fmtN(cost.b_total.jc)} last month</div>`;
+  kv[2].innerHTML = fmtC(cost.a_total.cost_per_jc) + ' ' + deltaSpan(cost.a_total.cost_per_jc, cost.b_total.cost_per_jc) +
+    `<div style="font-size:11px;color:var(--muted);font-weight:400">vs ${fmtC(cost.b_total.cost_per_jc)} last month</div>`;
 
   const rowsHtml = (rows, nameKey, totalLabel, trendKey) => {
     const tmap = trends[trendKey] || {};
@@ -796,7 +794,7 @@ function renderCost(cost, costPerKmRows, trends) {
   const hubRows = cost.by_hub||[];
   const hubTrend = trends.hub || {};
   document.getElementById('costHubBody').innerHTML = hubRows.length ?
-    hubRows.map(r => costRow(r.hub||'—', r, hubTrend[r.hub])).join('') + totalsRow(hubRows, 'Total (top 15 shown)')
+    hubRows.map(r => costRow(r.hub||'—', r, hubTrend[r.hub])).join('') + totalsRow(hubRows, 'Total')
     : '<tr><td colspan="9" class="empty">No data</td></tr>';
 }
 
