@@ -49,7 +49,7 @@
     .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
     .kpi.accent { border: 2px solid var(--red); }
     .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
-    .kpi .kv { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .kpi .kv, .kpi .kv-wt { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
     .kpi .ks { font-size: 11px; color: var(--muted); }
     .kpi .ks.up { color: #dc2626; }
     .kpi .ks.down { color: #16a34a; }
@@ -263,10 +263,11 @@
     <span id="model-chips"></span>
     <span style="font-size:11px;color:var(--muted)">— filters every table below (city/hub use the filters at the top of the page)</span>
   </div>
-  <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(4,1fr)">
     <div class="kpi"><div class="kl">RMC Gross (Parts)</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Job Cards</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Avg Cost/JC</div><div class="kv">—</div></div>
+    <div class="kpi"><div class="kl">Cost/km (Wear &amp; Tear, Parts)</div><div class="kv-wt" id="wtCostPerKm">—</div></div>
   </div>
 
   <div class="panel">
@@ -827,6 +828,31 @@ async function loadHubs() {
   (hubs||[]).forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
 }
 
+// Fixed calendar-month comparison, unlike every other Cost KPI — this one
+// can't follow the flexible date-range picker because the only KM-driven
+// data available (fleet_km_data) is bucketed by whole calendar month, not
+// arbitrary day ranges. Fetched once on load, not tied to the A/W/P /
+// submission-type / model filters or the date pickers, since none of those
+// apply to this fixed metric.
+async function loadWearTearCostPerKm() {
+  const el = document.getElementById('wtCostPerKm');
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/get_wear_tear_cost_per_km`, {
+      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
+    });
+    if (!r.ok) { el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>'; return; }
+    const d = await r.json();
+    const thisCpk = d.this_month_km > 0 ? d.this_month_cost / d.this_month_km : null;
+    const lastCpk = d.last_month_km > 0 ? d.last_month_cost / d.last_month_km : null;
+    const fmtCpk = (v) => v == null ? '—' : '₹' + v.toFixed(3);
+    el.innerHTML = fmtCpk(thisCpk) + (thisCpk != null && lastCpk != null ? ' ' + deltaSpan(thisCpk, lastCpk) : '') +
+      `<div style="font-size:11px;color:var(--muted);font-weight:400">vs ${fmtCpk(lastCpk)} last month (calendar month, not date-range)</div>`;
+  } catch (e) {
+    console.error('wear tear cost/km failed', e);
+    el.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load</span>';
+  }
+}
+
 (function init() {
   const to = todayIST();
   const from = to.slice(0,8) + '01';
@@ -837,7 +863,7 @@ async function loadHubs() {
   document.getElementById('f-autorefresh').addEventListener('change', toggleAutoRefresh);
   document.getElementById('f-from').addEventListener('change', () => document.querySelectorAll('.date-preset-chip').forEach(b => b.classList.remove('active')));
   document.getElementById('f-to').addEventListener('change', () => document.querySelectorAll('.date-preset-chip').forEach(b => b.classList.remove('active')));
-  Promise.all([loadHubs(), loadAll()]);
+  Promise.all([loadHubs(), loadAll(), loadWearTearCostPerKm()]);
 })();
 </script>
 </body>
