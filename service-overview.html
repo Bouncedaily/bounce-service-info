@@ -508,6 +508,21 @@ function setPreset(kind) {
   loadAll();
 }
 
+// Ensures a render crash (e.g. an unexpected null field from the backend) can
+// never freeze a whole section on "Loading…" forever — sectionDone() always
+// fires, and the error is at least visible in devtools instead of silent.
+// (Root cause of one such freeze: get_service_overview_cost returning
+// a_total:null for a period with zero rows, before the RPC coalesced it.)
+function safeRender(fn, ...args) {
+  try {
+    fn(...args);
+  } catch (e) {
+    console.error(`${fn.name || 'render'} failed:`, e);
+  } finally {
+    sectionDone();
+  }
+}
+
 async function loadAll() {
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
@@ -522,7 +537,7 @@ async function loadAll() {
 
   // Section 1 & 2 — flow (renders as soon as it's ready, doesn't wait on cost etc.)
   rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub })
-    .then(flow => { renderFleet(flow); renderFlow(flow); sectionDone(); });
+    .then(flow => safeRender(() => { renderFleet(flow); renderFlow(flow); }));
 
   // Section 4 KPIs + cost tables — cost, cost-per-km, and 4 trend series (submission_type/city/hub/model) rendered together
   Promise.all([
@@ -533,13 +548,12 @@ async function loadAll() {
     rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
     rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
   ]).then(([cost, costPerKmRows, trendSub, trendCity, trendHub, trendModel]) => {
-    renderCost(cost, costPerKmRows, {
+    safeRender(() => renderCost(cost, costPerKmRows, {
       submission_type: trendMap(trendSub),
       city: trendMap(trendCity),
       hub: trendMap(trendHub),
       model: trendMap(trendModel),
-    });
-    sectionDone();
+    }));
   });
 
   // TAT bucket + issue category + their trend series — rendered together, independent of cost/flow
@@ -548,15 +562,15 @@ async function loadAll() {
     rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
     rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
     rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-  ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => { renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg); sectionDone(); });
+  ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => safeRender(() => renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg)));
 
   // Top parts
   rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
-    .then(parts => { renderParts(parts); sectionDone(); });
+    .then(parts => safeRender(() => renderParts(parts)));
 
   // Savings
   fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => null)
-    .then(savings => { renderSavings(savings && savings[0]); sectionDone(); });
+    .then(savings => safeRender(() => renderSavings(savings && savings[0])));
 
   // Technicians (calls sectionDone internally)
   loadTechnicians(from, to, city, hub);
@@ -680,6 +694,13 @@ function renderCost(cost, costPerKmRows, trends) {
     document.getElementById('costHubBody').innerHTML = errRow(9);
     return;
   }
+  // a_total/b_total should always be a zero-value object even when a period has no
+  // data (the RPC coalesces this server-side) — but guard here too so a malformed
+  // response degrades gracefully (shows zeros) instead of throwing and freezing
+  // every panel in this render group, as happened when a_total came back null.
+  const zeroTotal = { total_cost: 0, jc: 0, cost_per_jc: 0 };
+  cost.a_total = cost.a_total || zeroTotal;
+  cost.b_total = cost.b_total || zeroTotal;
   const kv = document.querySelectorAll('#costKpis .kv');
   kv[0].innerHTML = fmtC(cost.a_total.total_cost) + ' ' + deltaSpan(cost.a_total.total_cost, cost.b_total.total_cost);
   kv[1].innerHTML = fmtN(cost.a_total.jc) + ' ' + deltaSpan(cost.a_total.jc, cost.b_total.jc) + `<div style="font-size:11px;color:var(--muted);font-weight:400">${fmtC(cost.a_total.cost_per_jc)}/JC</div>`;
