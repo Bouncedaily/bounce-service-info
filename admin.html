@@ -749,11 +749,26 @@ async function deleteRmcBatch(batchId){
   const label = batch ? (batch.source_filename || batchId) : batchId;
   const rowCount = batch ? (batch.inserted_row_count ?? '?') : '?';
   if (!confirm(`Delete "${label}"?\n\nThis permanently removes all ${rowCount} line item(s) from this upload and cannot be undone.`)) return;
+  const statusEl = document.getElementById('rmc-upload-status');
   try {
-    const delLines = await fetch(`${SB}/rest/v1/rmc_jc_lines?upload_batch_id=eq.${batchId}`, {
-      method: 'DELETE', headers: HDR
-    });
-    if (!delLines.ok) { alert(`Could not delete line items: HTTP ${delLines.status} — ${(await delLines.text()).slice(0,200)}`); return; }
+    // Delete in chunks rather than one giant DELETE — a single statement
+    // against 40k+ rows reliably exceeds PostgREST's timeout on this DB
+    // tier (measured ~9s for 44k rows with no way to speed that up further,
+    // since DELETE needs real heap access unlike SELECT). Chunking keeps
+    // each individual request comfortably fast.
+    let totalDeleted = 0;
+    while (true) {
+      if (statusEl) statusEl.textContent = `Deleting… ${totalDeleted} row(s) removed so far`;
+      const r = await fetch(`${SB}/rest/v1/rpc/delete_rmc_batch_chunk`, {
+        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_batch_id: batchId, p_chunk_size: 5000 })
+      });
+      if (!r.ok) { alert(`Could not delete line items: HTTP ${r.status} — ${(await r.text()).slice(0,200)}`); return; }
+      const deletedInChunk = await r.json();
+      totalDeleted += deletedInChunk;
+      if (deletedInChunk === 0) break;
+      await new Promise(res => setTimeout(res, 200));
+    }
     const delBatch = await fetch(`${SB}/rest/v1/rmc_jc_upload_batches?id=eq.${batchId}`, {
       method: 'DELETE', headers: HDR
     });
@@ -763,6 +778,7 @@ async function deleteRmcBatch(batchId){
         method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
       });
     } catch (e) { console.error('summary cache refresh failed', e); }
+    if (statusEl) statusEl.textContent = '';
     loadRmcUploadHistory();
   } catch(e) {
     alert('Delete failed: ' + e.message);
