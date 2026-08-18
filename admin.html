@@ -604,6 +604,7 @@ async function rmcUploadFile(){
   if (!file) return;
   btn.disabled = true;
   status.textContent = 'Reading file…';
+  const batchId = crypto.randomUUID(); // declared here (not inside try) so the catch block can clean up this batch's partial rows on failure
   try {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
@@ -625,7 +626,6 @@ async function rmcUploadFile(){
       return out;
     }).filter(r => r.billing_no || r.job_no); // skip fully-blank trailing rows Excel sometimes exports
 
-    const batchId = crypto.randomUUID();
     mapped.forEach(r => { r.upload_batch_id = batchId; });
 
     status.textContent = `Uploading ${mapped.length} rows…`;
@@ -665,11 +665,21 @@ async function rmcUploadFile(){
     }
 
     status.textContent = `Replacing older lines for job cards in this file…`;
-    const reconcileRes = await fetch(`${SB}/rest/v1/rpc/reconcile_rmc_upload`, {
-      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_batch_id: batchId })
-    });
-    const deletedCount = reconcileRes.ok ? await reconcileRes.json() : null;
+    // Retry reconcile too -- a silent one-shot failure here is exactly what let
+    // duplicate data pile up invisibly in the past (this step failing doesn't
+    // throw, so the upload still reports success while old data never gets
+    // cleaned up). Same backoff pattern as the chunk upload above.
+    let deletedCount = null;
+    for (let attempt = 0; attempt < 4 && deletedCount === null; attempt++) {
+      if (attempt > 0) { await sleep(3000 * attempt); status.textContent = `Reconcile hit a DB hiccup, retrying (attempt ${attempt+1}/4)…`; }
+      try {
+        const reconcileRes = await fetch(`${SB}/rest/v1/rpc/reconcile_rmc_upload`, {
+          method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_batch_id: batchId })
+        });
+        if (reconcileRes.ok) deletedCount = await reconcileRes.json();
+      } catch (e) { /* fall through to retry */ }
+    }
 
     // Refresh Service Overview's pre-aggregated trend cache (rmc_monthly_dim_summary)
     // right away, rather than waiting up to 30 min for the next cron cycle — otherwise
@@ -710,13 +720,38 @@ async function rmcUploadFile(){
       })
     });
 
-    const dedupMsg = deletedCount != null ? ` — replaced ${deletedCount} older line${deletedCount===1?'':'s'} for job cards updated in this file` : ' — ⚠ could not verify old-line cleanup, check manually';
+    const dedupMsg = deletedCount != null ? ` — replaced ${deletedCount} older line${deletedCount===1?'':'s'} for job cards updated in this file` : '';
     status.innerHTML = `✅ Done — ${inserted} rows uploaded (${dateStart || '?'} → ${dateEnd || '?'})${dedupMsg}`;
+    if (deletedCount === null) {
+      alert(`Upload succeeded, but the "replace older lines" cleanup step failed after 4 attempts. This can leave duplicate data behind if this file overlaps a previous upload. Try running the upload again — reconcile will retry — or check for duplicate batches manually if the numbers on Service Overview look inflated.`);
+    }
     input.value = '';
     loadRmcUploadHistory();
   } catch (err) {
     console.error('RMC upload failed', err);
-    status.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span>`;
+    status.innerHTML = `<span style="color:var(--red)">❌ ${err.message} — cleaning up partial rows…</span>`;
+    // A failed upload used to leave its partially-inserted rows sitting in
+    // rmc_jc_lines forever (reconcile only runs on success, so nothing ever
+    // cleaned these up) — this is exactly what caused duplicate/inflated
+    // totals discovered later. Clean up this batch's rows now so a failure
+    // never leaves orphaned data behind.
+    try {
+      let cleaned = 0;
+      while (true) {
+        const r = await fetch(`${SB}/rest/v1/rpc/delete_rmc_batch_chunk`, {
+          method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_batch_id: batchId, p_chunk_size: 5000 })
+        });
+        if (!r.ok) break;
+        const n = await r.json();
+        cleaned += n;
+        if (n === 0) break;
+      }
+      status.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span><br><span style="color:var(--muted)">Cleaned up ${cleaned} partial row(s) from this failed attempt — no leftover duplicate data. Safe to try again.</span>`;
+    } catch (cleanupErr) {
+      console.error('cleanup after failed upload also failed', cleanupErr);
+      status.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span><br><span style="color:var(--red)">⚠ Could not clean up partial rows from this failed attempt (batch ${batchId}) — flag this for manual cleanup if numbers look inflated later.</span>`;
+    }
   } finally {
     btn.disabled = true;
   }
