@@ -248,6 +248,13 @@
   </div>
 
   <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure) <span class="zone-badge lag">Billed · Lags</span></div>
+  <div class="fg" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:10px">
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin:0">Issue category</label>
+    <button type="button" class="btn chip active" id="catg-chip-A" onclick="toggleCatgFilter('A')">A · Wear &amp; Tear</button>
+    <button type="button" class="btn chip active" id="catg-chip-W" onclick="toggleCatgFilter('W')">W · Warranty</button>
+    <button type="button" class="btn chip active" id="catg-chip-P" onclick="toggleCatgFilter('P')">P · Rider Payable</button>
+    <span style="font-size:11px;color:var(--muted)">filters every table below</span>
+  </div>
   <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi"><div class="kl">RMC Gross</div><div class="kv">—</div></div>
     <div class="kpi"><div class="kl">Job Cards</div><div class="kv">—</div></div>
@@ -326,6 +333,33 @@
         <th class="num">Last month ₹</th><th class="num">Δ</th></tr></thead>
       <tbody id="topPartsBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
     </table>
+  </div>
+
+  <div class="panel">
+    <h3>Top 10 vehicles by cost + TAT (JC Opened → Billed)
+      <span class="table-tools">
+        <button class="btn chip tbl-export" onclick="exportTableCSV('vehATable','top_vehicles_this_period')">⬇ CSV this period</button>
+        <button class="btn chip tbl-export" onclick="exportTableCSV('vehBTable','top_vehicles_last_month')">⬇ CSV last month</button>
+      </span>
+    </h3>
+    <div class="row2">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">This period</div>
+        <div style="overflow-x:auto"><table id="vehATable"><thead><tr>
+          <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
+          <tbody id="vehABody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehAGrand">—</td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Last month</div>
+        <div style="overflow-x:auto"><table id="vehBTable"><thead><tr>
+          <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
+          <tbody id="vehBBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehBGrand">—</td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+    </div>
   </div>
 
   <details class="more-breakdowns">
@@ -431,6 +465,8 @@ function setLoadingStates() {
   document.getElementById('costModelBody').innerHTML = loadingRow(9);
   document.getElementById('costHubBody').innerHTML = loadingRow(9);
   document.getElementById('topPartsBody').innerHTML = loadingRow(6);
+  document.getElementById('vehABody').innerHTML = loadingRow(4);
+  document.getElementById('vehBBody').innerHTML = loadingRow(4);
 }
 
 function filterTable(tbodyId, query) {
@@ -529,6 +565,77 @@ function safeRender(fn, ...args) {
   }
 }
 
+function getSelectedCatgFilter() {
+  const codes = ['A','W','P'];
+  const active = codes.filter(c => document.getElementById('catg-chip-'+c).classList.contains('active'));
+  if (active.length === 0 || active.length === codes.length) return null; // none or all selected = no filter (matches original behaviour)
+  return active;
+}
+
+function toggleCatgFilter(code) {
+  document.getElementById('catg-chip-'+code).classList.toggle('active');
+  loadSection4();
+}
+
+function renderTopVehicles(data) {
+  if (!data) {
+    const err = '<tr><td colspan="4" class="empty" style="color:var(--red)">⚠ Failed to load — try Apply again.</td></tr>';
+    document.getElementById('vehABody').innerHTML = err;
+    document.getElementById('vehBBody').innerHTML = err;
+    document.getElementById('vehAGrand').textContent = '—';
+    document.getElementById('vehBGrand').textContent = '—';
+    return;
+  }
+  const rowsHtml = (rows) => rows.length ? rows.map(r =>
+    `<tr><td>${r.reg_number}</td><td>${r.job_no}</td><td class="num">${fmtC(r.amount)}</td><td class="num">${r.tat_days!=null ? Number(r.tat_days).toFixed(1)+'d' : '—'}</td></tr>`
+  ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
+  document.getElementById('vehABody').innerHTML = rowsHtml(data.a_rows||[]);
+  document.getElementById('vehAGrand').textContent = fmtC(data.a_grand_total||0);
+  document.getElementById('vehBBody').innerHTML = rowsHtml(data.b_rows||[]);
+  document.getElementById('vehBGrand').textContent = fmtC(data.b_grand_total||0);
+}
+
+// Section 4's data-fetching, extracted from loadAll() so toggling the A/W/P
+// issue-category filter can refresh just this section without reloading
+// sections 1-3 or the technician leaderboard.
+function loadSection4() {
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  const [bFrom, bTo] = sameRangeLastMonth(from, to);
+  const catg = getSelectedCatgFilter();
+
+  Promise.all([
+    rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => null),
+    rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+  ]).then(([cost, costPerKmRows, trendSub, trendCity, trendHub, trendModel]) => {
+    safeRender(() => renderCost(cost, costPerKmRows, {
+      submission_type: trendMap(trendSub),
+      city: trendMap(trendCity),
+      hub: trendMap(trendHub),
+      model: trendMap(trendModel),
+    }));
+  });
+
+  Promise.all([
+    rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+  ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => safeRender(() => renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg)));
+
+  rpc('get_top_parts_contribution_rmc', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10, p_issue_catg: catg })
+    .then(parts => safeRender(() => renderParts(parts)));
+
+  rpc('get_top_vehicles_by_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_limit: 10 })
+    .then(vehicles => safeRender(() => renderTopVehicles(vehicles)));
+}
+
 async function loadAll() {
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
@@ -539,40 +646,14 @@ async function loadAll() {
 
   document.getElementById('syncedLbl').textContent = `${from} → ${to} vs ${bFrom} → ${bTo} (last month) · syncing…`;
   setLoadingStates();
-  pendingSections = 6; // flow, cost+costPerKm pair, tat+catg pair, parts, savings, technicians
+  pendingSections = 7; // flow, cost+costPerKm pair, tat+catg pair, parts, vehicles, savings, technicians
 
   // Section 1 & 2 — flow (renders as soon as it's ready, doesn't wait on cost etc.)
   rpc('get_service_overview_flow', { p_from: from, p_to: to, p_city: city, p_hub: hub })
     .then(flow => safeRender(() => { renderFleet(flow); renderFlow(flow); }));
 
-  // Section 4 KPIs + cost tables — cost, cost-per-km, and 4 trend series (submission_type/city/hub/model) rendered together
-  Promise.all([
-    rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-    fetch(`${SB}/rest/v1/wear_tear_consumption_summary?select=total_cost,total_km`, { headers: HDR }).then(r => r.json()).catch(() => null),
-    rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-  ]).then(([cost, costPerKmRows, trendSub, trendCity, trendHub, trendModel]) => {
-    safeRender(() => renderCost(cost, costPerKmRows, {
-      submission_type: trendMap(trendSub),
-      city: trendMap(trendCity),
-      hub: trendMap(trendHub),
-      model: trendMap(trendModel),
-    }));
-  });
-
-  // TAT bucket + issue category + their trend series — rendered together, independent of cost/flow
-  Promise.all([
-    rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-    rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub }),
-  ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => safeRender(() => renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg)));
-
-  // Top parts
-  rpc('get_top_parts_contribution_rmc', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
-    .then(parts => safeRender(() => renderParts(parts)));
+  // Section 4 — cost, TAT/issue category, parts, vehicles, all issue-category-filterable
+  loadSection4();
 
   // Savings
   fetch(`${SB}/rest/v1/cost_savings_manual?month=eq.${monthKey}&select=*`, { headers: HDR }).then(r => r.json()).catch(() => null)
