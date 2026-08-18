@@ -565,7 +565,7 @@ async function loadAll() {
   ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => safeRender(() => renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg)));
 
   // Top parts
-  rpc('get_top_parts_contribution', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
+  rpc('get_top_parts_contribution_rmc', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10 })
     .then(parts => safeRender(() => renderParts(parts)));
 
   // Savings
