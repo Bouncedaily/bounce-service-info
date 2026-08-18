@@ -706,12 +706,14 @@ function renderFlow(flow) {
       scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } } }
   });
 
-  const inType = Object.fromEntries((flow.inflow_by_type||[]).map(d=>[d.type,d.n]));
-  const outType = Object.fromEntries((flow.outflow_by_type||[]).map(d=>[d.type,d.n]));
+  const inType = Object.fromEntries((flow.inflow_by_type||[]).map(d=>[d.type||'Unknown',d.n]));
+  const outType = Object.fromEntries((flow.outflow_by_type||[]).map(d=>[d.type||'Unknown',d.n]));
   const types = [...new Set([...Object.keys(inType), ...Object.keys(outType)])];
+  const totalIn = Object.values(inType).reduce((s,n)=>s+n,0);
+  const totalOut = Object.values(outType).reduce((s,n)=>s+n,0);
   document.getElementById('flowTypeBody').innerHTML = types.length ? types.map(t =>
     `<tr><td>${t}</td><td class="num">${fmtN(inType[t]||0)}</td><td class="num">${fmtN(outType[t]||0)}</td></tr>`
-  ).join('') : '<tr><td colspan="3" class="empty">No data</td></tr>';
+  ).join('') + `<tr style="font-weight:800;border-top:2px solid var(--border)"><td>Total</td><td class="num">${fmtN(totalIn)}</td><td class="num">${fmtN(totalOut)}</td></tr>` : '<tr><td colspan="3" class="empty">No data</td></tr>';
 }
 
 async function loadTechnicians(from, to, city, hub) {
