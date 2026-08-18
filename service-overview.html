@@ -171,10 +171,10 @@
   <div class="ctl-bar">
     <div class="fg"><label>Quick range</label>
       <div class="preset-row">
-        <button type="button" class="btn chip" id="preset-today" onclick="setPreset('today')">Today</button>
-        <button type="button" class="btn chip" id="preset-week" onclick="setPreset('week')">This Week</button>
-        <button type="button" class="btn chip" id="preset-mtd" onclick="setPreset('mtd')">MTD</button>
-        <button type="button" class="btn chip" id="preset-lastmonth" onclick="setPreset('lastmonth')">Last Month</button>
+        <button type="button" class="btn chip date-preset-chip" id="preset-today" onclick="setPreset('today')">Today</button>
+        <button type="button" class="btn chip date-preset-chip" id="preset-week" onclick="setPreset('week')">This Week</button>
+        <button type="button" class="btn chip date-preset-chip" id="preset-mtd" onclick="setPreset('mtd')">MTD</button>
+        <button type="button" class="btn chip date-preset-chip" id="preset-lastmonth" onclick="setPreset('lastmonth')">Last Month</button>
       </div>
     </div>
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
@@ -248,12 +248,20 @@
   </div>
 
   <div class="section-lbl" id="sec4"><span class="n">4</span> Cost (RMC deck structure) <span class="zone-badge lag">Billed · Lags</span></div>
-  <div class="fg" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:10px">
+  <div class="fg" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:6px">
     <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin:0">Issue category</label>
     <button type="button" class="btn chip active" id="catg-chip-A" onclick="toggleCatgFilter('A')">A · Wear &amp; Tear</button>
     <button type="button" class="btn chip active" id="catg-chip-W" onclick="toggleCatgFilter('W')">W · Warranty</button>
     <button type="button" class="btn chip active" id="catg-chip-P" onclick="toggleCatgFilter('P')">P · Rider Payable</button>
-    <span style="font-size:11px;color:var(--muted)">filters every table below</span>
+  </div>
+  <div class="fg" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:6px">
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin:0">Submission type</label>
+    <span id="subtype-chips"></span>
+  </div>
+  <div class="fg" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:10px">
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin:0">Bike model</label>
+    <span id="model-chips"></span>
+    <span style="font-size:11px;color:var(--muted)">— filters every table below (city/hub use the filters at the top of the page)</span>
   </div>
   <div class="kpi-row" id="costKpis" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi"><div class="kl">RMC Gross (Parts)</div><div class="kv">—</div></div>
@@ -511,7 +519,7 @@ function jumpTo(id) {
 }
 
 function setPreset(kind) {
-  document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.date-preset-chip').forEach(b => b.classList.remove('active'));
   document.getElementById('preset-' + kind).classList.add('active');
 
   const to = todayIST();
@@ -565,6 +573,40 @@ function toggleCatgFilter(code) {
   loadSection4();
 }
 
+const SUBMISSION_TYPES = ['Recovery','Running Repair','Rider Submission','Bike Exchange','Manual JC'];
+const BIKE_MODELS = ['e1+xPRO','LowSpeed','e1+x'];
+
+function initFilterChips() {
+  document.getElementById('subtype-chips').innerHTML = SUBMISSION_TYPES.map((t,i) =>
+    `<button type="button" class="btn chip active" id="subtype-chip-${i}" onclick="toggleSubtypeFilter(${i})">${t}</button>`
+  ).join('');
+  document.getElementById('model-chips').innerHTML = BIKE_MODELS.map((t,i) =>
+    `<button type="button" class="btn chip active" id="model-chip-${i}" onclick="toggleModelFilter(${i})">${t}</button>`
+  ).join('');
+}
+
+function getSelectedSubtypeFilter() {
+  const active = SUBMISSION_TYPES.filter((t,i) => document.getElementById('subtype-chip-'+i).classList.contains('active'));
+  if (active.length === 0 || active.length === SUBMISSION_TYPES.length) return null;
+  return active;
+}
+
+function toggleSubtypeFilter(i) {
+  document.getElementById('subtype-chip-'+i).classList.toggle('active');
+  loadSection4();
+}
+
+function getSelectedModelFilter() {
+  const active = BIKE_MODELS.filter((t,i) => document.getElementById('model-chip-'+i).classList.contains('active'));
+  if (active.length === 0 || active.length === BIKE_MODELS.length) return null;
+  return active;
+}
+
+function toggleModelFilter(i) {
+  document.getElementById('model-chip-'+i).classList.toggle('active');
+  loadSection4();
+}
+
 function renderTopVehicles(data) {
   if (!data) {
     const err = '<tr><td colspan="4" class="empty" style="color:var(--red)">⚠ Failed to load — try Apply again.</td></tr>';
@@ -593,13 +635,15 @@ function loadSection4() {
   const hub = document.getElementById('f-hub').value || null;
   const [bFrom, bTo] = sameRangeLastMonth(from, to);
   const catg = getSelectedCatgFilter();
+  const subtype = getSelectedSubtypeFilter();
+  const model = getSelectedModelFilter();
 
   Promise.all([
-    rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'submission_type', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'city', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'hub', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'model', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
   ]).then(([cost, trendSub, trendCity, trendHub, trendModel]) => {
     safeRender(() => renderCost(cost, {
       submission_type: trendMap(trendSub),
@@ -610,16 +654,16 @@ function loadSection4() {
   });
 
   Promise.all([
-    rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
-    rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg }),
+    rpc('get_service_overview_tat_bucket', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_issue_catg', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'tat_bucket', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
+    rpc('get_service_overview_trend', { p_dimension: 'issue_catg', p_months: 6, p_end_date: to, p_city: city, p_hub: hub, p_issue_catg: catg, p_submission_type: subtype, p_model: model }),
   ]).then(([tatBucket, issueCatg, trendTat, trendCatg]) => safeRender(() => renderTatAndCatg(tatBucket, issueCatg, trendTat, trendCatg)));
 
-  rpc('get_top_parts_contribution_rmc', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10, p_issue_catg: catg })
+  rpc('get_top_parts_contribution_rmc', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_limit: 10, p_issue_catg: catg, p_submission_type: subtype, p_model: model })
     .then(parts => safeRender(() => renderParts(parts)));
 
-  rpc('get_top_vehicles_by_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_limit: 10 })
+  rpc('get_top_vehicles_by_cost', { a_from: from, a_to: to, b_from: bFrom, b_to: bTo, p_city: city, p_hub: hub, p_issue_catg: catg, p_limit: 10, p_submission_type: subtype, p_model: model })
     .then(vehicles => safeRender(() => renderTopVehicles(vehicles)));
 }
 
@@ -833,9 +877,10 @@ async function loadHubs() {
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
   document.getElementById('preset-mtd').classList.add('active');
+  initFilterChips();
   document.getElementById('f-autorefresh').addEventListener('change', toggleAutoRefresh);
-  document.getElementById('f-from').addEventListener('change', () => document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active')));
-  document.getElementById('f-to').addEventListener('change', () => document.querySelectorAll('.btn.chip').forEach(b => b.classList.remove('active')));
+  document.getElementById('f-from').addEventListener('change', () => document.querySelectorAll('.date-preset-chip').forEach(b => b.classList.remove('active')));
+  document.getElementById('f-to').addEventListener('change', () => document.querySelectorAll('.date-preset-chip').forEach(b => b.classList.remove('active')));
   Promise.all([loadHubs(), loadAll()]);
 })();
 </script>
