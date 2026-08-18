@@ -671,6 +671,16 @@ async function rmcUploadFile(){
     });
     const deletedCount = reconcileRes.ok ? await reconcileRes.json() : null;
 
+    // Refresh Service Overview's pre-aggregated trend cache (rmc_monthly_dim_summary)
+    // right away, rather than waiting up to 30 min for the next cron cycle — otherwise
+    // Cost (RMC deck structure) sparklines would show stale data until then.
+    status.textContent = `Refreshing dashboard summary cache…`;
+    try {
+      await fetch(`${SB}/rest/v1/rpc/refresh_rmc_monthly_dim_summary`, {
+        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
+      });
+    } catch (e) { console.error('summary cache refresh failed', e); }
+
     // Ask Postgres for the real min/max billing_date of what actually got inserted,
     // rather than trusting a client-side string sort. A plain JS .sort() only works
     // if every row's date string is in identical format — in a "merged" file built
@@ -748,6 +758,11 @@ async function deleteRmcBatch(batchId){
       method: 'DELETE', headers: HDR
     });
     if (!delBatch.ok) { alert(`Line items were deleted, but the batch record itself could not be removed: HTTP ${delBatch.status}`); }
+    try {
+      await fetch(`${SB}/rest/v1/rpc/refresh_rmc_monthly_dim_summary`, {
+        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
+      });
+    } catch (e) { console.error('summary cache refresh failed', e); }
     loadRmcUploadHistory();
   } catch(e) {
     alert('Delete failed: ' + e.message);
