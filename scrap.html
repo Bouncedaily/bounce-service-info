@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Scrap Management — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    body { overflow-y: auto; height: auto; }
+    .wrap { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    .ctl-bar {
+      display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select, .fg input {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+    }
+    .fg select:focus, .fg input:focus { border-color: var(--red); }
+    .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
+    .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .kpi .ks { font-size: 11px; color: var(--muted); }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space:nowrap; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pending-flag { color: var(--red); font-weight: 700; }
+    .empty { text-align:center; color:var(--muted); padding: 16px; }
+
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; background: var(--red); color: #fff; }
+    .btn:hover { opacity: .9; }
+    .btn.secondary { background: var(--border2); color: var(--text); }
+
+    .sale-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+    .sale-form .fg input, .sale-form .fg select { width: 140px; }
+    .status-pill { padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .status-Created { background: #e0e7ff; color: #3730a3; }
+    .status-Sold { background: #fef3c7; color: #92400e; }
+    .status-PaymentPending { background: #fed7aa; color: #9a3412; }
+    .status-PaymentReceived { background: #d1fae5; color: #065f46; }
+    .status-Closed { background: #e5e7eb; color: #374151; }
+
+    .aging-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; width:100%; min-width:120px; }
+    .aging-seg1 { background:#16a34a; } .aging-seg2 { background:#d97706; } .aging-seg3 { background:#ea580c; } .aging-seg4 { background:#dc2626; }
+    .warn-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412; display: flex; align-items: flex-start; gap: 8px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><i class="ti ti-recycle"></i> Scrap Management</div>
+  <div class="page-sub">Scrap is auto-generated from Wear &amp; Tear part replacements — no manual counting. Log a vendor sale when a pickup happens.</div>
+
+  <div class="ctl-bar">
+    <div class="fg"><label>From</label><input type="date" id="f-from"></div>
+    <div class="fg"><label>To</label><input type="date" id="f-to"></div>
+    <div class="fg"><label>City</label>
+      <select id="f-city" onchange="onFilterChange()">
+        <option value="">All Cities</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="NCR">NCR</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Mumbai">Mumbai</option>
+      </select>
+    </div>
+    <div class="fg"><label>Hub</label><select id="f-hub" onchange="onFilterChange()"><option value="">All Hubs</option></select></div>
+    <button class="btn" onclick="loadAll()">Apply</button>
+    <div class="synced-lbl" id="syncedLbl"></div>
+  </div>
+
+  <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kl"><i class="ti ti-trash"></i> Scrap Generated</div><div class="kv" id="kvGenerated">—</div><div class="ks">across all categories, mixed units</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue</div><div class="kv" id="kvRevenue">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-alert-triangle"></i> Categories with Pending Scrap</div><div class="kv" id="kvPending">—</div></div>
+  </div>
+
+  <div class="panel">
+    <h3>By Category — Generated / Sold / Pending / Revenue
+      <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
+    </h3>
+    <div style="overflow-x:auto">
+    <table id="catTable">
+      <thead><tr><th>Category</th><th>Tracking</th><th class="num">Generated</th><th class="num">Sold</th><th class="num">Pending</th><th class="num">Revenue (₹)</th></tr></thead>
+      <tbody id="catBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Scrap Aging (days since generated, still pending)</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Category</th><th class="num">0-15d</th><th class="num">16-30d</th><th class="num">31-60d</th><th class="num">60+d</th><th>Distribution</th></tr></thead>
+      <tbody id="agingBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Create Scrap Sale</h3>
+    <div class="sale-form">
+      <div class="fg"><label>Hub</label><input type="text" id="s-hub" placeholder="Hub name"></div>
+      <div class="fg"><label>City</label>
+        <select id="s-city"><option value="">—</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
+      </div>
+      <div class="fg"><label>Category</label><select id="s-category" onchange="onCategoryChange()"></select></div>
+      <div class="fg"><label>Vendor</label>
+        <select id="s-vendor"><option value="">— select or add below —</option></select>
+      </div>
+      <div class="fg"><label>Pickup Date</label><input type="date" id="s-date"></div>
+      <div class="fg"><label id="s-qty-label">Weight (kg)</label><input type="number" id="s-qty" step="0.01"></div>
+      <div class="fg"><label>Rate (₹/unit)</label><input type="number" id="s-rate" step="0.01"></div>
+      <div class="fg"><label>Payment Mode</label><input type="text" id="s-payment" placeholder="e.g. NEFT, Cash"></div>
+      <div class="fg"><label>Invoice / Ref</label><input type="text" id="s-invoice"></div>
+      <button class="btn" onclick="createSale()">Save Sale</button>
+      <span class="save-msg" id="saveMsg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      New vendor? <input type="text" id="new-vendor-name" placeholder="Vendor name" style="width:160px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px">
+      <button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="addVendor()">Add Vendor</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Recent Scrap Sales</h3>
+    <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+    <table>
+      <thead><tr><th>Date</th><th>Hub</th><th>Category</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th></tr></thead>
+      <tbody id="salesBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON };
+
+let CATEGORIES = [];
+let VENDORS = [];
+let SUMMARY = null;
+let _hadFailure = false;
+
+function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
+function fmtN(n) { return (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('en-IN'); }
+function todayIST() { return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10); }
+
+async function sbGet(path, attempt) {
+  attempt = attempt || 0;
+  try {
+    const r = await fetch(`${SB}/rest/v1/${path}`, { headers: HDR });
+    if (!r.ok) { console.error('sbGet failed', path, r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
+    return r.json();
+  } catch (e) { console.error('sbGet network error', path, e); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
+}
+async function rpc(name, body, attempt) {
+  attempt = attempt || 0;
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) { console.error(name,'failed',r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
+    return r.json();
+  } catch (e) { console.error(name,'network error',e); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
+}
+
+async function loadHubs() {
+  const rows = await sbGet('rmc_jc_lines?select=hub_name&hub_name=not.is.null&limit=5000');
+  const hubs = [...new Set(rows.map(r=>r.hub_name).filter(Boolean))].sort();
+  const sel = document.getElementById('f-hub');
+  hubs.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+}
+
+async function loadCategories() {
+  CATEGORIES = await sbGet('scrap_categories?select=*&order=category.asc');
+  const sel = document.getElementById('s-category');
+  sel.innerHTML = CATEGORIES.map(c => `<option value="${c.category}" data-unit="${c.unit}" data-tracking="${c.tracking_type}" data-rate="${c.reference_rate||''}">${c.category} (${c.unit})</option>`).join('');
+  onCategoryChange();
+}
+
+function onCategoryChange() {
+  const sel = document.getElementById('s-category');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  const unit = opt.getAttribute('data-unit');
+  const rate = opt.getAttribute('data-rate');
+  document.getElementById('s-qty-label').textContent = unit === 'kg' ? 'Weight (kg)' : `Qty (${unit})`;
+  if (rate) document.getElementById('s-rate').value = rate;
+}
+
+async function loadVendors() {
+  VENDORS = await sbGet('scrap_vendors?select=*&approved=eq.true&order=vendor_name.asc');
+  const sel = document.getElementById('s-vendor');
+  sel.innerHTML = '<option value="">— select or add below —</option>' + VENDORS.map(v => `<option value="${v.id}">${v.vendor_name}</option>`).join('');
+}
+
+async function addVendor() {
+  const name = document.getElementById('new-vendor-name').value.trim();
+  if (!name) return;
+  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name }) });
+  document.getElementById('new-vendor-name').value = '';
+  await loadVendors();
+}
+
+function onFilterChange() { /* no-op, applied on Apply click */ }
+
+async function loadAll() {
+  _hadFailure = false;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  document.getElementById('syncedLbl').textContent = 'Loading…';
+
+  SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
+  renderSummary();
+  await loadSales(from, to, city, hub);
+
+  document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const failBox = document.getElementById('loadFailWarn');
+  if (_hadFailure) {
+    failBox.style.display = 'flex';
+    failBox.innerHTML = `<i class="ti ti-alert-triangle" style="margin-top:2px"></i><div><b>Some data failed to load</b> — try clicking Apply again.</div>`;
+  } else {
+    failBox.style.display = 'none';
+  }
+}
+
+function renderSummary() {
+  if (!SUMMARY) {
+    document.getElementById('kvGenerated').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('kvSold').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('kvRevenue').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('kvPending').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('catBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
+    document.getElementById('agingBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
+    return;
+  }
+  const byCat = SUMMARY.by_category || [];
+  const pendingCount = byCat.filter(c => c.pending > 0).length;
+  document.getElementById('kvGenerated').textContent = byCat.length + ' categories';
+  document.getElementById('kvSold').textContent = fmtN(SUMMARY.total_sold_qty) + ' (mixed units)';
+  document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
+  document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
+
+  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => `
+    <tr><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
+      <td class="num">${fmtN(c.generated)} ${c.unit}</td>
+      <td class="num">${fmtN(c.sold)} ${c.unit}</td>
+      <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
+      <td class="num">${fmtC(c.revenue)}</td></tr>
+  `).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
+
+  const aging = SUMMARY.aging || [];
+  document.getElementById('agingBody').innerHTML = aging.length ? aging.map(a => {
+    const total = a.age_0_15 + a.age_16_30 + a.age_31_60 + a.age_60_plus || 1;
+    const p1 = 100*a.age_0_15/total, p2 = 100*a.age_16_30/total, p3 = 100*a.age_31_60/total, p4 = 100*a.age_60_plus/total;
+    return `<tr><td>${a.category}</td><td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
+      <td class="num">${fmtN(a.age_31_60)}</td><td class="num ${a.age_60_plus>0?'pending-flag':''}">${fmtN(a.age_60_plus)}</td>
+      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">No pending scrap.</td></tr>';
+}
+
+async function loadSales(from, to, city, hub) {
+  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.desc&limit=100`;
+  if (city) q += `&city=eq.${encodeURIComponent(city)}`;
+  if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
+  const rows = await sbGet(q);
+  document.getElementById('salesBody').innerHTML = rows.length ? rows.map(r => `
+    <tr><td>${r.pickup_date}</td><td>${r.hub_name}</td><td>${r.category}</td>
+      <td>${(r.scrap_vendors && r.scrap_vendors.vendor_name) || '—'}</td>
+      <td class="num">${fmtN(r.qty_or_weight)}</td><td class="num">${fmtC(r.rate)}</td><td class="num">${fmtC(r.total_value)}</td>
+      <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td></tr>
+  `).join('') : '<tr><td colspan="8" class="empty">No sales logged for this range/filter yet.</td></tr>';
+}
+
+async function createSale() {
+  const hub = document.getElementById('s-hub').value.trim();
+  const city = document.getElementById('s-city').value;
+  const category = document.getElementById('s-category').value;
+  const vendorId = document.getElementById('s-vendor').value || null;
+  const date = document.getElementById('s-date').value;
+  const qty = parseFloat(document.getElementById('s-qty').value);
+  const rate = parseFloat(document.getElementById('s-rate').value);
+  const paymentMode = document.getElementById('s-payment').value.trim();
+  const invoice = document.getElementById('s-invoice').value.trim();
+  if (!hub || !category || !date || isNaN(qty) || isNaN(rate)) { alert('Hub, Category, Pickup Date, Qty/Weight and Rate are required.'); return; }
+  const body = {
+    hub_name: hub, city: city || null, category, vendor_id: vendorId ? parseInt(vendorId) : null,
+    pickup_date: date, qty_or_weight: qty, rate, payment_mode: paymentMode || null,
+    invoice_ref: invoice || null, status: 'Created',
+    created_by: (window.authGetEmail && window.authGetEmail()) || 'unknown'
+  };
+  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { alert('Could not save scrap sale: ' + (await r.text()).slice(0,200)); return; }
+  const msg = document.getElementById('saveMsg'); msg.style.display='inline'; setTimeout(()=>msg.style.display='none', 2000);
+  document.getElementById('s-qty').value = ''; document.getElementById('s-invoice').value = '';
+  loadAll();
+}
+
+function exportCategoryCSV() {
+  if (!SUMMARY) return;
+  const rows = [['Category','Tracking Type','Generated','Sold','Pending','Revenue']];
+  (SUMMARY.by_category||[]).forEach(c => rows.push([c.category, c.tracking_type, c.generated, c.sold, c.pending, c.revenue]));
+  const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `scrap_by_category_${todayIST()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+(function init() {
+  const to = todayIST();
+  const from = to.slice(0,8) + '01';
+  document.getElementById('f-from').value = from;
+  document.getElementById('f-to').value = to;
+  document.getElementById('s-date').value = to;
+  Promise.all([loadHubs(), loadCategories(), loadVendors(), loadAll()]);
+})();
+
+function reportHeight() { window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*'); }
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>
