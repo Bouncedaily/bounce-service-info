@@ -694,9 +694,7 @@ function renderJC(jc){
   var reason = jc.reason ? '<div class="reason"><b>Reason for ending:</b> '+esc(jc.reason)+'</div>' : '';
   var rejectionDiff = renderRejectionDiff(jc);
   var photos=renderPhotos(jc);
-  var damageFeeHtml = (jc.damage_fee_charged||0) > 0
-    ? ' · Damage Fee: ₹'+nf(jc.damage_fee_charged)+' charged, ₹'+nf(jc.damage_fee_paid||0)+' paid'
-    : '';
+  var damageFeeHtml = ' · Damage Fee: ₹'+nf(jc.damage_fee_charged||0)+' charged, ₹'+nf(jc.damage_fee_paid||0)+' paid';
   return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
       '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
       '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Requested At '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+' · Deployed '+fmtDate(jc.deployed_date)+damageFeeHtml+'</div>'+
