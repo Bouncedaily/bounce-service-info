@@ -16,7 +16,18 @@ h1{font-size:20px;margin:0;font-weight:700}
 .jc{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
 .jc.approved{border-color:#86efac;box-shadow:0 0 0 1px #86efac}
 .jc.rejected{border-color:#fca5a5;box-shadow:0 0 0 1px #fca5a5}
-.jc-hd{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.jc-hd{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.jc-hd:hover{background:#fafbfd}
+.jc-hd-left{display:flex;align-items:center;gap:11px;min-width:0}
+.jc-status-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.jc-status-icon.review{background:#fee2e2;color:#b91c1c}
+.jc-status-icon.notes{background:#fef3c7;color:#a16207}
+.jc-status-icon.ok{background:#dcfce7;color:#15803d}
+.jc-chevron{transition:transform .15s;color:var(--muted);flex-shrink:0}
+.jc-chevron.open{transform:rotate(180deg)}
+.jc-body{display:none}
+.jc-body.open{display:block}
+.jc-summary-line{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jc-title{font-size:15px;font-weight:700}
 .jc-meta{font-size:12px;color:var(--muted);margin-top:3px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -139,6 +150,8 @@ tr.row-flag:hover{background:#fee2e2}
   <select id="cityFilter" onchange="onCityFilterChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
   <select id="hubFilter" onchange="applyFilter()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <input type="text" id="filter" placeholder="Filter by bike, hub, JC, technician, submission type or part…" oninput="applyFilter()">
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setAllJC(true)">Expand all</button>
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setAllJC(false)">Collapse all</button>
 </div>
 <div id="results"><div class="empty">Loading…</div></div>
 </div>
@@ -695,12 +708,45 @@ function renderJC(jc){
   var rejectionDiff = renderRejectionDiff(jc);
   var photos=renderPhotos(jc);
   var damageFeeHtml = ' · Damage Fee: ₹'+nf(jc.damage_fee_charged||0)+' charged, ₹'+nf(jc.damage_fee_paid||0)+' paid';
-  return '<div class="jc" id="jc_'+s+'"><div class="jc-hd"><div>'+
-      '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:13px">&nbsp;·&nbsp; DMS JC <b>'+esc(jc.dms_jc_id||'—')+'</b></span></div>'+
-      '<div class="jc-meta">'+esc(jc.hub||'')+' · '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · Requested At '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km · bike '+esc(jc.bike_status||'')+' · Deployed '+fmtDate(jc.deployed_date)+damageFeeHtml+'</div>'+
-    '</div><div class="chips">'+chips+'</div></div>'+verdictHtml+
-    '<div class="jc-split"><div>'+body+rejectionDiff+overdueWatchHtml+'</div><div class="jc-side">'+photos+reason+'</div></div>'+
-    '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div></div>';
+  // Collapsed by default for straightforward approvals, auto-expanded for
+  // anything flagged for review -- nothing is hidden that needs attention,
+  // it's just not competing for space with the clean ones. Every field below
+  // is exactly what rendered before; only the header/wrapper changed.
+  var statusClass = verdict.verdict==='review' ? 'review' : verdict.verdict==='approve-with-notes' ? 'notes' : 'ok';
+  var statusIcon = statusClass==='review' ? '!' : statusClass==='notes' ? '·' : '✓';
+  var defaultOpen = statusClass==='review';
+  var summaryBits=[esc(jc.submission_type||''), nf(jc.km_at_jc)+' km'];
+  if((jc.rejection_count||0)>0) summaryBits.push('rejected '+jc.rejection_count+'x before');
+  if((jc.damage_fee_charged||0)>0) summaryBits.push('damage fee ₹'+nf(jc.damage_fee_charged)+(((jc.damage_fee_paid||0)<(jc.damage_fee_charged||0))?' (unpaid)':''));
+  return '<div class="jc" id="jc_'+s+'">'+
+    '<div class="jc-hd" onclick="toggleJC(\''+s+'\')">'+
+      '<div class="jc-hd-left">'+
+        '<span class="jc-status-icon '+statusClass+'">'+statusIcon+'</span>'+
+        '<div style="min-width:0">'+
+          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
+          '<div class="jc-summary-line">'+esc(jc.hub||'')+', '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · '+summaryBits.join(' · ')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="chips">'+chips+'<i class="jc-chevron'+(defaultOpen?' open':'')+'" id="chev_'+s+'">▾</i></div>'+
+    '</div>'+
+    '<div class="jc-body'+(defaultOpen?' open':'')+'" id="jcbody_'+s+'">'+
+      '<div class="jc-meta" style="padding:0 16px 10px">Requested At '+fmtDate(jc.latest_status_date)+(jc.latest_status_date?' '+new Date(jc.latest_status_date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}):'')+' · bike '+esc(jc.bike_status||'')+' · Deployed '+fmtDate(jc.deployed_date)+damageFeeHtml+'</div>'+
+      verdictHtml+
+      '<div class="jc-split"><div>'+body+rejectionDiff+overdueWatchHtml+'</div><div class="jc-side">'+photos+reason+'</div></div>'+
+      '<div class="foot"><span>'+esc(jc.submission_type||'')+'</span><span>DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
+    '</div>'+
+  '</div>';
+}
+function toggleJC(s){
+  var body=document.getElementById('jcbody_'+s);
+  var chev=document.getElementById('chev_'+s);
+  if(!body) return;
+  var open=body.classList.toggle('open');
+  if(chev) chev.classList.toggle('open', open);
+}
+function setAllJC(open){
+  document.querySelectorAll('.jc-body').forEach(function(b){ b.classList.toggle('open', open); });
+  document.querySelectorAll('.jc-chevron').forEach(function(c){ c.classList.toggle('open', open); });
 }
 load();
 try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
