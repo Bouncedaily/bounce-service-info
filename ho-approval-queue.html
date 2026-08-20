@@ -56,7 +56,7 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .catchip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:#f1f5f9;color:var(--text2)}
 .catchip.w{background:#ede9fe;color:#5b21b6}.catchip.a{background:#e0f2fe;color:#075985}.catchip.p{background:#fef3c7;color:#a16207}
 .code{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted2)}
-.ok-life{color:#15803d;font-weight:600}.bad-life{color:var(--red);font-weight:600}.na-life{color:var(--muted2)}
+.ok-life{color:#15803d;font-weight:600}.bad-life{color:var(--red);font-weight:600}.warn-life{color:#b45309;font-weight:600}.na-life{color:var(--muted2)}
 .photos{padding:12px 16px 0;display:flex;gap:10px;flex-wrap:wrap}
 .photos .pitem{width:110px}
 .photos img{width:110px;height:82px;object-fit:cover;border-radius:8px;border:1px solid var(--border2);cursor:zoom-in;display:block;background:#eef2f7}
@@ -420,8 +420,10 @@ function lifeCheck(it, kmSince){
   if(!it.name) return '<span class="na-life">no name to check</span>';
   var life=standardLifeFor(it.name);
   if(life==null) return '<span class="na-life">No standard life set</span>';
+  if(kmSince==null) return '<span class="na-life">Std life: '+nf(life)+' km</span>';
+  var pct=Math.round(100*kmSince/life);
   var early = isEarlyReplacement(it.name, kmSince);
-  return '<span class="'+(early?'bad-life':'na-life')+'">Std life: '+nf(life)+' km'+(early?' ⚠ replaced at only '+Math.round(100*kmSince/life)+'% of life':'')+'</span>';
+  return '<span class="'+(early?'bad-life':'ok-life')+'">'+pct+'% of std life ('+nf(life)+' km)'+(early?' ⚠ early':'')+'</span>';
 }
 // Flags a part replaced well before its expected life is up -- under 90% of
 // standard life covered. Needs both a known std life for the part AND a
@@ -639,7 +641,11 @@ function renderVerdict(v){
     : v.verdict==='approve-with-notes' ? 'Recommend: Approve (minor notes below)'
     : 'Recommend: Approve if video attached in DMS is convincing — no other flags';
   var cls = v.verdict==='review' ? 'verdict-review' : v.verdict==='approve-with-notes' ? 'verdict-notes' : 'verdict-ok';
-  var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){return '<li class="'+(r.sev==='bad'?'bad-life':'na-life')+'">'+esc(r.text)+'</li>';}).join('')+'</ul>' : '';
+  var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){
+    var cls = r.sev==='bad' ? 'bad-life' : 'warn-life';
+    var icon = r.sev==='bad' ? '⚠ ' : '● ';
+    return '<li class="'+cls+'">'+icon+esc(r.text)+'</li>';
+  }).join('')+'</ul>' : '';
   return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+'</div>';
 }
 function renderRejectionDiff(jc){
@@ -1325,8 +1331,9 @@ function qualityLastReplaced(row){
 }
 function qualityLifeCheck(row){
   if(row.life_km==null) return '<span class="na-life">—</span>';
-  var early=row.pct_of_life!=null && row.pct_of_life<90;
-  return '<span class="'+(early?'bad-life':'na-life')+'">Std life: '+nf(row.life_km)+' km'+(early?' ⚠ replaced at only '+row.pct_of_life+'% of life':'')+'</span>';
+  if(row.pct_of_life==null) return '<span class="na-life">Std life: '+nf(row.life_km)+' km</span>';
+  var early=row.pct_of_life<90;
+  return '<span class="'+(early?'bad-life':'ok-life')+'">'+row.pct_of_life+'% of std life ('+nf(row.life_km)+' km)'+(early?' ⚠ early':'')+'</span>';
 }
 function qualityRender(){
   if(!QUALITY_DATA) return;
