@@ -87,6 +87,9 @@ th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase
 .verdict-notes{background:#fffbeb;border-color:#fde68a}.verdict-notes .verdict-label{color:#a16207}
 .verdict-review{background:#fef2f2;border-color:#fecaca}.verdict-review .verdict-label{color:#b91c1c}
 .verdict-watch{background:#fff7ed;border-color:#fed7aa;margin-top:16px}.verdict-watch .verdict-label{color:#c2410c}
+.overdue-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.overdue-chip{background:#c2410c;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;white-space:nowrap}
+.overdue-chip b{font-weight:800}
 .verdict-reasons{margin:6px 0 0;padding-left:18px;font-size:12px}
 .verdict-reasons li{margin-bottom:2px}
 .verdict-caveat{font-size:10.5px;color:var(--muted2);margin-top:6px;font-style:italic}
@@ -677,6 +680,16 @@ var OVERDUE_KEYWORD={
   'Rr Brake Shoe Set - Drum':'brake shoe',
   'Fr Brake Shoe Set - Drum':'brake shoe'
 };
+var OVERDUE_SHORT_LABEL={
+  'Rear Tyre (Energy Ride / 12Inch)':'Rear tyre',
+  'Front Tyre (Zoom)':'Front tyre',
+  'Rear Tyre 12 Inch (Zoom)':'Rear tyre',
+  'Cone Set Assy':'Cone set',
+  'Rear Brake Pad':'Rear brake pad',
+  'Front Brake Pad':'Front brake pad',
+  'Rr Brake Shoe Set - Drum':'Rr brake shoe',
+  'Fr Brake Shoe Set - Drum':'Fr brake shoe'
+};
 function renderOverdueWatch(jc, items){
   var watch=jc.overdue_watch||[];
   if(!watch.length) return '';
@@ -686,12 +699,15 @@ function renderOverdueWatch(jc, items){
     return !(kw && itemNames.indexOf(kw)>=0);
   });
   if(!remaining.length) return '';
-  var lines=remaining.map(function(w){
-    return '<li>'+esc(w.part_bucket)+' — running at '+nf(w.km_since)+' km (std life '+nf(w.expected_life_km)+' km)</li>';
+  var chips=remaining.map(function(w){
+    var label=OVERDUE_SHORT_LABEL[w.part_bucket]||w.part_bucket;
+    var pct=w.expected_life_km>0 ? Math.round((w.km_since/w.expected_life_km)*100) : null;
+    var pctText=pct!=null ? pct+'%' : nf(w.km_since)+' km';
+    return '<span class="overdue-chip">'+esc(label)+' · <b>'+pctText+'</b></span>';
   }).join('');
-  return '<div class="verdict verdict-watch"><div class="verdict-label">⚠ Other parts likely overdue — check or replace</div>'+
-    '<ul class="verdict-reasons">'+lines+'</ul>'+
-    '<div class="verdict-caveat">Not on this job card\'s own parts list. Based on last known replacement in our records (or current odometer if never replaced) vs standard life.</div></div>';
+  return '<div class="verdict verdict-watch"><div class="verdict-label">⚠ Also overdue — not on this request</div>'+
+    '<div class="overdue-chips">'+chips+'</div>'+
+    '<div class="verdict-caveat" style="margin-top:8px">Not on this job card&#39;s own parts list. % is km run ÷ standard life, based on last known replacement in our records (or current odometer if never replaced).</div></div>';
 }
 function renderJC(jc){
   var s=sid(jc.job_card_number);
