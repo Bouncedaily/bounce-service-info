@@ -640,8 +640,7 @@ function renderVerdict(v){
     : 'Recommend: Approve if video attached in DMS is convincing — no other flags';
   var cls = v.verdict==='review' ? 'verdict-review' : v.verdict==='approve-with-notes' ? 'verdict-notes' : 'verdict-ok';
   var list = v.reasons.length ? '<ul class="verdict-reasons">'+v.reasons.map(function(r){return '<li class="'+(r.sev==='bad'?'bad-life':'na-life')+'">'+esc(r.text)+'</li>';}).join('')+'</ul>' : '';
-  return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+
-    '<div class="verdict-caveat">Based on qty, recent-replacement, draft-JC, standard-life and warranty-status signals only -- cost thresholds aren\'t evaluated (no cost data on this JC source). Not a substitute for judgement.</div></div>';
+  return '<div class="verdict '+cls+'"><div class="verdict-label">'+label+'</div>'+list+'</div>';
 }
 function renderRejectionDiff(jc){
   if(!(jc.rejection_count>0) || !jc.previous_waiting_item_data) return '';
@@ -706,8 +705,7 @@ function renderOverdueWatch(jc, items){
     return '<span class="overdue-chip">'+esc(label)+' · <b>'+pctText+'</b></span>';
   }).join('');
   return '<div class="verdict verdict-watch"><div class="verdict-label">⚠ Also overdue — not on this request</div>'+
-    '<div class="overdue-chips">'+chips+'</div>'+
-    '<div class="verdict-caveat" style="margin-top:8px">Not on this job card&#39;s own parts list. % is km run ÷ standard life, based on last known replacement in our records (or current odometer if never replaced).</div></div>';
+    '<div class="overdue-chips">'+chips+'</div></div>';
 }
 function renderJC(jc){
   var s=sid(jc.job_card_number);
