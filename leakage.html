@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--indigo:#4f46e5;--font:'Inter',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 14px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.fg{display:flex;flex-direction:column;gap:4px;position:relative}
+.fg label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.fg input,.fg select{padding:7px 9px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit;background:#fff}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--red)}
+.qk{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;height:33px}
+.qk button{padding:0 11px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:var(--muted)}
+.qk button:last-child{border-right:none}.qk button.on{background:var(--red);color:#fff;font-weight:600}
+.btn{border:1px solid var(--border2);background:#fff;padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;height:33px}
+.btn.p{background:var(--red);color:#fff;border-color:var(--red)}
+.insight{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:14px}
+.insight b{font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .12s}
+.kpi:hover{box-shadow:0 2px 10px rgba(15,23,42,.08)}
+.kpi .kl{font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.kpi .kv{font-size:22px;font-weight:700;line-height:1.1}
+.kpi .ks{font-size:11px;color:var(--muted2);margin-top:4px}
+.kpi.bad{background:#fef2f2;border-color:#fecaca}.kpi.bad .kv{color:var(--red)}
+.kpi.warn{background:#fffbeb;border-color:#fde68a}.kpi.warn .kv{color:var(--amber)}
+.kpi.good .kv{color:var(--green)}
+.kpi.under{background:#fff7ed;border-color:#fed7aa}.kpi.under .kv{color:#c2410c}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.card-hd{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-hd h2{margin:0;font-size:13px;font-weight:700}
+.card-hd .sub{font-size:11px;color:var(--muted)}
+.pad{padding:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.col{display:flex;flex-direction:column;gap:14px}
+.leakcards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.lc{border-radius:10px;padding:14px;border:1px solid;cursor:pointer;transition:box-shadow .12s}
+.lc:hover{box-shadow:0 2px 10px rgba(15,23,42,.08)}
+.lc.a{background:#fff7ed;border-color:#fed7aa}.lc.b{background:#fef2f2;border-color:#fecaca}
+.lc .lt{font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px}
+.lc.a .lt{color:#c2410c}.lc.b .lt{color:#b91c1c}
+.lc .lv{font-size:24px;font-weight:800}
+.lc.a .lv{color:#c2410c}.lc.b .lv{color:#b91c1c}
+.lc .ld{font-size:11.5px;color:var(--text2);margin-top:5px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:12.5px;white-space:nowrap}
+th{background:#f8fafc;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+td.num,th.num{text-align:right}
+td.num.clk{cursor:pointer}td.num.clk:hover{background:#f1f5f9;text-decoration:underline}
+.bar{position:relative;height:8px;border-radius:5px;background:#f1f5f9;overflow:hidden}
+.bar>i{position:absolute;left:0;top:0;height:100%;border-radius:5px;display:block}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+tr[data-drill]:hover,tr.drow:hover{background:#f8fafc}
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:36px 20px;overflow-y:auto}
+.ov.on{display:flex}
+.dpanel{background:#fff;border-radius:12px;max-width:660px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden}
+.dpanel.wide{max-width:920px}
+.dhd{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.dhd h3{margin:0;font-size:14px;font-weight:700}
+.dhd .dsub{font-size:11px;color:var(--muted)}
+.dclose{background:none;border:none;font-size:15px;cursor:pointer;color:var(--muted)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--red);border-radius:50%;animation:s .7s linear infinite;vertical-align:middle}
+@keyframes s{to{transform:rotate(360deg)}}
+.msel{position:relative}
+.msel-btn{padding:7px 9px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit;background:#fff;cursor:pointer;text-align:left;min-width:130px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.msel-btn:after{content:'▾';color:var(--muted);font-size:10px}
+.msel-dd{display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:50;min-width:180px;max-height:280px;overflow-y:auto;padding:6px}
+.msel-dd.on{display:block}
+.msel-opt{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12.5px}
+.msel-opt:hover{background:#f1f5f9}
+.msel-opt input{margin:0}
+.msel-actions{display:flex;gap:6px;padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.msel-actions a{font-size:11px;color:var(--red);cursor:pointer;text-decoration:none;font-weight:600}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Physical Damage — Charge &amp; Collection Leakage</h1>
+<div class="psub">For DMS-category <strong>P (Physical Damage)</strong> job cards: repair cost vs damage fee raised vs collected. Two leaks — <b style="color:#c2410c">under-charging</b> and <b style="color:#b91c1c">under-collection</b>. Click any number to see the underlying job cards.</div>
+
+<div class="filters">
+  <div class="fg"><label>From</label><input type="date" id="lf-from" style="width:120px"></div>
+  <div class="fg"><label>To</label><input type="date" id="lf-to" style="width:120px"></div>
+  <div class="fg"><label>Quick</label>
+    <div class="qk">
+      <button data-q="today" onclick="lqk('today',this)">Today</button>
+      <button data-q="yesterday" onclick="lqk('yesterday',this)">Yesterday</button>
+      <button data-q="thismonth" class="on" onclick="lqk('thismonth',this)">This month</button>
+      <button data-q="lastmonth" onclick="lqk('lastmonth',this)">Last month</button>
+    </div>
+  </div>
+  <div class="fg"><label>City</label>
+    <div class="msel" id="msel-city"><button type="button" class="msel-btn" onclick="mselToggle('city')">All cities</button><div class="msel-dd" id="msel-city-dd"></div></div>
+  </div>
+  <div class="fg"><label>Hub</label>
+    <div class="msel" id="msel-hub"><button type="button" class="msel-btn" onclick="mselToggle('hub')">All hubs</button><div class="msel-dd" id="msel-hub-dd"></div></div>
+  </div>
+  <div class="fg"><label>Submission type</label>
+    <div class="msel" id="msel-sub"><button type="button" class="msel-btn" onclick="mselToggle('sub')">All</button><div class="msel-dd" id="msel-sub-dd"></div></div>
+  </div>
+  <button class="btn p" onclick="lload()">Apply</button>
+  <button class="btn" onclick="lclear()">✕ Clear</button>
+</div>
+
+<div class="insight" id="l-insight">Loading…</div>
+
+<div class="kpis" id="l-kpis"><div class="empty" style="grid-column:1/-1"><span class="spin"></span></div></div>
+
+<div class="leakcards" id="l-leaks"></div>
+
+<div class="cols">
+  <div class="col">
+    <div class="card">
+      <div class="card-hd"><h2>By city</h2></div>
+      <div id="l-city"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>Collection rate by submission type</h2></div>
+      <div id="l-sub"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>Under-charged JCs by executive</h2><span class="sub">fee raised &lt; repair cost</span></div>
+      <div id="l-exec"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card">
+      <div class="card-hd"><h2>By hub</h2><span class="sub">gap = raised − collected</span></div>
+      <div id="l-hub"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>By part</h2><span class="sub">physical-damage repair cost by part</span></div>
+      <div id="l-part"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="l-ov" onclick="if(event.target===this)closeDrill()">
+  <div class="dpanel" id="l-dpanel">
+    <div class="dhd"><div><h3 id="drill-title">—</h3><div class="dsub" id="drill-sub"></div></div><button class="dclose" onclick="closeDrill()">✕</button></div>
+    <div id="drill-body" style="max-height:72vh;overflow-y:auto"><div class="empty"><span class="spin"></span></div></div>
+  </div>
+</div>
+
+</div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+let LHUBS=[],LCITIES=[],LSUBS=[];
+let SEL={city:[],hub:[],sub:[]};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function L(n){return '₹'+(Number(n||0)/100000).toFixed(2)+'L';}
+function nf(n){return Number(n||0).toLocaleString('en-IN');}
+function ist(){return new Date(Date.now()+5.5*3600*1000);}
+function iso(d){return d.toISOString().slice(0,10);}
+
+function mselToggle(key){
+  var dd=document.getElementById('msel-'+key+'-dd');
+  var isOpen=dd.classList.contains('on');
+  document.querySelectorAll('.msel-dd').forEach(d=>d.classList.remove('on'));
+  if(!isOpen) dd.classList.add('on');
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.msel')) document.querySelectorAll('.msel-dd').forEach(d=>d.classList.remove('on'));
+});
+function mselRender(key,options){
+  var dd=document.getElementById('msel-'+key+'-dd');
+  var html='<div class="msel-actions"><a onclick="mselAll(\''+key+'\',true)">Select all</a><a onclick="mselAll(\''+key+'\',false)">Clear</a></div>';
+  html+=options.map(function(o){
+    var checked=SEL[key].indexOf(o)>=0?'checked':'';
+    return '<label class="msel-opt"><input type="checkbox" value="'+esc(o)+'" '+checked+' onchange="mselChange(\''+key+'\',this)">'+esc(o)+'</label>';
+  }).join('');
+  dd.innerHTML=html;
+}
+function mselChange(key,cb){
+  var v=cb.value;
+  if(cb.checked){ if(SEL[key].indexOf(v)<0) SEL[key].push(v); }
+  else { SEL[key]=SEL[key].filter(x=>x!==v); }
+  mselUpdateLabel(key);
+  if(key==='city') lHubs();
+  lload();
+}
+function mselAll(key,select){
+  var dd=document.getElementById('msel-'+key+'-dd');
+  var opts=Array.from(dd.querySelectorAll('input[type=checkbox]'));
+  SEL[key]=select?opts.map(o=>o.value):[];
+  opts.forEach(o=>o.checked=select);
+  mselUpdateLabel(key);
+  if(key==='city') lHubs();
+  lload();
+}
+function mselUpdateLabel(key){
+  var btn=document.querySelector('#msel-'+key+' .msel-btn');
+  var allLabel=key==='city'?'All cities':key==='hub'?'All hubs':'All';
+  btn.textContent=SEL[key].length===0?allLabel:(SEL[key].length===1?SEL[key][0]:SEL[key].length+' selected');
+}
+
+function lqk(q,btn){
+  var t=ist(),y=t.getUTCFullYear(),m=t.getUTCMonth(),day=t.getUTCDate(),from,to;
+  if(q==='today'){from=to=new Date(Date.UTC(y,m,day));}
+  else if(q==='yesterday'){from=to=new Date(Date.UTC(y,m,day-1));}
+  else if(q==='thismonth'){from=new Date(Date.UTC(y,m,1));to=new Date(Date.UTC(y,m,day));}
+  else if(q==='lastmonth'){from=new Date(Date.UTC(y,m-1,1));to=new Date(Date.UTC(y,m,0));}
+  else{to=new Date(Date.UTC(y,m,day));from=new Date(to);from.setUTCDate(from.getUTCDate()-29);}
+  document.getElementById('lf-from').value=iso(from);document.getElementById('lf-to').value=iso(to);
+  document.querySelectorAll('.qk button').forEach(b=>b.classList.toggle('on',b.dataset.q===q));
+  lload();
+}
+document.getElementById('lf-from').addEventListener('change',()=>{document.querySelectorAll('.qk button').forEach(b=>b.classList.remove('on'));lload();});
+document.getElementById('lf-to').addEventListener('change',()=>{document.querySelectorAll('.qk button').forEach(b=>b.classList.remove('on'));lload();});
+let LDIMS=false;
+async function lDims(){
+  if(LDIMS)return;
+  try{var r=await fetch(SB+'/rest/v1/rpc/get_parts_dims',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});var d=await r.json();
+    LHUBS=d.hubs||[];LCITIES=d.cities||[];LSUBS=d.subtypes||[];
+    mselRender('city',LCITIES);mselRender('sub',LSUBS);
+    lHubs();LDIMS=true;
+  }catch(e){}
+}
+function lHubs(){
+  var list=[...new Set(LHUBS.filter(h=>!SEL.city.length||SEL.city.indexOf(h.city)>=0).map(h=>h.hub))].sort();
+  SEL.hub=SEL.hub.filter(h=>list.indexOf(h)>=0);
+  mselRender('hub',list);
+  mselUpdateLabel('hub');
+}
+function lclear(){
+  SEL={city:[],hub:[],sub:[]};
+  mselUpdateLabel('city');mselUpdateLabel('hub');mselUpdateLabel('sub');
+  lHubs();
+  lqk('thismonth',document.querySelector('.qk button[data-q=thismonth]'));
+}
+function curF(){return {p_from:document.getElementById('lf-from').value,p_to:document.getElementById('lf-to').value,p_city:SEL.city.length?SEL.city:null,p_hub:SEL.hub.length?SEL.hub:null,p_subtype:SEL.sub.length?SEL.sub:null};}
+async function lload(){
+  var from=document.getElementById('lf-from').value,to=document.getElementById('lf-to').value;
+  if(!from||!to)return;
+  document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_leakage',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(curF())});
+    if(!r.ok){document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1">Could not load.</div>';return;}
+    render(await r.json());
+  }catch(e){document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1">Error.</div>';}
+}
+function render(d){
+  var t=d.totals||{};
+  var collRate=t.fee_raised>0?(100*t.fee_collected/t.fee_raised):0;
+  var chargedRate=t.repair_cost>0?(100*t.fee_raised/t.repair_cost):0;
+  var sub=d.by_submission||[],recGap=(sub.find(x=>x.submission_type==='Recovery')||{}).gap_amt||0;
+  var recShare=t.gap_uncollected>0?Math.round(100*recGap/t.gap_uncollected):0;
+  document.getElementById('l-insight').innerHTML='<b>'+L(t.gap_uncollected)+'</b> raised but not collected. Recovery/repo alone is <b>'+recShare+'%</b> of that gap (collecting '+((sub.find(x=>x.submission_type==='Recovery')||{}).coll_rate||0)+'%). This is largely a <b>collection</b> problem, not a charging one.';
+  document.getElementById('l-kpis').innerHTML=[
+    ['Repair cost (P)',L(t.repair_cost),'Parts '+L(t.parts_cost)+' · Labour '+L(t.labour_cost),''],
+    ['Damage fee raised',L(t.fee_raised),Math.round(chargedRate)+'% of repair cost',''],
+    ['Fee collected',L(t.fee_collected),Math.round(collRate)+'% collection rate','good'],
+    ['Uncollected gap (B)',L(t.gap_uncollected),'raised but not recovered','bad'],
+    ['Under-raised',L((t.not_raised||0)+(t.under_charged||0)),'fee raised < repair cost','under'],
+    ['Over-raised',L(t.over_raised),'fee raised > repair cost','warn']
+  ].map(k=>'<div class="kpi '+k[3]+'" onclick="openRaw(null,null,\''+k[0]+'\')"><div class="kl">'+k[0]+'</div><div class="kv">'+k[1]+'</div><div class="ks">'+k[2]+'</div></div>').join('');
+  document.getElementById('l-leaks').innerHTML=
+    '<div class="lc a" onclick="openRaw(null,null,\'Leak A · Under-charging\')"><div class="lt">Leak A · Under-charging</div><div class="lv">'+L((t.not_raised||0)+(t.under_charged||0))+'</div>'+
+      '<div class="ld">Not raised on riders '+L(t.not_raised)+' ('+nf(t.not_raised_jcs)+' JCs) · Raised but below cost '+L(t.under_charged)+' ('+nf(t.under_jcs)+' JCs)</div></div>'+
+    '<div class="lc b" onclick="openRaw(null,null,\'Leak B · Under-collection\')"><div class="lt">Leak B · Under-collection</div><div class="lv">'+L(t.gap_uncollected)+'</div>'+
+      '<div class="ld">Damage fee raised but not collected from riders. Recovery/repo is '+recShare+'% of it.</div></div>';
+  renderPart(d.by_part||[]);
+  renderSubs(d.by_submission||[]);
+  renderMini('l-city',(d.by_city||[]).map(x=>({name:x.city,cost:x.cost,gap:x.gap_amt,raised:x.raised,collected:x.collected})));
+  renderHub(d.by_hub||[]);
+  renderExec(d.by_executive||[]);
+}
+function renderSubs(rows){
+  if(!rows.length){document.getElementById('l-sub').innerHTML='<div class="empty">No data</div>';return;}
+  document.getElementById('l-sub').innerHTML='<table><thead><tr><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
+    rows.map(function(r){var rate=r.coll_rate||0;var col=rate>=80?'var(--green)':rate>=40?'var(--amber)':'var(--red)';var k=esc(r.submission_type);
+      return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td>'+
+      '<td><div class="bar"><i style="width:'+rate+'%;background:'+col+'"></i></div><span style="font-size:10px;color:var(--muted)">'+rate+'%</span></td></tr>';}).join('')+'</tbody></table>';
+}
+function renderMini(id,rows){
+  if(!rows.length){document.getElementById(id).innerHTML='<div class="empty">No data</div>';return;}
+  document.getElementById(id).innerHTML='<table><thead><tr><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th></tr></thead><tbody>'+
+    rows.map(r=>{var k=esc(r.name);return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.gap)+'</td></tr>';}).join('')+'</tbody></table>';
+}
+function renderHub(rows){
+  if(!rows.length){document.getElementById('l-hub').innerHTML='<div class="empty">No data</div>';return;}
+  document.getElementById('l-hub').innerHTML='<table><thead><tr><th>Hub</th><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th class="num">Under-charged</th></tr></thead><tbody>'+
+    rows.map(r=>{var k=esc(r.hub);return '<tr><td>'+k+'</td><td style="color:var(--muted)">'+esc(r.city||'')+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td><td class="num" style="color:#c2410c">'+L(r.under_amt)+'</td></tr>';}).join('')+'</tbody></table>';
+}
+function renderPart(rows){
+  if(!rows.length){document.getElementById('l-part').innerHTML='<div class="empty">No data</div>';return;}
+  var mx=Math.max.apply(null,rows.map(r=>r.part_cost||0))||1;
+  document.getElementById('l-part').innerHTML='<table><thead><tr><th>Part</th><th class="num">Repair cost</th><th class="num">JCs</th><th style="width:200px">Share of P cost</th></tr></thead><tbody>'+
+    rows.map(function(r){var w=Math.max(2,100*(r.part_cost||0)/mx);
+      return '<tr data-drill="'+esc(r.item_name)+'" style="cursor:pointer"><td>'+esc(r.item_name)+'</td><td class="num" style="font-weight:600">'+L(r.part_cost)+'</td><td class="num">'+nf(r.jcs)+'</td><td><div class="bar"><i style="width:'+w+'%;background:var(--indigo)"></i></div></td></tr>';}).join('')+'</tbody></table>';
+}
+function renderExec(rows){
+  if(!rows.length){document.getElementById('l-exec').innerHTML='<div class="empty">No under-charged JCs</div>';return;}
+  var mx=Math.max(...rows.map(r=>r.under_amt||0))||1;
+  document.getElementById('l-exec').innerHTML='<table><thead><tr><th>Executive</th><th>Hub</th><th class="num">Under JCs</th><th class="num">Under-charged ₹</th></tr></thead><tbody>'+
+    rows.map(function(r){var i=Math.min(1,(r.under_amt||0)/mx);var bg='rgba(220,38,38,'+(0.06+0.32*i).toFixed(2)+')';
+      return '<tr data-drill="'+esc(r.executive)+'" style="cursor:pointer"><td style="font-weight:500">'+esc(r.executive)+'</td><td style="color:var(--muted)">'+esc(r.hub||'')+'</td><td class="num">'+nf(r.under_jcs)+'</td><td class="num" style="background:'+bg+';color:#991b1b;font-weight:700">'+L(r.under_amt)+'</td></tr>';}).join('')+'</tbody></table>';
+}
+function closeDrill(){document.getElementById('l-ov').classList.remove('on');}
+
+async function openRaw(dim,val,label){
+  document.getElementById('l-dpanel').classList.add('wide');
+  document.getElementById('l-ov').classList.add('on');
+  document.getElementById('drill-title').textContent='Raw job cards — '+label;
+  document.getElementById('drill-sub').textContent='Physical-damage JCs matching current filters'+(dim?(' · '+dim+' = '+val):'');
+  var body=document.getElementById('drill-body'); body.innerHTML='<div class="empty"><span class="spin"></span></div>';
+  try{
+    var payload=Object.assign({p_extra_dim:dim,p_extra_val:val,p_limit:500},curF());
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    var d=await r.json();
+    var rows=d.rows||[];
+    if(!rows.length){body.innerHTML='<div class="empty">No job cards match.</div>';return;}
+    var shownNote=d.total_rows>rows.length?('<div style="padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">Showing top '+rows.length+' of '+nf(d.total_rows)+' job cards by repair cost</div>'):'';
+    body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'')+'</td><td class="num">'+nf(r.jc_cost)+'</td><td class="num">'+nf(r.fee_raised)+'</td><td class="num">'+nf(r.fee_collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.gap_amt)+'</td></tr>';}).join('')+
+      '</tbody></table>';
+  }catch(e){body.innerHTML='<div class="empty">Error loading raw data.</div>';}
+}
+
+async function drill(mode,key){
+  document.getElementById('l-dpanel').classList.remove('wide');
+  document.getElementById('l-ov').classList.add('on');
+  document.getElementById('drill-title').textContent = mode==='exec' ? ('Parts in '+key+"'s physical-damage JCs") : ('Executives handling: '+key);
+  document.getElementById('drill-sub').textContent = mode==='exec' ? 'by repair cost · click a part to see its executives' : 'by repair cost · click an executive to see their parts';
+  var body=document.getElementById('drill-body'); body.innerHTML='<div class="empty"><span class="spin"></span></div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_drill',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({p_mode:mode,p_key:key},curF()))});
+    var rows=await r.json();
+    if(!rows||!rows.length){body.innerHTML='<div class="empty">No data</div>';return;}
+    var col = mode==='exec' ? 'Part' : 'Executive', cross = mode==='exec' ? 'part' : 'exec';
+    body.innerHTML='<table><thead><tr><th>'+col+'</th><th class="num">Repair cost</th><th class="num">JCs</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr class="drow" data-key="'+esc(r.name)+'" data-mode="'+cross+'" style="cursor:pointer"><td>'+esc(r.name)+'</td><td class="num" style="font-weight:600">'+L(r.part_cost)+'</td><td class="num">'+nf(r.jcs)+'</td></tr>';}).join('')+'</tbody></table>';
+  }catch(e){body.innerHTML='<div class="empty">Error</div>';}
+}
+document.getElementById('l-exec').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr[data-drill]'):null;if(tr)drill('exec',tr.getAttribute('data-drill'));});
+document.getElementById('l-part').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr[data-drill]'):null;if(tr)drill('part',tr.getAttribute('data-drill'));});
+document.getElementById('drill-body').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr.drow'):null;if(tr)drill(tr.dataset.mode,tr.dataset.key);});
+lDims();
+lqk('thismonth',document.querySelector('.qk button[data-q=thismonth]'));
+</script>
+</body></html>
