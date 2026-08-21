@@ -316,7 +316,7 @@ async function openRaw(dim,val,label){
   document.getElementById('drill-title').textContent='Raw job cards — '+label;
   document.getElementById('drill-sub').textContent='Physical-damage JCs matching current filters'+(dim?(' · '+dim+' = '+val):'');
   document.getElementById('drill-csv-btn').style.display='none';
-  RAW_ROWS=[];RAW_LABEL=label;RAW_DIM=dim;RAW_VAL=val;RAW_TOTAL=0;
+  RAW_ROWS=[];RAW_LABEL=label;RAW_DIM=dim;RAW_VAL=val;RAW_TOTAL=0;RAW_SOURCE='kpi';
   var body=document.getElementById('drill-body'); body.innerHTML='<div class="empty"><span class="spin"></span></div>';
   try{
     var payload=Object.assign({p_extra_dim:dim,p_extra_val:val,p_limit:500},curF());
@@ -337,42 +337,73 @@ async function downloadRawCSV(){
   var origText=btn.textContent;
   btn.textContent='Preparing…';btn.disabled=true;
   try{
-    var payload=Object.assign({p_extra_dim:RAW_DIM,p_extra_val:RAW_VAL,p_limit:Math.max(RAW_TOTAL,500,1)},curF());
-    var r=await fetch(SB+'/rest/v1/rpc/get_damage_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    var d=await r.json();
-    var rows=d.rows||[];
-    var headers=['JC','Date','City','Hub','Type','Executive','Repair cost','Raised','Collected','Gap'];
-    var csvRows=[headers].concat(rows.map(function(r){return [r.draft_jc_id,r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.gap_amt];}));
+    var rows,headers,rowMapper,labelForFile;
+    if(RAW_SOURCE==='part'){
+      var payload=Object.assign({p_item_name:RAW_PART_ITEM,p_executive:RAW_PART_EXEC,p_limit:5000},curF());
+      var r=await fetch(SB+'/rest/v1/rpc/get_damage_part_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      var d=await r.json();
+      rows=d.rows||[];
+      headers=['JC','Reg Number','Date','City','Hub','Type','Executive','Cost'];
+      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.total_amount];};
+      labelForFile=RAW_PART_ITEM+(RAW_PART_EXEC?('_'+RAW_PART_EXEC):'');
+    } else {
+      var payload2=Object.assign({p_extra_dim:RAW_DIM,p_extra_val:RAW_VAL,p_limit:Math.max(RAW_TOTAL,500,1)},curF());
+      var r2=await fetch(SB+'/rest/v1/rpc/get_damage_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload2)});
+      var d2=await r2.json();
+      rows=d2.rows||[];
+      headers=['JC','Date','City','Hub','Type','Executive','Repair cost','Raised','Collected','Gap'];
+      rowMapper=function(r){return [r.draft_jc_id,r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.gap_amt];};
+      labelForFile=RAW_LABEL;
+    }
+    var csvRows=[headers].concat(rows.map(rowMapper));
     var csv=csvRows.map(function(row){return row.map(function(v){var s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',');}).join('\n');
     var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
-    var safeLabel=RAW_LABEL.replace(/[^a-z0-9]+/gi,'_').toLowerCase();
+    var safeLabel=String(labelForFile).replace(/[^a-z0-9]+/gi,'_').toLowerCase();
     a.href=url;a.download='damage_leakage_'+safeLabel+'_'+iso(ist())+'.csv';
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   }catch(e){alert('Could not prepare CSV: '+e.message);}
   btn.textContent=origText;btn.disabled=false;
 }
 
-async function drill(mode,key){
-  document.getElementById('l-dpanel').classList.remove('wide');
+let RAW_PART_ITEM=null,RAW_PART_EXEC=null,RAW_SOURCE=null;
+async function drill(mode,key,execCtx){
   document.getElementById('l-ov').classList.add('on');
   document.getElementById('drill-csv-btn').style.display='none';
-  document.getElementById('drill-title').textContent = mode==='exec' ? ('Parts in '+key+"'s physical-damage JCs") : ('Executives handling: '+key);
-  document.getElementById('drill-sub').textContent = mode==='exec' ? 'by repair cost · click a part to see its executives' : 'by repair cost · click an executive to see their parts';
   var body=document.getElementById('drill-body'); body.innerHTML='<div class="empty"><span class="spin"></span></div>';
+  if(mode==='part'){
+    document.getElementById('l-dpanel').classList.add('wide');
+    document.getElementById('drill-title').textContent='Raw job cards — '+key+(execCtx?(' · '+execCtx):'');
+    document.getElementById('drill-sub').textContent='Physical-damage JCs for this part'+(execCtx?(' handled by '+execCtx):'')+' matching current filters';
+    RAW_SOURCE='part';RAW_PART_ITEM=key;RAW_PART_EXEC=execCtx||null;
+    try{
+      var payload=Object.assign({p_item_name:key,p_executive:execCtx||null,p_limit:500},curF());
+      var r=await fetch(SB+'/rest/v1/rpc/get_damage_part_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      var d=await r.json();
+      var rows=d.rows||[];
+      if(!rows.length){body.innerHTML='<div class="empty">No job cards match.</div>';return;}
+      document.getElementById('drill-csv-btn').style.display='inline-block';
+      var shownNote=d.total_rows>rows.length?('<div style="padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">Showing top '+rows.length+' of '+nf(d.total_rows)+' job cards by cost — CSV export includes all '+nf(d.total_rows)+'</div>'):'';
+      body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Reg Number</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Cost</th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr'+(r.executive?' class="drow" data-key="'+esc(r.executive)+'" data-mode="exec" style="cursor:pointer"':'')+'><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'—')+'</td><td class="num" style="font-weight:600">'+nf(r.total_amount)+'</td></tr>';}).join('')+'</tbody></table>';
+    }catch(e){body.innerHTML='<div class="empty">Error loading raw data.</div>';}
+    return;
+  }
+  document.getElementById('l-dpanel').classList.remove('wide');
+  document.getElementById('drill-title').textContent = 'Parts in '+key+"'s physical-damage JCs";
+  document.getElementById('drill-sub').textContent = 'by repair cost · click a part to see its raw job cards';
   try{
-    var r=await fetch(SB+'/rest/v1/rpc/get_damage_drill',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({p_mode:mode,p_key:key},curF()))});
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_drill',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({p_mode:'exec',p_key:key},curF()))});
     var rows=await r.json();
     if(!rows||!rows.length){body.innerHTML='<div class="empty">No data</div>';return;}
-    var col = mode==='exec' ? 'Part' : 'Executive', cross = mode==='exec' ? 'part' : 'exec';
-    body.innerHTML='<table><thead><tr><th>'+col+'</th><th class="num">Repair cost</th><th class="num">JCs</th></tr></thead><tbody>'+
-      rows.map(function(r){return '<tr class="drow" data-key="'+esc(r.name)+'" data-mode="'+cross+'" style="cursor:pointer"><td>'+esc(r.name)+'</td><td class="num" style="font-weight:600">'+L(r.part_cost)+'</td><td class="num">'+nf(r.jcs)+'</td></tr>';}).join('')+'</tbody></table>';
+    body.innerHTML='<table><thead><tr><th>Part</th><th class="num">Repair cost</th><th class="num">JCs</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr class="drow" data-key="'+esc(r.name)+'" data-mode="part" data-exec="'+esc(key)+'" style="cursor:pointer"><td>'+esc(r.name)+'</td><td class="num" style="font-weight:600">'+L(r.part_cost)+'</td><td class="num">'+nf(r.jcs)+'</td></tr>';}).join('')+'</tbody></table>';
   }catch(e){body.innerHTML='<div class="empty">Error</div>';}
 }
 document.getElementById('l-exec').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr[data-drill]'):null;if(tr)drill('exec',tr.getAttribute('data-drill'));});
 document.getElementById('l-part').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr[data-drill]'):null;if(tr)drill('part',tr.getAttribute('data-drill'));});
-document.getElementById('drill-body').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr.drow'):null;if(tr)drill(tr.dataset.mode,tr.dataset.key);});
+document.getElementById('drill-body').addEventListener('click',function(e){var tr=e.target&&e.target.closest?e.target.closest('tr.drow'):null;if(tr)drill(tr.dataset.mode,tr.dataset.key,tr.dataset.exec);});
 lDims();
 lqk('thismonth',document.querySelector('.qk button[data-q=thismonth]'));
 </script>
