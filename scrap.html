@@ -229,6 +229,7 @@ function onFilterChange() { /* no-op, applied on Apply click */ }
 async function loadAll() {
   _hadFailure = false;
   Object.keys(_catDetailCache).forEach(k => delete _catDetailCache[k]);
+  Object.keys(_agingDetailCache).forEach(k => delete _agingDetailCache[k]);
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
   const city = document.getElementById('f-city').value || null;
@@ -280,13 +281,50 @@ function renderSummary() {
   `).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
 
   const aging = SUMMARY.aging || [];
-  document.getElementById('agingBody').innerHTML = aging.length ? aging.map(a => {
+  document.getElementById('agingBody').innerHTML = aging.length ? aging.map((a, i) => {
     const total = a.age_0_15 + a.age_16_30 + a.age_31_60 + a.age_60_plus || 1;
     const p1 = 100*a.age_0_15/total, p2 = 100*a.age_16_30/total, p3 = 100*a.age_31_60/total, p4 = 100*a.age_60_plus/total;
-    return `<tr><td>${a.category}</td><td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
+    return `<tr class="aging-row" data-cat="${a.category.replace(/"/g,'&quot;')}" data-idx="${i}" onclick="toggleAgingDetail(${i})" style="cursor:pointer">
+      <td><i class="ti ti-chevron-right aging-chevron" id="achev-${i}" style="font-size:12px;margin-right:4px;color:var(--muted)"></i>${a.category}</td>
+      <td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
       <td class="num">${fmtN(a.age_31_60)}</td><td class="num ${a.age_60_plus>0?'pending-flag':''}">${fmtN(a.age_60_plus)}</td>
-      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>`;
+      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>
+    <tr class="aging-detail-row" id="adetail-${i}" style="display:none"><td colspan="6" style="padding:0;background:var(--surface-0,rgba(0,0,0,.02))">
+      <div id="adetail-body-${i}" style="padding:10px 14px;font-size:11px">Loading…</div>
+    </td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">No pending scrap.</td></tr>';
+}
+
+const _agingDetailCache = {};
+async function toggleAgingDetail(i) {
+  const row = document.getElementById('adetail-' + i);
+  const chev = document.getElementById('achev-' + i);
+  const isOpen = row.style.display !== 'none';
+  if (isOpen) { row.style.display = 'none'; chev.classList.remove('ti-chevron-down'); chev.classList.add('ti-chevron-right'); return; }
+  row.style.display = 'table-row';
+  chev.classList.remove('ti-chevron-right'); chev.classList.add('ti-chevron-down');
+
+  const cat = row.previousElementSibling.getAttribute('data-cat');
+  const body = document.getElementById('adetail-body-' + i);
+  if (_agingDetailCache[cat]) { body.innerHTML = _agingDetailCache[cat]; return; }
+
+  body.innerHTML = 'Loading part-wise breakdown…';
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  // Aging is pending scrap regardless of date range, so pull a wide window here
+  const parts = await rpc('get_scrap_summary_by_part', { p_category: cat, p_from: '2020-01-01', p_to: todayIST(), p_city: city, p_hub: hub });
+
+  let html;
+  if (!parts || !parts.length) {
+    html = '<div style="color:var(--muted)">No part-level data for this category/filter.</div>';
+  } else {
+    html = `<div style="color:var(--muted);margin-bottom:6px">Generated qty by part, all-time (not limited to the top date filter — aging tracks pending scrap regardless of when it was generated)</div>
+      <table style="width:100%"><thead><tr><th>Part</th><th class="num">Generated qty</th><th class="num">Lines</th></tr></thead><tbody>` +
+      parts.map(p => `<tr><td>${p.part_name}</td><td class="num">${fmtN(p.generated)}</td><td class="num">${fmtN(p.generated_lines)}</td></tr>`).join('') +
+      `</tbody></table>`;
+  }
+  _agingDetailCache[cat] = html;
+  body.innerHTML = html;
 }
 
 const _catDetailCache = {};
