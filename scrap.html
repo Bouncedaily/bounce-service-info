@@ -65,11 +65,7 @@
 <body>
 <div class="wrap">
   <div class="page-title"><i class="ti ti-recycle"></i> Scrap Management</div>
-  <div class="page-sub">Scrap is auto-generated from job card parts (Wear &amp; Tear, Rider Payable, and unclassified) — excludes Warranty, Refurb, and parts under ₹10/unit. No manual counting. Log a vendor sale when a pickup happens.</div>
-  <div class="warn-box" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">
-    <i class="ti ti-info-circle" style="margin-top:2px"></i>
-    <div><b>Scope expanded on 21 Aug 2026</b> — scrap tracking now covers all eligible parts, not just the previous curated list of ~13 categories. Generated volumes and KPI totals will look larger from this date onward; this reflects the new scope, not a data issue.</div>
-  </div>
+  <div class="page-sub">Scrap is auto-generated from Wear &amp; Tear part replacements — no manual counting. Log a vendor sale when a pickup happens.</div>
 
   <div class="ctl-bar">
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
@@ -110,6 +106,21 @@
   </div>
 
   <div class="panel">
+    <h3>By Part — which specific parts are actually generating this scrap
+      <span class="table-tools">
+        <input type="text" id="part-search" placeholder="Filter part name…" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;width:180px" oninput="renderPartTable()">
+        <button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportPartCSV()">⬇ CSV</button>
+      </span>
+    </h3>
+    <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
+    <table id="partTable">
+      <thead><tr><th>Part Name</th><th>Category</th><th class="num">Qty Generated</th><th class="num">Value Generated (₹)</th><th class="num">JCs</th></tr></thead>
+      <tbody id="partBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
     <h3>Scrap Aging (days since generated, still pending)</h3>
     <div style="overflow-x:auto">
     <table>
@@ -120,6 +131,7 @@
   </div>
 
   <div class="panel">
+
     <h3>Create Scrap Sale</h3>
     <div class="sale-form">
       <div class="fg"><label>Hub</label><input type="text" id="s-hub" placeholder="Hub name"></div>
@@ -163,6 +175,7 @@ const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON };
 let CATEGORIES = [];
 let VENDORS = [];
 let SUMMARY = null;
+let PART_DATA = [];
 let _hadFailure = false;
 
 function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
@@ -228,16 +241,20 @@ function onFilterChange() { /* no-op, applied on Apply click */ }
 
 async function loadAll() {
   _hadFailure = false;
-  Object.keys(_catDetailCache).forEach(k => delete _catDetailCache[k]);
-  Object.keys(_agingDetailCache).forEach(k => delete _agingDetailCache[k]);
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
   const city = document.getElementById('f-city').value || null;
   const hub = document.getElementById('f-hub').value || null;
   document.getElementById('syncedLbl').textContent = 'Loading…';
 
-  SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
+  const [summary, parts] = await Promise.all([
+    rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
+    rpc('get_scrap_by_part', { p_from: from, p_to: to, p_city: city, p_hub: hub })
+  ]);
+  SUMMARY = summary;
+  PART_DATA = parts || [];
   renderSummary();
+  renderPartTable();
   await loadSales(from, to, city, hub);
 
   document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -248,6 +265,30 @@ async function loadAll() {
   } else {
     failBox.style.display = 'none';
   }
+}
+
+function renderPartTable() {
+  const el = document.getElementById('partBody');
+  if (PART_DATA === null) { el.innerHTML = '<tr><td colspan="5" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>'; return; }
+  const q = (document.getElementById('part-search').value || '').toLowerCase();
+  const rows = PART_DATA.filter(p => !q || (p.part_or_labor_name||'').toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q));
+  el.innerHTML = rows.length ? rows.map(p => `
+    <tr><td>${p.part_or_labor_name}</td><td style="color:var(--muted);font-size:11px">${p.category||'—'}</td>
+      <td class="num">${fmtN(p.qty_generated)}</td>
+      <td class="num">${fmtC(p.value_generated)}</td>
+      <td class="num">${fmtN(p.jcs)}</td></tr>
+  `).join('') : '<tr><td colspan="5" class="empty">No parts match.</td></tr>';
+}
+
+function exportPartCSV() {
+  if (!PART_DATA) return;
+  const rows = [['Part Name','Category','Qty Generated','Value Generated','JCs']];
+  PART_DATA.forEach(p => rows.push([p.part_or_labor_name, p.category, p.qty_generated, p.value_generated, p.jcs]));
+  const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `scrap_by_part_${todayIST()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 function renderSummary() {
@@ -267,97 +308,22 @@ function renderSummary() {
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
   document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
 
-  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map((c, i) => `
-    <tr class="cat-row" data-cat="${c.category.replace(/"/g,'&quot;')}" data-idx="${i}" onclick="toggleCatDetail(${i})" style="cursor:pointer">
-      <td><i class="ti ti-chevron-right cat-chevron" id="chev-${i}" style="font-size:12px;margin-right:4px;color:var(--muted)"></i>${c.category}</td>
-      <td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
+  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => `
+    <tr><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${fmtN(c.generated)} ${c.unit}</td>
       <td class="num">${fmtN(c.sold)} ${c.unit}</td>
       <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
-    <tr class="cat-detail-row" id="detail-${i}" style="display:none"><td colspan="6" style="padding:0;background:var(--surface-0,rgba(0,0,0,.02))">
-      <div id="detail-body-${i}" style="padding:10px 14px;font-size:11px">Loading…</div>
-    </td></tr>
   `).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
 
   const aging = SUMMARY.aging || [];
-  document.getElementById('agingBody').innerHTML = aging.length ? aging.map((a, i) => {
+  document.getElementById('agingBody').innerHTML = aging.length ? aging.map(a => {
     const total = a.age_0_15 + a.age_16_30 + a.age_31_60 + a.age_60_plus || 1;
     const p1 = 100*a.age_0_15/total, p2 = 100*a.age_16_30/total, p3 = 100*a.age_31_60/total, p4 = 100*a.age_60_plus/total;
-    return `<tr class="aging-row" data-cat="${a.category.replace(/"/g,'&quot;')}" data-idx="${i}" onclick="toggleAgingDetail(${i})" style="cursor:pointer">
-      <td><i class="ti ti-chevron-right aging-chevron" id="achev-${i}" style="font-size:12px;margin-right:4px;color:var(--muted)"></i>${a.category}</td>
-      <td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
+    return `<tr><td>${a.category}</td><td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
       <td class="num">${fmtN(a.age_31_60)}</td><td class="num ${a.age_60_plus>0?'pending-flag':''}">${fmtN(a.age_60_plus)}</td>
-      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>
-    <tr class="aging-detail-row" id="adetail-${i}" style="display:none"><td colspan="6" style="padding:0;background:var(--surface-0,rgba(0,0,0,.02))">
-      <div id="adetail-body-${i}" style="padding:10px 14px;font-size:11px">Loading…</div>
-    </td></tr>`;
+      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">No pending scrap.</td></tr>';
-}
-
-const _agingDetailCache = {};
-async function toggleAgingDetail(i) {
-  const row = document.getElementById('adetail-' + i);
-  const chev = document.getElementById('achev-' + i);
-  const isOpen = row.style.display !== 'none';
-  if (isOpen) { row.style.display = 'none'; chev.classList.remove('ti-chevron-down'); chev.classList.add('ti-chevron-right'); return; }
-  row.style.display = 'table-row';
-  chev.classList.remove('ti-chevron-right'); chev.classList.add('ti-chevron-down');
-
-  const cat = row.previousElementSibling.getAttribute('data-cat');
-  const body = document.getElementById('adetail-body-' + i);
-  if (_agingDetailCache[cat]) { body.innerHTML = _agingDetailCache[cat]; return; }
-
-  body.innerHTML = 'Loading part-wise breakdown…';
-  const city = document.getElementById('f-city').value || null;
-  const hub = document.getElementById('f-hub').value || null;
-  // Aging is pending scrap regardless of date range, so pull a wide window here
-  const parts = await rpc('get_scrap_summary_by_part', { p_category: cat, p_from: '2020-01-01', p_to: todayIST(), p_city: city, p_hub: hub });
-
-  let html;
-  if (!parts || !parts.length) {
-    html = '<div style="color:var(--muted)">No part-level data for this category/filter.</div>';
-  } else {
-    html = `<div style="color:var(--muted);margin-bottom:6px">Generated qty by part, all-time (not limited to the top date filter — aging tracks pending scrap regardless of when it was generated)</div>
-      <table style="width:100%"><thead><tr><th>Part</th><th class="num">Generated qty</th><th class="num">Lines</th></tr></thead><tbody>` +
-      parts.map(p => `<tr><td>${p.part_name}</td><td class="num">${fmtN(p.generated)}</td><td class="num">${fmtN(p.generated_lines)}</td></tr>`).join('') +
-      `</tbody></table>`;
-  }
-  _agingDetailCache[cat] = html;
-  body.innerHTML = html;
-}
-
-const _catDetailCache = {};
-async function toggleCatDetail(i) {
-  const row = document.getElementById('detail-' + i);
-  const chev = document.getElementById('chev-' + i);
-  const isOpen = row.style.display !== 'none';
-  if (isOpen) { row.style.display = 'none'; chev.classList.remove('ti-chevron-down'); chev.classList.add('ti-chevron-right'); return; }
-  row.style.display = 'table-row';
-  chev.classList.remove('ti-chevron-right'); chev.classList.add('ti-chevron-down');
-
-  const cat = row.previousElementSibling.getAttribute('data-cat');
-  const body = document.getElementById('detail-body-' + i);
-  if (_catDetailCache[cat]) { body.innerHTML = _catDetailCache[cat]; return; }
-
-  body.innerHTML = 'Loading part-wise breakdown…';
-  const from = document.getElementById('f-from').value;
-  const to = document.getElementById('f-to').value;
-  const city = document.getElementById('f-city').value || null;
-  const hub = document.getElementById('f-hub').value || null;
-  const parts = await rpc('get_scrap_summary_by_part', { p_category: cat, p_from: from, p_to: to, p_city: city, p_hub: hub });
-
-  let html;
-  if (!parts || !parts.length) {
-    html = '<div style="color:var(--muted)">No part-level data for this range/filter.</div>';
-  } else {
-    html = `<div style="color:var(--muted);margin-bottom:6px">Generated qty by part (sold/revenue are tracked at category level only, not per part)</div>
-      <table style="width:100%"><thead><tr><th>Part</th><th class="num">Generated qty</th><th class="num">Lines</th></tr></thead><tbody>` +
-      parts.map(p => `<tr><td>${p.part_name}</td><td class="num">${fmtN(p.generated)}</td><td class="num">${fmtN(p.generated_lines)}</td></tr>`).join('') +
-      `</tbody></table>`;
-  }
-  _catDetailCache[cat] = html;
-  body.innerHTML = html;
 }
 
 async function loadSales(from, to, city, hub) {
