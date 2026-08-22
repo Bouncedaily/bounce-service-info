@@ -60,6 +60,15 @@
     .aging-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; width:100%; min-width:120px; }
     .aging-seg1 { background:#16a34a; } .aging-seg2 { background:#d97706; } .aging-seg3 { background:#ea580c; } .aging-seg4 { background:#dc2626; }
     .warn-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412; display: flex; align-items: flex-start; gap: 8px; }
+    tr.cat-row { cursor: pointer; }
+    tr.cat-row:hover { background: var(--surface-1, #f8fafc); }
+    .ov { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; padding: 36px 20px; overflow-y: auto; }
+    .ov.on { display: flex; }
+    .dpanel { background: #fff; border-radius: 12px; max-width: 700px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); overflow: hidden; }
+    .dhd { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .dhd h3 { margin: 0; font-size: 14px; font-weight: 700; }
+    .dsub { font-size: 11px; color: var(--muted); }
+    .dclose { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -94,28 +103,13 @@
   </div>
 
   <div class="panel">
-    <h3>By Category — Generated / Sold / Pending / Revenue
+    <h3>By Category — Generated / Sold / Pending / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
     </h3>
     <div style="overflow-x:auto">
     <table id="catTable">
       <thead><tr><th>Category</th><th>Tracking</th><th class="num">Generated</th><th class="num">Sold</th><th class="num">Pending</th><th class="num">Revenue (₹)</th></tr></thead>
       <tbody id="catBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
-    </table>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>By Part — which specific parts are actually generating this scrap
-      <span class="table-tools">
-        <input type="text" id="part-search" placeholder="Filter part name…" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;width:180px" oninput="renderPartTable()">
-        <button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportPartCSV()">⬇ CSV</button>
-      </span>
-    </h3>
-    <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
-    <table id="partTable">
-      <thead><tr><th>Part Name</th><th>Category</th><th class="num">Qty Generated</th><th class="num">Value Generated (₹)</th><th class="num">JCs</th></tr></thead>
-      <tbody id="partBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -167,6 +161,24 @@
   </div>
 </div>
 
+<div class="ov" id="cat-ov" onclick="if(event.target===this)closeCatDrill()">
+  <div class="dpanel">
+    <div class="dhd">
+      <div><h3 id="cat-drill-title">—</h3><div class="dsub" id="cat-drill-sub"></div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn secondary" style="padding:6px 12px;font-size:11.5px" onclick="exportCatDrillCSV()">⬇ CSV</button>
+        <button class="dclose" onclick="closeCatDrill()">✕</button>
+      </div>
+    </div>
+    <div id="cat-drill-body" style="max-height:70vh;overflow-y:auto">
+      <table>
+        <thead><tr><th>Part Name</th><th class="num">Qty Generated</th><th class="num">Value Generated (₹)</th><th class="num">JCs</th></tr></thead>
+        <tbody id="cat-drill-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
@@ -175,7 +187,6 @@ const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON };
 let CATEGORIES = [];
 let VENDORS = [];
 let SUMMARY = null;
-let PART_DATA = [];
 let _hadFailure = false;
 
 function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
@@ -247,14 +258,8 @@ async function loadAll() {
   const hub = document.getElementById('f-hub').value || null;
   document.getElementById('syncedLbl').textContent = 'Loading…';
 
-  const [summary, parts] = await Promise.all([
-    rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
-    rpc('get_scrap_by_part', { p_from: from, p_to: to, p_city: city, p_hub: hub })
-  ]);
-  SUMMARY = summary;
-  PART_DATA = parts || [];
+  SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
   renderSummary();
-  renderPartTable();
   await loadSales(from, to, city, hub);
 
   document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -267,27 +272,35 @@ async function loadAll() {
   }
 }
 
-function renderPartTable() {
-  const el = document.getElementById('partBody');
-  if (PART_DATA === null) { el.innerHTML = '<tr><td colspan="5" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>'; return; }
-  const q = (document.getElementById('part-search').value || '').toLowerCase();
-  const rows = PART_DATA.filter(p => !q || (p.part_or_labor_name||'').toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q));
-  el.innerHTML = rows.length ? rows.map(p => `
-    <tr><td>${p.part_or_labor_name}</td><td style="color:var(--muted);font-size:11px">${p.category||'—'}</td>
+let CAT_DRILL_DATA = null, CAT_DRILL_NAME = '';
+async function openCatDrill(category) {
+  document.getElementById('cat-ov').classList.add('on');
+  document.getElementById('cat-drill-title').textContent = category + ' — parts';
+  document.getElementById('cat-drill-sub').textContent = 'Which specific parts are generating this category\'s scrap, matching current filters';
+  CAT_DRILL_NAME = category; CAT_DRILL_DATA = null;
+  const tbody = document.getElementById('cat-drill-tbody');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spin"></span></td></tr>';
+  const from = document.getElementById('f-from').value, to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null, hub = document.getElementById('f-hub').value || null;
+  const rows = await rpc('get_scrap_by_part', { p_from: from, p_to: to, p_city: city, p_hub: hub, p_category: category });
+  CAT_DRILL_DATA = rows;
+  if (rows === null) { tbody.innerHTML = '<tr><td colspan="4" class="empty" style="color:var(--red)">Failed to load — try again.</td></tr>'; return; }
+  tbody.innerHTML = rows.length ? rows.map(p => `
+    <tr><td>${p.part_or_labor_name}</td>
       <td class="num">${fmtN(p.qty_generated)}</td>
       <td class="num">${fmtC(p.value_generated)}</td>
       <td class="num">${fmtN(p.jcs)}</td></tr>
-  `).join('') : '<tr><td colspan="5" class="empty">No parts match.</td></tr>';
+  `).join('') : '<tr><td colspan="4" class="empty">No parts found for this category.</td></tr>';
 }
-
-function exportPartCSV() {
-  if (!PART_DATA) return;
-  const rows = [['Part Name','Category','Qty Generated','Value Generated','JCs']];
-  PART_DATA.forEach(p => rows.push([p.part_or_labor_name, p.category, p.qty_generated, p.value_generated, p.jcs]));
+function closeCatDrill() { document.getElementById('cat-ov').classList.remove('on'); }
+function exportCatDrillCSV() {
+  if (!CAT_DRILL_DATA || !CAT_DRILL_DATA.length) return;
+  const rows = [['Part Name','Qty Generated','Value Generated','JCs']];
+  CAT_DRILL_DATA.forEach(p => rows.push([p.part_or_labor_name, p.qty_generated, p.value_generated, p.jcs]));
   const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `scrap_by_part_${todayIST()}.csv`;
+  const a = document.createElement('a'); a.href = url; a.download = `scrap_${CAT_DRILL_NAME.replace(/[^a-z0-9]+/gi,'_').toLowerCase()}_parts_${todayIST()}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
@@ -309,7 +322,7 @@ function renderSummary() {
   document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
 
   document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => `
-    <tr><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
+    <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${fmtN(c.generated)} ${c.unit}</td>
       <td class="num">${fmtN(c.sold)} ${c.unit}</td>
       <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
