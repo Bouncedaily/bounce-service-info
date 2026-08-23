@@ -261,6 +261,9 @@ input[type=date] { min-width: 130px; }
 .bl-pager button:hover { background:var(--bg); }
 .bl-pager button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
 .bl-pager .dots { font-size:12px; color:var(--muted); padding:0 2px; }
+.nbno-qbtn { padding:3px 12px; border:none; border-right:1px solid var(--border); font-size:12px; font-family:inherit; cursor:pointer; background:none; color:var(--text); font-weight:400; }
+.nbno-qbtn:last-child { border-right:none; }
+.nbno-qbtn.active { background:var(--accent); color:#fff; font-weight:600; }
 </style><script>
 (function() {
   var sess = {};
@@ -490,7 +493,7 @@ body { overflow:auto!important; }
         <p id="dd-sub"></p>
       </div>
       <div class="dd-actions">
-        <button class="dd-export" onclick="exportOOSDrilldownCSV()" title="Download CSV"><i class="ti ti-table-export"></i> CSV</button>
+        <button class="dd-export" onclick="exportDrilldownCSV()" title="Download CSV"><i class="ti ti-table-export"></i> CSV</button>
         <button onclick="closeOOSDrilldown()" title="Close"><i class="ti ti-x"></i></button>
       </div>
     </div>
@@ -505,6 +508,7 @@ body { overflow:auto!important; }
     <span class="sb-name">Bounce <span>Service Info</span></span>
   </div>
   <div class="sb-sec">ANALYTICS</div>
+  <a class="sb-item" href="dashboard.html"><i class="ti ti-chart-bar sb-icon"></i><span class="sb-label">RMC Dashboard</span></a>
   <a class="sb-item" href="fleet-km.html"><i class="ti ti-motorbike sb-icon"></i><span class="sb-label">Fleet KM Analysis</span></a>
   <a class="sb-item" href="parts-testing.html"><i class="ti ti-test-pipe sb-icon"></i><span class="sb-label">Parts Testing</span></a>
   <a class="sb-item" href="tyre-analysis.html"><i class="ti ti-chart-dots sb-icon"></i><span class="sb-label">Wear &amp; Tear</span></a>
@@ -585,6 +589,35 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd"><h2>OOS by Repair Category × Hub</h2></div>
       <div class="tbl" id="repair-tbl-wrap">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Not billed, not OOS -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd">
+        <h2>Job Cards Yet To Be Billed — Vehicle Not OOS</h2>
+        <span class="sub" id="nbno-count">—</span>
+      </div>
+      <div style="padding:10px 16px 0;font-size:11.5px;color:var(--muted)">
+        Job cards still open in the approval system, but the vehicle has already gone back into service (RFD/Active Rental/PDI) — the paperwork wasn't closed even though the repair finished.
+        Cross-checked against your uploaded RMC billing data — job cards that <i>look</i> unbilled here but were actually billed within a few days are excluded (data lag, not a real gap).
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px 0">
+        <span style="font-size:11px;color:var(--muted);font-weight:600">JC Opened Date</span>
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <button id="nbno-btn-today" onclick="setNBNODate('today')" class="nbno-qbtn">Today</button>
+          <button id="nbno-btn-thismonth" onclick="setNBNODate('thismonth')" class="nbno-qbtn">This Month</button>
+          <button id="nbno-btn-lastmonth" onclick="setNBNODate('lastmonth')" class="nbno-qbtn">Last Month</button>
+          <button id="nbno-btn-all" onclick="setNBNODate('all')" class="nbno-qbtn">All Time</button>
+        </div>
+        <input type="date" id="nbno-from" onchange="setNBNODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+        <span style="font-size:12px;color:var(--muted)">to</span>
+        <input type="date" id="nbno-to" onchange="setNBNODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+      </div>
+      <div class="tbl" id="nbno-tbl-wrap" style="margin-top:8px">
         <div class="empty"><span class="spin"></span></div>
       </div>
     </div>
@@ -1228,7 +1261,7 @@ function render({ summary, oosDetail, inflow, outflow }) {
   renderRepairAging(outflow);
   renderAgingPivot(oosDetail);
   renderRepairPivot(oosDetail);
-  populateBikeListTypeFilters();
+  loadNotBilledNotOOSEntry();
   loadBLDates().then(function() {
     // This used to unconditionally reset to Today here, every single time
     // render() ran -- which is also every 2-minute auto-refresh. Since this
@@ -1306,6 +1339,7 @@ function renderCityTable(summary, oosDetail)  { cityModelRows(summary, oosDetail
 function renderModelTable(summary, oosDetail) { cityModelRows(summary, oosDetail, 'model_name', 'tbl-model'); }
 
 let DD_CURRENT_ROWS = [];
+let DD_MODE = 'oos';
 let DD_CURRENT_TITLE = '';
 
 const REMARK_OPTIONS = [
@@ -1467,6 +1501,7 @@ async function openCityModelDrilldown(dimKey, dimValue, status) {
 }
 
 async function openOOSDrilldown(dimKey, dimValue, hub) {
+  DD_MODE = 'oos';
   const rows = LAST_OOS_DETAIL.filter(r =>
     (dimValue === null || r[dimKey] === dimValue) &&
     (hub === null || r.hub_name === hub)
@@ -1520,6 +1555,11 @@ function closeOOSDrilldown() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeOOSDrilldown();
 });
+
+function exportDrilldownCSV() {
+  if (DD_MODE === 'nbno') { exportNBNODrilldownCSV(); return; }
+  exportOOSDrilldownCSV();
+}
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
@@ -1625,6 +1665,152 @@ function renderRepairPivot(oos) {
   html += `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("repair_category")},null,null)'>${grandTotal}</td></tr>`;
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+let NBNO_ALL_ROWS = [];
+
+function nbnoIST() { return new Date(Date.now() + 5.5*3600*1000); }
+function nbnoISO(d) { return d.toISOString().slice(0,10); }
+
+function setNBNODate(preset) {
+  const t = nbnoIST(), y = t.getUTCFullYear(), m = t.getUTCMonth(), day = t.getUTCDate();
+  let from, to;
+  if (preset === 'today') { from = to = new Date(Date.UTC(y,m,day)); }
+  else if (preset === 'thismonth') { from = new Date(Date.UTC(y,m,1)); to = new Date(Date.UTC(y,m,day)); }
+  else if (preset === 'lastmonth') { from = new Date(Date.UTC(y,m-1,1)); to = new Date(Date.UTC(y,m,0)); }
+  else if (preset === 'all') { from = null; to = null; }
+  // 'custom' — leave from/to inputs exactly as the user set them
+
+  if (preset !== 'custom') {
+    document.getElementById('nbno-from').value = from ? nbnoISO(from) : '';
+    document.getElementById('nbno-to').value = to ? nbnoISO(to) : '';
+  }
+  document.querySelectorAll('.nbno-qbtn').forEach(b => b.classList.remove('active'));
+  if (preset !== 'custom') {
+    const btn = document.getElementById('nbno-btn-' + preset);
+    if (btn) btn.classList.add('active');
+  }
+  loadNotBilledNotOOS();
+}
+
+let NBNO_INITIALIZED = false;
+function loadNotBilledNotOOSEntry() {
+  if (!NBNO_INITIALIZED) { NBNO_INITIALIZED = true; setNBNODate('thismonth'); return; }
+  loadNotBilledNotOOS();
+}
+
+async function loadNotBilledNotOOS() {
+  const wrap = document.getElementById('nbno-tbl-wrap');
+  const from = document.getElementById('nbno-from').value || null;
+  const to = document.getElementById('nbno-to').value || null;
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/get_not_billed_not_oos`, {
+      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_from: from, p_to: to })
+    });
+    if (!r.ok) { wrap.innerHTML = '<div class="empty" style="color:#dc2626">Failed to load — try refreshing.</div>'; return; }
+    const d = await r.json();
+    document.getElementById('nbno-count').textContent = `${(d.not_billed_not_oos||0).toLocaleString('en-IN')} of ${(d.total_not_billed||0).toLocaleString('en-IN')} not-yet-billed JCs`;
+    NBNO_ALL_ROWS = d.rows || [];
+    renderNotBilledPivot(NBNO_ALL_ROWS);
+  } catch (e) {
+    console.error('loadNotBilledNotOOS failed', e);
+    wrap.innerHTML = '<div class="empty" style="color:#dc2626">Error loading — try refreshing.</div>';
+  }
+}
+
+const NBNO_STATUS_ORDER = ['Job Open','Job Re-Open','Job Re-Open (HO Reject)','Open - Start Work','Open - Issue Parts','Open - Waiting for HO Approval','Closed','Closed - Waiting for Approval','Closed - Waiting for Billing'];
+
+function renderNotBilledPivot(rows) {
+  const wrap = document.getElementById('nbno-tbl-wrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">None — every not-yet-billed job card has a vehicle still in OOS.</div>'; return; }
+
+  const hubs = [...new Set(rows.map(r => r.hub_name).filter(Boolean))].sort();
+  const statuses = NBNO_STATUS_ORDER.filter(s => rows.some(r => r.jc_status === s));
+
+  let html = '<table><thead><tr><th>JC Status</th>';
+  hubs.forEach(h => html += `<th class="num">${h}</th>`);
+  html += '<th class="num">Total</th></tr></thead><tbody>';
+
+  const colTotals = {}; hubs.forEach(h => colTotals[h] = 0);
+  let grandTotal = 0;
+
+  statuses.forEach(status => {
+    const rowMatches = rows.filter(r => r.jc_status === status);
+    const rowTotal = rowMatches.length;
+    grandTotal += rowTotal;
+    let row = `<tr><td>${status}</td>`;
+    hubs.forEach(h => {
+      const c = rowMatches.filter(r => r.hub_name === h).length;
+      colTotals[h] += c;
+      row += c
+        ? `<td class="num cell-click" onclick='openNBNODrilldown(${JSON.stringify(status)},${JSON.stringify(h)})'>${c}</td>`
+        : `<td class="num"></td>`;
+    });
+    row += rowTotal
+      ? `<td class="num cell-click" style="font-weight:600" onclick='openNBNODrilldown(${JSON.stringify(status)},null)'>${rowTotal}</td></tr>`
+      : `<td class="num" style="font-weight:600">0</td></tr>`;
+    html += row;
+  });
+
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(h => html += colTotals[h]
+    ? `<td class="num cell-click" onclick='openNBNODrilldown(null,${JSON.stringify(h)})'>${colTotals[h]}</td>`
+    : `<td class="num"></td>`);
+  html += `<td class="num cell-click" onclick='openNBNODrilldown(null,null)'>${grandTotal}</td></tr>`;
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function openNBNODrilldown(status, hub) {
+  DD_MODE = 'nbno';
+  const rows = NBNO_ALL_ROWS.filter(r =>
+    (status === null || r.jc_status === status) &&
+    (hub === null || r.hub_name === hub)
+  );
+  const today = new Date();
+  rows.sort((a, b) => new Date(a.jc_opened_date || 0) - new Date(b.jc_opened_date || 0)); // oldest first
+  DD_CURRENT_ROWS = rows;
+  DD_CURRENT_TITLE = (hub === null && status === null) ? 'Not_Billed_Not_OOS_All' : `Not_Billed_Not_OOS_${hub||'AllHubs'}_${status||'AllStatuses'}`;
+
+  const hubLabel = hub === null ? 'All Hubs' : hub;
+  const statusLabel = status === null ? 'All Statuses' : status;
+  document.getElementById('dd-title').textContent = (hub === null && status === null) ? 'All Not-Billed, Not-OOS Job Cards' : `${hubLabel} — ${statusLabel}`;
+  document.getElementById('dd-sub').textContent = `${rows.length} job card${rows.length === 1 ? '' : 's'}`;
+  document.getElementById('dd-overlay').classList.add('open');
+
+  let html = '<thead><tr><th>JC Number</th><th>Reg Number</th><th>Status</th><th>Opened</th><th class="num">Days Open</th><th>Hub</th><th>City</th><th>Model</th><th>Submission Type</th><th>Fleet Status</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const opened = r.jc_opened_date ? new Date(r.jc_opened_date) : null;
+    const daysOpen = opened ? Math.round((today - opened) / 86400000) : null;
+    const openedStr = opened ? opened.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' }) : '—';
+    const ageCls = daysOpen != null && daysOpen > 30 ? 'num dd-age-high' : 'num';
+    html += `<tr>
+      <td style="font-weight:600">${r.job_card_number || '—'}</td>
+      <td>${r.reg_number || '—'}</td>
+      <td>${r.jc_status || '—'}</td>
+      <td>${openedStr}</td>
+      <td class="${ageCls}">${daysOpen ?? '—'}</td>
+      <td>${r.hub_name || '—'}</td>
+      <td>${r.city || '—'}</td>
+      <td>${r.bike_model || '—'}</td>
+      <td>${r.submission_type || '—'}</td>
+      <td>${r.fleet_status || '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('dd-table').innerHTML = html;
+}
+
+function exportNBNODrilldownCSV() {
+  if (!DD_CURRENT_ROWS.length) return;
+  const today = new Date();
+  const header = ['JC Number', 'Reg Number', 'Status', 'Opened', 'Days Open', 'Hub', 'City', 'Model', 'Submission Type', 'Fleet Status'];
+  const rows = DD_CURRENT_ROWS.map(r => {
+    const opened = r.jc_opened_date ? new Date(r.jc_opened_date) : null;
+    const daysOpen = opened ? Math.round((today - opened) / 86400000) : '';
+    return [r.job_card_number, r.reg_number, r.jc_status, opened ? opened.toLocaleDateString('en-IN') : '', daysOpen, r.hub_name, r.city, r.bike_model, r.submission_type, r.fleet_status];
+  });
+  downloadCSV((DD_CURRENT_TITLE || 'not_billed_not_oos') + '.csv', header, rows);
 }
 
 function modelClass(m) {
