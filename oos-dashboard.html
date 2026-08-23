@@ -1709,7 +1709,8 @@ async function loadNotBilledNotOOS() {
     });
     if (!r.ok) { wrap.innerHTML = '<div class="empty" style="color:#dc2626">Failed to load — try refreshing.</div>'; return; }
     const d = await r.json();
-    document.getElementById('nbno-count').textContent = `${(d.not_billed_not_oos||0).toLocaleString('en-IN')} of ${(d.total_not_billed||0).toLocaleString('en-IN')} not-yet-billed JCs`;
+    const verifiableThrough = d.verifiable_through ? new Date(d.verifiable_through).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' }) : '—';
+    document.getElementById('nbno-count').textContent = `${(d.not_billed_not_oos||0).toLocaleString('en-IN')} of ${(d.total_not_billed||0).toLocaleString('en-IN')} not-yet-billed JCs — verified against RMC data through ${verifiableThrough}`;
     NBNO_ALL_ROWS = d.rows || [];
     renderNotBilledPivot(NBNO_ALL_ROWS);
   } catch (e) {
