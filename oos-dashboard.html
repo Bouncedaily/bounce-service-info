@@ -602,7 +602,7 @@ body { overflow:auto!important; }
         <span class="sub" id="nbno-count">—</span>
       </div>
       <div style="padding:10px 16px 0;font-size:11.5px;color:var(--muted)">
-        Job cards still open in the approval system, but the vehicle has already gone back into service (RFD/Active Rental/PDI) — the paperwork wasn't closed even though the repair finished.
+        Job cards still open in the approval system, but the vehicle has already gone back into service (RFD/Active Rental/PDI) — the paperwork wasn't closed even though the repair finished. This includes "JC not opened in DMS" cases — a service request exists but no job card was ever actually created in DMS, a different (and arguably more concerning) kind of gap than a normal billing delay.
         Cross-checked against your uploaded RMC billing data — job cards that <i>look</i> unbilled here but were actually billed within a few days are excluded (data lag, not a real gap).
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px 0">
@@ -1726,7 +1726,10 @@ function renderNotBilledPivot(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">None — every not-yet-billed job card has a vehicle still in OOS.</div>'; return; }
 
   const hubs = [...new Set(rows.map(r => r.hub_name).filter(Boolean))].sort();
-  const statuses = NBNO_STATUS_ORDER.filter(s => rows.some(r => r.jc_status === s));
+  const actualStatuses = [...new Set(rows.map(r => r.jc_status).filter(Boolean))];
+  const knownStatuses = NBNO_STATUS_ORDER.filter(s => actualStatuses.includes(s));
+  const unknownStatuses = actualStatuses.filter(s => !NBNO_STATUS_ORDER.includes(s)).sort();
+  const statuses = [...knownStatuses, ...unknownStatuses];
 
   let html = '<table><thead><tr><th>JC Status</th>';
   hubs.forEach(h => html += `<th class="num">${h}</th>`);
