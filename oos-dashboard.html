@@ -1699,9 +1699,12 @@ async function loadNotBilledNotOOS() {
   const wrap = document.getElementById('nbno-tbl-wrap');
   const from = document.getElementById('nbno-from').value || null;
   const to = document.getElementById('nbno-to').value || null;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  const model = document.getElementById('f-model').value || null;
   try {
     const r = await fetch(`${SB}/rest/v1/rpc/get_not_billed_not_oos`, {
-      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_from: from, p_to: to })
+      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_from: from, p_to: to, p_city: city, p_hub: hub, p_model: model })
     });
     if (!r.ok) { wrap.innerHTML = '<div class="empty" style="color:#dc2626">Failed to load — try refreshing.</div>'; return; }
     const d = await r.json();
