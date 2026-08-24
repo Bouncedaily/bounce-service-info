@@ -60,21 +60,16 @@
     .aging-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; width:100%; min-width:120px; }
     .aging-seg1 { background:#16a34a; } .aging-seg2 { background:#d97706; } .aging-seg3 { background:#ea580c; } .aging-seg4 { background:#dc2626; }
     .warn-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412; display: flex; align-items: flex-start; gap: 8px; }
-    tr.cat-row { cursor: pointer; }
-    tr.cat-row:hover { background: var(--surface-1, #f8fafc); }
-    .ov { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; padding: 36px 20px; overflow-y: auto; }
-    .ov.on { display: flex; }
-    .dpanel { background: #fff; border-radius: 12px; max-width: 700px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); overflow: hidden; }
-    .dhd { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .dhd h3 { margin: 0; font-size: 14px; font-weight: 700; }
-    .dsub { font-size: 11px; color: var(--muted); }
-    .dclose { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--muted); }
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="page-title"><i class="ti ti-recycle"></i> Scrap Management</div>
-  <div class="page-sub">Scrap is auto-generated from Wear &amp; Tear part replacements — no manual counting. Log a vendor sale when a pickup happens.</div>
+  <div class="page-sub">Scrap is auto-generated from job card parts (Wear &amp; Tear, Rider Payable, and unclassified) — excludes Warranty, Refurb, and parts under ₹10/unit. No manual counting. Log a vendor sale when a pickup happens.</div>
+  <div class="warn-box" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">
+    <i class="ti ti-info-circle" style="margin-top:2px"></i>
+    <div><b>Scope expanded on 21 Aug 2026</b> — scrap tracking now covers all eligible parts, not just the previous curated list of ~13 categories. Generated volumes and KPI totals will look larger from this date onward; this reflects the new scope, not a data issue.</div>
+  </div>
 
   <div class="ctl-bar">
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
@@ -103,7 +98,7 @@
   </div>
 
   <div class="panel">
-    <h3>By Category — Generated / Sold / Pending / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
+    <h3>By Category — Generated / Sold / Pending / Revenue
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
     </h3>
     <div style="overflow-x:auto">
@@ -125,7 +120,6 @@
   </div>
 
   <div class="panel">
-
     <h3>Create Scrap Sale</h3>
     <div class="sale-form">
       <div class="fg"><label>Hub</label><input type="text" id="s-hub" placeholder="Hub name"></div>
@@ -157,24 +151,6 @@
       <thead><tr><th>Date</th><th>Hub</th><th>Category</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th></tr></thead>
       <tbody id="salesBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
     </table>
-    </div>
-  </div>
-</div>
-
-<div class="ov" id="cat-ov" onclick="if(event.target===this)closeCatDrill()">
-  <div class="dpanel">
-    <div class="dhd">
-      <div><h3 id="cat-drill-title">—</h3><div class="dsub" id="cat-drill-sub"></div></div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn secondary" style="padding:6px 12px;font-size:11.5px" onclick="exportCatDrillCSV()">⬇ CSV</button>
-        <button class="dclose" onclick="closeCatDrill()">✕</button>
-      </div>
-    </div>
-    <div id="cat-drill-body" style="max-height:70vh;overflow-y:auto">
-      <table>
-        <thead><tr><th>Part Name</th><th class="num">Qty Generated</th><th class="num">Value Generated (₹)</th><th class="num">JCs</th></tr></thead>
-        <tbody id="cat-drill-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
-      </table>
     </div>
   </div>
 </div>
@@ -211,10 +187,9 @@ async function rpc(name, body, attempt) {
 }
 
 async function loadHubs() {
-  const rows = await sbGet('rmc_jc_lines?select=hub_name&hub_name=not.is.null&limit=5000');
-  const hubs = [...new Set(rows.map(r=>r.hub_name).filter(Boolean))].sort();
+  const hubs = await rpc('get_distinct_hubs', {});
   const sel = document.getElementById('f-hub');
-  hubs.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+  (hubs || []).forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
 }
 
 async function loadCategories() {
@@ -252,6 +227,7 @@ function onFilterChange() { /* no-op, applied on Apply click */ }
 
 async function loadAll() {
   _hadFailure = false;
+  Object.keys(_catDetailCache).forEach(k => delete _catDetailCache[k]);
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
   const city = document.getElementById('f-city').value || null;
@@ -272,38 +248,6 @@ async function loadAll() {
   }
 }
 
-let CAT_DRILL_DATA = null, CAT_DRILL_NAME = '';
-async function openCatDrill(category) {
-  document.getElementById('cat-ov').classList.add('on');
-  document.getElementById('cat-drill-title').textContent = category + ' — parts';
-  document.getElementById('cat-drill-sub').textContent = 'Which specific parts are generating this category\'s scrap, matching current filters';
-  CAT_DRILL_NAME = category; CAT_DRILL_DATA = null;
-  const tbody = document.getElementById('cat-drill-tbody');
-  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spin"></span></td></tr>';
-  const from = document.getElementById('f-from').value, to = document.getElementById('f-to').value;
-  const city = document.getElementById('f-city').value || null, hub = document.getElementById('f-hub').value || null;
-  const rows = await rpc('get_scrap_by_part', { p_from: from, p_to: to, p_city: city, p_hub: hub, p_category: category });
-  CAT_DRILL_DATA = rows;
-  if (rows === null) { tbody.innerHTML = '<tr><td colspan="4" class="empty" style="color:var(--red)">Failed to load — try again.</td></tr>'; return; }
-  tbody.innerHTML = rows.length ? rows.map(p => `
-    <tr><td>${p.part_or_labor_name}</td>
-      <td class="num">${fmtN(p.qty_generated)}</td>
-      <td class="num">${fmtC(p.value_generated)}</td>
-      <td class="num">${fmtN(p.jcs)}</td></tr>
-  `).join('') : '<tr><td colspan="4" class="empty">No parts found for this category.</td></tr>';
-}
-function closeCatDrill() { document.getElementById('cat-ov').classList.remove('on'); }
-function exportCatDrillCSV() {
-  if (!CAT_DRILL_DATA || !CAT_DRILL_DATA.length) return;
-  const rows = [['Part Name','Qty Generated','Value Generated','JCs']];
-  CAT_DRILL_DATA.forEach(p => rows.push([p.part_or_labor_name, p.qty_generated, p.value_generated, p.jcs]));
-  const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `scrap_${CAT_DRILL_NAME.replace(/[^a-z0-9]+/gi,'_').toLowerCase()}_parts_${todayIST()}.csv`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-}
-
 function renderSummary() {
   if (!SUMMARY) {
     document.getElementById('kvGenerated').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
@@ -321,12 +265,17 @@ function renderSummary() {
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
   document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
 
-  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => `
-    <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
+  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map((c, i) => `
+    <tr class="cat-row" data-cat="${c.category.replace(/"/g,'&quot;')}" data-idx="${i}" onclick="toggleCatDetail(${i})" style="cursor:pointer">
+      <td><i class="ti ti-chevron-right cat-chevron" id="chev-${i}" style="font-size:12px;margin-right:4px;color:var(--muted)"></i>${c.category}</td>
+      <td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${fmtN(c.generated)} ${c.unit}</td>
       <td class="num">${fmtN(c.sold)} ${c.unit}</td>
       <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
+    <tr class="cat-detail-row" id="detail-${i}" style="display:none"><td colspan="6" style="padding:0;background:var(--surface-0,rgba(0,0,0,.02))">
+      <div id="detail-body-${i}" style="padding:10px 14px;font-size:11px">Loading…</div>
+    </td></tr>
   `).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
 
   const aging = SUMMARY.aging || [];
@@ -337,6 +286,39 @@ function renderSummary() {
       <td class="num">${fmtN(a.age_31_60)}</td><td class="num ${a.age_60_plus>0?'pending-flag':''}">${fmtN(a.age_60_plus)}</td>
       <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">No pending scrap.</td></tr>';
+}
+
+const _catDetailCache = {};
+async function toggleCatDetail(i) {
+  const row = document.getElementById('detail-' + i);
+  const chev = document.getElementById('chev-' + i);
+  const isOpen = row.style.display !== 'none';
+  if (isOpen) { row.style.display = 'none'; chev.classList.remove('ti-chevron-down'); chev.classList.add('ti-chevron-right'); return; }
+  row.style.display = 'table-row';
+  chev.classList.remove('ti-chevron-right'); chev.classList.add('ti-chevron-down');
+
+  const cat = row.previousElementSibling.getAttribute('data-cat');
+  const body = document.getElementById('detail-body-' + i);
+  if (_catDetailCache[cat]) { body.innerHTML = _catDetailCache[cat]; return; }
+
+  body.innerHTML = 'Loading part-wise breakdown…';
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  const parts = await rpc('get_scrap_summary_by_part', { p_category: cat, p_from: from, p_to: to, p_city: city, p_hub: hub });
+
+  let html;
+  if (!parts || !parts.length) {
+    html = '<div style="color:var(--muted)">No part-level data for this range/filter.</div>';
+  } else {
+    html = `<div style="color:var(--muted);margin-bottom:6px">Generated qty by part (sold/revenue are tracked at category level only, not per part)</div>
+      <table style="width:100%"><thead><tr><th>Part</th><th class="num">Generated qty</th><th class="num">Lines</th></tr></thead><tbody>` +
+      parts.map(p => `<tr><td>${p.part_name}</td><td class="num">${fmtN(p.generated)}</td><td class="num">${fmtN(p.generated_lines)}</td></tr>`).join('') +
+      `</tbody></table>`;
+  }
+  _catDetailCache[cat] = html;
+  body.innerHTML = html;
 }
 
 async function loadSales(from, to, city, hub) {
