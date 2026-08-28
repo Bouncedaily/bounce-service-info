@@ -89,6 +89,8 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
 .cam-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
 .cam-actions .btn{min-width:104px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <!-- app build 46 -->
@@ -365,14 +367,136 @@ async function init(){
 async function loadRecent(){
   try{
     const rows=await Promise.race([
-      api('audits?select=audit_number,audit_date,overall_score,rating,status,hub_id&status=eq.Submitted&order=created_at.desc&limit=15'),
+      api('audits?select=id,audit_number,audit_date,overall_score,rating,status,hub_id&status=eq.Submitted&order=created_at.desc&limit=15'),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timed out')),15000))
     ]);
     const hubName=id=>{const h=HUBS.find(x=>x.id===id);return h?h.name:'—'};
     if(!rows.length){document.getElementById('recent').innerHTML='<span class="muted">No audits yet.</span>';return}
-    document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th></tr></thead><tbody>'+
-      rows.map(r=>`<tr><td>${esc(r.audit_number||'—')}</td><td>${esc(hubName(r.hub_id))}</td><td>${esc(r.audit_date||'')}</td><td>${r.overall_score!=null?Math.round(r.overall_score):'—'}</td><td>${esc(r.rating||'—')}</td><td>${esc(r.status)}</td></tr>`).join('')+'</tbody></table>';
+    document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th><th></th></tr></thead><tbody>'+
+      rows.map(r=>`<tr><td>${esc(r.audit_number||'—')}</td><td>${esc(hubName(r.hub_id))}</td><td>${esc(r.audit_date||'')}</td><td>${r.overall_score!=null?Math.round(r.overall_score):'—'}</td><td>${esc(r.rating||'—')}</td><td>${esc(r.status)}</td><td><button class="btn btn-ghost" id="dl-${r.id}" onclick="downloadReport('${r.id}')" style="padding:4px 10px;font-size:12px">Download PDF</button></td></tr>`).join('')+'</tbody></table>';
   }catch(e){document.getElementById('recent').innerHTML='<span class="err">'+esc(e.message)+'</span>'}
+}
+
+async function fetchImgDataUrl(path){
+  try{
+    const u=await signedUrl(path);
+    if(!u)return null;
+    const r=await fetch(u);
+    if(!r.ok)return null;
+    const blob=await r.blob();
+    return await new Promise((res)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(blob);});
+  }catch(e){return null;}
+}
+function respBadge(r){
+  const map={OK:'OK',NG:'Issue',NA:'N/A','Not Checked':'Not Checked'};
+  const label=map[r]||r||'—';
+  const color=r==='OK'?'#16a34a':(r==='NG'?'#dc2626':'#94a3b8');
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:'+color+';white-space:nowrap">'+label+'</span>';
+}
+function buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap){
+  const img=p=>{const d=photoMap[p];return d?'<img src="'+d+'" style="max-width:85px;max-height:85px;border-radius:6px;border:1px solid #e5e9f0;margin:2px;object-fit:cover">':'';};
+  const card=(label,val,color)=>'<div style="flex:1;border:1px solid #e5e9f0;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700'+(color?';color:'+color:'')+'">'+val+'</div><div style="font-size:10px;color:#64748b">'+label+'</div></div>';
+  let h='<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:12px;padding:10px;width:720px">';
+  h+='<div style="background:#f53b3b;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0"><div style="font-size:16px;font-weight:700">Hub Audit Report — '+esc(audit.hub_name)+'</div><div style="font-size:11px;opacity:.9;margin-top:2px">'+esc(audit.city)+' · '+esc(audit.audit_type==='external'?'External Audit':'Internal Audit')+' · '+esc(audit.audit_date||'')+'</div></div>';
+  h+='<div style="border:1px solid #e5e9f0;border-top:none;padding:14px 18px">';
+  h+='<div style="font-size:11px;color:#64748b;margin-bottom:10px">Auditor: '+esc(audit.auditor_name||'—')+' &nbsp;·&nbsp; Submitted: '+esc(audit.submitted_at?new Date(audit.submitted_at).toLocaleString('en-IN'):'—')+'</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
+  h+=card('Overall Score',(audit.overall_score!=null?Math.round(audit.overall_score)+'%':'—'));
+  h+=card('Rating',esc(audit.rating||'—'));
+  h+=card('Risk Band',esc(audit.risk_band||'—'), (audit.risk_band==='Critical'||audit.risk_band==='High')?'#dc2626':null);
+  h+=card('CAPAs',capas.length);
+  h+='</div>';
+  if(audit.overall_comments)h+='<div style="margin-bottom:14px;padding:10px;background:#fafbfe;border:1px solid #e5e9f0;border-radius:8px"><b style="font-size:11px">Overall Comments</b><div style="margin-top:4px">'+esc(audit.overall_comments)+'</div></div>';
+
+  sections.forEach(s=>{
+    if(!s.checkpoints||!s.checkpoints.length)return;
+    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">'+esc(s.name)+'</div>';
+    s.checkpoints.forEach(c=>{
+      h+='<div style="border:1px solid #e5e9f0;border-radius:8px;padding:10px;margin-top:6px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1;font-weight:600">'+esc(c.label)+'</div>'+respBadge(c.response)+'</div>';
+      const meta=[];
+      if(c.severity)meta.push('Severity: '+esc(c.severity));
+      if(c.owner_role)meta.push('Owner: '+esc(c.owner_role));
+      if(c.tags&&c.tags.length)meta.push('Tags: '+c.tags.map(esc).join(', '));
+      if(c.count_provided!=null||c.count_available!=null)meta.push('Count: '+(c.count_provided!=null?c.count_provided:'—')+' / '+(c.count_available!=null?c.count_available:'—'));
+      if(meta.length)h+='<div style="font-size:10px;color:#64748b;margin-top:3px">'+meta.join(' · ')+'</div>';
+      if(c.observation)h+='<div style="font-size:11px;margin-top:5px">'+esc(c.observation)+'</div>';
+      if(c.photos&&c.photos.length)h+='<div style="margin-top:6px">'+c.photos.map(img).join('')+'</div>';
+      h+='</div>';
+    });
+  });
+
+  if(technicians.length){
+    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">Technician Skill Level</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px"><tr><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Name</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Status</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Observation</th></tr>'+
+      technicians.map(t=>'<tr><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(t.technician_name)+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(t.status||'—')+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(t.observation||'')+'</td></tr>').join('')+'</table>';
+  }
+
+  if(vehicles.length){
+    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">Vehicle-Level Issues</div>';
+    vehicles.forEach(v=>{
+      h+='<div style="border:1px solid #e5e9f0;border-radius:8px;padding:10px;margin-top:6px">';
+      h+='<div style="font-weight:600">'+esc(v.vehicle_number||'—')+' — '+esc(v.ng_part||'')+'</div>';
+      if(v.observation)h+='<div style="font-size:11px;margin-top:4px">'+esc(v.observation)+'</div>';
+      if(v.photos&&v.photos.length)h+='<div style="margin-top:6px">'+v.photos.map(img).join('')+'</div>';
+      h+='</div>';
+    });
+  }
+
+  if(capas.length){
+    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">CAPA Points</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px"><tr><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Finding</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Owner</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Severity</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Due</th><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Status</th></tr>'+
+      capas.map(c=>'<tr><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(c.finding)+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(c.owner_role||'—')+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(c.severity||'—')+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(c.due_date||'—')+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(c.status||'—')+'</td></tr>').join('')+'</table>';
+  }
+
+  h+='</div></div>';
+  return h;
+}
+async function downloadReport(auditId){
+  const btn=document.getElementById('dl-'+auditId);
+  if(btn){btn.disabled=true;btn.textContent='Preparing…';}
+  let container=null;
+  try{
+    const data=await api('rpc/get_audit_report_payload',{method:'POST',body:JSON.stringify({p_audit_id:auditId})});
+    const audit=data.audit,sections=data.sections||[],technicians=data.technicians||[],vehicles=data.vehicles||[],capas=data.capas||[];
+
+    const allPaths=new Set();
+    sections.forEach(s=>(s.checkpoints||[]).forEach(c=>(c.photos||[]).forEach(p=>allPaths.add(p))));
+    vehicles.forEach(v=>(v.photos||[]).forEach(p=>allPaths.add(p)));
+    capas.forEach(c=>{(c.origin_photos||[]).forEach(p=>allPaths.add(p));if(c.closure_photo_url)allPaths.add(c.closure_photo_url);});
+
+    const photoMap={};
+    const pathArr=[...allPaths];
+    for(let i=0;i<pathArr.length;i++){
+      if(btn)btn.textContent='Loading photos… '+(i+1)+'/'+pathArr.length;
+      photoMap[pathArr[i]]=await fetchImgDataUrl(pathArr[i]);
+    }
+
+    if(btn)btn.textContent='Rendering…';
+    const html=buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap);
+    container=document.createElement('div');
+    container.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;';
+    container.innerHTML=html;
+    document.body.appendChild(container);
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF('p','pt','a4');
+    await new Promise((resolve,reject)=>{
+      doc.html(container,{
+        x:20,y:20,width:555,windowWidth:760,
+        callback:function(d){
+          try{ d.save('Hub-Audit-'+(audit.hub_name||'hub').replace(/\s+/g,'-')+'-'+(audit.audit_date||'')+'.pdf'); resolve(); }
+          catch(e){ reject(e); }
+        }
+      });
+    });
+    toast('Report downloaded');
+  }catch(e){
+    toast('Failed to generate report: '+e.message);
+  }finally{
+    if(container&&container.parentNode)container.parentNode.removeChild(container);
+    if(btn){btn.disabled=false;btn.textContent='Download PDF';}
+  }
 }
 
 // ---- audit form ----
