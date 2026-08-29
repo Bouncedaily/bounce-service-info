@@ -286,7 +286,7 @@ let ME=null, CFG={}, HUBS=[], TEMPLATE=[], TEMPLATE_FULL=[], STATE=null, RFD_VEH
 const DRAFT_KEY='hub_audit_draft_v1';
 let _saveT=null;
 function scheduleSave(){clearTimeout(_saveT);_saveT=setTimeout(saveDraft,600);}
-function saveDraft(){ if(!STATE)return; try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hubId:STATE.hub.id,auditType:STATE.auditType,localId:STATE.localId,responses:STATE.responses,technicians:STATE.technicians,vehicleNg:STATE.vehicleNg,capa:STATE.capa,overallComments:(document.getElementById('overall-comments')||{}).value||'',ackName:(document.getElementById('ack-name')||{}).value||'',ackChk:!!(document.getElementById('ack-chk')||{}).checked,savedAt:Date.now()})); }catch(e){} }
+function saveDraft(){ if(!STATE||STATE.editingAuditId)return; try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hubId:STATE.hub.id,auditType:STATE.auditType,localId:STATE.localId,responses:STATE.responses,technicians:STATE.technicians,vehicleNg:STATE.vehicleNg,capa:STATE.capa,overallComments:(document.getElementById('overall-comments')||{}).value||'',ackName:(document.getElementById('ack-name')||{}).value||'',ackChk:!!(document.getElementById('ack-chk')||{}).checked,savedAt:Date.now()})); }catch(e){} }
 function getDraft(){ try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){return null;} }
 function clearDraft(){ try{localStorage.removeItem(DRAFT_KEY);}catch(e){} }
 let CP_BY_ID={};
@@ -328,7 +328,7 @@ async function init(){
   document.getElementById('signout').style.display=(window.self===window.top)?'':'none';
   try{
     const em=encodeURIComponent(sess().email||'');
-    const rows=await api('auditors?select=id,name,can_audit,can_audit_external,is_admin,hub_id&email=eq.'+em);
+    const rows=await api('auditors?select=id,name,can_audit,can_audit_external,can_edit_submitted,is_admin,hub_id&email=eq.'+em);
     ME=rows&&rows[0];
   }catch(e){}
   // config
@@ -373,7 +373,7 @@ async function loadRecent(){
     const hubName=id=>{const h=HUBS.find(x=>x.id===id);return h?h.name:'—'};
     if(!rows.length){document.getElementById('recent').innerHTML='<span class="muted">No audits yet.</span>';return}
     document.getElementById('recent').innerHTML='<table><thead><tr><th>#</th><th>Hub</th><th>Date</th><th>Score</th><th>Rating</th><th>Status</th><th></th></tr></thead><tbody>'+
-      rows.map(r=>`<tr><td>${esc(r.audit_number||'—')}</td><td>${esc(hubName(r.hub_id))}</td><td>${esc(r.audit_date||'')}</td><td>${r.overall_score!=null?Math.round(r.overall_score):'—'}</td><td>${esc(r.rating||'—')}</td><td>${esc(r.status)}</td><td><button class="btn btn-ghost" id="dl-${r.id}" onclick="downloadReport('${r.id}')" style="padding:4px 10px;font-size:12px">Download PDF</button></td></tr>`).join('')+'</tbody></table>';
+      rows.map(r=>`<tr><td>${esc(r.audit_number||'—')}</td><td>${esc(hubName(r.hub_id))}</td><td>${esc(r.audit_date||'')}</td><td>${r.overall_score!=null?Math.round(r.overall_score):'—'}</td><td>${esc(r.rating||'—')}</td><td>${esc(r.status)}</td><td style="white-space:nowrap"><button class="btn btn-ghost" id="dl-${r.id}" onclick="downloadReport('${r.id}')" style="padding:4px 10px;font-size:12px">Download PDF</button>${(ME&&ME.can_edit_submitted)?` <button class="btn btn-ghost" onclick="editAudit('${r.id}')" style="padding:4px 10px;font-size:12px">Edit</button>`:''}</td></tr>`).join('')+'</tbody></table>';
   }catch(e){document.getElementById('recent').innerHTML='<span class="err">'+esc(e.message)+'</span>'}
 }
 
@@ -519,6 +519,7 @@ async function startAudit(hubId,draft,auditType){
   document.getElementById('view-audit').classList.remove('hidden');
   document.getElementById('au-hub').textContent=hub.name+' · '+hub.city+' · '+(STATE.auditType==='external'?'External Audit':'Internal Audit');
   document.getElementById('au-date').textContent=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  const sb0=document.getElementById('submit-btn'); if(sb0)sb0.textContent='Review & submit';
   window.scrollTo(0,0);
   // metrics
   const md=document.getElementById('metrics'); md.innerHTML='<span class="muted">Loading context…</span>';
@@ -538,6 +539,191 @@ async function startAudit(hubId,draft,auditType){
   saveDraft();
 }
 
+// ---- edit a submitted audit (can_edit_submitted users only) ----
+async function editAudit(auditId){
+  if(!ME||!ME.can_edit_submitted){toast('You do not have edit access.');return;}
+  let payload;
+  try{
+    payload=await api('rpc/get_audit_edit_payload',{method:'POST',body:JSON.stringify({p_audit_id:auditId})});
+  }catch(e){toast('Failed to load audit: '+e.message);return;}
+  const a=payload.audit;
+  const hub=HUBS.find(h=>h.id===a.hub_id);
+  if(!hub){toast('Hub not found for this audit.');return;}
+  const type=a.audit_type||'internal';
+  TEMPLATE=(type==='external')?TEMPLATE_FULL:TEMPLATE_FULL.map(s=>({...s,checkpoints:s.checkpoints.filter(c=>!c.is_external_only)})).filter(s=>!s.is_external_only);
+
+  const responses={};
+  (payload.responses||[]).forEach(r=>{
+    responses[r.checkpoint_id]={
+      _id:r.id,response:r.response,observation:r.observation||'',numeric_value:r.numeric_value,
+      count_provided:r.count_provided,count_available:r.count_available,
+      tags:(r.tag_ids||[]).slice(), _origTagIds:(r.tag_ids||[]).slice(),
+      photos:(r.photos||[]).map(p=>({id:p.id,path:p.path,capturedAt:null,lat:null,lng:null})),
+      _origPhotoIds:(r.photos||[]).map(p=>p.id)
+    };
+  });
+  const vehicleNg=(payload.vehicles||[]).map(v=>({
+    _id:v.id,vehicle_number:v.vehicle_number,ng_part:v.ng_part,observation:v.observation||'',
+    photos:(v.photos||[]).map(p=>({id:p.id,path:p.path,capturedAt:null,lat:null,lng:null})),
+    _origPhotoIds:(v.photos||[]).map(p=>p.id)
+  }));
+  const technicians=(payload.technicians||[]).map(t=>({_id:t.id,technician_name:t.technician_name,status:t.status,observation:t.observation||''}));
+
+  STATE={hub,auditType:type,localId:null,editingAuditId:auditId,
+    responses,technicians,vehicleNg,capa:[],
+    _origPayload:payload,
+    _origAckName:a.hub_incharge_name||'',_origAckChk:!!a.hub_incharge_ack,
+    _origVehicleIds:(payload.vehicles||[]).map(v=>v.id),
+    _origTechnicianIds:(payload.technicians||[]).map(t=>t.id)};
+  RFD_VEHICLES=[];
+  try{RFD_VEHICLES=await apiPublic('bike_fleet?select=reg_number&hub_name=eq.'+encodeURIComponent(hub.name)+'&status=eq.RFD&order=reg_number.asc');}catch(e){RFD_VEHICLES=[];}
+  STATE._collapsed=new Set();
+  STATE.hubPeople={};
+  try{(await api('auditors?select=id,name,role&is_active=eq.true&hub_id=eq.'+hub.id)).forEach(p=>{if(!STATE.hubPeople[p.role])STATE.hubPeople[p.role]={id:p.id,name:p.name};});}catch(e){}
+
+  document.getElementById('view-home').classList.add('hidden');
+  document.getElementById('view-audit').classList.remove('hidden');
+  document.getElementById('au-hub').textContent=hub.name+' · '+hub.city+' · EDITING SUBMITTED AUDIT'+(a.audit_number?(' · #'+a.audit_number):'');
+  document.getElementById('au-date').textContent='';
+  window.scrollTo(0,0);
+  const md=document.getElementById('metrics'); if(md)md.innerHTML='<span class="muted">Editing a submitted audit — live pre-audit metrics not shown.</span>';
+  renderSections();
+  recompute();
+  const oc=document.getElementById('overall-comments'); if(oc)oc.value=a.overall_comments||'';
+  toast('Editing submitted audit — changes will recalculate score on save.');
+  const sb=document.getElementById('submit-btn'); if(sb)sb.textContent='Review changes';
+}
+async function saveEditedAudit(){
+  const auditId=STATE.editingAuditId;
+  const err=document.getElementById('submit-err'); if(err)err.textContent='';
+  const btn=document.getElementById('rv-confirm')||document.getElementById('submit-btn');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    recompute();
+    const origPayload=STATE._origPayload;
+    const origRespByCp={}; if(origPayload)(origPayload.responses||[]).forEach(r=>{origRespByCp[r.checkpoint_id]=r.response;});
+
+    // 1) responses: update existing, insert new
+    for(const s of TEMPLATE){
+      for(const c of s.checkpoints){
+        const st=STATE.responses[c.id]; if(!st)continue;
+        const hasPhotos=st.photos&&st.photos.some(p=>p.path);
+        if(!st.response&&!hasPhotos)continue;
+        const body={response:st.response||'Not Checked',numeric_value:st.numeric_value,count_provided:st.count_provided,count_available:st.count_available,observation:st.observation||null};
+        if(st._id){
+          await api('audit_responses?id=eq.'+st._id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+        }else{
+          const saved=(await api('audit_responses',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(Object.assign({audit_id:auditId,checkpoint_id:c.id},body))}))[0];
+          st._id=saved.id; st._origTagIds=[]; st._origPhotoIds=[];
+        }
+        // tags: diff
+        const curTags=st.tags||[]; const origTags=st._origTagIds||[];
+        const toAddTags=curTags.filter(t=>origTags.indexOf(t)===-1);
+        const toRemoveTags=origTags.filter(t=>curTags.indexOf(t)===-1);
+        if(toRemoveTags.length){
+          for(const tid of toRemoveTags){await api('audit_response_tags?response_id=eq.'+st._id+'&checkpoint_tag_id=eq.'+tid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});}
+        }
+        if(toAddTags.length){await api('audit_response_tags',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(toAddTags.map(tid=>({response_id:st._id,checkpoint_tag_id:tid})))});}
+        // photos: diff by id
+        const curPhotoIds=(st.photos||[]).filter(p=>p.id).map(p=>p.id);
+        const origPhotoIds=st._origPhotoIds||[];
+        const removedPhotoIds=origPhotoIds.filter(id=>curPhotoIds.indexOf(id)===-1);
+        for(const pid of removedPhotoIds){
+          const origPhoto=(payloadPhotoLookup(origPayload,'response',st._id)||[]).find(p=>p.id===pid);
+          if(origPhoto&&origPhoto.path){try{await deleteStorageObject(origPhoto.path);}catch(e){}}
+          await api('audit_response_photos?id=eq.'+pid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+        }
+        const newPhotos=(st.photos||[]).filter(p=>!p.id&&p.path);
+        if(newPhotos.length){
+          await api('audit_response_photos',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(newPhotos.map(p=>({response_id:st._id,photo_url:p.path,captured_at:p.capturedAt,latitude:p.lat,longitude:p.lng,device_info:(navigator.userAgent||'').slice(0,200),upload_status:'uploaded'})))});
+        }
+      }
+    }
+    // 2) technicians: update existing, insert new, delete removed
+    const curTechIds=STATE.technicians.filter(t=>t._id).map(t=>t._id);
+    const removedTechIds=(STATE._origTechnicianIds||[]).filter(id=>curTechIds.indexOf(id)===-1);
+    for(const tid of removedTechIds){await api('technician_audit_entries?id=eq.'+tid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});}
+    for(const t of STATE.technicians){
+      if(!t.technician_name||!t.technician_name.trim())continue;
+      const body={technician_name:t.technician_name,status:t.status||null,observation:t.observation||null};
+      if(t._id)await api('technician_audit_entries?id=eq.'+t._id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+      else await api('technician_audit_entries',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(Object.assign({audit_id:auditId},body))});
+    }
+    // 3) vehicles: update existing, insert new, delete removed (incl. their photos)
+    const newCapas=[];
+    const curVehIds=STATE.vehicleNg.filter(v=>v._id).map(v=>v._id);
+    const removedVehIds=(STATE._origVehicleIds||[]).filter(id=>curVehIds.indexOf(id)===-1);
+    for(const vid of removedVehIds){
+      const origV=(origPayload&&origPayload.vehicles||[]).find(v=>v.id===vid);
+      if(origV&&origV.photos)for(const p of origV.photos){try{await deleteStorageObject(p.path);}catch(e){}}
+      await api('vehicle_ng_entries?id=eq.'+vid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    }
+    for(const v of STATE.vehicleNg){
+      if(!v.vehicle_number||!v.vehicle_number.trim())continue;
+      const body={vehicle_number:v.vehicle_number,ng_part:v.ng_part,observation:v.observation||null};
+      let vId=v._id; const wasNewVehicle=!vId;
+      if(vId)await api('vehicle_ng_entries?id=eq.'+vId,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(body)});
+      else{const saved=(await api('vehicle_ng_entries',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(Object.assign({audit_id:auditId},body))}))[0];vId=saved.id;v._id=vId;v._origPhotoIds=[];}
+      const curVPhotoIds=(v.photos||[]).filter(p=>p.id).map(p=>p.id);
+      const origVPhotoIds=v._origPhotoIds||[];
+      const removedVPhotoIds=origVPhotoIds.filter(id=>curVPhotoIds.indexOf(id)===-1);
+      for(const pid of removedVPhotoIds){
+        const origV=(origPayload&&origPayload.vehicles||[]).find(x=>x.id===v._id);
+        const origPhoto=origV&&origV.photos&&origV.photos.find(p=>p.id===pid);
+        if(origPhoto&&origPhoto.path){try{await deleteStorageObject(origPhoto.path);}catch(e){}}
+        await api('vehicle_ng_photos?id=eq.'+pid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+      }
+      const newVPhotos=(v.photos||[]).filter(p=>!p.id&&p.path);
+      if(newVPhotos.length){
+        await api('vehicle_ng_photos',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(newVPhotos.map(p=>({vehicle_ng_entry_id:vId,photo_url:p.path,captured_at:p.capturedAt,latitude:p.lat,longitude:p.lng,device_info:(navigator.userAgent||'').slice(0,200),upload_status:'uploaded'})))});
+      }
+      if(wasNewVehicle){
+        const or=rfdOwnerRole(); const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;
+        newCapas.push({audit_id:auditId,finding:'Vehicle '+v.vehicle_number+': '+v.ng_part+(v.observation?(' — '+v.observation):''),due_date:dueFor('Medium'),status:'Open',owner_role:or,owner_id:person?person.id:null,checkpoint_id:null,origin_photos:(v.photos||[]).filter(p=>p.path).map(p=>p.path)});
+      }
+    }
+    // 4) new CAPAs for checkpoints that newly became NG (were not NG before this edit)
+    for(const s of TEMPLATE){
+      for(const c of s.checkpoints){
+        const st=STATE.responses[c.id]; if(!st)continue;
+        const wasNg=origRespByCp[c.id]==='NG';
+        if(st.response==='NG'&&!wasNg){
+          const or=c.owner_role||null; const person=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;
+          newCapas.push({audit_id:auditId,finding:c.label+(st.observation?(' — '+st.observation):''),due_date:dueFor(c.severity),status:'Open',owner_role:or,owner_id:person?person.id:null,checkpoint_id:c.id,origin_photos:(st.photos||[]).filter(p=>p.path).map(p=>p.path)});
+        }
+      }
+    }
+    if(newCapas.length)await api('capa_items',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(newCapas)});
+
+    // 5) recompute + patch audits row
+    recompute();
+    await api('audits?id=eq.'+auditId,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({
+      overall_score:STATE._score,rating:STATE._rating,risk_score:STATE._risk,risk_band:STATE._riskBand,
+      overall_comments:(document.getElementById('overall-comments')||{}).value||null,
+      hub_incharge_ack:!!(document.getElementById('ack-chk')||{}).checked,
+      hub_incharge_name:(document.getElementById('ack-name')||{}).value||null
+    })});
+
+    // 6) log the edit
+    try{await api('audit_events',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({event_type:'edited_post_submission',actor_id:ME.id,related_audit_id:auditId,details:{new_capas:newCapas.length,new_score:STATE._score,new_rating:STATE._rating,new_risk_band:STATE._riskBand}})});}catch(e){}
+
+    toast('Changes saved ✓');
+    const rv=document.getElementById('rv-modal'); if(rv)rv.classList.remove('show');
+    goHome(); loadRecent();
+  }catch(e){
+    if(err)err.textContent='Save failed: '+e.message; else toast('Save failed: '+e.message);
+  }
+  if(btn){btn.disabled=false;btn.textContent='Confirm & save changes';}
+}
+function payloadPhotoLookup(origPayload,kind,respId){
+  if(!origPayload)return [];
+  const r=(origPayload.responses||[]).find(x=>x.id===respId);
+  return r?r.photos:[];
+}
+async function deleteStorageObject(path){
+  await ensureToken();
+  await fetch(SB_URL+'/storage/v1/object/hub-audit-photos/'+path,{method:'DELETE',headers:{'apikey':ANON,'Authorization':'Bearer '+token()}});
+}
 function renderSections(){
   const wrap=document.getElementById('sections'); wrap.innerHTML='';
   TEMPLATE.forEach((s,i)=>{
@@ -650,7 +836,7 @@ function wireVehicle(){
 }
 function renderTech(){
   const l=document.getElementById('tech-list');
-  l.innerHTML=STATE.technicians.map((t,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Technician</label><input value="${esc(t.technician_name)}" oninput="STATE.technicians[${i}].technician_name=this.value"></div><div style="width:160px"><label>Status</label><select onchange="STATE.technicians[${i}].status=this.value"><option value="">—</option><option${t.status==='Competent'?' selected':''}>Competent</option><option${t.status==='Needs Training'?' selected':''}>Needs Training</option></select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.technicians[${i}].observation=this.value">${esc(t.observation)}</textarea></div></div>`).join('');
+  l.innerHTML=STATE.technicians.map((t,i)=>`<div class="entry"><div class="row"><div style="flex:1"><label>Technician</label><input value="${esc(t.technician_name)}" oninput="STATE.technicians[${i}].technician_name=this.value"></div><div style="width:160px"><label>Status</label><select onchange="STATE.technicians[${i}].status=this.value"><option value="">—</option><option${t.status==='Competent'?' selected':''}>Competent</option><option${t.status==='Needs Training'?' selected':''}>Needs Training</option></select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.technicians[${i}].observation=this.value">${esc(t.observation)}</textarea></div><div style="margin-top:6px;text-align:right"><a href="#" onclick="STATE.technicians.splice(${i},1);renderTech();return false;" style="color:#dc2626;font-size:12px">✕ Remove</a></div></div>`).join('');
 }
 function renderVeh(){
   const parts=['Structural damage','Electrical fault','Missing part','Oil leak','No number plate','Side stand welding'];
@@ -664,7 +850,7 @@ function renderVeh(){
       +'<option value="__manual__"'+(isManual?' selected':'')+'>Vehicle not listed? Enter manually</option>'
       +'</select>'
       +'<input data-vmanual="'+i+'" style="margin-top:6px'+(isManual?'':';display:none')+'" placeholder="Enter vehicle number" value="'+esc(isManual?v.vehicle_number:'')+'" oninput="STATE.vehicleNg['+i+'].vehicle_number=this.value">';
-    return '<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label>'+selectHtml+'</div><div style="width:180px"><label>Part</label><select onchange="STATE.vehicleNg['+i+'].ng_part=this.value">'+parts.map(p=>'<option'+(v.ng_part===p?' selected':'')+'>'+p+'</option>').join('')+'</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg['+i+'].observation=this.value">'+esc(v.observation)+'</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="'+i+'">📷 Photo</button><span class="thumbs" data-vthumb="'+i+'"></span></div></div>';
+    return '<div class="entry"><div class="row"><div style="flex:1"><label>Vehicle number</label>'+selectHtml+'</div><div style="width:180px"><label>Part</label><select onchange="STATE.vehicleNg['+i+'].ng_part=this.value">'+parts.map(p=>'<option'+(v.ng_part===p?' selected':'')+'>'+p+'</option>').join('')+'</select></div></div><div style="margin-top:8px"><textarea placeholder="Observation" oninput="STATE.vehicleNg['+i+'].observation=this.value">'+esc(v.observation)+'</textarea></div><div class="photorow"><button type="button" class="photo-btn" data-vphoto="'+i+'">📷 Photo</button><span class="thumbs" data-vthumb="'+i+'"></span></div><div style="margin-top:6px;text-align:right"><a href="#" onclick="STATE.vehicleNg.splice('+i+',1);renderVeh();recompute();return false;" style="color:#dc2626;font-size:12px">✕ Remove</a></div></div>';
   }).join('');
   STATE.vehicleNg.forEach((v,i)=>{if(!v.photos)v.photos=[];const b=l.querySelector('[data-vphoto="'+i+'"]'),th=l.querySelector('[data-vthumb="'+i+'"]');attachPhoto(b,th,v.photos,'veh/'+i);renderThumbs(th,v.photos);});
 }
@@ -753,27 +939,37 @@ function openReview(){
     secRows.push({name:s.name,ok:so,ng:sn});
   });
   const autoCapas=[];
-  TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){const or=c.owner_role;const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:c.label,owner:p?p.name:roleLabel(or),due:dueFor(c.severity)});}}));
-  STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{const or=rfdOwnerRole();const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:'Vehicle '+v.vehicle_number+': '+v.ng_part,owner:p?p.name:roleLabel(or),due:dueFor('Medium')});});
+  TEMPLATE.forEach(s=>s.checkpoints.forEach(c=>{const st=STATE.responses[c.id];if(st&&st.response==='NG'){
+    if(STATE.editingAuditId){const orig=(STATE._origPayload.responses||[]).find(r=>r.checkpoint_id===c.id);if(orig&&orig.response==='NG')return;}
+    const or=c.owner_role;const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:c.label,owner:p?p.name:roleLabel(or),due:dueFor(c.severity)});
+  }}));
+  STATE.vehicleNg.filter(v=>v.vehicle_number&&v.vehicle_number.trim()).forEach(v=>{
+    if(STATE.editingAuditId&&v._id)return; // existing vehicle entries already have their original CAPA
+    const or=rfdOwnerRole();const p=(or&&STATE.hubPeople)?STATE.hubPeople[or]:null;autoCapas.push({finding:'Vehicle '+v.vehicle_number+': '+v.ng_part,owner:p?p.name:roleLabel(or),due:dueFor('Medium')});
+  });
   const blocking=issues.length>0;
   const card=document.getElementById('rv-card');
-  card.innerHTML=`<div class="between"><b>Review &amp; submit</b><button class="btn btn-ghost" id="rv-close">Close</button></div>
+  card.innerHTML=`<div class="between"><b>${STATE.editingAuditId?'Review changes':'Review &amp; submit'}</b><button class="btn btn-ghost" id="rv-close">Close</button></div>
     <div class="row" style="gap:18px;margin:12px 0"><div><div class="score-num">${STATE._score||0}</div><div class="l muted">Score</div></div>
       <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._rating||'—')}</span><div class="l muted" style="margin-top:4px">Rating</div></div>
       <div><span class="pill" style="background:#334155;color:#fff">${esc(STATE._riskBand||'—')} (${STATE._risk||0})</span><div class="l muted" style="margin-top:4px">Risk</div></div></div>
     <div class="cp-label">Sections</div>
     <table><tbody>${secRows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:right">${r.ok} OK · ${r.ng} Issue</td></tr>`).join('')}</tbody></table>
-    <div class="cp-label" style="margin-top:14px">CAPAs to be created (${autoCapas.length})</div>
-    ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No NGs — no CAPAs needed.</div>'}
+    <div class="cp-label" style="margin-top:14px">${STATE.editingAuditId?'New CAPAs to be created':'CAPAs to be created'} (${autoCapas.length})</div>
+    ${autoCapas.length?autoCapas.map(x=>`<div class="rv-issue"><span>${esc(x.finding)}</span><span style="white-space:nowrap">${esc(x.owner)} · due ${esc(x.due)}</span></div>`).join(''):'<div class="sub">No new Issues — no new CAPAs needed.</div>'}
     <div class="cp-label" style="margin-top:14px">Acknowledgement</div>
     <label style="font-size:12px;color:var(--muted);font-weight:600">Hub Manager name</label>
     <input id="ack-name" placeholder="Name of hub manager present">
     <label class="row" style="margin-top:8px;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="ack-chk" style="width:auto"> Hub Manager has reviewed and acknowledges this audit</label>
-    <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>Confirm &amp; submit</button>
+    <button class="btn btn-primary" id="rv-confirm" style="width:100%;margin-top:14px" ${blocking?'disabled':''}>${STATE.editingAuditId?'Confirm &amp; save changes':'Confirm &amp; submit'}</button>
     ${blocking?'<div class="sub" style="text-align:center;margin-top:6px">Resolve the ⚠ items to enable submit</div>':''}`;
   document.getElementById('rv-modal').classList.add('show');
+  if(STATE.editingAuditId){
+    const an=document.getElementById('ack-name'); if(an)an.value=STATE._origAckName||'';
+    const ac=document.getElementById('ack-chk'); if(ac)ac.checked=!!STATE._origAckChk;
+  }
   document.getElementById('rv-close').onclick=()=>document.getElementById('rv-modal').classList.remove('show');
-  const cf=document.getElementById('rv-confirm'); if(cf&&!blocking)cf.onclick=()=>{document.getElementById('rv-modal').classList.remove('show');submitAudit();};
+  const cf=document.getElementById('rv-confirm'); if(cf&&!blocking)cf.onclick=()=>{document.getElementById('rv-modal').classList.remove('show');if(STATE.editingAuditId)saveEditedAudit();else submitAudit();};
 }
 // submit
 async function submitAudit(){
