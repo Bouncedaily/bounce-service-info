@@ -7,7 +7,7 @@
 // than failing outright. Static assets (icons, manifest) are cached
 // normally since they rarely change.
 
-const CACHE_VERSION = 'hub-audit-v1';
+const CACHE_VERSION = 'hub-audit-v2';
 const SHELL_URLS = [
   './hub-audit.html',
   './manifest.webmanifest',
@@ -45,8 +45,12 @@ self.addEventListener('fetch', (event) => {
 
   // App shell (this HTML page, manifest, icons): try network first so
   // updates land immediately; fall back to cache only if offline.
+  // IMPORTANT: cache:'no-store' bypasses the browser's own HTTP cache and
+  // any CDN edge cache — a plain fetch() can still be satisfied from those
+  // layers even though this handler is "network-first" in intent, which
+  // would silently serve a stale deploy despite this being the live logic.
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-store' })
       .then((res) => {
         if (res && res.ok) {
           const copy = res.clone();
