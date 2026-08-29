@@ -385,20 +385,24 @@ window.openAudit=async function(auditId){
     resp.forEach(function(r,i){var sec=r._sec.name;if(sec!==curSec){curSec=sec;html+='<div style="font-weight:700;margin:10px 0 4px">'+esc(sec)+'</div>';}
       var rv=r.response;var col=rv==='OK'?'#16a34a':(rv==='NG'?'#dc2626':'#94a3b8');var lbl=rv==='NG'?'Issue':(rv||'—');
       var tg=tagBy[r.id]||[];var ph=photoBy[r.id]||[];
+      var isVehQ=/any issue is observed/i.test(r._label||'');
       html+='<div class="rrow"><div><span class="pill" style="background:'+col+';color:#fff">'+esc(lbl)+'</span> '+esc(r._label)+'</div>'+
         (tg.length?'<div class="sub">'+tg.map(esc).join(', ')+'</div>':'')+
         (r.observation?'<div class="sub">“'+esc(r.observation)+'”</div>':'')+
-        (ph.length?'<div class="thumbs" id="rp-'+i+'"></div>':'')+'</div>';
+        (ph.length?'<div class="thumbs" id="rp-'+i+'"></div>':'');
+      if(isVehQ&&vehicles.length){
+        html+='<div style="margin-top:8px;padding:8px 10px;background:#fafbfe;border:1px solid var(--border);border-radius:8px">'+
+          '<div class="sub" style="font-weight:700;margin-bottom:4px">Vehicle-Level Issues</div>'+
+          vehicles.map(function(v,vi){
+            var vph=vphotoBy[v.id]||[];
+            return '<div style="padding:6px 0;border-top:'+(vi>0?'1px solid #f1f4f9':'none')+'"><b>'+esc(v.vehicle_number||'—')+'</b>'+(v.ng_part?' · '+esc(v.ng_part):'')+
+              (v.observation?'<div class="sub">“'+esc(v.observation)+'”</div>':'')+
+              (vph.length?'<div class="thumbs" id="vp-'+vi+'"></div>':'')+'</div>';
+          }).join('')+
+          '</div>';
+      }
+      html+='</div>';
     });
-    if(vehicles.length){
-      html+='<div style="font-weight:700;margin:16px 0 6px">Vehicle-Level Issues</div>';
-      vehicles.forEach(function(v,i){
-        var vph=vphotoBy[v.id]||[];
-        html+='<div class="rrow"><div><b>'+esc(v.vehicle_number||'—')+'</b>'+(v.ng_part?' · '+esc(v.ng_part):'')+'</div>'+
-          (v.observation?'<div class="sub">“'+esc(v.observation)+'”</div>':'')+
-          (vph.length?'<div class="thumbs" id="vp-'+i+'"></div>':'')+'</div>';
-      });
-    }
     card.innerHTML=html;
     resp.forEach(function(r,i){var ph=photoBy[r.id]||[];if(ph.length)loadImgs('rp-'+i,ph);});
     vehicles.forEach(function(v,i){var vph=vphotoBy[v.id]||[];if(vph.length)loadImgs('vp-'+i,vph);});
