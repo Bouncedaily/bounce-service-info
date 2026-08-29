@@ -455,7 +455,7 @@ function buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap){
 async function downloadReport(auditId){
   const btn=document.getElementById('dl-'+auditId);
   if(btn){btn.disabled=true;btn.textContent='Preparing…';}
-  let container=null;
+  let wrapper=null;
   try{
     const data=await api('rpc/get_audit_report_payload',{method:'POST',body:JSON.stringify({p_audit_id:auditId})});
     const audit=data.audit,sections=data.sections||[],technicians=data.technicians||[],vehicles=data.vehicles||[],capas=data.capas||[];
@@ -474,10 +474,13 @@ async function downloadReport(auditId){
 
     if(btn)btn.textContent='Rendering…';
     const html=buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap);
-    container=document.createElement('div');
-    container.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;';
+    wrapper=document.createElement('div');
+    wrapper.style.cssText='position:absolute;top:0;left:0;width:0;height:0;overflow:hidden;';
+    const container=document.createElement('div');
+    container.style.cssText='width:760px;background:#fff;';
     container.innerHTML=html;
-    document.body.appendChild(container);
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
 
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF('p','pt','a4');
@@ -494,7 +497,7 @@ async function downloadReport(auditId){
   }catch(e){
     toast('Failed to generate report: '+e.message);
   }finally{
-    if(container&&container.parentNode)container.parentNode.removeChild(container);
+    if(wrapper&&wrapper.parentNode)wrapper.parentNode.removeChild(wrapper);
     if(btn){btn.disabled=false;btn.textContent='Download PDF';}
   }
 }
