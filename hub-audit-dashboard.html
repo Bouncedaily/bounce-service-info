@@ -361,11 +361,18 @@ window.openAudit=async function(auditId){
     var secs=await api('audit_sections?select=id,name,sort_order');
     var secById={}; secs.forEach(function(x){secById[x.id]=x;});
     var ids=resp.map(function(r){return r.id;});
-    var photos=[],tags=[];
+    var photos=[],tags=[],vehicles=[],vphotos=[];
     if(ids.length){
       try{photos=await api('audit_response_photos?select=response_id,photo_url&response_id=in.('+ids.join(',')+')');}catch(e){}
       try{tags=await api('audit_response_tags?select=response_id,checkpoint_tag:checkpoint_tag_id(tag_label)&response_id=in.('+ids.join(',')+')');}catch(e){}
     }
+    try{vehicles=await api('vehicle_ng_entries?select=id,vehicle_number,ng_part,observation&audit_id=eq.'+auditId);}catch(e){}
+    var vids=vehicles.map(function(v){return v.id;});
+    if(vids.length){
+      try{vphotos=await api('vehicle_ng_photos?select=vehicle_ng_entry_id,photo_url&vehicle_ng_entry_id=in.('+vids.join(',')+')');}catch(e){}
+    }
+    var vphotoBy={};
+    vphotos.forEach(function(p){(vphotoBy[p.vehicle_ng_entry_id]=vphotoBy[p.vehicle_ng_entry_id]||[]).push(p.photo_url);});
     var photoBy={},tagBy={};
     photos.forEach(function(p){(photoBy[p.response_id]=photoBy[p.response_id]||[]).push(p.photo_url);});
     tags.forEach(function(t){(tagBy[t.response_id]=tagBy[t.response_id]||[]).push(t.checkpoint_tag&&t.checkpoint_tag.tag_label);});
@@ -383,8 +390,18 @@ window.openAudit=async function(auditId){
         (r.observation?'<div class="sub">“'+esc(r.observation)+'”</div>':'')+
         (ph.length?'<div class="thumbs" id="rp-'+i+'"></div>':'')+'</div>';
     });
+    if(vehicles.length){
+      html+='<div style="font-weight:700;margin:16px 0 6px">Vehicle-Level Issues</div>';
+      vehicles.forEach(function(v,i){
+        var vph=vphotoBy[v.id]||[];
+        html+='<div class="rrow"><div><b>'+esc(v.vehicle_number||'—')+'</b>'+(v.ng_part?' · '+esc(v.ng_part):'')+'</div>'+
+          (v.observation?'<div class="sub">“'+esc(v.observation)+'”</div>':'')+
+          (vph.length?'<div class="thumbs" id="vp-'+i+'"></div>':'')+'</div>';
+      });
+    }
     card.innerHTML=html;
     resp.forEach(function(r,i){var ph=photoBy[r.id]||[];if(ph.length)loadImgs('rp-'+i,ph);});
+    vehicles.forEach(function(v,i){var vph=vphotoBy[v.id]||[];if(vph.length)loadImgs('vp-'+i,vph);});
   }catch(e){card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="err">'+esc(e.message)+'</div>';}
 };
 load();
