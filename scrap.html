@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Scrap Management — Bounce Service Info</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
   <script src="auth-guard.js?v=1780722254"></script>
   <style>
@@ -27,7 +28,7 @@
     .fg select:focus, .fg input:focus { border-color: var(--red); }
     .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
 
-    .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-bottom: 20px; }
     .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
     .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
     .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
@@ -58,18 +59,80 @@
     .status-Closed { background: #e5e7eb; color: #374151; }
 
     .aging-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; width:100%; min-width:120px; }
+    .cat-toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+    .cat-toggle i { font-size: 13px; color: var(--muted); transition: transform .15s; }
+    .cat-toggle i.open { transform: rotate(90deg); }
+
+    .action-menu { position: relative; display: inline-block; }
+    .action-menu summary { list-style: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; color: var(--muted); border: 1px solid var(--border2); background: var(--card); }
+    .action-menu summary::-webkit-details-marker { display: none; }
+    .action-menu summary:hover { background: var(--surface-1, #f8fafc); color: var(--text); }
+    .action-menu[open] summary { background: var(--surface-1, #f8fafc); }
+    .action-menu-items { position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 170px; z-index: 30; padding: 4px; display: flex; flex-direction: column; }
+    .action-menu-items button, .action-menu-items a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); cursor: pointer; text-decoration: none; white-space: nowrap; }
+    .action-menu-items button:hover, .action-menu-items a:hover { background: var(--surface-1, #f8fafc); }
+    .action-menu-items button.danger { color: #dc2626; }
+    .action-menu-items button.danger:hover { background: #fef2f2; }
+    tr.batch-sub-row td { border-top: none; background: var(--bg); }
+
+    #s-rows-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #s-rows-table th { text-align: right; padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    #s-rows-table th:first-child, #s-rows-table th:nth-child(2) { text-align: left; }
+    #s-rows-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: middle; }
+    #s-rows-table td:first-child, #s-rows-table td:nth-child(2) { text-align: left; }
+    #s-rows-table tr:last-child td { border-bottom: none; }
+    #s-rows-table input[type=number] { width: 90px; text-align: right; padding: 5px 7px; font-size: 12px; border: 1px solid var(--border2); border-radius: 6px; background: var(--card); color: var(--text); font-family: inherit; }
+    #s-rows-table input[type=file] { width: 130px; font-size: 10px; }
+    #s-rows-table .row-syscalc { color: var(--muted); font-size: 11px; }
+    input.variance-flag, textarea.variance-flag { border-color: #dc2626 !important; color: #dc2626 !important; background: #fef2f2 !important; }
+    input.variance-flag::placeholder, textarea.variance-flag::placeholder { color: #f87171; }
+
+    /* Refurb funnel (merged from Parts Tracker) — scoped to .pt-panel to avoid clashing with existing table/input styling elsewhere on this page */
+    .pt-panel table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    .pt-panel th { text-align: right; padding: 10px 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: normal; word-break: break-word; line-height: 1.3; vertical-align: bottom; }
+    .pt-panel th:first-child { text-align: left; width: 15%; }
+    .pt-panel td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); text-align: right; }
+    .pt-panel td:first-child { text-align: left; color: var(--text); }
+    .pt-panel tr:last-child td { border-bottom: none; }
+    .pt-panel td input { width: 64px; text-align: right; padding: 4px 6px; font-size: 12px; border: 1px solid var(--border2); border-radius: 6px; background: var(--card); color: var(--text); font-family: inherit; outline: none; }
+    .pt-panel td input:focus { border-color: var(--red); }
+    .pt-panel td input.flag { border-color: var(--red); }
+    .pt-panel .flag-icon { color: var(--red); margin-right: 4px; }
+    .pt-panel .flag-cell { color: var(--red); font-weight: 600; }
+    .pt-panel .muted-cell { color: var(--muted); }
+    .pt-panel .edit-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+    .pt-panel .edit-badge.on { color: var(--green); }
+    .pt-panel .part-cell { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .pt-panel .part-cell:hover { color: var(--red); }
+    .pt-panel .part-cell i { font-size: 13px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+    .pt-panel tr.expanded .part-cell i { transform: rotate(90deg); }
+    .pt-panel .drill-row td { padding: 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .pt-panel .drill-wrap { padding: 10px 10px 12px 34px; }
+    .pt-panel .drill-hint { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .pt-panel .drill-table { width: 100%; font-size: 11px; }
+    .pt-panel .drill-table th { padding: 5px 8px; font-size: 9px; }
+    .pt-panel .drill-table th:first-child { width: 40%; }
+    .pt-panel .drill-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+    .pt-panel .drill-table tr:last-child td { border-bottom: none; }
+    .pt-panel .drill-table input { width: 56px; }
+    .pt-panel .save-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
     .aging-seg1 { background:#16a34a; } .aging-seg2 { background:#d97706; } .aging-seg3 { background:#ea580c; } .aging-seg4 { background:#dc2626; }
     .warn-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412; display: flex; align-items: flex-start; gap: 8px; }
+    tr.cat-row { cursor: pointer; }
+    tr.cat-row:hover { background: var(--surface-1, #f8fafc); }
+    .ov { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; padding: 36px 20px; overflow-y: auto; }
+    .ov.on { display: flex; }
+    .dpanel { background: #fff; border-radius: 12px; max-width: 700px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); overflow: hidden; }
+    .dhd { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .dhd h3 { margin: 0; font-size: 14px; font-weight: 700; }
+    .dsub { font-size: 11px; color: var(--muted); }
+    .dclose { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--muted); }
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="page-title"><i class="ti ti-recycle"></i> Scrap Management</div>
-  <div class="page-sub">Scrap is auto-generated from job card parts (Wear &amp; Tear, Rider Payable, and unclassified) — excludes Warranty, Refurb, and parts under ₹10/unit. No manual counting. Log a vendor sale when a pickup happens.</div>
-  <div class="warn-box" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">
-    <i class="ti ti-info-circle" style="margin-top:2px"></i>
-    <div><b>Scope expanded on 21 Aug 2026</b> — scrap tracking now covers all eligible parts, not just the previous curated list of ~13 categories. Generated volumes and KPI totals will look larger from this date onward; this reflects the new scope, not a data issue.</div>
-  </div>
+  <div class="page-sub">Scrap is auto-generated from Wear &amp; Tear part replacements — no manual counting. Log a vendor sale when a pickup happens.</div>
 
   <div class="ctl-bar">
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
@@ -95,10 +158,11 @@
     <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div></div>
     <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue</div><div class="kv" id="kvRevenue">—</div></div>
     <div class="kpi"><div class="kl"><i class="ti ti-alert-triangle"></i> Categories with Pending Scrap</div><div class="kv" id="kvPending">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Pending Finance Approval</div><div class="kv" id="kvPendingAck">—</div></div>
   </div>
 
   <div class="panel">
-    <h3>By Category — Generated / Sold / Pending / Revenue
+    <h3>By Category — Generated / Sold / Pending / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
     </h3>
     <div style="overflow-x:auto">
@@ -109,48 +173,142 @@
     </div>
   </div>
 
-  <div class="panel">
-    <h3>Scrap Aging (days since generated, still pending)</h3>
-    <div style="overflow-x:auto">
-    <table>
-      <thead><tr><th>Category</th><th class="num">0-15d</th><th class="num">16-30d</th><th class="num">31-60d</th><th class="num">60+d</th><th>Distribution</th></tr></thead>
-      <tbody id="agingBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
-    </table>
+  <div class="panel" style="padding:16px">
+    <h3><i class="ti ti-recycle"></i> Refurb — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <div class="pt-panel" data-pipeline-type="Refurb">
+      <div class="edit-badge" id="pt-editBadge-Refurb"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Part</th><th>System Consumed</th><th>Actual available in Hub</th>
+            <th>Sent to RPDC</th><th>Sent to vendor</th><th>Refurbed</th><th>Rejected</th>
+            <th>Refurbed part Received at RPDC</th><th>Rejected part Received at RPDC</th><th>Refurb %</th>
+          </tr></thead>
+          <tbody id="pt-rowsBody-Refurb"></tbody>
+        </table>
+      </div>
+      <div class="save-row" id="pt-saveRow-Refurb" style="display:none;">
+        <button class="btn" onclick="ptSaveAll('Refurb')">Save</button>
+        <span class="save-msg" id="pt-saveMsg-Refurb">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:16px">
+    <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <div class="pt-panel" data-pipeline-type="Tyre">
+      <div class="edit-badge" id="pt-editBadge-Tyre"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Part</th><th>System Consumed</th><th>Actual available in Hub</th>
+            <th>Sent to RPDC</th><th>Sent to vendor</th><th>Refurbed</th><th>Rejected</th>
+            <th>Refurbed part Received at RPDC</th><th>Rejected part Received at RPDC</th><th>Refurb %</th>
+          </tr></thead>
+          <tbody id="pt-rowsBody-Tyre"></tbody>
+        </table>
+      </div>
+      <div class="save-row" id="pt-saveRow-Tyre" style="display:none;">
+        <button class="btn" onclick="ptSaveAll('Tyre')">Save</button>
+        <span class="save-msg" id="pt-saveMsg-Tyre">Saved ✓</span>
+      </div>
     </div>
   </div>
 
   <div class="panel">
-    <h3>Create Scrap Sale</h3>
+
+    <h3>Create Scrap / Refurb Movement
+      <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button></span>
+    </h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
     <div class="sale-form">
-      <div class="fg"><label>Hub</label><input type="text" id="s-hub" placeholder="Hub name"></div>
+      <div class="fg"><label>Type</label>
+        <select id="s-type" onchange="onTypeChange()"><option value="Scrap">Scrap</option><option value="Tyre">Tyre</option><option value="Refurb">Refurb</option></select>
+      </div>
       <div class="fg"><label>City</label>
-        <select id="s-city"><option value="">—</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
+        <select id="s-city" onchange="onMovementCityChange()"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
       </div>
-      <div class="fg"><label>Category</label><select id="s-category" onchange="onCategoryChange()"></select></div>
-      <div class="fg"><label>Vendor</label>
-        <select id="s-vendor"><option value="">— select or add below —</option></select>
-      </div>
+      <div class="fg"><label>Hub</label><select id="s-hub" onchange="renderMovementRows()"><option value="">— select —</option></select></div>
+      <div class="fg"><label>Period From</label><input type="date" id="s-period-from-display" onchange="renderMovementRows()"></div>
+      <div class="fg"><label>Period To</label><input type="date" id="s-period-to-display" onchange="renderMovementRows()"></div>
       <div class="fg"><label>Pickup Date</label><input type="date" id="s-date"></div>
-      <div class="fg"><label id="s-qty-label">Weight (kg)</label><input type="number" id="s-qty" step="0.01"></div>
-      <div class="fg"><label>Rate (₹/unit)</label><input type="number" id="s-rate" step="0.01"></div>
-      <div class="fg"><label>Payment Mode</label><input type="text" id="s-payment" placeholder="e.g. NEFT, Cash"></div>
-      <div class="fg"><label>Invoice / Ref</label><input type="text" id="s-invoice"></div>
-      <button class="btn" onclick="createSale()">Save Sale</button>
+      <div class="fg"><label>Vendor</label>
+        <select id="s-vendor" onchange="onVendorChangeBulk()"><option value="">— select or add via Manage Vendors —</option></select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="s-rows-table">
+        <thead id="s-rows-thead"></thead>
+        <tbody id="s-rows-tbody"><tr><td class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="s-grand-total" style="display:none;font-size:14px;font-weight:700;margin-top:10px;padding:8px 12px;background:#fef2f2;border-radius:8px">Grand Total: ₹0</div>
+    <button class="btn" style="margin-top:12px" onclick="createBatch()"><i class="ti ti-file-download"></i> Save &amp; Download PDF</button>
       <span class="save-msg" id="saveMsg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      New vendor? <input type="text" id="new-vendor-name" placeholder="Vendor name" style="width:160px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px">
-      <button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="addVendor()">Add Vendor</button>
-    </div>
   </div>
 
   <div class="panel">
-    <h3>Recent Scrap Sales</h3>
+    <h3>Recent Movements</h3>
     <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
     <table>
-      <thead><tr><th>Date</th><th>Hub</th><th>Category</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th></tr></thead>
-      <tbody id="salesBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
+      <tbody id="salesBody"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
     </table>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="cat-ov" onclick="if(event.target===this)closeCatDrill()">
+  <div class="dpanel">
+    <div class="dhd">
+      <div><h3 id="cat-drill-title">—</h3><div class="dsub" id="cat-drill-sub"></div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn secondary" style="padding:6px 12px;font-size:11.5px" onclick="exportCatDrillCSV()">⬇ CSV</button>
+        <button class="dclose" onclick="closeCatDrill()">✕</button>
+      </div>
+    </div>
+    <div id="cat-drill-body" style="max-height:70vh;overflow-y:auto">
+      <table>
+        <thead><tr><th>Part Name</th><th class="num">Qty Generated</th><th class="num">Value Generated (₹)</th><th class="num">JCs</th><th class="num">Per Qty Weight (kg)</th><th class="num">Total Weight (kg)</th></tr></thead>
+        <tbody id="cat-drill-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="edit-mv-ov" onclick="if(event.target===this)closeEditMovement()">
+  <div class="dpanel" style="max-width:480px">
+    <div class="dhd">
+      <div><h3>Edit Movement</h3><div class="dsub" id="edit-mv-sub"></div></div>
+      <button class="dclose" onclick="closeEditMovement()">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div class="fg"><label id="edit-mv-qty-label">Actual Qty (nos)</label><input type="number" id="edit-mv-qty" step="1" style="width:100%" oninput="checkEditVariance()"></div>
+      <div class="fg" id="edit-mv-weight-wrap"><label>Actual Weight (kg)</label><input type="number" id="edit-mv-weight" step="0.01" style="width:100%" oninput="checkEditVariance()"></div>
+      <div class="fg" id="edit-mv-rate-wrap"><label>Rate (₹/unit)</label><input type="number" id="edit-mv-rate" step="0.01" style="width:100%"></div>
+      <div class="fg"><label>Remarks (required if Actual is more than 10% below System Calculated)</label><textarea id="edit-mv-remark" rows="2" oninput="this.classList.toggle('variance-flag', false)" style="width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px"></textarea></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" onclick="saveEditedMovement()">Save Changes</button>
+        <span class="save-msg" id="edit-mv-msg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="vendor-ov" onclick="if(event.target===this)closeVendorManager()">
+  <div class="dpanel" style="max-width:840px">
+    <div class="dhd">
+      <div><h3>Manage Vendors</h3><div class="dsub">Add vendors and set their rate card (₹ per category)</div></div>
+      <button class="dclose" onclick="closeVendorManager()">✕</button>
+    </div>
+    <div style="max-height:70vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <div class="fg"><label>Vendor Name</label><input type="text" id="v-name" style="width:160px"></div>
+        <div class="fg"><label>Contact Number</label><input type="text" id="v-contact" style="width:130px"></div>
+        <div class="fg"><label>GST Number</label><input type="text" id="v-gst" style="width:150px"></div>
+        <button class="btn" onclick="addVendorFull()">Add Vendor</button>
+      </div>
+      <div id="vendor-list-body"><div class="empty">Loading…</div></div>
     </div>
   </div>
 </div>
@@ -161,6 +319,24 @@ const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON };
 
 let CATEGORIES = [];
+
+// NOTE (2026-08-25): window.authGetEmail was referenced throughout this file
+// (and the original Parts Tracker source it was merged from) but never
+// actually defined anywhere -- there was no bridge injecting it into this
+// iframe. It always silently evaluated to '' / 'unknown', meaning edit
+// permission checks and created_by/updated_by audit fields never worked
+// correctly. The real session lives in the parent SPA's localStorage under
+// 'sb_session' ({ email, role, permissions, ... }); since this dashboard
+// runs via an unsandboxed <iframe srcdoc>, it shares the parent's origin and
+// can read that same localStorage directly -- no bridge needed at all.
+function getCurrentUser() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (!sess.access_token || (sess.expires_at && sess.expires_at < Date.now())) return { email: '', role: '' };
+    return { email: sess.email || '', role: sess.role || '' };
+  } catch (e) { return { email: '', role: '' }; }
+}
+let REFURB_PARTS = [];
 let VENDORS = [];
 let SUMMARY = null;
 let _hadFailure = false;
@@ -186,48 +362,371 @@ async function rpc(name, body, attempt) {
   } catch (e) { console.error(name,'network error',e); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
 }
 
+let ALL_HUBS = [];
+
 async function loadHubs() {
   const hubs = await rpc('get_distinct_hubs', {});
+  ALL_HUBS = hubs || [];
   const sel = document.getElementById('f-hub');
-  (hubs || []).forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+  ALL_HUBS.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+  const sHub = document.getElementById('s-hub');
+  ALL_HUBS.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sHub.appendChild(o); });
 }
 
 async function loadCategories() {
   CATEGORIES = await sbGet('scrap_categories?select=*&order=category.asc');
-  const sel = document.getElementById('s-category');
-  sel.innerHTML = CATEGORIES.map(c => `<option value="${c.category}" data-unit="${c.unit}" data-tracking="${c.tracking_type}" data-rate="${c.reference_rate||''}">${c.category} (${c.unit})</option>`).join('');
-  onCategoryChange();
 }
 
-function onCategoryChange() {
-  const sel = document.getElementById('s-category');
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
-  const unit = opt.getAttribute('data-unit');
-  const rate = opt.getAttribute('data-rate');
-  document.getElementById('s-qty-label').textContent = unit === 'kg' ? 'Weight (kg)' : `Qty (${unit})`;
-  if (rate) document.getElementById('s-rate').value = rate;
+async function loadRefurbParts() {
+  REFURB_PARTS = await sbGet('refurb_parts?select=*&order=part_name.asc');
+}
+
+function onTypeChange() {
+  renderMovementRows();
+}
+
+// Builds one row per category (Scrap) or part (Refurb). "System Calculated"
+// (Pending) is read from data already loaded for the page's own filter
+// (SUMMARY.by_category / ptFunnelRows) rather than a fresh RPC call per row —
+// keeps this number always consistent with what's shown in the tables above,
+// and avoids 15-20 extra round-trips every time the filter changes.
+// Temporary restriction: only these categories are actionable in Create
+// Movement for now (rest of scrap_categories still shows fully in By
+// Category above -- this only limits what's enterable here). Update this
+// list when more categories are ready to go live for data entry.
+const MOVEMENT_ENABLED_CATEGORIES = ['Aluminium', 'Iron', 'Plastic', 'Wires'];
+
+async function renderMovementRows() {
+  // City/Hub/Period default to the top filter but are independently editable
+  // from then on -- only seed them here if they're genuinely empty (first
+  // render), never overwrite something the person already typed. This lets
+  // someone viewing an aggregate "All Hubs" view still log a movement for
+  // one specific hub without losing their broader view up top.
+  const sCity = document.getElementById('s-city');
+  const sHub = document.getElementById('s-hub');
+  const pf = document.getElementById('s-period-from-display');
+  const pt = document.getElementById('s-period-to-display');
+  if (sCity.dataset.seeded !== '1') {
+    sCity.value = document.getElementById('f-city').value;
+    sCity.dataset.seeded = '1';
+    onMovementCityChange(true);
+  }
+  if (sHub.dataset.seeded !== '1' && sHub.options.length > 1) {
+    sHub.value = document.getElementById('f-hub').value;
+    sHub.dataset.seeded = '1';
+  }
+  if (!pf.value) pf.value = document.getElementById('f-from').value;
+  if (!pt.value) pt.value = document.getElementById('f-to').value;
+
+  const type = document.getElementById('s-type').value;
+  const thead = document.getElementById('s-rows-thead');
+  const tbody = document.getElementById('s-rows-tbody');
+  const grandTotalEl = document.getElementById('s-grand-total');
+  const scopedFrom = pf.value, scopedTo = pt.value, scopedCity = sCity.value || null, scopedHub = sHub.value || null;
+
+  tbody.innerHTML = '<tr><td class="empty"><span class="spin"></span></td></tr>';
+
+  // Fetch System Calculated scoped to THIS movement's own City/Hub/Period --
+  // not the page's top-level view, since they can now legitimately differ
+  // (e.g. viewing "All Hubs" up top while logging a movement for one hub).
+  let pendingByCategory = {}, pendingByPart = {};
+  if (type === 'Scrap') {
+    const summary = scopedFrom && scopedTo ? await rpc('get_scrap_summary', { p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
+    (summary && summary.by_category ? summary.by_category : []).forEach(c => { pendingByCategory[c.category] = c.pending; });
+  } else {
+    const rows = scopedFrom && scopedTo ? await rpc('get_movement_pipeline', { p_type: type, p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
+    (rows || []).forEach(r => { pendingByPart[r.part_name] = Math.max((r.consumed || 0) - (r.actual_in_hub || 0), 0); });
+  }
+
+  if (type === 'Scrap') {
+    grandTotalEl.style.display = '';
+    thead.innerHTML = '<tr><th>Category</th><th>Tracking</th><th class="num">System Calculated</th><th class="num">Actual Qty (nos)</th><th class="num">Actual Weight (kg)</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remarks (if variance)</th><th>Photo</th></tr>';
+    const visibleCategories = CATEGORIES.filter(c => MOVEMENT_ENABLED_CATEGORIES.includes(c.category));
+    tbody.innerHTML = visibleCategories.length ? visibleCategories.map(c => {
+      const pending = pendingByCategory[c.category];
+      const pendingText = pending != null ? `${fmtN(pending)} ${c.unit}` : '—';
+      return `<tr data-category="${c.category.replace(/"/g,'&quot;')}" data-unit="${c.unit}" data-rate="${c.reference_rate || ''}" data-syscalc-raw="${pending != null ? pending : ''}">
+        <td>${c.category}</td>
+        <td style="color:var(--muted);font-size:11px">${c.unit}</td>
+        <td class="num row-syscalc">${pendingText}</td>
+        <td><input type="number" class="row-qty" step="1" oninput="checkRowVariance(this.closest('tr'))"></td>
+        <td><input type="number" class="row-weight" step="0.01" oninput="checkRowVariance(this.closest('tr'))"></td>
+        <td><input type="number" class="row-rate" step="0.01" value="${c.reference_rate || ''}" oninput="recalcRowTotal(this.closest('tr'))"></td>
+        <td><input type="number" class="row-total" step="0.01" readonly style="background:var(--surface-1,#f8fafc)"></td>
+        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:150px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
+        <td><input type="file" class="row-photo" accept="image/*" capture="environment"></td>
+      </tr>`;
+    }).join('') : '<tr><td class="empty">No categories found.</td></tr>';
+    // Weight-tracked categories drive their Total off Actual Weight, not Actual Qty
+    tbody.querySelectorAll('tr').forEach(tr => {
+      if (tr.dataset.unit === 'kg') {
+        const qtyInput = tr.querySelector('.row-qty');
+        if (qtyInput) { qtyInput.disabled = true; qtyInput.placeholder = 'n/a'; }
+      } else {
+        const weightInput = tr.querySelector('.row-weight');
+        if (weightInput) { weightInput.disabled = true; weightInput.placeholder = 'n/a'; }
+      }
+    });
+  } else {
+    // Refurb and Tyre share the same simple shape (no pricing) -- just a
+    // different filtered slice of refurb_parts (part_type) and a different
+    // matching movement_type when saved.
+    grandTotalEl.style.display = 'none';
+    thead.innerHTML = '<tr><th>Part</th><th class="num">System Calculated</th><th class="num">Actual Qty (nos)</th><th>Remarks (if variance)</th><th>Photo</th></tr>';
+    const visibleParts = REFURB_PARTS.filter(p => (p.part_type || 'Refurb') === type);
+    tbody.innerHTML = visibleParts.length ? visibleParts.map(p => {
+      const pending = pendingByPart[p.part_name];
+      const pendingText = pending != null ? `${fmtN(pending)} nos` : '—';
+      return `<tr data-part="${p.part_name.replace(/"/g,'&quot;')}" data-syscalc-raw="${pending != null ? pending : ''}">
+        <td>${p.part_name}</td>
+        <td class="num row-syscalc">${pendingText}</td>
+        <td><input type="number" class="row-qty" step="1" oninput="checkRowVariance(this.closest('tr'))"></td>
+        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:150px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
+        <td><input type="file" class="row-photo" accept="image/*" capture="environment"></td>
+      </tr>`;
+    }).join('') : `<tr><td class="empty">No ${type.toLowerCase()} parts found.</td></tr>`;
+  }
+  onVendorChangeBulk();
+  updateGrandTotal();
+}
+
+function onMovementCityChange(skipRender) {
+  const sCity = document.getElementById('s-city');
+  const sHub = document.getElementById('s-hub');
+  const city = sCity.value;
+  const currentHub = sHub.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  sHub.innerHTML = '<option value="">— select —</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) sHub.value = currentHub;
+  if (!skipRender) renderMovementRows();
+}
+
+function updateGrandTotal() {
+  const type = document.getElementById('s-type').value;
+  const grandTotalEl = document.getElementById('s-grand-total');
+  if (type !== 'Scrap') { grandTotalEl.style.display = 'none'; return; }
+  let total = 0;
+  document.querySelectorAll('#s-rows-tbody .row-total').forEach(el => { total += parseFloat(el.value) || 0; });
+  grandTotalEl.style.display = '';
+  grandTotalEl.textContent = `Grand Total: ${fmtC(total)}`;
+}
+
+function recalcRowTotal(tr) {
+  const unit = tr.dataset.unit;
+  const qty = unit === 'kg' ? parseFloat(tr.querySelector('.row-weight').value) || 0 : parseFloat(tr.querySelector('.row-qty').value) || 0;
+  const rate = parseFloat(tr.querySelector('.row-rate').value) || 0;
+  tr.querySelector('.row-total').value = qty && rate ? (qty * rate).toFixed(2) : '';
+  updateGrandTotal();
+}
+
+// A shortfall past 10% below System Calculated (i.e. actual < 90% of expected)
+// gets flagged live as the person types -- the input turns red, and the
+// Remark field is marked required, so it's obvious at a glance which rows
+// need an explanation before Save will accept them. Small variances under
+// that threshold don't need a remark at all.
+const VARIANCE_THRESHOLD = 0.9;
+
+function checkRowVariance(tr) {
+  const isRefurb = !tr.dataset.category;
+  const unit = tr.dataset.unit;
+  const drivingInput = isRefurb ? tr.querySelector('.row-qty') : (unit === 'kg' ? tr.querySelector('.row-weight') : tr.querySelector('.row-qty'));
+  const systemCalc = tr.dataset.syscalcRaw !== '' ? parseFloat(tr.dataset.syscalcRaw) : null;
+  const val = parseFloat(drivingInput.value);
+  const remarkInput = tr.querySelector('.row-remark');
+
+  const isShort = systemCalc != null && !isNaN(val) && val > 0 && val < systemCalc * VARIANCE_THRESHOLD;
+  drivingInput.classList.toggle('variance-flag', isShort);
+  if (remarkInput) {
+    remarkInput.classList.toggle('variance-flag', isShort && !remarkInput.value.trim());
+    remarkInput.placeholder = isShort ? 'Required — explain the shortfall' : 'e.g. missing, broken';
+  }
+
+  if (!isRefurb) recalcRowTotal(tr);
+}
+
+async function onVendorChangeBulk() {
+  const type = document.getElementById('s-type').value;
+  if (type !== 'Scrap') return;
+  const vendorId = document.getElementById('s-vendor').value;
+  const tbody = document.getElementById('s-rows-tbody');
+  if (!vendorId) return;
+  const rates = await sbGet(`vendor_category_rates?vendor_id=eq.${vendorId}&select=category,rate`);
+  const rateByCategory = {};
+  (rates || []).forEach(r => { rateByCategory[r.category] = r.rate; });
+  tbody.querySelectorAll('tr[data-category]').forEach(tr => {
+    const cat = tr.dataset.category;
+    if (rateByCategory[cat] != null) {
+      tr.querySelector('.row-rate').value = rateByCategory[cat];
+      recalcRowTotal(tr);
+    }
+  });
 }
 
 async function loadVendors() {
   VENDORS = await sbGet('scrap_vendors?select=*&approved=eq.true&order=vendor_name.asc');
   const sel = document.getElementById('s-vendor');
-  sel.innerHTML = '<option value="">— select or add below —</option>' + VENDORS.map(v => `<option value="${v.id}">${v.vendor_name}</option>`).join('');
+  sel.innerHTML = '<option value="">— select or add via Manage Vendors —</option>' + VENDORS.map(v => `<option value="${v.id}">${v.vendor_name}</option>`).join('');
 }
 
-async function addVendor() {
-  const name = document.getElementById('new-vendor-name').value.trim();
+async function openVendorManager() {
+  document.getElementById('vendor-ov').classList.add('on');
+  await renderVendorManager();
+}
+function closeVendorManager() { document.getElementById('vendor-ov').classList.remove('on'); }
+
+async function renderVendorManager() {
+  const allVendors = await sbGet('scrap_vendors?select=*&order=vendor_name.asc');
+  const rates = await sbGet('vendor_category_rates?select=*');
+  const ratesByVendor = {};
+  (rates||[]).forEach(r => { (ratesByVendor[r.vendor_id] ||= {})[r.category] = r.rate; });
+  const body = document.getElementById('vendor-list-body');
+  body.innerHTML = allVendors.length ? allVendors.map(v => `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <div class="fg"><label>Name</label><input type="text" value="${(v.vendor_name||'').replace(/"/g,'&quot;')}" id="vn-${v.id}" style="width:150px"></div>
+        <div class="fg"><label>Contact</label><input type="text" value="${(v.contact||'').replace(/"/g,'&quot;')}" id="vc-${v.id}" style="width:120px"></div>
+        <div class="fg"><label>GST</label><input type="text" value="${(v.gstin||'').replace(/"/g,'&quot;')}" id="vg-${v.id}" style="width:140px"></div>
+        <button class="btn secondary" style="padding:5px 10px;font-size:11px" onclick="saveVendorInfo(${v.id})">Save Info</button>
+      </div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Rate card (₹ per unit)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${CATEGORIES.map(c => `
+          <div class="fg"><label style="font-size:9px">${c.category}</label>
+            <input type="number" step="0.01" value="${(ratesByVendor[v.id]&&ratesByVendor[v.id][c.category])||''}" id="vr-${v.id}-${c.category.replace(/[^a-z0-9]/gi,'_')}" style="width:75px" placeholder="₹/${c.unit}">
+          </div>`).join('')}
+        <button class="btn secondary" style="padding:5px 10px;font-size:11px;align-self:flex-end" onclick="saveVendorRates(${v.id})">Save Rates</button>
+      </div>
+    </div>
+  `).join('') : '<div class="empty">No vendors yet — add one above.</div>';
+}
+
+async function addVendorFull() {
+  const name = document.getElementById('v-name').value.trim();
   if (!name) return;
-  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name }) });
-  document.getElementById('new-vendor-name').value = '';
+  const contact = document.getElementById('v-contact').value.trim();
+  const gst = document.getElementById('v-gst').value.trim();
+  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null, approved: true }) });
+  document.getElementById('v-name').value=''; document.getElementById('v-contact').value=''; document.getElementById('v-gst').value='';
+  await renderVendorManager();
   await loadVendors();
+}
+
+async function saveVendorInfo(id) {
+  const name = document.getElementById(`vn-${id}`).value.trim();
+  const contact = document.getElementById(`vc-${id}`).value.trim();
+  const gst = document.getElementById(`vg-${id}`).value.trim();
+  await fetch(`${SB}/rest/v1/scrap_vendors?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null }) });
+  await loadVendors();
+}
+
+async function saveVendorRates(id) {
+  const rows = CATEGORIES.map(c => {
+    const el = document.getElementById(`vr-${id}-${c.category.replace(/[^a-z0-9]/gi,'_')}`);
+    const val = el ? parseFloat(el.value) : NaN;
+    return isNaN(val) ? null : { vendor_id: id, category: c.category, rate: val };
+  }).filter(Boolean);
+  if (!rows.length) { alert('Enter at least one rate before saving.'); return; }
+  const r = await fetch(`${SB}/rest/v1/vendor_category_rates?on_conflict=vendor_id,category`, { method:'POST', headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}, body: JSON.stringify(rows) });
+  if (!r.ok) { alert('Could not save rates: ' + (await r.text()).slice(0,200)); return; }
+  alert('Rate card saved.');
+}
+
+async function downloadMovementPDF(row) {
+  if (!window.jspdf) { console.error('jsPDF not loaded'); return; }
+  let photoData = row._photoDataUrl || null;
+  if (!photoData && row.photo_url) {
+    try {
+      const resp = await fetch(row.photo_url);
+      const blob = await resp.blob();
+      photoData = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+    } catch(e) { console.error('could not fetch photo for pdf', e); }
+  }
+
+  const doc = new window.jspdf.jsPDF();
+  const isScrap = row.movement_type === 'Scrap';
+  const movementId = 'MOV-' + String(row.id || 0).padStart(6,'0');
+
+  doc.setFillColor(220, 38, 38);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'bold'); doc.setFontSize(18); doc.text('Bounce Daily', 14, 15);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(isScrap ? 'SCRAP SALE RECEIPT' : (row.movement_type.toUpperCase() + ' MOVEMENT RECEIPT'), 14, 23);
+
+  doc.setTextColor(120); doc.setFontSize(9);
+  doc.text(`${movementId}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 38);
+  doc.setTextColor(0);
+
+  let y = 48;
+  const boxTop = y - 6;
+  const line = (lbl, val) => {
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.text(lbl+':', 18, y);
+    doc.setFont(undefined,'normal'); doc.text(String(val===null||val===undefined||val===''?'-':val), 82, y);
+    y += 9;
+  };
+  line('Type', row.movement_type);
+  line('City', row.city);
+  line('Hub', row.hub_name);
+  line('Pickup Date', row.pickup_date);
+  line('Period Covered', (row.period_from||'-') + '  to  ' + (row.period_to||'-'));
+  line(isScrap ? 'Category' : 'Part', row.category || row.part_name);
+  line('Vendor', row.vendor_name || '-');
+  line('System Calculated', row.system_calculated != null ? row.system_calculated : '-');
+  line('Actual Qty (nos)', row.actual_qty_nos != null ? row.actual_qty_nos : '-');
+  if (isScrap) {
+    line('Actual Weight (kg)', row.actual_weight_kg != null ? row.actual_weight_kg : '-');
+    line('Rate (Rs. per unit)', row.rate);
+  }
+  doc.setDrawColor(220); doc.setLineWidth(0.3);
+  doc.rect(14, boxTop, 182, y - boxTop + 2);
+  y += 6;
+
+  if (isScrap) {
+    doc.setFillColor(254, 242, 242);
+    doc.rect(14, y-7, 182, 15, 'F');
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(180,30,30);
+    doc.text('Total Amount:', 18, y+2);
+    doc.text('Rs. ' + Number(row.total_value).toLocaleString('en-IN'), 82, y+2);
+    doc.setTextColor(0);
+    y += 20;
+  }
+
+  doc.setFont(undefined,'normal'); doc.setFontSize(10);
+  const ackText = row.ho_ack_status === 'Acknowledged'
+    ? `Approved by ${row.ho_ack_by||'-'} on ${row.ho_ack_at ? new Date(row.ho_ack_at).toLocaleDateString('en-IN') : '-'}`
+    : 'Pending Finance Approval';
+  line('Finance Approval', ackText);
+
+  if (photoData) {
+    doc.addPage();
+    let py = 20;
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.text('Photo Evidence', 18, py); py += 8;
+    doc.setDrawColor(220); doc.line(14, py-4, 196, py-4); py += 4;
+    try {
+      const imgProps = doc.getImageProperties(photoData);
+      const maxW = 170, maxH = 200;
+      let w = imgProps.width, h = imgProps.height;
+      const scale = Math.min(maxW/w, maxH/h, 1);
+      w *= scale; h *= scale;
+      doc.addImage(photoData, imgProps.fileType || 'JPEG', 18, py, w, h);
+      y = py + h + 20;
+    } catch(e) { console.error('embed image failed', e); y = py + 20; }
+  } else {
+    y += 10;
+  }
+
+  y = Math.min(Math.max(y, 255), 275);
+  doc.setDrawColor(180);
+  doc.line(18, y, 85, y); doc.setFontSize(8); doc.text('Hub In-charge Signature', 18, y+5);
+  doc.line(125, y, 192, y); doc.text('Finance Approval', 125, y+5);
+
+  doc.save(`${row.movement_type}_${(row.category||row.part_name||'item').replace(/[^a-z0-9]+/gi,'_')}_${row.pickup_date}.pdf`);
 }
 
 function onFilterChange() { /* no-op, applied on Apply click */ }
 
 async function loadAll() {
   _hadFailure = false;
-  Object.keys(_catDetailCache).forEach(k => delete _catDetailCache[k]);
   const from = document.getElementById('f-from').value;
   const to = document.getElementById('f-to').value;
   const city = document.getElementById('f-city').value || null;
@@ -236,7 +735,9 @@ async function loadAll() {
 
   SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
   renderSummary();
+  await ptLoadAndRender(from, to, city, hub);
   await loadSales(from, to, city, hub);
+  renderMovementRows();
 
   document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   const failBox = document.getElementById('loadFailWarn');
@@ -248,6 +749,40 @@ async function loadAll() {
   }
 }
 
+let CAT_DRILL_DATA = null, CAT_DRILL_NAME = '';
+async function openCatDrill(category) {
+  document.getElementById('cat-ov').classList.add('on');
+  document.getElementById('cat-drill-title').textContent = category + ' — parts';
+  document.getElementById('cat-drill-sub').textContent = 'Which specific parts are generating this category\'s scrap, matching current filters';
+  CAT_DRILL_NAME = category; CAT_DRILL_DATA = null;
+  const tbody = document.getElementById('cat-drill-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spin"></span></td></tr>';
+  const from = document.getElementById('f-from').value, to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null, hub = document.getElementById('f-hub').value || null;
+  const rows = await rpc('get_scrap_by_part', { p_from: from, p_to: to, p_city: city, p_hub: hub, p_category: category });
+  CAT_DRILL_DATA = rows;
+  if (rows === null) { tbody.innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try again.</td></tr>'; return; }
+  tbody.innerHTML = rows.length ? rows.map(p => `
+    <tr><td>${p.part_or_labor_name}</td>
+      <td class="num">${fmtN(p.qty_generated)}</td>
+      <td class="num">${fmtC(p.value_generated)}</td>
+      <td class="num">${fmtN(p.jcs)}</td>
+      <td class="num ${p.per_qty_weight_kg == null ? 'muted-cell' : ''}">${p.per_qty_weight_kg != null ? p.per_qty_weight_kg + ' kg' : '—'}</td>
+      <td class="num ${p.total_weight_kg == null ? 'muted-cell' : ''}">${p.total_weight_kg != null ? fmtN(p.total_weight_kg) + ' kg' : '—'}</td></tr>
+  `).join('') : '<tr><td colspan="6" class="empty">No parts found for this category.</td></tr>';
+}
+function closeCatDrill() { document.getElementById('cat-ov').classList.remove('on'); }
+function exportCatDrillCSV() {
+  if (!CAT_DRILL_DATA || !CAT_DRILL_DATA.length) return;
+  const rows = [['Part Name','Qty Generated','Value Generated','JCs','Per Qty Weight (kg)','Total Weight (kg)']];
+  CAT_DRILL_DATA.forEach(p => rows.push([p.part_or_labor_name, p.qty_generated, p.value_generated, p.jcs, p.per_qty_weight_kg ?? '', p.total_weight_kg ?? '']));
+  const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `scrap_${CAT_DRILL_NAME.replace(/[^a-z0-9]+/gi,'_').toLowerCase()}_parts_${todayIST()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 function renderSummary() {
   if (!SUMMARY) {
     document.getElementById('kvGenerated').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
@@ -255,7 +790,6 @@ function renderSummary() {
     document.getElementById('kvRevenue').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
     document.getElementById('kvPending').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
     document.getElementById('catBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
-    document.getElementById('agingBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
     return;
   }
   const byCat = SUMMARY.by_category || [];
@@ -265,98 +799,495 @@ function renderSummary() {
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
   document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
 
-  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map((c, i) => `
-    <tr class="cat-row" data-cat="${c.category.replace(/"/g,'&quot;')}" data-idx="${i}" onclick="toggleCatDetail(${i})" style="cursor:pointer">
-      <td><i class="ti ti-chevron-right cat-chevron" id="chev-${i}" style="font-size:12px;margin-right:4px;color:var(--muted)"></i>${c.category}</td>
-      <td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
-      <td class="num">${fmtN(c.generated)} ${c.unit}</td>
+  document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => {
+    const genCell = c.tracking_type === 'weight'
+      ? `${fmtN(c.real_weight_kg)} kg<div style="font-size:9px;color:var(--muted);font-weight:400">${fmtN(c.weighed_qty)}/${fmtN(c.generated)} pcs weighed (${c.weighed_coverage_pct}%)</div>`
+      : `${fmtN(c.generated)} ${c.unit}`;
+    return `
+    <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
+      <td class="num">${genCell}</td>
       <td class="num">${fmtN(c.sold)} ${c.unit}</td>
       <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
-    <tr class="cat-detail-row" id="detail-${i}" style="display:none"><td colspan="6" style="padding:0;background:var(--surface-0,rgba(0,0,0,.02))">
-      <div id="detail-body-${i}" style="padding:10px 14px;font-size:11px">Loading…</div>
-    </td></tr>
-  `).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
-
-  const aging = SUMMARY.aging || [];
-  document.getElementById('agingBody').innerHTML = aging.length ? aging.map(a => {
-    const total = a.age_0_15 + a.age_16_30 + a.age_31_60 + a.age_60_plus || 1;
-    const p1 = 100*a.age_0_15/total, p2 = 100*a.age_16_30/total, p3 = 100*a.age_31_60/total, p4 = 100*a.age_60_plus/total;
-    return `<tr><td>${a.category}</td><td class="num">${fmtN(a.age_0_15)}</td><td class="num">${fmtN(a.age_16_30)}</td>
-      <td class="num">${fmtN(a.age_31_60)}</td><td class="num ${a.age_60_plus>0?'pending-flag':''}">${fmtN(a.age_60_plus)}</td>
-      <td><div class="aging-bar"><div class="aging-seg1" style="width:${p1}%"></div><div class="aging-seg2" style="width:${p2}%"></div><div class="aging-seg3" style="width:${p3}%"></div><div class="aging-seg4" style="width:${p4}%"></div></div></td></tr>`;
-  }).join('') : '<tr><td colspan="6" class="empty">No pending scrap.</td></tr>';
+  `;
+  }).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
 }
 
-const _catDetailCache = {};
-async function toggleCatDetail(i) {
-  const row = document.getElementById('detail-' + i);
-  const chev = document.getElementById('chev-' + i);
-  const isOpen = row.style.display !== 'none';
-  if (isOpen) { row.style.display = 'none'; chev.classList.remove('ti-chevron-down'); chev.classList.add('ti-chevron-right'); return; }
-  row.style.display = 'table-row';
-  chev.classList.remove('ti-chevron-right'); chev.classList.add('ti-chevron-down');
-
-  const cat = row.previousElementSibling.getAttribute('data-cat');
-  const body = document.getElementById('detail-body-' + i);
-  if (_catDetailCache[cat]) { body.innerHTML = _catDetailCache[cat]; return; }
-
-  body.innerHTML = 'Loading part-wise breakdown…';
-  const from = document.getElementById('f-from').value;
-  const to = document.getElementById('f-to').value;
-  const city = document.getElementById('f-city').value || null;
-  const hub = document.getElementById('f-hub').value || null;
-  const parts = await rpc('get_scrap_summary_by_part', { p_category: cat, p_from: from, p_to: to, p_city: city, p_hub: hub });
-
-  let html;
-  if (!parts || !parts.length) {
-    html = '<div style="color:var(--muted)">No part-level data for this range/filter.</div>';
-  } else {
-    html = `<div style="color:var(--muted);margin-bottom:6px">Generated qty by part (sold/revenue are tracked at category level only, not per part)</div>
-      <table style="width:100%"><thead><tr><th>Part</th><th class="num">Generated qty</th><th class="num">Lines</th></tr></thead><tbody>` +
-      parts.map(p => `<tr><td>${p.part_name}</td><td class="num">${fmtN(p.generated)}</td><td class="num">${fmtN(p.generated_lines)}</td></tr>`).join('') +
-      `</tbody></table>`;
-  }
-  _catDetailCache[cat] = html;
-  body.innerHTML = html;
-}
 
 async function loadSales(from, to, city, hub) {
   let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.desc&limit=100`;
   if (city) q += `&city=eq.${encodeURIComponent(city)}`;
   if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
   const rows = await sbGet(q);
-  document.getElementById('salesBody').innerHTML = rows.length ? rows.map(r => `
-    <tr><td>${r.pickup_date}</td><td>${r.hub_name}</td><td>${r.category}</td>
-      <td>${(r.scrap_vendors && r.scrap_vendors.vendor_name) || '—'}</td>
-      <td class="num">${fmtN(r.qty_or_weight)}</td><td class="num">${fmtC(r.rate)}</td><td class="num">${fmtC(r.total_value)}</td>
-      <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td></tr>
-  `).join('') : '<tr><td colspan="8" class="empty">No sales logged for this range/filter yet.</td></tr>';
+  document.getElementById('kvPendingAck').textContent = rows.filter(r => r.ho_ack_status !== 'Acknowledged').length;
+
+  // One Create Movement submission (multiple categories/parts) collapses into
+  // a single row here, with an expand arrow to see/edit/delete each category
+  // individually. Rows with no batch_id (legacy, or a genuinely single-item
+  // movement) just render as their own one-row group with no expand arrow.
+  const groups = [];
+  const groupByKey = {};
+  rows.forEach(r => {
+    const key = r.batch_id || `single-${r.id}`;
+    if (!groupByKey[key]) {
+      const g = { key, batch_id: r.batch_id, rows: [] };
+      groupByKey[key] = g;
+      groups.push(g);
+    }
+    groupByKey[key].rows.push(r);
+  });
+
+  const tbody = document.getElementById('salesBody');
+  tbody.innerHTML = groups.length ? groups.map((g, gi) => {
+    const first = g.rows[0];
+    const multi = g.rows.length > 1;
+    const groupId = `grp-${gi}`;
+    const totalValue = g.rows.reduce((s, r) => s + (Number(r.total_value) || 0), 0);
+    const labels = g.rows.map(r => r.category || r.part_name).filter(Boolean);
+    const labelText = multi ? (labels.length <= 3 ? labels.join(', ') : `${labels.length} items`) : (labels[0] || '—');
+    const allApproved = g.rows.every(r => r.ho_ack_status === 'Acknowledged');
+    const statuses = [...new Set(g.rows.map(r => r.status))];
+    const statusText = statuses.length === 1 ? statuses[0] : 'Mixed';
+    const gstUrl = first.gst_invoice_url;
+    const idsJson = JSON.stringify(g.rows.map(r => r.id));
+
+    const mainRow = `
+      <tr title="${g.batch_id ? 'Movement ' + g.batch_id : ''}"><td>${first.pickup_date}</td><td>${first.hub_name}</td>
+        <td><span class="status-pill" style="background:${first.movement_type==='Refurb'?'#e0e7ff':first.movement_type==='Tyre'?'#dcfce7':'#fef3c7'};color:${first.movement_type==='Refurb'?'#3730a3':first.movement_type==='Tyre'?'#166534':'#92400e'}">${first.movement_type||'Scrap'}</span></td>
+        <td>${multi ? `<span class="cat-toggle" onclick="toggleMovementGroup('${groupId}')"><i class="ti ti-chevron-right" id="${groupId}-icon"></i> ${labelText}</span>` : labelText}</td>
+        <td>${(first.scrap_vendors && first.scrap_vendors.vendor_name) || '—'}</td>
+        <td class="num">${multi ? '—' : fmtN(first.qty_or_weight)}</td>
+        <td class="num">${multi ? '—' : fmtC(first.rate)}</td>
+        <td class="num">${fmtC(totalValue)}</td>
+        <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
+        <td>${allApproved
+            ? `<span class="status-pill status-PaymentReceived">Approved</span>`
+            : `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>`}</td>
+        <td style="white-space:nowrap">
+          <details class="action-menu">
+            <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
+            <div class="action-menu-items">
+              <button onclick='redownloadPDF(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-download"></i> Download PDF</button>
+              ${gstUrl
+                ? `<a href="${gstUrl}" target="_blank"><i class="ti ti-file-invoice"></i> View GST Invoice</a>`
+                : `<button onclick="document.getElementById('gst-up-${groupId}').click()"><i class="ti ti-file-upload"></i> Upload GST Invoice</button>
+                   <input type="file" id="gst-up-${groupId}" accept="image/*,.pdf" style="display:none" onchange='uploadGstForGroup(this, ${idsJson})'>`}
+              ${!multi ? `<button onclick='openEditMovement(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
+              <button class="danger" onclick='deleteMovementGroup(${idsJson})'><i class="ti ti-trash"></i> Delete</button>
+            </div>
+          </details>
+        </td></tr>`;
+
+    if (!multi) return mainRow;
+
+    const subRows = g.rows.map(r => `
+      <tr class="batch-sub-row" data-group="${groupId}" style="display:none">
+        <td></td><td></td><td></td>
+        <td style="padding-left:26px;color:var(--muted)">${r.category || r.part_name}</td>
+        <td></td>
+        <td class="num">${fmtN(r.qty_or_weight)}</td>
+        <td class="num">${fmtC(r.rate)}</td>
+        <td class="num">${fmtC(r.total_value)}</td>
+        <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
+        <td>${r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>`}</td>
+        <td style="white-space:nowrap">
+          <details class="action-menu">
+            <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
+            <div class="action-menu-items">
+              <button onclick='openEditMovement(${JSON.stringify(r).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>
+              <button class="danger" onclick="deleteMovement(${r.id})"><i class="ti ti-trash"></i> Delete</button>
+            </div>
+          </details>
+        </td>
+      </tr>`).join('');
+
+    return mainRow + subRows;
+  }).join('') : '<tr><td colspan="11" class="empty">No movements logged for this range/filter yet.</td></tr>';
 }
 
-async function createSale() {
-  const hub = document.getElementById('s-hub').value.trim();
-  const city = document.getElementById('s-city').value;
-  const category = document.getElementById('s-category').value;
-  const vendorId = document.getElementById('s-vendor').value || null;
-  const date = document.getElementById('s-date').value;
-  const qty = parseFloat(document.getElementById('s-qty').value);
-  const rate = parseFloat(document.getElementById('s-rate').value);
-  const paymentMode = document.getElementById('s-payment').value.trim();
-  const invoice = document.getElementById('s-invoice').value.trim();
-  if (!hub || !category || !date || isNaN(qty) || isNaN(rate)) { alert('Hub, Category, Pickup Date, Qty/Weight and Rate are required.'); return; }
-  const body = {
-    hub_name: hub, city: city || null, category, vendor_id: vendorId ? parseInt(vendorId) : null,
-    pickup_date: date, qty_or_weight: qty, rate, payment_mode: paymentMode || null,
-    invoice_ref: invoice || null, status: 'Created',
-    created_by: (window.authGetEmail && window.authGetEmail()) || 'unknown'
-  };
-  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if (!r.ok) { alert('Could not save scrap sale: ' + (await r.text()).slice(0,200)); return; }
-  const msg = document.getElementById('saveMsg'); msg.style.display='inline'; setTimeout(()=>msg.style.display='none', 2000);
-  document.getElementById('s-qty').value = ''; document.getElementById('s-invoice').value = '';
+document.addEventListener('toggle', (e) => {
+  if (!e.target.matches('.action-menu')) return;
+  if (!e.target.open) return;
+  document.querySelectorAll('.action-menu[open]').forEach(el => { if (el !== e.target) el.open = false; });
+}, true);
+
+function toggleMovementGroup(groupId) {
+  const icon = document.getElementById(groupId + '-icon');
+  const isOpen = icon.classList.toggle('open');
+  document.querySelectorAll(`tr.batch-sub-row[data-group="${groupId}"]`).forEach(tr => {
+    tr.style.display = isOpen ? '' : 'none';
+  });
+}
+
+async function uploadGstForGroup(input, ids) {
+  const file = input.files[0];
+  if (!file) return;
+  const url = await uploadScrapPhoto(file);
+  if (!url) { alert('Upload failed — try again.'); return; }
+  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ gst_invoice_url: url }) })));
   loadAll();
 }
+
+async function approveMovementGroup(ids) {
+  const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
+  if (!who) return;
+  const now = new Date().toISOString();
+  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: now }) })));
+  loadAll();
+}
+
+async function deleteMovementGroup(ids) {
+  const msg = ids.length > 1
+    ? `Delete this entire movement (${ids.length} categories)? This cannot be undone, and will also affect Pending / Revenue totals.`
+    : 'Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.';
+  if (!confirm(msg)) return;
+  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: HDR })));
+  loadAll();
+}
+
+// Re-downloading from Recent Movements must reproduce the SAME receipt the
+// person got at Save time -- for a batched movement (multiple categories in
+// one submission) that means refetching every sibling row and rebuilding the
+// full combined PDF, not just this one row in isolation.
+async function redownloadPDF(row) {
+  if (!row.batch_id) { downloadMovementPDF(row); return; }
+  const siblings = await sbGet(`scrap_sales?select=*,scrap_vendors(vendor_name)&batch_id=eq.${encodeURIComponent(row.batch_id)}&order=id.asc`);
+  if (!siblings || !siblings.length) { downloadMovementPDF(row); return; }
+  const first = siblings[0];
+  await downloadBatchReceiptPDF({
+    type: first.movement_type, hub: first.hub_name, city: first.city, date: first.pickup_date,
+    periodFrom: first.period_from, periodTo: first.period_to,
+    vendorName: (first.scrap_vendors && first.scrap_vendors.vendor_name) || null,
+    batchId: first.batch_id,
+    lines: siblings
+  });
+}
+
+async function acknowledgeMovement(id) {
+  const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
+  if (!who) return;
+  await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: new Date().toISOString() }) });
+  loadAll();
+}
+
+let EDIT_MV_ROW = null;
+
+function checkEditVariance() {
+  if (!EDIT_MV_ROW) return;
+  const isScrap = EDIT_MV_ROW.movement_type === 'Scrap';
+  const unit = isScrap ? (CATEGORIES.find(c => c.category === EDIT_MV_ROW.category)?.unit || 'nos') : 'nos';
+  const input = unit === 'kg' ? document.getElementById('edit-mv-weight') : document.getElementById('edit-mv-qty');
+  const systemCalc = EDIT_MV_ROW.system_calculated;
+  const val = parseFloat(input.value);
+  const isShort = systemCalc != null && !isNaN(val) && val > 0 && val < systemCalc * VARIANCE_THRESHOLD;
+  input.classList.toggle('variance-flag', isShort);
+  const remarkEl = document.getElementById('edit-mv-remark');
+  remarkEl.classList.toggle('variance-flag', isShort && !remarkEl.value.trim());
+}
+
+function openEditMovement(row) {
+  EDIT_MV_ROW = row;
+  const isScrap = row.movement_type === 'Scrap';
+  document.getElementById('edit-mv-sub').textContent = `${row.movement_type} — ${row.category || row.part_name} — ${row.hub_name} — ${row.pickup_date}`;
+  document.getElementById('edit-mv-qty-label').textContent = 'Actual Qty (nos)';
+  document.getElementById('edit-mv-qty').value = row.actual_qty_nos ?? '';
+  document.getElementById('edit-mv-weight').value = row.actual_weight_kg ?? '';
+  document.getElementById('edit-mv-rate').value = row.rate ?? '';
+  document.getElementById('edit-mv-remark').value = row.variance_remark ?? '';
+  ['edit-mv-weight-wrap','edit-mv-rate-wrap'].forEach(id => {
+    document.getElementById(id).style.display = isScrap ? '' : 'none';
+  });
+  document.getElementById('edit-mv-ov').classList.add('on');
+  checkEditVariance();
+}
+
+function closeEditMovement() {
+  document.getElementById('edit-mv-ov').classList.remove('on');
+  EDIT_MV_ROW = null;
+}
+
+async function saveEditedMovement() {
+  if (!EDIT_MV_ROW) return;
+  const row = EDIT_MV_ROW;
+  const isScrap = row.movement_type === 'Scrap';
+  const unit = isScrap ? (row.category && CATEGORIES.find(c => c.category === row.category)?.unit) : 'nos';
+  const actualQty = parseFloat(document.getElementById('edit-mv-qty').value);
+  const actualWeight = isScrap ? parseFloat(document.getElementById('edit-mv-weight').value) : NaN;
+  const drivingQty = unit === 'kg' ? actualWeight : actualQty;
+  const remark = document.getElementById('edit-mv-remark').value.trim();
+
+  if (isNaN(drivingQty) || drivingQty <= 0) { alert('Enter a valid Actual Qty/Weight.'); return; }
+
+  let rate = row.rate;
+  if (isScrap) {
+    rate = parseFloat(document.getElementById('edit-mv-rate').value);
+    if (isNaN(rate)) { alert('Rate is required.'); return; }
+  }
+
+  const systemCalc = row.system_calculated;
+  if (systemCalc != null && drivingQty > systemCalc) {
+    alert(`Cannot save — ${fmtN(drivingQty)} exceeds what was actually pending (${fmtN(systemCalc)}) when this movement was created. This would double-count material already accounted for elsewhere.`);
+    return;
+  }
+  if (systemCalc != null && drivingQty < systemCalc * VARIANCE_THRESHOLD && !remark) {
+    alert(`Actual (${fmtN(drivingQty)}) is more than 10% below System Calculated (${fmtN(systemCalc)}). Please add a Remark explaining the shortfall before saving.`);
+    return;
+  }
+
+  const body = {
+    qty_or_weight: drivingQty,
+    actual_qty_nos: isNaN(actualQty) ? null : actualQty,
+    actual_weight_kg: isNaN(actualWeight) ? null : actualWeight,
+    variance_remark: remark || null
+  };
+  if (isScrap) { body.rate = rate; }
+
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${row.id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+
+  const msg = document.getElementById('edit-mv-msg');
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500);
+  closeEditMovement();
+  loadAll();
+}
+
+async function deleteMovement(id) {
+  if (!confirm('Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.')) return;
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: HDR });
+  if (!r.ok) { alert('Could not delete: ' + (await r.text()).slice(0,200)); return; }
+  loadAll();
+}
+
+async function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function uploadScrapPhoto(file) {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const r = await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, {
+    method: 'POST', headers: { ...HDR, 'Content-Type': file.type || 'image/jpeg' }, body: file
+  });
+  if (!r.ok) { console.error('photo upload failed', await r.text()); return null; }
+  return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
+}
+
+async function createBatch() {
+  const type = document.getElementById('s-type').value;
+  const isScrap = type === 'Scrap';
+  const hub = document.getElementById('s-hub').value;
+  const city = document.getElementById('s-city').value;
+  const periodFrom = document.getElementById('s-period-from-display').value || null;
+  const periodTo = document.getElementById('s-period-to-display').value || null;
+  const date = document.getElementById('s-date').value;
+  const vendorId = document.getElementById('s-vendor').value || null;
+
+  if (!hub || !date) { alert('Hub and Pickup Date are required.'); return; }
+
+  const rows = [...document.querySelectorAll('#s-rows-tbody tr[data-category], #s-rows-tbody tr[data-part]')];
+  const filled = [];
+  const missingRate = [];
+  const missingRemark = [];
+  const missingPhoto = [];
+  const overClaim = [];
+  for (const tr of rows) {
+    const category = isScrap ? tr.dataset.category : null;
+    const partName = !isScrap ? tr.dataset.part : null;
+    const label = category || partName;
+    const unit = isScrap ? tr.dataset.unit : 'nos';
+    const actualQty = parseFloat(tr.querySelector('.row-qty').value);
+    const actualWeight = isScrap ? parseFloat(tr.querySelector('.row-weight').value) : NaN;
+    const drivingQty = unit === 'kg' ? actualWeight : actualQty;
+    if (isNaN(drivingQty) || drivingQty <= 0) continue; // blank row, skip
+    const systemCalc = tr.dataset.syscalcRaw !== '' ? parseFloat(tr.dataset.syscalcRaw) : null;
+    // Hard block: can't log more than what's actually still pending. If
+    // System Calculated is already at/near zero (fully accounted for by an
+    // earlier movement covering this same period), a second movement for
+    // more of it is a double-count, not a legitimate correction -- unlike a
+    // shortfall, there's no remark that makes "claiming material that
+    // doesn't exist" a valid entry.
+    if (systemCalc != null && drivingQty > systemCalc) {
+      overClaim.push(`${label} (${fmtN(systemCalc)} still pending, ${fmtN(drivingQty)} entered)`);
+      continue;
+    }
+    let rate = null, total = null;
+    if (isScrap) {
+      rate = parseFloat(tr.querySelector('.row-rate').value);
+      if (isNaN(rate)) { missingRate.push(category); continue; }
+      total = drivingQty * rate;
+    }
+    const remark = tr.querySelector('.row-remark').value.trim();
+    // A shortfall of more than 10% against what the system expected must be
+    // explained -- otherwise it silently keeps inflating Pending forever,
+    // looking like material that's still sitting out there waiting to be
+    // collected. Smaller variances (rounding, minor scale differences) don't
+    // need one.
+    if (systemCalc != null && drivingQty < systemCalc * VARIANCE_THRESHOLD && !remark) {
+      missingRemark.push(`${label} (${fmtN(systemCalc)} expected, ${fmtN(drivingQty)} entered)`);
+      continue;
+    }
+    const photoFile = tr.querySelector('.row-photo').files[0];
+    if (!photoFile) { missingPhoto.push(label); continue; }
+    filled.push({ category, partName, unit, actualQty: isNaN(actualQty) ? null : actualQty, actualWeight: isNaN(actualWeight) ? null : actualWeight, drivingQty, rate, total, systemCalc, remark: remark || null, photoFile });
+  }
+
+  if (overClaim.length) { alert('Cannot save — this claims more than what is actually still pending for:\n\n' + overClaim.join('\n') + '\n\nThis material may already be fully accounted for by an earlier movement covering this period. If this is a genuine correction, edit the earlier movement instead of creating a new one.'); return; }
+  if (missingRate.length) { alert('Rate is required for: ' + missingRate.join(', ')); return; }
+  if (missingRemark.length) { alert('Actual is less than System Calculated for:\n\n' + missingRemark.join('\n') + '\n\nPlease add a Remark explaining the shortfall (missing, broken, etc.) before saving.'); return; }
+  if (missingPhoto.length) { alert('Photo is required for:\n\n' + missingPhoto.join('\n')); return; }
+  if (!filled.length) { alert('Enter an actual quantity/weight for at least one row.'); return; }
+
+  const vendorName = vendorId ? ((VENDORS.find(v=>String(v.id)===String(vendorId))||{}).vendor_name) : null;
+
+  // Upload each row's own photo first (kept separate per row per requirement)
+  for (const f of filled) {
+    f.photoDataUrl = await fileToDataURL(f.photoFile);
+    f.photoUrl = await uploadScrapPhoto(f.photoFile);
+  }
+
+  const batchId = 'BATCH-' + Date.now().toString().slice(-6);
+  const bodyArr = filled.map(f => ({
+    movement_type: type, hub_name: hub, city: city || null, category: f.category, part_name: f.partName,
+    vendor_id: vendorId ? parseInt(vendorId) : null,
+    pickup_date: date, qty_or_weight: f.drivingQty, rate: f.rate,
+    actual_qty_nos: f.actualQty, actual_weight_kg: f.actualWeight, system_calculated: f.systemCalc,
+    variance_remark: f.remark, batch_id: batchId,
+    period_from: periodFrom, period_to: periodTo, photo_url: f.photoUrl,
+    status: 'Created',
+    created_by: getCurrentUser().email || 'unknown'
+  }));
+
+  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers:{...HDR,'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(bodyArr) });
+  if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+  const saved = await r.json();
+
+  const msg = document.getElementById('saveMsg'); msg.style.display='inline'; setTimeout(()=>msg.style.display='none', 2000);
+
+  await downloadBatchReceiptPDF({
+    type, hub, city, date, periodFrom, periodTo, vendorName, batchId,
+    lines: saved.map((s, i) => ({ ...s, _photoDataUrl: filled[i].photoDataUrl }))
+  });
+
+  document.querySelectorAll('#s-rows-tbody input').forEach(el => { if (el.type === 'file') el.value = ''; else if (!el.readOnly) el.value = ''; });
+  updateGrandTotal();
+  loadAll();
+}
+
+async function downloadBatchReceiptPDF(batch) {
+  if (!window.jspdf) { console.error('jsPDF not loaded'); return; }
+  const doc = new window.jspdf.jsPDF();
+  const isScrap = batch.type === 'Scrap';
+
+  doc.setFillColor(220, 38, 38);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'bold'); doc.setFontSize(18); doc.text('Bounce Daily', 14, 15);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(isScrap ? 'SCRAP MOVEMENT RECEIPT' : (batch.type.toUpperCase() + ' MOVEMENT RECEIPT'), 14, 23);
+  doc.setTextColor(120); doc.setFontSize(9);
+  const batchId = batch.batchId || 'BATCH-' + Date.now().toString().slice(-6);
+  doc.text(`${batchId}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 38);
+  doc.setTextColor(0);
+
+  let y = 48;
+  const line = (lbl, val) => {
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.text(lbl+':', 18, y);
+    doc.setFont(undefined,'normal'); doc.text(String(val===null||val===undefined||val===''?'-':val), 70, y);
+    y += 8;
+  };
+  line('Type', batch.type);
+  line('City', batch.city || '-');
+  line('Hub', batch.hub);
+  line('Pickup Date', batch.date);
+  line('Period Covered', (batch.periodFrom||'-') + '  to  ' + (batch.periodTo||'-'));
+  line('Vendor', batch.vendorName || '-');
+  y += 4;
+
+  doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.text('Line Items', 14, y); y += 3;
+  doc.setDrawColor(200); doc.line(14, y, 196, y); y += 7;
+  doc.setFontSize(9);
+  const col1 = 14, col2 = isScrap ? 95 : 150, col3 = 125, col4 = 150, col5 = 172;
+  doc.setFont(undefined,'bold');
+  doc.text(isScrap ? 'Category' : 'Part', col1, y);
+  doc.text('Qty/Wt', col2, y);
+  if (isScrap) { doc.text('Rate', col3, y); doc.text('Total', col5, y); }
+  y += 6;
+  doc.setFont(undefined,'normal');
+  let grandTotal = 0;
+  batch.lines.forEach(ln => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    const name = ln.category || ln.part_name;
+    const qtyWt = ln.actual_weight_kg != null ? `${ln.actual_weight_kg} kg` : `${ln.actual_qty_nos} nos`;
+    doc.text(String(name).slice(0, isScrap ? 38 : 60), col1, y);
+    doc.text(qtyWt, col2, y);
+    if (isScrap) {
+      doc.text(String(ln.rate), col3, y);
+      doc.text(Number(ln.total_value).toLocaleString('en-IN'), col5, y);
+      grandTotal += Number(ln.total_value) || 0;
+    }
+    y += 6;
+    if (ln.variance_remark) {
+      doc.setFontSize(8); doc.setTextColor(150,60,20);
+      doc.text(`↳ Variance (Sys. Calc. ${ln.system_calculated ?? '-'}): ${ln.variance_remark}`, col1 + 4, y);
+      doc.setTextColor(0); doc.setFontSize(9);
+      y += 6;
+    }
+  });
+  doc.setDrawColor(200); doc.line(14, y, 196, y); y += 8;
+
+  if (isScrap) {
+    doc.setFillColor(254, 242, 242);
+    doc.rect(14, y-7, 182, 15, 'F');
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(180,30,30);
+    doc.text('Grand Total:', 18, y+2);
+    doc.text('Rs. ' + grandTotal.toLocaleString('en-IN'), 82, y+2);
+    doc.setTextColor(0);
+    y += 22;
+  } else {
+    y += 6;
+  }
+
+  // Photos, one per line item that has one, each on its own page
+  for (const ln of batch.lines) {
+    let photoData = ln._photoDataUrl || null;
+    if (!photoData && ln.photo_url) {
+      try {
+        const resp = await fetch(ln.photo_url);
+        const blob = await resp.blob();
+        photoData = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+      } catch(e) { console.error('could not fetch photo for pdf', e); }
+    }
+    if (!photoData) continue;
+    doc.addPage();
+    let py = 20;
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.text(`Photo Evidence — ${ln.category || ln.part_name}`, 18, py); py += 8;
+    doc.setDrawColor(220); doc.line(14, py-4, 196, py-4); py += 4;
+    try {
+      const imgProps = doc.getImageProperties(photoData);
+      const maxW = 170, maxH = 220;
+      let w = imgProps.width, h = imgProps.height;
+      const scale = Math.min(maxW/w, maxH/h, 1);
+      w *= scale; h *= scale;
+      doc.addImage(photoData, imgProps.fileType || 'JPEG', 18, py, w, h);
+    } catch(e) { console.error('embed image failed', e); }
+  }
+
+  if (batch.lines.length) {
+    doc.addPage();
+    let sy = 30;
+    doc.setDrawColor(180);
+    doc.line(18, sy, 85, sy); doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.text('Hub In-charge Signature', 18, sy+5);
+    doc.line(125, sy, 192, sy); doc.text('Finance Approval', 125, sy+5);
+  }
+
+  doc.save(`${batch.type}_${batch.hub.replace(/[^a-z0-9]+/gi,'_')}_${batch.date}.pdf`);
+}
+
 
 function exportCategoryCSV() {
   if (!SUMMARY) return;
@@ -369,16 +1300,362 @@ function exportCategoryCSV() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
+function reportHeight() { window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*'); }
+
+
+// ===== Merged from Parts Tracker (Refurb reverse-logistics funnel) =====
+const PT_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const PT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+function ptAuthHeaders() {
+  return { 'apikey': PT_KEY, 'Authorization': 'Bearer ' + PT_KEY };
+}
+let _ptSbGetHadFailure = false;
+async function ptSbGet(path, _attempt) {
+  _attempt = _attempt || 0;
+  try {
+    const r = await fetch(`${PT_URL}/rest/v1/${path}`, { headers: ptAuthHeaders() });
+    if (!r.ok) {
+      console.error('ptSbGet failed', path, r.status, await r.text());
+      if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return ptSbGet(path, _attempt + 1); }
+      _ptSbGetHadFailure = true;
+      return [];
+    }
+    return r.json();
+  } catch (e) {
+    console.error('ptSbGet network error', path, e);
+    if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return ptSbGet(path, _attempt + 1); }
+    _ptSbGetHadFailure = true;
+    return [];
+  }
+}
+async function ptRpc(name, body) {
+  const r = await fetch(`${PT_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) { console.error(name, 'failed', r.status, await r.text()); _ptSbGetHadFailure = true; return null; }
+  return r.json();
+}
+async function ptSbUpsert(table, body, onConflict) {
+  const r = await fetch(`${PT_URL}/rest/v1/${table}${onConflict ? '?on_conflict=' + onConflict : ''}`, {
+    method: 'POST',
+    headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// Emails allowed to edit the manual entry fields — everyone else sees read-only text.
+// Edit access is now managed via Admin Panel > Allowed Users > "Can Edit
+// Scrap Dashboard" (allowed_users.permissions.scrap_edit) -- see
+// ptApplyEditPermission() below. No hardcoded email list anymore.
+
+// Not real service hubs for this tracker (auto/office/coworking-space
+// entries in bike_fleet with no bearing on 2-wheeler refurb parts) --
+// excluded from every city's hub list entirely.
+const PT_EXCLUDED_HUBS = ['3 Wheeler Auto - E City Hub', 'Indiqube Alpha', 'Majestic Railway Station', 'Spaceware Hub'];
+
+let ptHubsByCity = {};       // city -> [hub_name, ...] sorted, RAW names as they exist in bike_fleet
+let ptMergedHubsByCity = {}; // city -> [hub_name, ...] sorted, after folding partner sub-hubs into their parent
+let ptCanEdit = false;
+let ptFunnelRows = [];       // last-loaded rows from get_refurb_funnel
+let ptHubBreakdown = {};     // per-part, per-hub breakdown for the drill-down: { part: { hub: {consumed, sent} } }
+let ptExpandedParts = new Set(); // which part rows currently have their drill-down expanded (survives re-render)
+
+async function ptInit() {
+  _ptSbGetHadFailure = false;
+  await ptApplyEditPermission();
+
+  const fleet = await ptSbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
+  ptHubsByCity = {};
+  (Array.isArray(fleet) ? fleet : []).forEach(r => {
+    if (PT_EXCLUDED_HUBS.includes(r.hub_name)) return;
+    const city = r.city || 'Other';
+    if (!ptHubsByCity[city]) ptHubsByCity[city] = new Set();
+    ptHubsByCity[city].add(r.hub_name);
+  });
+  Object.keys(ptHubsByCity).forEach(c => ptHubsByCity[c] = [...ptHubsByCity[c]].sort());
+
+  // Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
+  // "Flipkart hub - Banaswadi", "Famcare hub - Hoodi") but physically report
+  // under the parent hub -- fold them together in the city's hub list rather
+  // than listing dozens of near-duplicate rows. Generic pattern match (not a
+  // hardcoded partner list) so any future partner hub named this way gets
+  // merged automatically too. Feeds ptMergedHubsByCity, used by the
+  // city_head hub-filtering in applyHubRestriction().
+  ptMergedHubsByCity = {};
+  Object.keys(ptHubsByCity).forEach(city => {
+    const rawHubs = ptHubsByCity[city];
+    const merged = new Set();
+    rawHubs.forEach(h => {
+      const m = h.match(/^.+ hub - (.+)$/i);
+      const parent = (m && rawHubs.includes(m[1])) ? m[1] : h;
+      merged.add(parent);
+    });
+    ptMergedHubsByCity[city] = [...merged].sort();
+  });
+}
+
+async function ptApplyEditPermission() {
+  const email = getCurrentUser().email;
+  ptCanEdit = false;
+  if (email) {
+    const rows = await sbGet(`allowed_users?email=eq.${encodeURIComponent(email)}&select=permissions&limit=1`);
+    const row = rows && rows[0];
+    ptCanEdit = !!(row && row.permissions && row.permissions.scrap_edit);
+  }
+  ['Scrap','Refurb','Tyre'].forEach(type => {
+    const badge = document.getElementById('pt-editBadge-' + type);
+    if (!badge) return;
+    if (ptCanEdit) {
+      badge.className = 'edit-badge';
+      badge.innerHTML = '';
+      document.getElementById('pt-saveRow-' + type).style.display = 'flex';
+    } else {
+      badge.className = 'edit-badge';
+      badge.innerHTML = '<i class="ti ti-lock"></i> Read-only view';
+    }
+  });
+}
+
+let PIPELINE_ROWS = { Scrap: [], Refurb: [], Tyre: [] };
+
+async function ptLoadAndRender(from, to, city, hub) {
+  const [scrapRows, refurbRows, tyreRows] = await Promise.all([
+    ptRpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: hub }),
+    ptRpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: hub }),
+    ptRpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: hub })
+  ]);
+  PIPELINE_ROWS.Scrap = scrapRows || [];
+  PIPELINE_ROWS.Refurb = refurbRows || [];
+  PIPELINE_ROWS.Tyre = tyreRows || [];
+  ['Scrap','Refurb','Tyre'].forEach(type => ptRenderType(type));
+}
+
+function ptRenderType(type) {
+  const tbody = document.getElementById('pt-rowsBody-' + type);
+  if (!tbody) return;
+  const rows = PIPELINE_ROWS[type] || [];
+  const colCount = type === 'Scrap' ? 9 : 10;
+  if (!rows.length) { tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty">No ${type.toLowerCase()} data for this range/filter.</td></tr>`; return; }
+
+  const inp = (cls, val) => ptCanEdit ? `<input type="number" class="${cls}" value="${val ?? ''}">` : `<span class="num ${val == null ? 'muted-cell' : ''}">${val ?? '—'}</span>`;
+
+  tbody.innerHTML = rows.map(row => {
+    const pct = row.pct != null ? row.pct + '%' : '—';
+    if (type === 'Scrap') {
+      return `<tr data-part="${ptEscapeAttr(row.part_name)}">
+        <td>${row.part_name}</td>
+        <td class="num">${row.consumed} ${row.unit}</td>
+        <td class="num ${row.actual_in_hub == null ? 'muted-cell' : ''}">${row.actual_in_hub ?? '—'}</td>
+        <td>${inp('f-rpdc', row.sent_to_rpdc)}</td>
+        <td>${inp('f-vendor', row.sent_to_vendor)}</td>
+        <td>${inp('f-outcome', row.outcome)}</td>
+        <td>${inp('f-rejected', row.rejected)}</td>
+        <td>${inp('f-recv-rejected', row.received_rpdc_rejected)}</td>
+        <td class="num">${pct}</td>
+      </tr>`;
+    }
+    return `<tr data-part="${ptEscapeAttr(row.part_name)}">
+      <td>${row.part_name}</td>
+      <td class="num">${row.consumed} ${row.unit}</td>
+      <td class="num ${row.actual_in_hub == null ? 'muted-cell' : ''}">${row.actual_in_hub ?? '—'}</td>
+      <td>${inp('f-rpdc', row.sent_to_rpdc)}</td>
+      <td>${inp('f-vendor', row.sent_to_vendor)}</td>
+      <td>${inp('f-outcome', row.outcome)}</td>
+      <td>${inp('f-rejected', row.rejected)}</td>
+      <td>${inp('f-recv-outcome', row.received_rpdc_outcome)}</td>
+      <td>${inp('f-recv-rejected', row.received_rpdc_rejected)}</td>
+      <td class="num">${pct}</td>
+    </tr>`;
+  }).join('');
+}
+
+function ptEscapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+async function ptSaveAll(type) {
+  if (!ptCanEdit) return;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value;
+  if (!city) { alert('Select a specific City above (not "All Cities") before saving — these are city-level figures.'); return; }
+  const email = getCurrentUser().email || 'unknown';
+  const now = new Date().toISOString();
+
+  const payload = [];
+  document.querySelectorAll(`#pt-rowsBody-${type} > tr[data-part]`).forEach(tr => {
+    const part = tr.dataset.part;
+    const val = sel => { const el = tr.querySelector(sel); if (!el) return undefined; return el.value === '' ? null : parseFloat(el.value); };
+    const rpdc = val('.f-rpdc'), vendor = val('.f-vendor'), outcome = val('.f-outcome'), rejected = val('.f-rejected'),
+          recvOutcome = val('.f-recv-outcome'), recvRejected = val('.f-recv-rejected');
+    if ([rpdc, vendor, outcome, rejected, recvOutcome, recvRejected].every(v => v === undefined || v === null)) return;
+    payload.push({
+      period_from: from, period_to: to, city, item_type: type, item_name: part,
+      sent_to_rpdc_qty: rpdc ?? null, sent_to_vendor_qty: vendor ?? null,
+      refurbed_qty: outcome ?? null, rejected_qty: rejected ?? null,
+      received_at_rpdc_qty: recvOutcome ?? null, received_at_rpdc_rejected_qty: recvRejected ?? null,
+      updated_by: email, updated_at: now
+    });
+  });
+
+  if (payload.length) {
+    await ptSbUpsert('refurb_manual_entries_city', payload, 'period_from,period_to,city,item_type,item_name');
+  }
+
+  const msg = document.getElementById('pt-saveMsg-' + type);
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000);
+  await ptLoadAndRender(from, to, city, document.getElementById('f-hub').value || null);
+}
+
+
+// ===== end merged Parts Tracker =====
+
+let RESTRICTED_HUB = null;
+let RESTRICTED_CITY = null;
+
+// The hub_audit schema (auditors/hubs tables) only grants SELECT to the
+// 'authenticated' Postgres role -- the static anon key gets a flat 401
+// ("permission denied for schema hub_audit"). This mirrors admin.html's own
+// token handling: use the real session access_token, and if it's expired,
+// refresh it once via Supabase Auth before giving up.
+async function getHubAuditToken() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    return sess.access_token || null;
+  } catch (e) { return null; }
+}
+async function refreshHubAuditToken() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (!sess.refresh_token) return null;
+    const r = await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: sess.refresh_token })
+    });
+    const d = await r.json();
+    if (d && d.access_token) {
+      sess.access_token = d.access_token;
+      if (d.refresh_token) sess.refresh_token = d.refresh_token;
+      localStorage.setItem('sb_session', JSON.stringify(sess));
+      return d.access_token;
+    }
+  } catch (e) {}
+  return null;
+}
+async function hubAuditGet(path) {
+  const token = await getHubAuditToken();
+  if (!token) return null;
+  const headers = { apikey: ANON, Authorization: `Bearer ${token}`, 'Accept-Profile': 'hub_audit' };
+  let r = await fetch(`${SB}/rest/v1/${path}`, { headers });
+  if (r.status === 401) {
+    const fresh = await refreshHubAuditToken();
+    if (!fresh) return null;
+    r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: ANON, Authorization: `Bearer ${fresh}`, 'Accept-Profile': 'hub_audit' } });
+  }
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// Locks a Service Manager / Hub Manager to their own assigned hub, both for
+// viewing (top filter) and for logging new movements (Create Movement form).
+// Reads the hub assignment from hub_audit.auditors (the same table Admin
+// Panel > Hub Audit Users already manages) -- not a separate mechanism, so
+// assigning someone here is just adding them there with a hub selected.
+// Anyone not in that table, or with a role other than hub_manager/service_manager,
+// or with no hub assigned, sees everything -- unrestricted.
+async function applyHubRestriction() {
+  const { email } = getCurrentUser();
+  if (!email) return;
+  const rows = await hubAuditGet(`auditors?email=eq.${encodeURIComponent(email)}&select=role,hub_id,city,is_active&limit=1`);
+  const row = rows && rows[0];
+  if (!row || row.is_active === false) return;
+
+  // Hub Manager / Service Manager: locked to exactly one hub.
+  if (row.role === 'hub_manager' || row.role === 'service_manager') {
+    if (!row.hub_id) return;
+    const hubRows = await hubAuditGet(`hubs?id=eq.${row.hub_id}&select=name,city`);
+    const hub = hubRows && hubRows[0];
+    if (!hub || !hub.name) return;
+
+    RESTRICTED_HUB = hub.name;
+    RESTRICTED_CITY = hub.city || row.city || null;
+
+    const citySel = document.getElementById('f-city');
+    const hubSel = document.getElementById('f-hub');
+    if (RESTRICTED_CITY) { citySel.value = RESTRICTED_CITY; }
+    citySel.disabled = true;
+    hubSel.innerHTML = `<option value="${RESTRICTED_HUB}">${RESTRICTED_HUB}</option>`;
+    hubSel.value = RESTRICTED_HUB;
+    hubSel.disabled = true;
+
+    // Also lock Create Movement's own City/Hub -- someone restricted to one
+    // hub for viewing shouldn't be able to log a movement for a different
+    // one via the independent fields there.
+    const sCitySel = document.getElementById('s-city');
+    const sHubSel = document.getElementById('s-hub');
+    if (RESTRICTED_CITY) { sCitySel.value = RESTRICTED_CITY; }
+    sCitySel.disabled = true;
+    sCitySel.dataset.seeded = '1';
+    sHubSel.innerHTML = `<option value="${RESTRICTED_HUB}">${RESTRICTED_HUB}</option>`;
+    sHubSel.value = RESTRICTED_HUB;
+    sHubSel.disabled = true;
+    sHubSel.dataset.seeded = '1';
+
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:var(--muted);margin:-10px 0 16px';
+    note.innerHTML = `<i class="ti ti-lock"></i> Your access is restricted to ${RESTRICTED_HUB}${RESTRICTED_CITY ? ' (' + RESTRICTED_CITY + ')' : ''}.`;
+    const ctlBar = document.querySelector('.ctl-bar');
+    if (ctlBar) ctlBar.insertAdjacentElement('afterend', note);
+    return;
+  }
+
+  // City Head (and similarly-shaped roles: a city assigned, no single hub):
+  // locked to their city, but free to pick any hub within it -- not
+  // restricted to just one, unlike Hub/Service Manager above.
+  if (row.role === 'city_head' && row.city) {
+    RESTRICTED_CITY = row.city;
+    const citySel = document.getElementById('f-city');
+    citySel.value = RESTRICTED_CITY;
+    citySel.disabled = true;
+
+    // City is locked, but Hub itself defaults to showing every hub across
+    // every city -- narrow it down to just this city's hubs so the lock
+    // is actually meaningful, not just cosmetic on the City field.
+    const hubSel = document.getElementById('f-hub');
+    const cityHubs = (ptMergedHubsByCity && ptMergedHubsByCity[RESTRICTED_CITY]) || [];
+    if (cityHubs.length) {
+      hubSel.innerHTML = '<option value="">All Hubs (in ' + RESTRICTED_CITY + ')</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+    }
+
+    // Same lock on Create Movement's own City/Hub -- City fixed, Hub
+    // narrowed to this city's list but still freely choosable within it.
+    const sCitySel = document.getElementById('s-city');
+    sCitySel.value = RESTRICTED_CITY;
+    sCitySel.disabled = true;
+    sCitySel.dataset.seeded = '1';
+    onMovementCityChange(true);
+    document.getElementById('s-hub').dataset.seeded = '1';
+
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:var(--muted);margin:-10px 0 16px';
+    note.innerHTML = `<i class="ti ti-lock"></i> Your access is restricted to ${RESTRICTED_CITY} — any hub within it.`;
+    const ctlBar = document.querySelector('.ctl-bar');
+    if (ctlBar) ctlBar.insertAdjacentElement('afterend', note);
+  }
+}
+
 (function init() {
   const to = todayIST();
   const from = to.slice(0,8) + '01';
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
   document.getElementById('s-date').value = to;
-  Promise.all([loadHubs(), loadCategories(), loadVendors(), loadAll()]);
+  Promise.all([loadHubs(), loadCategories(), loadRefurbParts(), loadVendors(), ptInit()]).then(async () => {
+    await applyHubRestriction();
+    onTypeChange();
+    loadAll();
+  });
 })();
 
-function reportHeight() { window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*'); }
+
 window.addEventListener('load', reportHeight);
 new ResizeObserver(reportHeight).observe(document.body);
 </script>
