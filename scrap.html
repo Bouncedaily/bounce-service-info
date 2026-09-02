@@ -317,7 +317,19 @@
 const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON }; // fallback only, used before auth-guard resolves
+let _authReadyPromise = null;
+function waitForAuthReady(timeoutMs) {
+  if (window.authGetValidToken) return Promise.resolve();
+  if (_authReadyPromise) return _authReadyPromise;
+  _authReadyPromise = new Promise(resolve => {
+    if (window.authGetValidToken) { resolve(); return; }
+    const to = setTimeout(resolve, timeoutMs || 4000); // safety net if auth-guard.js ever fails to fire
+    window.addEventListener('auth-ready', () => { clearTimeout(to); resolve(); }, { once: true });
+  });
+  return _authReadyPromise;
+}
 async function authHDR(extra) {
+  await waitForAuthReady();
   let tok = ANON;
   try { if (window.authGetValidToken) { const t = await window.authGetValidToken(); if (t) tok = t; } } catch (e) {}
   return Object.assign({ apikey: ANON, Authorization: 'Bearer ' + tok }, extra || {});
