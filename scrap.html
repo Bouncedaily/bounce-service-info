@@ -218,7 +218,7 @@
   <div class="panel">
 
     <h3>Create Scrap / Refurb Movement
-      <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button></span>
+      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button></span>
     </h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
     <div class="sale-form">
@@ -316,7 +316,12 @@
 <script>
 const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON };
+const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON }; // fallback only, used before auth-guard resolves
+async function authHDR(extra) {
+  let tok = ANON;
+  try { if (window.authGetValidToken) { const t = await window.authGetValidToken(); if (t) tok = t; } } catch (e) {}
+  return Object.assign({ apikey: ANON, Authorization: 'Bearer ' + tok }, extra || {});
+}
 
 let CATEGORIES = [];
 
@@ -336,6 +341,10 @@ function getCurrentUser() {
     return { email: sess.email || '', role: sess.role || '' };
   } catch (e) { return { email: '', role: '' }; }
 }
+const SCRAP_POWER_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
+function isScrapPowerUser() {
+  return SCRAP_POWER_EMAILS.includes((getCurrentUser().email || '').toLowerCase());
+}
 let REFURB_PARTS = [];
 let VENDORS = [];
 let SUMMARY = null;
@@ -348,7 +357,7 @@ function todayIST() { return new Date(Date.now()+5.5*3600*1000).toISOString().sl
 async function sbGet(path, attempt) {
   attempt = attempt || 0;
   try {
-    const r = await fetch(`${SB}/rest/v1/${path}`, { headers: HDR });
+    const r = await fetch(`${SB}/rest/v1/${path}`, { headers: await authHDR() });
     if (!r.ok) { console.error('sbGet failed', path, r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
     return r.json();
   } catch (e) { console.error('sbGet network error', path, e); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
@@ -356,7 +365,7 @@ async function sbGet(path, attempt) {
 async function rpc(name, body, attempt) {
   attempt = attempt || 0;
   try {
-    const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method:'POST', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify(body) });
     if (!r.ok) { console.error(name,'failed',r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
     return r.json();
   } catch (e) { console.error(name,'network error',e); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
@@ -605,7 +614,7 @@ async function addVendorFull() {
   if (!name) return;
   const contact = document.getElementById('v-contact').value.trim();
   const gst = document.getElementById('v-gst').value.trim();
-  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null, approved: true }) });
+  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null, approved: true }) });
   document.getElementById('v-name').value=''; document.getElementById('v-contact').value=''; document.getElementById('v-gst').value='';
   await renderVendorManager();
   await loadVendors();
@@ -615,7 +624,7 @@ async function saveVendorInfo(id) {
   const name = document.getElementById(`vn-${id}`).value.trim();
   const contact = document.getElementById(`vc-${id}`).value.trim();
   const gst = document.getElementById(`vg-${id}`).value.trim();
-  await fetch(`${SB}/rest/v1/scrap_vendors?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null }) });
+  await fetch(`${SB}/rest/v1/scrap_vendors?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null }) });
   await loadVendors();
 }
 
@@ -626,7 +635,7 @@ async function saveVendorRates(id) {
     return isNaN(val) ? null : { vendor_id: id, category: c.category, rate: val };
   }).filter(Boolean);
   if (!rows.length) { alert('Enter at least one rate before saving.'); return; }
-  const r = await fetch(`${SB}/rest/v1/vendor_category_rates?on_conflict=vendor_id,category`, { method:'POST', headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}, body: JSON.stringify(rows) });
+  const r = await fetch(`${SB}/rest/v1/vendor_category_rates?on_conflict=vendor_id,category`, { method:'POST', headers: await authHDR({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}), body: JSON.stringify(rows) });
   if (!r.ok) { alert('Could not save rates: ' + (await r.text()).slice(0,200)); return; }
   alert('Rate card saved.');
 }
@@ -862,7 +871,7 @@ async function loadSales(from, to, city, hub) {
         <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
         <td>${allApproved
             ? `<span class="status-pill status-PaymentReceived">Approved</span>`
-            : `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>`}</td>
+            : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`)}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
@@ -872,8 +881,8 @@ async function loadSales(from, to, city, hub) {
                 ? `<a href="${gstUrl}" target="_blank"><i class="ti ti-file-invoice"></i> View GST Invoice</a>`
                 : `<button onclick="document.getElementById('gst-up-${groupId}').click()"><i class="ti ti-file-upload"></i> Upload GST Invoice</button>
                    <input type="file" id="gst-up-${groupId}" accept="image/*,.pdf" style="display:none" onchange='uploadGstForGroup(this, ${idsJson})'>`}
-              ${!multi ? `<button onclick='openEditMovement(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
-              <button class="danger" onclick='deleteMovementGroup(${idsJson})'><i class="ti ti-trash"></i> Delete</button>
+              ${(!multi && isScrapPowerUser()) ? `<button onclick='openEditMovement(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
+              ${isScrapPowerUser() ? `<button class="danger" onclick='deleteMovementGroup(${idsJson})'><i class="ti ti-trash"></i> Delete</button>` : ''}
             </div>
           </details>
         </td></tr>`;
@@ -889,7 +898,7 @@ async function loadSales(from, to, city, hub) {
         <td class="num">${fmtC(r.rate)}</td>
         <td class="num">${fmtC(r.total_value)}</td>
         <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
-        <td>${r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>`}</td>
+        <td>${r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`)}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
@@ -924,7 +933,7 @@ async function uploadGstForGroup(input, ids) {
   if (!file) return;
   const url = await uploadScrapPhoto(file);
   if (!url) { alert('Upload failed — try again.'); return; }
-  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ gst_invoice_url: url }) })));
+  await Promise.all(ids.map(async id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ gst_invoice_url: url }) })));
   loadAll();
 }
 
@@ -932,7 +941,7 @@ async function approveMovementGroup(ids) {
   const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
   if (!who) return;
   const now = new Date().toISOString();
-  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: now }) })));
+  await Promise.all(ids.map(async id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: now }) })));
   loadAll();
 }
 
@@ -941,7 +950,7 @@ async function deleteMovementGroup(ids) {
     ? `Delete this entire movement (${ids.length} categories)? This cannot be undone, and will also affect Pending / Revenue totals.`
     : 'Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.';
   if (!confirm(msg)) return;
-  await Promise.all(ids.map(id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: HDR })));
+  await Promise.all(ids.map(async id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: await authHDR() })));
   loadAll();
 }
 
@@ -966,7 +975,7 @@ async function redownloadPDF(row) {
 async function acknowledgeMovement(id) {
   const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
   if (!who) return;
-  await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: new Date().toISOString() }) });
+  await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: new Date().toISOString() }) });
   loadAll();
 }
 
@@ -1042,7 +1051,7 @@ async function saveEditedMovement() {
   };
   if (isScrap) { body.rate = rate; }
 
-  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${row.id}`, { method:'PATCH', headers:{...HDR,'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${row.id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify(body) });
   if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
 
   const msg = document.getElementById('edit-mv-msg');
@@ -1053,7 +1062,7 @@ async function saveEditedMovement() {
 
 async function deleteMovement(id) {
   if (!confirm('Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.')) return;
-  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: HDR });
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: await authHDR() });
   if (!r.ok) { alert('Could not delete: ' + (await r.text()).slice(0,200)); return; }
   loadAll();
 }
@@ -1071,7 +1080,7 @@ async function uploadScrapPhoto(file) {
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
   const r = await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, {
-    method: 'POST', headers: { ...HDR, 'Content-Type': file.type || 'image/jpeg' }, body: file
+    method: 'POST', headers: await authHDR({ 'Content-Type': file.type || 'image/jpeg' }), body: file
   });
   if (!r.ok) { console.error('photo upload failed', await r.text()); return null; }
   return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
@@ -1162,7 +1171,7 @@ async function createBatch() {
     created_by: getCurrentUser().email || 'unknown'
   }));
 
-  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers:{...HDR,'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(bodyArr) });
+  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers: await authHDR({'Content-Type':'application/json','Prefer':'return=representation'}), body: JSON.stringify(bodyArr) });
   if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
   const saved = await r.json();
 
@@ -1363,6 +1372,7 @@ let ptExpandedParts = new Set(); // which part rows currently have their drill-d
 async function ptInit() {
   _ptSbGetHadFailure = false;
   await ptApplyEditPermission();
+  const mv = document.getElementById('btn-manage-vendors'); if (mv) mv.style.display = isScrapPowerUser() ? '' : 'none';
 
   const fleet = await ptSbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
   ptHubsByCity = {};
@@ -1395,13 +1405,7 @@ async function ptInit() {
 }
 
 async function ptApplyEditPermission() {
-  const email = getCurrentUser().email;
-  ptCanEdit = false;
-  if (email) {
-    const rows = await sbGet(`allowed_users?email=eq.${encodeURIComponent(email)}&select=permissions&limit=1`);
-    const row = rows && rows[0];
-    ptCanEdit = !!(row && row.permissions && row.permissions.scrap_edit);
-  }
+  ptCanEdit = isScrapPowerUser();
   ['Scrap','Refurb','Tyre'].forEach(type => {
     const badge = document.getElementById('pt-editBadge-' + type);
     if (!badge) return;
