@@ -267,7 +267,7 @@
   </div>
 
   <div class="panel">
-    <h3>Recent Movements</h3>
+    <h3>Recent Movements <span style="font-weight:400;font-size:11px;color:var(--muted)">(last 10, regardless of the date range above)</span></h3>
     <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
     <table>
       <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
@@ -375,6 +375,9 @@ function getCurrentUser() {
 const SCRAP_POWER_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
 function isScrapPowerUser() {
   return SCRAP_POWER_EMAILS.includes((getCurrentUser().email || '').toLowerCase());
+}
+function isScrapApprover() {
+  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
 }
 let REFURB_PARTS = [];
 let VENDORS = [];
@@ -801,7 +804,7 @@ async function loadApprovalQueue(city, hub) {
       <td class="num">${fmtC(amount)}</td>
       <td class="num">${varCell}</td>
       <td class="num">${age}d</td>
-      <td>${isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve</button>` : ''}</td>
+      <td>${isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve</button>` : ''}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty">Nothing pending approval.</td></tr>';
 }
@@ -900,11 +903,19 @@ function renderSummary() {
 
 
 async function loadSales(from, to, city, hub) {
-  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&pickup_date=gte.${from}&pickup_date=lte.${to}&order=pickup_date.desc&limit=100`;
+  // Finance Pending KPI still respects the selected date range/filters --
+  // only the Recent Movements table itself always shows the latest 10
+  // regardless of the range picked above.
+  let countQ = `scrap_sales?select=id&pickup_date=gte.${from}&pickup_date=lte.${to}&ho_ack_status=neq.Acknowledged&status=neq.Cancelled`;
+  if (city) countQ += `&city=eq.${encodeURIComponent(city)}`;
+  if (hub) countQ += `&hub_name=eq.${encodeURIComponent(hub)}`;
+  const pendingRows = await sbGet(countQ);
+  document.getElementById('kvPendingAck').textContent = pendingRows.length;
+
+  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&order=created_at.desc&limit=60`;
   if (city) q += `&city=eq.${encodeURIComponent(city)}`;
   if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
   const rows = await sbGet(q);
-  document.getElementById('kvPendingAck').textContent = rows.filter(r => r.ho_ack_status !== 'Acknowledged' && r.status !== 'Cancelled').length;
 
   // One Create Movement submission (multiple categories/parts) collapses into
   // a single row here, with an expand arrow to see/edit/delete each category
@@ -921,9 +932,12 @@ async function loadSales(from, to, city, hub) {
     }
     groupByKey[key].rows.push(r);
   });
+  // rows arrived ordered by created_at desc, so groups are already in
+  // most-recent-first order -- just keep the 10 most recent movements.
+  const visibleGroups = groups.slice(0, 10);
 
   const tbody = document.getElementById('salesBody');
-  tbody.innerHTML = groups.length ? groups.map((g, gi) => {
+  tbody.innerHTML = visibleGroups.length ? visibleGroups.map((g, gi) => {
     const first = g.rows[0];
     const multi = g.rows.length > 1;
     const groupId = `grp-${gi}`;
@@ -947,7 +961,7 @@ async function loadSales(from, to, city, hub) {
         <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
         <td>${statusText === 'Cancelled' ? '—' : (allApproved
             ? `<span class="status-pill status-PaymentReceived">Approved</span>`
-            : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
+            : (isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
@@ -974,7 +988,7 @@ async function loadSales(from, to, city, hub) {
         <td class="num">${fmtC(r.rate)}</td>
         <td class="num">${fmtC(r.total_value)}</td>
         <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
-        <td>${r.status === 'Cancelled' ? '—' : (r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`))}</td>
+        <td>${r.status === 'Cancelled' ? '—' : (r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapApprover() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
