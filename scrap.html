@@ -31,6 +31,25 @@
     .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-bottom: 20px; }
     .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
     .info-dot { display:inline-block; cursor:help; color:var(--muted); font-size:11px; margin-left:2px; }
+    .scrap-tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+    .scrap-tab { background:none; border:none; padding:10px 18px; font-size:13px; font-weight:700; letter-spacing:.03em; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+    .scrap-tab.active { color:var(--red); border-bottom-color:var(--red); }
+    .recon-flow { display:flex; align-items:center; justify-content:center; gap:18px; padding:16px 0; flex-wrap:wrap; }
+    .recon-step { text-align:center; min-width:130px; }
+    .recon-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px; }
+    .recon-val { font-size:22px; font-weight:700; }
+    .recon-arrow { font-size:20px; color:var(--muted); }
+    .recon-variance .recon-val { color:#b45309; }
+    .recon-pct { font-size:12px; color:var(--muted); margin-top:2px; }
+    .funnel-kpis { display:flex; gap:12px; margin-bottom:10px; }
+    .funnel-kpi { flex:1; border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+    .fk-label { font-size:11px; color:var(--muted); text-transform:uppercase; }
+    .fk-val { font-size:18px; font-weight:700; margin-top:2px; }
+    .funnel-flow { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:12px 0 18px; flex-wrap:wrap; }
+    .funnel-node { text-align:center; flex:1; min-width:80px; }
+    .funnel-node .fn-val { font-size:17px; font-weight:700; }
+    .funnel-node .fn-label { font-size:10px; color:var(--muted); margin-top:2px; }
+    .funnel-sep { color:var(--muted); font-size:16px; }
     .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
     .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
     .kpi .ks { font-size: 11px; color: var(--muted); }
@@ -155,6 +174,13 @@
 
   <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
 
+  <div class="scrap-tabs" role="tablist">
+    <button class="scrap-tab active" id="tabBtn-scrap" onclick="switchScrapTab('scrap')">SCRAP</button>
+    <button class="scrap-tab" id="tabBtn-refurb" onclick="switchScrapTab('refurb')">REFURB</button>
+    <button class="scrap-tab" id="tabBtn-tyre" onclick="switchScrapTab('tyre')">TYRE</button>
+  </div>
+
+  <div id="tabPane-scrap">
   <div class="kpi-row">
     <div class="kpi">
       <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated
@@ -170,6 +196,27 @@
     <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Finance Pending</div><div class="kv" id="kvPendingAck">—</div></div>
   </div>
 
+  <div class="panel" id="reconPanel">
+    <h3><i class="ti ti-git-branch"></i> Scrap Reconciliation</h3>
+    <div class="recon-flow">
+      <div class="recon-step"><div class="recon-label">Estimated Generated</div><div class="recon-val" id="reconEst">—</div></div>
+      <div class="recon-arrow">→</div>
+      <div class="recon-step"><div class="recon-label">Actual</div><div class="recon-val" id="reconActual">—</div></div>
+      <div class="recon-arrow">→</div>
+      <div class="recon-step recon-variance"><div class="recon-label">Variance</div><div class="recon-val" id="reconVar">—</div><div class="recon-pct" id="reconPct">—</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3><i class="ti ti-building-warehouse"></i> Hub Performance <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a hub to filter everything above to it)</span></h3>
+    <div style="overflow-x:auto">
+    <table id="hubPerfTable">
+      <thead><tr><th>Hub</th><th class="num">Est. Generated</th><th class="num">Actual</th><th class="num">Variance %</th><th class="num">Sold</th><th class="num">Revenue</th></tr></thead>
+      <tbody id="hubPerfBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
   <div class="panel">
     <h3>By Category — Estimated / Actual / Variance / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
@@ -181,9 +228,16 @@
     </table>
     </div>
   </div>
+  </div><!-- /tabPane-scrap -->
 
+  <div id="tabPane-refurb" style="display:none">
   <div class="panel" style="padding:16px">
     <h3><i class="ti ti-recycle"></i> Refurb — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <div class="funnel-kpis">
+      <div class="funnel-kpi"><div class="fk-label">Recovery %</div><div class="fk-val" id="funnelRecovery-Refurb">—</div></div>
+      <div class="funnel-kpi"><div class="fk-label">Rejection %</div><div class="fk-val" id="funnelRejection-Refurb">—</div></div>
+    </div>
+    <div class="funnel-flow" id="funnelFlow-Refurb"></div>
     <div class="pt-panel" data-pipeline-type="Refurb">
       <div class="edit-badge" id="pt-editBadge-Refurb"></div>
       <div style="overflow-x:auto">
@@ -202,9 +256,16 @@
       </div>
     </div>
   </div>
+  </div><!-- /tabPane-refurb -->
 
+  <div id="tabPane-tyre" style="display:none">
   <div class="panel" style="padding:16px">
     <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <div class="funnel-kpis">
+      <div class="funnel-kpi"><div class="fk-label">Recovery %</div><div class="fk-val" id="funnelRecovery-Tyre">—</div></div>
+      <div class="funnel-kpi"><div class="fk-label">Rejection %</div><div class="fk-val" id="funnelRejection-Tyre">—</div></div>
+    </div>
+    <div class="funnel-flow" id="funnelFlow-Tyre"></div>
     <div class="pt-panel" data-pipeline-type="Tyre">
       <div class="edit-badge" id="pt-editBadge-Tyre"></div>
       <div style="overflow-x:auto">
@@ -223,6 +284,7 @@
       </div>
     </div>
   </div>
+  </div><!-- /tabPane-tyre -->
 
   <div class="panel">
 
@@ -809,6 +871,36 @@ async function loadApprovalQueue(city, hub) {
   }).join('') : '<tr><td colspan="7" class="empty">Nothing pending approval.</td></tr>';
 }
 
+function switchScrapTab(name) {
+  ['scrap','refurb','tyre'].forEach(t => {
+    const pane = document.getElementById('tabPane-' + t);
+    const btn = document.getElementById('tabBtn-' + t);
+    if (pane) pane.style.display = (t === name) ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === name);
+  });
+}
+
+async function loadHubPerformance(from, to, city) {
+  const rows = await rpc('get_scrap_hub_performance', { p_from: from, p_to: to, p_city: city }) || [];
+  const tbody = document.getElementById('hubPerfBody');
+  tbody.innerHTML = rows.length ? rows.map(h => {
+    const varClass = h.variance_pct != null && h.variance_pct > 20 ? 'pending-flag' : '';
+    return `<tr class="cat-row" onclick="filterToHub('${h.hub_name.replace(/'/g,"\\'")}')">
+      <td>${h.hub_name}</td>
+      <td class="num">${fmtN(h.estimated)} kg</td>
+      <td class="num">${fmtN(h.actual)} kg</td>
+      <td class="num">${h.variance_pct != null ? `<span class="${varClass}">${h.variance_pct}%</span>` : '—'}</td>
+      <td class="num">${fmtN(h.sold)} kg</td>
+      <td class="num">${fmtC(h.revenue)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">No hub data for this range/filter.</td></tr>';
+}
+function filterToHub(hubName) {
+  const sel = document.getElementById('f-hub');
+  if (sel) { sel.value = hubName; }
+  loadAll();
+}
+
 async function loadAll() {
   _hadFailure = false;
   const from = document.getElementById('f-from').value;
@@ -819,6 +911,7 @@ async function loadAll() {
 
   SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
   renderSummary();
+  await loadHubPerformance(from, to, city);
   await loadApprovalQueue(city, hub);
   await ptLoadAndRender(from, to, city, hub);
   await loadSales(from, to, city, hub);
@@ -884,6 +977,11 @@ function renderSummary() {
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
   document.getElementById('kvVariance').textContent = fmtN(SUMMARY.total_variance_qty) + ' kg';
   document.getElementById('kvVariancePct').textContent = SUMMARY.total_variance_pct != null ? SUMMARY.total_variance_pct + '%' : '—';
+
+  document.getElementById('reconEst').textContent = fmtN(SUMMARY.total_estimated_qty) + ' kg';
+  document.getElementById('reconActual').textContent = fmtN(SUMMARY.total_actual_qty) + ' kg';
+  document.getElementById('reconVar').textContent = fmtN(SUMMARY.total_variance_qty) + ' kg';
+  document.getElementById('reconPct').textContent = SUMMARY.total_variance_pct != null ? SUMMARY.total_variance_pct + '% of estimated' : '';
 
   document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => {
     const genCell = c.tracking_type === 'weight'
@@ -1535,6 +1633,30 @@ async function ptLoadAndRender(from, to, city, hub) {
   PIPELINE_ROWS.Refurb = refurbRows || [];
   PIPELINE_ROWS.Tyre = tyreRows || [];
   ['Scrap','Refurb','Tyre'].forEach(type => ptRenderType(type));
+  ['Refurb','Tyre'].forEach(type => renderFunnelSummary(type));
+}
+
+function renderFunnelSummary(type) {
+  const rows = PIPELINE_ROWS[type] || [];
+  const sum = (key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+  const consumed = sum('consumed'), atHub = sum('actual_in_hub'), rpdc = sum('sent_to_rpdc'),
+        vendor = sum('sent_to_vendor'), outcome = sum('outcome'), rejected = sum('rejected');
+  const recoveryPct = consumed > 0 ? Math.round((outcome / consumed) * 1000) / 10 : null;
+  const rejectionPct = consumed > 0 ? Math.round((rejected / consumed) * 1000) / 10 : null;
+  const recEl = document.getElementById('funnelRecovery-' + type);
+  const rejEl = document.getElementById('funnelRejection-' + type);
+  if (recEl) recEl.textContent = recoveryPct != null ? recoveryPct + '%' : '—';
+  if (rejEl) rejEl.textContent = rejectionPct != null ? rejectionPct + '%' : '—';
+  const flowEl = document.getElementById('funnelFlow-' + type);
+  if (!flowEl) return;
+  const nodes = [
+    ['Consumed', consumed], ['At Hub', atHub], ['RPDC', rpdc],
+    ['Vendor', vendor], ['Refurbished', outcome], ['Rejected', rejected]
+  ];
+  flowEl.innerHTML = nodes.map(([label, val], i) =>
+    `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
+    (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+  ).join('');
 }
 
 function ptRenderType(type) {
