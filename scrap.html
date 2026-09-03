@@ -302,7 +302,7 @@
   <div class="panel">
 
     <h3>Create Scrap / Refurb Movement
-      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button></span>
+      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button> <button class="btn secondary" id="btn-manage-weights" style="padding:4px 10px;font-size:11px;display:none" onclick="openWeightManager()"><i class="ti ti-scale"></i> Manage Part Weights</button></span>
     </h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
     <div class="sale-form">
@@ -414,6 +414,26 @@
   </div>
 </div>
 
+<div class="ov" id="weights-ov" onclick="if(event.target===this)closeWeightManager()">
+  <div class="dpanel" style="max-width:900px">
+    <div class="dhd">
+      <div><h3>Manage Part Weights</h3><div class="dsub">Reference weight (kg) per part, used to estimate scrap generated for weight-tracked categories</div></div>
+      <button class="dclose" onclick="closeWeightManager()">✕</button>
+    </div>
+    <div style="max-height:75vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <div class="fg"><label>Part name / pattern</label><input type="text" id="pw-pattern" placeholder="e.g. Front Fork%" style="width:220px"></div>
+        <div class="fg"><label>Weight (kg)</label><input type="number" step="0.001" id="pw-weight" style="width:100px"></div>
+        <div class="fg"><label>Notes</label><input type="text" id="pw-notes" style="width:180px"></div>
+        <button class="btn" onclick="addPartWeight()">Add</button>
+      </div>
+      <div id="weights-missing-body" style="margin-bottom:20px"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px">Existing weight mappings</div>
+      <div id="weights-list-body"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
@@ -457,6 +477,9 @@ function getCurrentUser() {
 const SCRAP_POWER_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
 function isScrapPowerUser() {
   return SCRAP_POWER_EMAILS.includes((getCurrentUser().email || '').toLowerCase());
+}
+function isScrapWeightAdmin() {
+  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
 }
 function isScrapApprover() {
   return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
@@ -783,6 +806,103 @@ async function saveVendorRates(id) {
   const r = await fetch(`${SB}/rest/v1/vendor_category_rates?on_conflict=vendor_id,category`, { method:'POST', headers: await authHDR({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}), body: JSON.stringify(rows) });
   if (!r.ok) { alert('Could not save rates: ' + (await r.text()).slice(0,200)); return; }
   alert('Rate card saved.');
+}
+
+async function openWeightManager() {
+  if (!isScrapWeightAdmin()) return;
+  document.getElementById('weights-ov').classList.add('on');
+  await renderWeightManager();
+}
+function closeWeightManager() { document.getElementById('weights-ov').classList.remove('on'); }
+
+async function renderWeightManager() {
+  const missingBox = document.getElementById('weights-missing-body');
+  const listBox = document.getElementById('weights-list-body');
+  missingBox.innerHTML = '<div class="empty">Loading…</div>';
+  listBox.innerHTML = '<div class="empty">Loading…</div>';
+
+  const [missing, existing] = await Promise.all([
+    rpc('get_unweighted_parts', {}),
+    sbGet('scrap_part_weights?select=*&order=part_pattern.asc')
+  ]);
+
+  missingBox.innerHTML = `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px">
+      Parts missing a weight (${(missing||[]).length}) <span style="font-weight:400;text-transform:none;color:var(--muted)">— ordered by total quantity, biggest gaps first</span>
+    </div>
+    <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr style="background:var(--surface-1,#f8fafc)"><th style="text-align:left;padding:6px 10px">Part</th><th style="text-align:left;padding:6px 10px">Category</th><th class="num" style="padding:6px 10px">Total Qty</th><th style="padding:6px 10px"></th></tr></thead>
+        <tbody>
+        ${(missing||[]).length ? missing.map(m => `
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:6px 10px">${m.part_name}</td>
+            <td style="padding:6px 10px;color:var(--muted)">${m.category}</td>
+            <td class="num" style="padding:6px 10px">${fmtN(m.total_qty)}</td>
+            <td style="padding:6px 10px"><button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="prefillWeightForm('${m.part_name.replace(/'/g,"\\'")}')">+ Add</button></td>
+          </tr>`).join('') : '<tr><td colspan="4" style="padding:10px;color:var(--muted)">No gaps — every part has a matching weight.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+
+  listBox.innerHTML = (existing||[]).length ? `
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="background:var(--surface-1,#f8fafc)"><th style="text-align:left;padding:6px 10px">Pattern</th><th class="num" style="padding:6px 10px">Weight (kg)</th><th style="text-align:left;padding:6px 10px">Notes</th><th style="padding:6px 10px"></th></tr></thead>
+      <tbody>
+      ${existing.map(w => `
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 10px"><input type="text" value="${(w.part_pattern||'').replace(/"/g,'&quot;')}" id="wp-${w.id}" style="width:220px"></td>
+          <td style="padding:6px 10px" class="num"><input type="number" step="0.001" value="${w.weight_kg ?? ''}" id="ww-${w.id}" style="width:90px"></td>
+          <td style="padding:6px 10px"><input type="text" value="${(w.notes||'').replace(/"/g,'&quot;')}" id="wn-${w.id}" style="width:180px"></td>
+          <td style="padding:6px 10px;white-space:nowrap">
+            <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="saveWeightRow(${w.id})">Save</button>
+            <button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#dc2626" onclick="deleteWeightRow(${w.id})">Delete</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div class="empty">No weight mappings yet — add one above.</div>';
+}
+
+function prefillWeightForm(partName) {
+  document.getElementById('pw-pattern').value = partName;
+  document.getElementById('pw-weight').focus();
+  document.getElementById('pw-pattern').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function addPartWeight() {
+  const pattern = document.getElementById('pw-pattern').value.trim();
+  const weight = parseFloat(document.getElementById('pw-weight').value);
+  const notes = document.getElementById('pw-notes').value.trim();
+  if (!pattern || isNaN(weight)) { alert('Enter both a part pattern and a weight.'); return; }
+  const r = await fetch(`${SB}/rest/v1/scrap_part_weights`, {
+    method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ part_pattern: pattern, weight_kg: weight, notes: notes || null })
+  });
+  if (!r.ok) { alert('Could not add: ' + (await r.text()).slice(0,200)); return; }
+  document.getElementById('pw-pattern').value = '';
+  document.getElementById('pw-weight').value = '';
+  document.getElementById('pw-notes').value = '';
+  await renderWeightManager();
+}
+
+async function saveWeightRow(id) {
+  const pattern = document.getElementById(`wp-${id}`).value.trim();
+  const weight = parseFloat(document.getElementById(`ww-${id}`).value);
+  const notes = document.getElementById(`wn-${id}`).value.trim();
+  if (!pattern || isNaN(weight)) { alert('Pattern and weight are both required.'); return; }
+  const r = await fetch(`${SB}/rest/v1/scrap_part_weights?id=eq.${id}`, {
+    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ part_pattern: pattern, weight_kg: weight, notes: notes || null })
+  });
+  if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+  await renderWeightManager();
+}
+
+async function deleteWeightRow(id) {
+  if (!confirm('Remove this weight mapping?')) return;
+  const r = await fetch(`${SB}/rest/v1/scrap_part_weights?id=eq.${id}`, { method: 'DELETE', headers: await authHDR() });
+  if (!r.ok) { alert('Could not delete: ' + (await r.text()).slice(0,200)); return; }
+  await renderWeightManager();
 }
 
 async function downloadMovementPDF(row) {
@@ -1671,6 +1791,7 @@ async function ptInit() {
   _ptSbGetHadFailure = false;
   await ptApplyEditPermission();
   const mv = document.getElementById('btn-manage-vendors'); if (mv) mv.style.display = isScrapPowerUser() ? '' : 'none';
+  const mw = document.getElementById('btn-manage-weights'); if (mw) mw.style.display = isScrapWeightAdmin() ? '' : 'none';
 
   const fleet = await ptSbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
   ptHubsByCity = {};
