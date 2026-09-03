@@ -1077,12 +1077,15 @@ async function loadAll() {
   const hub = document.getElementById('f-hub').value || null;
   document.getElementById('syncedLbl').textContent = 'Loading…';
 
-  SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
+  const [summaryResult] = await Promise.all([
+    rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
+    loadHubPerformance(from, to, city),
+    loadApprovalQueue(city, hub),
+    ptLoadAndRender(from, to, city, hub),
+    loadSales(from, to, city, hub)
+  ]);
+  SUMMARY = summaryResult;
   renderSummary();
-  await loadHubPerformance(from, to, city);
-  await loadApprovalQueue(city, hub);
-  await ptLoadAndRender(from, to, city, hub);
-  await loadSales(from, to, city, hub);
   renderMovementRows();
 
   document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -1757,9 +1760,13 @@ async function ptSbGet(path, _attempt) {
   }
 }
 async function ptRpc(name, body) {
-  const r = await fetch(`${PT_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!r.ok) { console.error(name, 'failed', r.status, await r.text()); _ptSbGetHadFailure = true; return null; }
-  return r.json();
+  try {
+    const r = await fetch(`${PT_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { console.error(name, 'failed', r.status, await r.text()); _ptSbGetHadFailure = true; return null; }
+    return r.json();
+  } catch (e) {
+    console.error(name, 'network error', e); _ptSbGetHadFailure = true; return null;
+  }
 }
 async function ptSbUpsert(table, body, onConflict) {
   const r = await fetch(`${PT_URL}/rest/v1/${table}${onConflict ? '?on_conflict=' + onConflict : ''}`, {
