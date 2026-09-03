@@ -30,6 +30,7 @@
 
     .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-bottom: 20px; }
     .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+    .info-dot { display:inline-block; cursor:help; color:var(--muted); font-size:11px; margin-left:2px; }
     .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
     .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
     .kpi .ks { font-size: 11px; color: var(--muted); }
@@ -53,6 +54,7 @@
     .sale-form .fg input, .sale-form .fg select { width: 140px; }
     .status-pill { padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .status-Created { background: #e0e7ff; color: #3730a3; }
+    .status-Cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
     .status-Sold { background: #fef3c7; color: #92400e; }
     .status-PaymentPending { background: #fed7aa; color: #9a3412; }
     .status-PaymentReceived { background: #d1fae5; color: #065f46; }
@@ -154,21 +156,28 @@
   <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
 
   <div class="kpi-row">
-    <div class="kpi"><div class="kl"><i class="ti ti-trash"></i> Scrap Generated</div><div class="kv" id="kvGenerated">—</div><div class="ks">across all categories, mixed units</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div></div>
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated
+        <span class="info-dot" title="Estimated using standard reference weights for parts marked Scrap on job cards. Actual quantity may differ due to missing, broken, or other physical variations — see Variance below.">ⓘ</span>
+      </div>
+      <div class="kv" id="kvGenerated">—</div>
+      <div class="ks">kg, weight-tracked categories · estimated from standard part weights</div>
+    </div>
+    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold (Actual)</div><div class="kv" id="kvSold">—</div><div class="ks">kg, weight-tracked categories</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-arrows-diff"></i> Variance</div><div class="kv" id="kvVariance">—</div><div class="ks">Estimated − Actual</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-percentage"></i> Variance %</div><div class="kv" id="kvVariancePct">—</div></div>
     <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue</div><div class="kv" id="kvRevenue">—</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-alert-triangle"></i> Categories with Pending Scrap</div><div class="kv" id="kvPending">—</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Pending Finance Approval</div><div class="kv" id="kvPendingAck">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Finance Pending</div><div class="kv" id="kvPendingAck">—</div></div>
   </div>
 
   <div class="panel">
-    <h3>By Category — Generated / Sold / Pending / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
+    <h3>By Category — Estimated / Actual / Variance / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
     </h3>
     <div style="overflow-x:auto">
     <table id="catTable">
-      <thead><tr><th>Category</th><th>Tracking</th><th class="num">Generated</th><th class="num">Sold</th><th class="num">Pending</th><th class="num">Revenue (₹)</th></tr></thead>
-      <tbody id="catBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Category</th><th>Tracking</th><th class="num">Est. Generated</th><th class="num">Actual (Sold)</th><th class="num">Variance</th><th class="num">Var. %</th><th class="num">Revenue (₹)</th></tr></thead>
+      <tbody id="catBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -245,6 +254,16 @@
     <div id="s-grand-total" style="display:none;font-size:14px;font-weight:700;margin-top:10px;padding:8px 12px;background:#fef2f2;border-radius:8px">Grand Total: ₹0</div>
     <button class="btn" style="margin-top:12px" onclick="createBatch()"><i class="ti ti-file-download"></i> Save &amp; Download PDF</button>
       <span class="save-msg" id="saveMsg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
+  </div>
+
+  <div class="panel" id="approvalQueuePanel">
+    <h3><i class="ti ti-alert-circle"></i> Pending Approval <span id="aqCount" class="pending-flag" style="font-size:12px;margin-left:4px"></span></h3>
+    <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
+    <table>
+      <thead><tr><th>Movement</th><th>Hub</th><th>Vendor</th><th class="num">Amount (₹)</th><th class="num">Variance %</th><th class="num">Age</th><th></th></tr></thead>
+      <tbody id="aqBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -453,7 +472,7 @@ async function renderMovementRows() {
   let pendingByCategory = {}, pendingByPart = {};
   if (type === 'Scrap') {
     const summary = scopedFrom && scopedTo ? await rpc('get_scrap_summary', { p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
-    (summary && summary.by_category ? summary.by_category : []).forEach(c => { pendingByCategory[c.category] = c.pending; });
+    (summary && summary.by_category ? summary.by_category : []).forEach(c => { pendingByCategory[c.category] = c.variance; });
   } else {
     const rows = scopedFrom && scopedTo ? await rpc('get_movement_pipeline', { p_type: type, p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
     (rows || []).forEach(r => { pendingByPart[r.part_name] = Math.max((r.consumed || 0) - (r.actual_in_hub || 0), 0); });
@@ -746,6 +765,47 @@ async function downloadMovementPDF(row) {
 
 function onFilterChange() { /* no-op, applied on Apply click */ }
 
+async function loadApprovalQueue(city, hub) {
+  const items = await rpc('get_scrap_approval_queue', { p_city: city, p_hub: hub }) || [];
+  const groups = [];
+  const groupByKey = {};
+  items.forEach(it => {
+    const key = it.batch_id || `single-${it.id}`;
+    if (!groupByKey[key]) {
+      const g = { key, batch_id: it.batch_id, hub_name: it.hub_name, vendor_name: it.vendor_name, items: [] };
+      groupByKey[key] = g;
+      groups.push(g);
+    }
+    groupByKey[key].items.push(it);
+  });
+  // Oldest first -- the whole point of a queue is surfacing what's waited longest.
+  groups.sort((a, b) => Math.max(...b.items.map(i => i.age_days)) - Math.max(...a.items.map(i => i.age_days)));
+
+  document.getElementById('aqCount').textContent = groups.length ? groups.length : '';
+  const tbody = document.getElementById('aqBody');
+  tbody.innerHTML = groups.length ? groups.map(g => {
+    const ids = g.items.map(i => i.id);
+    const idsJson = JSON.stringify(ids);
+    const amount = g.items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    const variances = g.items.map(i => i.variance_pct).filter(v => v != null);
+    const maxVar = variances.length ? Math.max(...variances) : null;
+    const age = Math.max(...g.items.map(i => i.age_days));
+    const label = g.batch_id || ('#' + g.items[0].id);
+    const varCell = maxVar != null
+      ? `<span class="${maxVar > 20 ? 'pending-flag' : ''}">${maxVar}%</span>`
+      : '<span class="muted-cell">—</span>';
+    return `<tr>
+      <td>${label}${g.items.length > 1 ? ` <span style="color:var(--muted);font-size:10px">(${g.items.length} categories)</span>` : ''}</td>
+      <td>${g.hub_name || '—'}</td>
+      <td>${g.vendor_name || '—'}</td>
+      <td class="num">${fmtC(amount)}</td>
+      <td class="num">${varCell}</td>
+      <td class="num">${age}d</td>
+      <td>${isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve</button>` : ''}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">Nothing pending approval.</td></tr>';
+}
+
 async function loadAll() {
   _hadFailure = false;
   const from = document.getElementById('f-from').value;
@@ -756,6 +816,7 @@ async function loadAll() {
 
   SUMMARY = await rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub });
   renderSummary();
+  await loadApprovalQueue(city, hub);
   await ptLoadAndRender(from, to, city, hub);
   await loadSales(from, to, city, hub);
   renderMovementRows();
@@ -809,29 +870,32 @@ function renderSummary() {
     document.getElementById('kvGenerated').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
     document.getElementById('kvSold').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
     document.getElementById('kvRevenue').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
-    document.getElementById('kvPending').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('kvVariance').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
+    document.getElementById('kvVariancePct').innerHTML = '<span style="color:var(--red);font-size:14px">Failed</span>';
     document.getElementById('catBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
     return;
   }
   const byCat = SUMMARY.by_category || [];
-  const pendingCount = byCat.filter(c => c.pending > 0).length;
-  document.getElementById('kvGenerated').textContent = byCat.length + ' categories';
-  document.getElementById('kvSold').textContent = fmtN(SUMMARY.total_sold_qty) + ' (mixed units)';
+  document.getElementById('kvGenerated').textContent = fmtN(SUMMARY.total_estimated_qty) + ' kg';
+  document.getElementById('kvSold').textContent = fmtN(SUMMARY.total_actual_qty) + ' kg';
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
-  document.getElementById('kvPending').innerHTML = pendingCount > 0 ? `<span class="pending-flag">${pendingCount}</span>` : '0';
+  document.getElementById('kvVariance').textContent = fmtN(SUMMARY.total_variance_qty) + ' kg';
+  document.getElementById('kvVariancePct').textContent = SUMMARY.total_variance_pct != null ? SUMMARY.total_variance_pct + '%' : '—';
 
   document.getElementById('catBody').innerHTML = byCat.length ? byCat.map(c => {
     const genCell = c.tracking_type === 'weight'
-      ? `${fmtN(c.real_weight_kg)} kg<div style="font-size:9px;color:var(--muted);font-weight:400">${fmtN(c.weighed_qty)}/${fmtN(c.generated)} pcs weighed (${c.weighed_coverage_pct}%)</div>`
-      : `${fmtN(c.generated)} ${c.unit}`;
+      ? `${fmtN(c.real_weight_kg)} kg<div style="font-size:9px;color:var(--muted);font-weight:400">${fmtN(c.weighed_qty)}/${fmtN(c.estimated)} pcs weighed (${c.weighed_coverage_pct}%)</div>`
+      : `${fmtN(c.estimated)} ${c.unit}`;
+    const varClass = c.variance > 0 ? 'pending-flag' : '';
     return `
     <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${genCell}</td>
-      <td class="num">${fmtN(c.sold)} ${c.unit}</td>
-      <td class="num">${c.pending > 0 ? '<span class="pending-flag">'+fmtN(c.pending)+' '+c.unit+'</span>' : fmtN(c.pending)+' '+c.unit}</td>
+      <td class="num">${fmtN(c.actual)} ${c.unit}</td>
+      <td class="num">${c.variance !== 0 ? '<span class="'+varClass+'">'+fmtN(c.variance)+' '+c.unit+'</span>' : fmtN(c.variance)+' '+c.unit}</td>
+      <td class="num" style="color:var(--muted);font-size:11px">${c.variance_pct != null ? c.variance_pct+'%' : '—'}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
   `;
-  }).join('') : '<tr><td colspan="6" class="empty">No scrap data for this range/filter.</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">No scrap data for this range/filter.</td></tr>';
 }
 
 
@@ -840,7 +904,7 @@ async function loadSales(from, to, city, hub) {
   if (city) q += `&city=eq.${encodeURIComponent(city)}`;
   if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
   const rows = await sbGet(q);
-  document.getElementById('kvPendingAck').textContent = rows.filter(r => r.ho_ack_status !== 'Acknowledged').length;
+  document.getElementById('kvPendingAck').textContent = rows.filter(r => r.ho_ack_status !== 'Acknowledged' && r.status !== 'Cancelled').length;
 
   // One Create Movement submission (multiple categories/parts) collapses into
   // a single row here, with an expand arrow to see/edit/delete each category
@@ -881,9 +945,9 @@ async function loadSales(from, to, city, hub) {
         <td class="num">${multi ? '—' : fmtC(first.rate)}</td>
         <td class="num">${fmtC(totalValue)}</td>
         <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
-        <td>${allApproved
+        <td>${statusText === 'Cancelled' ? '—' : (allApproved
             ? `<span class="status-pill status-PaymentReceived">Approved</span>`
-            : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`)}</td>
+            : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
@@ -894,7 +958,7 @@ async function loadSales(from, to, city, hub) {
                 : `<button onclick="document.getElementById('gst-up-${groupId}').click()"><i class="ti ti-file-upload"></i> Upload GST Invoice</button>
                    <input type="file" id="gst-up-${groupId}" accept="image/*,.pdf" style="display:none" onchange='uploadGstForGroup(this, ${idsJson})'>`}
               ${(!multi && isScrapPowerUser()) ? `<button onclick='openEditMovement(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
-              ${isScrapPowerUser() ? `<button class="danger" onclick='deleteMovementGroup(${idsJson})'><i class="ti ti-trash"></i> Delete</button>` : ''}
+              ${(isScrapPowerUser() && statusText !== 'Cancelled') ? `<button class="danger" onclick='cancelMovementGroup(${idsJson})'><i class="ti ti-ban"></i> Cancel</button>` : ''}
             </div>
           </details>
         </td></tr>`;
@@ -910,13 +974,13 @@ async function loadSales(from, to, city, hub) {
         <td class="num">${fmtC(r.rate)}</td>
         <td class="num">${fmtC(r.total_value)}</td>
         <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
-        <td>${r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`)}</td>
+        <td>${r.status === 'Cancelled' ? '—' : (r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapPowerUser() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
             <div class="action-menu-items">
-              <button onclick='openEditMovement(${JSON.stringify(r).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>
-              <button class="danger" onclick="deleteMovement(${r.id})"><i class="ti ti-trash"></i> Delete</button>
+              ${isScrapPowerUser() ? `<button onclick='openEditMovement(${JSON.stringify(r).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
+              ${(isScrapPowerUser() && r.status !== 'Cancelled') ? `<button class="danger" onclick="cancelMovement(${r.id})"><i class="ti ti-ban"></i> Cancel</button>` : ''}
             </div>
           </details>
         </td>
@@ -957,12 +1021,19 @@ async function approveMovementGroup(ids) {
   loadAll();
 }
 
-async function deleteMovementGroup(ids) {
+async function cancelMovementGroup(ids) {
   const msg = ids.length > 1
-    ? `Delete this entire movement (${ids.length} categories)? This cannot be undone, and will also affect Pending / Revenue totals.`
-    : 'Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.';
+    ? `Cancel this entire movement (${ids.length} categories)?`
+    : 'Cancel this movement?';
   if (!confirm(msg)) return;
-  await Promise.all(ids.map(async id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: await authHDR() })));
+  const reason = prompt('Reason for cancelling (required):');
+  if (!reason || !reason.trim()) { alert('A reason is required to cancel a movement.'); return; }
+  const who = getCurrentUser().email || 'unknown';
+  const now = new Date().toISOString();
+  await Promise.all(ids.map(async id => fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, {
+    method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}),
+    body: JSON.stringify({ status:'Cancelled', cancellation_reason: reason.trim(), cancelled_by: who, cancelled_at: now })
+  })));
   loadAll();
 }
 
@@ -1072,10 +1143,16 @@ async function saveEditedMovement() {
   loadAll();
 }
 
-async function deleteMovement(id) {
-  if (!confirm('Delete this movement? This cannot be undone, and will also affect Pending / Revenue totals for its category.')) return;
-  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'DELETE', headers: await authHDR() });
-  if (!r.ok) { alert('Could not delete: ' + (await r.text()).slice(0,200)); return; }
+async function cancelMovement(id) {
+  if (!confirm('Cancel this movement?')) return;
+  const reason = prompt('Reason for cancelling (required):');
+  if (!reason || !reason.trim()) { alert('A reason is required to cancel a movement.'); return; }
+  const who = getCurrentUser().email || 'unknown';
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, {
+    method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}),
+    body: JSON.stringify({ status:'Cancelled', cancellation_reason: reason.trim(), cancelled_by: who, cancelled_at: new Date().toISOString() })
+  });
+  if (!r.ok) { alert('Could not cancel: ' + (await r.text()).slice(0,200)); return; }
   loadAll();
 }
 
@@ -1312,8 +1389,8 @@ async function downloadBatchReceiptPDF(batch) {
 
 function exportCategoryCSV() {
   if (!SUMMARY) return;
-  const rows = [['Category','Tracking Type','Generated','Sold','Pending','Revenue']];
-  (SUMMARY.by_category||[]).forEach(c => rows.push([c.category, c.tracking_type, c.generated, c.sold, c.pending, c.revenue]));
+  const rows = [['Category','Tracking Type','Est. Generated','Actual (Sold)','Variance','Variance %','Revenue']];
+  (SUMMARY.by_category||[]).forEach(c => rows.push([c.category, c.tracking_type, c.estimated, c.actual, c.variance, c.variance_pct, c.revenue]));
   const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
