@@ -50,6 +50,13 @@
     .funnel-node .fn-val { font-size:17px; font-weight:700; }
     .funnel-node .fn-label { font-size:10px; color:var(--muted); margin-top:2px; }
     .funnel-sep { color:var(--muted); font-size:16px; }
+    .photo-btn { background:var(--surface-1,#f8fafc); border:1px solid var(--border); border-radius:6px; padding:6px 10px; cursor:pointer; color:var(--muted); font-size:14px; }
+    .photo-btn:hover { color:var(--red); border-color:var(--red); }
+    .row-photo-thumb { display:inline-block; vertical-align:middle; margin-left:6px; }
+    .row-photo-preview { width:28px; height:28px; object-fit:cover; border-radius:5px; border:1px solid var(--border); }
+    .tx-filters { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .tx-filters input, .tx-filters select { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; background:var(--card); color:var(--text); }
+    .tx-filters input { flex:1; min-width:160px; }
     .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
     .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
     .kpi .ks { font-size: 11px; color: var(--muted); }
@@ -329,7 +336,14 @@
   </div>
 
   <div class="panel">
-    <h3>Recent Movements <span style="font-weight:400;font-size:11px;color:var(--muted)">(last 10, regardless of the date range above)</span></h3>
+    <h3>Scrap Transactions <span style="font-weight:400;font-size:11px;color:var(--muted)" id="txSubtitle">(last 10, regardless of the date range above)</span></h3>
+    <div class="tx-filters">
+      <input type="text" id="txSearch" placeholder="Search hub, vendor, category…" oninput="onTxFilterChange()">
+      <select id="txStatus" onchange="onTxFilterChange()"><option value="">All statuses</option><option value="Created">Created</option><option value="Cancelled">Cancelled</option></select>
+      <select id="txVendor" onchange="onTxFilterChange()"><option value="">All vendors</option></select>
+      <select id="txCategory" onchange="onTxFilterChange()"><option value="">All categories</option></select>
+      <button class="btn secondary" style="padding:6px 12px;font-size:12px" onclick="clearTxFilters()">Clear</button>
+    </div>
     <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
     <table>
       <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
@@ -545,33 +559,30 @@ async function renderMovementRows() {
 
   if (type === 'Scrap') {
     grandTotalEl.style.display = '';
-    thead.innerHTML = '<tr><th>Category</th><th>Tracking</th><th class="num">System Calculated</th><th class="num">Actual Qty (nos)</th><th class="num">Actual Weight (kg)</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remarks (if variance)</th><th>Photo</th></tr>';
+    thead.innerHTML = '<tr><th>Category</th><th class="num">Estimated</th><th class="num">Actual</th><th class="num">Variance</th><th>Status</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remark</th><th>Evidence</th></tr>';
     const visibleCategories = CATEGORIES.filter(c => MOVEMENT_ENABLED_CATEGORIES.includes(c.category));
-    tbody.innerHTML = visibleCategories.length ? visibleCategories.map(c => {
+    tbody.innerHTML = visibleCategories.length ? visibleCategories.map((c, ci) => {
       const pending = pendingByCategory[c.category];
       const pendingText = pending != null ? `${fmtN(pending)} ${c.unit}` : '—';
       return `<tr data-category="${c.category.replace(/"/g,'&quot;')}" data-unit="${c.unit}" data-rate="${c.reference_rate || ''}" data-syscalc-raw="${pending != null ? pending : ''}">
-        <td>${c.category}</td>
-        <td style="color:var(--muted);font-size:11px">${c.unit}</td>
+        <td>${c.category} <span style="color:var(--muted);font-size:10px">(${c.unit})</span></td>
         <td class="num row-syscalc">${pendingText}</td>
-        <td><input type="number" class="row-qty" step="1" oninput="checkRowVariance(this.closest('tr'))"></td>
-        <td><input type="number" class="row-weight" step="0.01" oninput="checkRowVariance(this.closest('tr'))"></td>
+        <td>
+          <input type="number" class="row-weight" step="0.01" placeholder="0" style="${c.unit!=='kg'?'display:none':''}" oninput="checkRowVariance(this.closest('tr'))">
+          <input type="number" class="row-qty" step="1" placeholder="0" style="${c.unit==='kg'?'display:none':''}" oninput="checkRowVariance(this.closest('tr'))">
+        </td>
+        <td class="num row-variance-cell muted-cell">—</td>
+        <td class="row-status-cell"><span class="muted-cell">—</span></td>
         <td><input type="number" class="row-rate" step="0.01" value="${c.reference_rate || ''}" oninput="recalcRowTotal(this.closest('tr'))"></td>
         <td><input type="number" class="row-total" step="0.01" readonly style="background:var(--surface-1,#f8fafc)"></td>
-        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:150px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
-        <td><input type="file" class="row-photo" accept="image/*" capture="environment"></td>
+        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:140px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
+        <td>
+          <button type="button" class="photo-btn" onclick="document.getElementById('row-photo-${ci}').click()"><i class="ti ti-camera"></i></button>
+          <input type="file" id="row-photo-${ci}" class="row-photo" accept="image/*" capture="environment" style="display:none" onchange="onRowPhotoChosen(this)">
+          <span class="row-photo-thumb"></span>
+        </td>
       </tr>`;
     }).join('') : '<tr><td class="empty">No categories found.</td></tr>';
-    // Weight-tracked categories drive their Total off Actual Weight, not Actual Qty
-    tbody.querySelectorAll('tr').forEach(tr => {
-      if (tr.dataset.unit === 'kg') {
-        const qtyInput = tr.querySelector('.row-qty');
-        if (qtyInput) { qtyInput.disabled = true; qtyInput.placeholder = 'n/a'; }
-      } else {
-        const weightInput = tr.querySelector('.row-weight');
-        if (weightInput) { weightInput.disabled = true; weightInput.placeholder = 'n/a'; }
-      }
-    });
   } else {
     // Refurb and Tyre share the same simple shape (no pricing) -- just a
     // different filtered slice of refurb_parts (part_type) and a different
@@ -579,7 +590,7 @@ async function renderMovementRows() {
     grandTotalEl.style.display = 'none';
     thead.innerHTML = '<tr><th>Part</th><th class="num">System Calculated</th><th class="num">Actual Qty (nos)</th><th>Remarks (if variance)</th><th>Photo</th></tr>';
     const visibleParts = REFURB_PARTS.filter(p => (p.part_type || 'Refurb') === type);
-    tbody.innerHTML = visibleParts.length ? visibleParts.map(p => {
+    tbody.innerHTML = visibleParts.length ? visibleParts.map((p, pi) => {
       const pending = pendingByPart[p.part_name];
       const pendingText = pending != null ? `${fmtN(pending)} nos` : '—';
       return `<tr data-part="${p.part_name.replace(/"/g,'&quot;')}" data-syscalc-raw="${pending != null ? pending : ''}">
@@ -587,7 +598,11 @@ async function renderMovementRows() {
         <td class="num row-syscalc">${pendingText}</td>
         <td><input type="number" class="row-qty" step="1" oninput="checkRowVariance(this.closest('tr'))"></td>
         <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:150px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
-        <td><input type="file" class="row-photo" accept="image/*" capture="environment"></td>
+        <td>
+          <button type="button" class="photo-btn" onclick="document.getElementById('row-photo-part-${pi}').click()"><i class="ti ti-camera"></i></button>
+          <input type="file" id="row-photo-part-${pi}" class="row-photo" accept="image/*" capture="environment" style="display:none" onchange="onRowPhotoChosen(this)">
+          <span class="row-photo-thumb"></span>
+        </td>
       </tr>`;
     }).join('') : `<tr><td class="empty">No ${type.toLowerCase()} parts found.</td></tr>`;
   }
@@ -646,7 +661,35 @@ function checkRowVariance(tr) {
     remarkInput.placeholder = isShort ? 'Required — explain the shortfall' : 'e.g. missing, broken';
   }
 
+  // Live Variance/Status feedback (Scrap rows only -- Refurb/Tyre rows don't
+  // render these cells at all, so just skip quietly there).
+  const varCell = tr.querySelector('.row-variance-cell');
+  const statusCell = tr.querySelector('.row-status-cell');
+  if (varCell && statusCell) {
+    if (systemCalc != null && !isNaN(val) && val >= 0) {
+      const variance = systemCalc - val;
+      varCell.textContent = fmtN(variance) + ' ' + unit;
+      varCell.classList.toggle('muted-cell', false);
+      statusCell.innerHTML = isShort
+        ? '<span class="pending-flag">⚠ Requires remark</span>'
+        : '<span style="color:#16a34a">✓ Within range</span>';
+    } else {
+      varCell.textContent = '—';
+      varCell.classList.add('muted-cell');
+      statusCell.innerHTML = '<span class="muted-cell">—</span>';
+    }
+  }
+
   if (!isRefurb) recalcRowTotal(tr);
+}
+function onRowPhotoChosen(input) {
+  const tr = input.closest('tr');
+  const thumb = tr.querySelector('.row-photo-thumb');
+  const file = input.files[0];
+  if (!file || !thumb) return;
+  const reader = new FileReader();
+  reader.onload = () => { thumb.innerHTML = `<img src="${reader.result}" class="row-photo-preview">`; };
+  reader.readAsDataURL(file);
 }
 
 async function onVendorChangeBulk() {
@@ -1000,21 +1043,70 @@ function renderSummary() {
 }
 
 
+let LAST_SALES_ROWS = [];
 async function loadSales(from, to, city, hub) {
   // Finance Pending KPI still respects the selected date range/filters --
-  // only the Recent Movements table itself always shows the latest 10
-  // regardless of the range picked above.
+  // the Transactions table itself defaults to the latest 10 regardless of
+  // the range picked above, but searching/filtering looks across a wider
+  // cached window (300 rows) rather than triggering a fresh query per
+  // keystroke.
   let countQ = `scrap_sales?select=id&pickup_date=gte.${from}&pickup_date=lte.${to}&ho_ack_status=neq.Acknowledged&status=neq.Cancelled`;
   if (city) countQ += `&city=eq.${encodeURIComponent(city)}`;
   if (hub) countQ += `&hub_name=eq.${encodeURIComponent(hub)}`;
   const pendingRows = await sbGet(countQ);
   document.getElementById('kvPendingAck').textContent = pendingRows.length;
 
-  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&order=created_at.desc&limit=60`;
+  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&order=created_at.desc&limit=300`;
   if (city) q += `&city=eq.${encodeURIComponent(city)}`;
   if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
-  const rows = await sbGet(q);
+  LAST_SALES_ROWS = await sbGet(q);
+  populateTxFilterOptions();
+  applyTxFilters();
+}
 
+function populateTxFilterOptions() {
+  const vSel = document.getElementById('txVendor');
+  if (vSel && vSel.options.length <= 1) {
+    vSel.innerHTML = '<option value="">All vendors</option>' + VENDORS.map(v => `<option value="${v.id}">${v.vendor_name}</option>`).join('');
+  }
+  const cSel = document.getElementById('txCategory');
+  if (cSel && cSel.options.length <= 1) {
+    cSel.innerHTML = '<option value="">All categories</option>' + CATEGORIES.map(c => `<option value="${c.category}">${c.category}</option>`).join('');
+  }
+}
+function onTxFilterChange() { applyTxFilters(); }
+function clearTxFilters() {
+  document.getElementById('txSearch').value = '';
+  document.getElementById('txStatus').value = '';
+  document.getElementById('txVendor').value = '';
+  document.getElementById('txCategory').value = '';
+  applyTxFilters();
+}
+
+function applyTxFilters() {
+  const search = (document.getElementById('txSearch').value || '').trim().toLowerCase();
+  const status = document.getElementById('txStatus').value;
+  const vendorId = document.getElementById('txVendor').value;
+  const category = document.getElementById('txCategory').value;
+  const isFiltering = !!(search || status || vendorId || category);
+
+  let rows = LAST_SALES_ROWS;
+  if (search) {
+    rows = rows.filter(r => [r.hub_name, (r.scrap_vendors||{}).vendor_name, r.category, r.part_name]
+      .filter(Boolean).some(v => v.toLowerCase().includes(search)));
+  }
+  if (status) rows = rows.filter(r => r.status === status);
+  if (vendorId) rows = rows.filter(r => String(r.vendor_id) === String(vendorId));
+  if (category) rows = rows.filter(r => r.category === category);
+
+  document.getElementById('txSubtitle').textContent = isFiltering
+    ? `(${rows.length} match${rows.length===1?'':'es'} — searching last 300 logged, not the date range above)`
+    : '(last 10, regardless of the date range above)';
+
+  renderSalesRows(rows, isFiltering ? 50 : 10);
+}
+
+function renderSalesRows(rows, capGroups) {
   // One Create Movement submission (multiple categories/parts) collapses into
   // a single row here, with an expand arrow to see/edit/delete each category
   // individually. Rows with no batch_id (legacy, or a genuinely single-item
@@ -1031,8 +1123,8 @@ async function loadSales(from, to, city, hub) {
     groupByKey[key].rows.push(r);
   });
   // rows arrived ordered by created_at desc, so groups are already in
-  // most-recent-first order -- just keep the 10 most recent movements.
-  const visibleGroups = groups.slice(0, 10);
+  // most-recent-first order -- keep only as many as this view calls for.
+  const visibleGroups = groups.slice(0, capGroups);
 
   const tbody = document.getElementById('salesBody');
   tbody.innerHTML = visibleGroups.length ? visibleGroups.map((g, gi) => {
