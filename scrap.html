@@ -191,46 +191,52 @@
   <div class="kpi-row">
     <div class="kpi">
       <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated
-        <span class="info-dot" title="Estimated using standard reference weights for parts marked Scrap on job cards. Actual quantity may differ due to missing, broken, or other physical variations — see Variance below.">ⓘ</span>
+        <span class="info-dot" title="Estimated using standard reference weights for parts marked Scrap on job cards, cumulative all-time as of the selected To date. This is a running backlog figure, not bound to the From date — a shorter date range won't make this number smaller.">ⓘ</span>
       </div>
       <div class="kv" id="kvGenerated">—</div>
-      <div class="ks">kg, weight-tracked categories · estimated from standard part weights</div>
+      <div class="ks">kg, cumulative all-time as of the To date</div>
     </div>
-    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold (Actual)</div><div class="kv" id="kvSold">—</div><div class="ks">kg, weight-tracked categories</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-arrows-diff"></i> Variance</div><div class="kv" id="kvVariance">—</div><div class="ks">Estimated − Actual</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-percentage"></i> Variance %</div><div class="kv" id="kvVariancePct">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div><div class="ks">kg, this date range only</div></div>
+    <div class="kpi">
+      <div class="kl"><i class="ti ti-arrows-diff"></i> Outstanding Backlog
+        <span class="info-dot" title="Backlog is cumulative and compares to cumulative Scrap Sold (not the period-scoped Sold figure shown to the left) — so it can only go negative if more has genuinely been sold than was ever generated.">ⓘ</span>
+      </div>
+      <div class="kv" id="kvVariance">—</div>
+      <div class="ks">Cumulative generated − cumulative sold, as of To date</div>
+    </div>
+    <div class="kpi"><div class="kl"><i class="ti ti-percentage"></i> Backlog %</div><div class="kv" id="kvVariancePct">—</div></div>
     <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue</div><div class="kv" id="kvRevenue">—</div></div>
     <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Finance Pending</div><div class="kv" id="kvPendingAck">—</div></div>
   </div>
 
   <div class="panel" id="reconPanel">
-    <h3><i class="ti ti-git-branch"></i> Scrap Reconciliation</h3>
+    <h3><i class="ti ti-git-branch"></i> Scrap Reconciliation <span style="font-weight:400;font-size:11px;color:var(--muted)">(cumulative, all-time as of the To date above — not limited to the From/To window)</span></h3>
     <div class="recon-flow">
-      <div class="recon-step"><div class="recon-label">Estimated Generated</div><div class="recon-val" id="reconEst">—</div></div>
+      <div class="recon-step"><div class="recon-label">Total Generated (all-time)</div><div class="recon-val" id="reconEst">—</div></div>
       <div class="recon-arrow">→</div>
-      <div class="recon-step"><div class="recon-label">Actual</div><div class="recon-val" id="reconActual">—</div></div>
+      <div class="recon-step"><div class="recon-label">Total Sold (all-time)</div><div class="recon-val" id="reconActual">—</div></div>
       <div class="recon-arrow">→</div>
-      <div class="recon-step recon-variance"><div class="recon-label">Variance</div><div class="recon-val" id="reconVar">—</div><div class="recon-pct" id="reconPct">—</div></div>
+      <div class="recon-step recon-variance"><div class="recon-label">Outstanding Backlog</div><div class="recon-val" id="reconVar">—</div><div class="recon-pct" id="reconPct">—</div></div>
     </div>
   </div>
 
   <div class="panel">
-    <h3><i class="ti ti-building-warehouse"></i> Hub Performance <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a hub to filter everything above to it)</span></h3>
+    <h3><i class="ti ti-building-warehouse"></i> Hub Performance <span style="font-weight:400;font-size:11px;color:var(--muted)">(Est./Backlog are all-time; Sold/Revenue are for the date range above — click a hub to filter everything above to it)</span></h3>
     <div style="overflow-x:auto">
     <table id="hubPerfTable">
-      <thead><tr><th>Hub</th><th class="num">Est. Generated</th><th class="num">Actual</th><th class="num">Variance %</th><th class="num">Sold</th><th class="num">Revenue</th></tr></thead>
-      <tbody id="hubPerfBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Hub</th><th class="num">Est. Generated (all-time)</th><th class="num">Backlog %</th><th class="num">Sold (this range)</th><th class="num">Revenue (this range)</th></tr></thead>
+      <tbody id="hubPerfBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
     </table>
     </div>
   </div>
 
   <div class="panel">
-    <h3>By Category — Estimated / Actual / Variance / Revenue <span style="font-weight:400;font-size:11px;color:var(--muted)">(click a row to see its parts)</span>
+    <h3>By Category <span style="font-weight:400;font-size:11px;color:var(--muted)">(Est./Backlog are all-time cumulative; Sold/Revenue are for the date range above — click a row to see its parts)</span>
       <span class="table-tools"><button class="btn secondary" style="padding:4px 10px;font-size:11px" onclick="exportCategoryCSV()">⬇ CSV</button></span>
     </h3>
     <div style="overflow-x:auto">
     <table id="catTable">
-      <thead><tr><th>Category</th><th>Tracking</th><th class="num">Est. Generated</th><th class="num">Actual (Sold)</th><th class="num">Variance</th><th class="num">Var. %</th><th class="num">Revenue (₹)</th></tr></thead>
+      <thead><tr><th>Category</th><th>Tracking</th><th class="num">Est. Generated (all-time)</th><th class="num">Backlog (all-time)</th><th class="num">Backlog %</th><th class="num">Sold (this range)</th><th class="num">Revenue (₹, this range)</th></tr></thead>
       <tbody id="catBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
     </table>
     </div>
@@ -931,12 +937,11 @@ async function loadHubPerformance(from, to, city) {
     return `<tr class="cat-row" onclick="filterToHub('${h.hub_name.replace(/'/g,"\\'")}')">
       <td>${h.hub_name}</td>
       <td class="num">${fmtN(h.estimated)} kg</td>
-      <td class="num">${fmtN(h.actual)} kg</td>
       <td class="num">${h.variance_pct != null ? `<span class="${varClass}">${h.variance_pct}%</span>` : '—'}</td>
       <td class="num">${fmtN(h.sold)} kg</td>
       <td class="num">${fmtC(h.revenue)}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" class="empty">No hub data for this range/filter.</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">No hub data for this range/filter.</td></tr>';
 }
 function filterToHub(hubName) {
   const sel = document.getElementById('f-hub');
@@ -1016,7 +1021,7 @@ function renderSummary() {
   }
   const byCat = SUMMARY.by_category || [];
   document.getElementById('kvGenerated').textContent = fmtN(SUMMARY.total_estimated_qty) + ' kg';
-  document.getElementById('kvSold').textContent = fmtN(SUMMARY.total_actual_qty) + ' kg';
+  document.getElementById('kvSold').textContent = fmtN(SUMMARY.total_period_sold_qty) + ' kg';
   document.getElementById('kvRevenue').textContent = fmtC(SUMMARY.total_revenue);
   document.getElementById('kvVariance').textContent = fmtN(SUMMARY.total_variance_qty) + ' kg';
   document.getElementById('kvVariancePct').textContent = SUMMARY.total_variance_pct != null ? SUMMARY.total_variance_pct + '%' : '—';
@@ -1034,9 +1039,9 @@ function renderSummary() {
     return `
     <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${genCell}</td>
-      <td class="num">${fmtN(c.actual)} ${c.unit}</td>
       <td class="num">${c.variance !== 0 ? '<span class="'+varClass+'">'+fmtN(c.variance)+' '+c.unit+'</span>' : fmtN(c.variance)+' '+c.unit}</td>
       <td class="num" style="color:var(--muted);font-size:11px">${c.variance_pct != null ? c.variance_pct+'%' : '—'}</td>
+      <td class="num">${fmtN(c.period_sold)} ${c.unit}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
   `;
   }).join('') : '<tr><td colspan="7" class="empty">No scrap data for this range/filter.</td></tr>';
@@ -1593,8 +1598,8 @@ async function downloadBatchReceiptPDF(batch) {
 
 function exportCategoryCSV() {
   if (!SUMMARY) return;
-  const rows = [['Category','Tracking Type','Est. Generated','Actual (Sold)','Variance','Variance %','Revenue']];
-  (SUMMARY.by_category||[]).forEach(c => rows.push([c.category, c.tracking_type, c.estimated, c.actual, c.variance, c.variance_pct, c.revenue]));
+  const rows = [['Category','Tracking Type','Est. Generated (all-time)','Backlog (all-time)','Backlog %','Sold (this range)','Revenue (this range)']];
+  (SUMMARY.by_category||[]).forEach(c => rows.push([c.category, c.tracking_type, c.estimated, c.variance, c.variance_pct, c.period_sold, c.revenue]));
   const csv = rows.map(r => r.map(v => String(v).includes(',') ? `"${v}"` : v).join(',')).join('\n');
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
