@@ -497,8 +497,16 @@ function closeLightbox(){ document.getElementById('lightbox').classList.remove('
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLightbox(); });
 async function load(){
   var res=document.getElementById('results');
-  res.innerHTML='<div class="empty">Loading…</div>';
-  document.getElementById('dateFilter').value=todayISTStr();
+  var isFirstLoad = !load._hasRun;
+  load._hasRun = true;
+  if(isFirstLoad){
+    res.innerHTML='<div class="empty">Loading…</div>';
+    // Default to "all dates" on first load -- filtering to today by default
+    // hid the vast majority of genuinely still-pending JCs (many wait
+    // several days, some months, for approval). Leaving this blank shows
+    // everything; the date filter remains available to narrow manually.
+    document.getElementById('dateFilter').value='';
+  }
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_ho_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     if(!r.ok){res.innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';document.getElementById('count').textContent='';return;}
@@ -769,6 +777,7 @@ function setAllJC(open){
   document.querySelectorAll('.jc-chevron').forEach(function(c){ c.classList.toggle('open', open); });
 }
 load();
+setInterval(load, 120000); // auto-refresh every 2 minutes; load() only resets the date filter on the true first call, so this won't repeatedly hide older pending JCs or disturb the person's own filter/search selections
 try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
