@@ -53,6 +53,17 @@
     .funnel-node .fn-val { font-size:17px; font-weight:700; }
     .funnel-node .fn-label { font-size:10px; color:var(--muted); margin-top:2px; }
     .funnel-sep { color:var(--muted); font-size:16px; }
+    .scope-legend { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-size:12px; color:var(--muted); margin-bottom:16px; line-height:1.8; }
+    .scope-legend b { color:var(--text); }
+    .scope-chip { display:inline-block; padding:1px 8px; border-radius:5px; font-size:11px; font-weight:700; margin:0 2px; }
+    .scope-chip.scope-alltime { background:#fef3c7; color:#92400e; }
+    .scope-chip.scope-range { background:#dbeafe; color:#1e40af; }
+    .scope-chip.scope-discrepancy { background:#f3e8ff; color:#6b21a8; }
+    @keyframes skeleton-shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
+    .skel-bar { display:inline-block; height:12px; border-radius:4px; background:linear-gradient(90deg, #eef1f6 25%, #e2e8f0 37%, #eef1f6 63%); background-size:400px 100%; animation:skeleton-shimmer 1.4s ease-in-out infinite; vertical-align:middle; }
+    .empty-state { padding:24px 12px; text-align:center; color:var(--muted); }
+    .empty-state .es-icon { font-size:22px; opacity:.4; margin-bottom:6px; }
+    .empty-state .es-hint { font-size:11px; margin-top:4px; }
     .photo-btn { background:var(--surface-1,#f8fafc); border:1px solid var(--border); border-radius:6px; padding:6px 10px; cursor:pointer; color:var(--muted); font-size:14px; }
     .photo-btn:hover { color:var(--red); border-color:var(--red); }
     .row-photo-thumb { display:inline-block; vertical-align:middle; margin-left:6px; }
@@ -190,6 +201,12 @@
   </div>
 
   <div id="tabPane-scrap">
+  <div class="scope-legend">
+    <b>How to read the numbers below:</b>
+    <span class="scope-chip scope-alltime">All-time</span> figures (Est. Generated, Backlog) never reset and ignore the "From" date — they answer "how much is outstanding right now?"
+    <span class="scope-chip scope-range">This range</span> figures (Sold, Revenue) respect the date filter above — they answer "what happened in this window?"
+    <span class="scope-chip scope-discrepancy">Discrepancy</span> is a different thing entirely — it's how far one single movement was from its own expected quantity, not a category-wide total.
+  </div>
   <div class="kpi-row">
     <div class="kpi">
       <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated
@@ -198,7 +215,7 @@
       <div class="kv" id="kvGenerated">—</div>
       <div class="ks">kg, cumulative all-time as of the To date</div>
     </div>
-    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div><div class="ks">kg, this date range only</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold (This Range)</div><div class="kv" id="kvSold">—</div><div class="ks">kg</div></div>
     <div class="kpi">
       <div class="kl"><i class="ti ti-arrows-diff"></i> Outstanding Backlog
         <span class="info-dot" title="Backlog is cumulative and compares to cumulative Scrap Sold (not the period-scoped Sold figure shown to the left) — so it can only go negative if more has genuinely been sold than was ever generated.">ⓘ</span>
@@ -322,9 +339,9 @@
         <select id="s-city" onchange="onMovementCityChange()"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
       </div>
       <div class="fg"><label>Hub</label><select id="s-hub" onchange="renderMovementRows()"><option value="">— select —</option></select></div>
-      <div class="fg"><label>Period From</label><input type="date" id="s-period-from-display" onchange="renderMovementRows()"></div>
-      <div class="fg"><label>Period To</label><input type="date" id="s-period-to-display" onchange="renderMovementRows()"></div>
-      <div class="fg"><label>Pickup Date</label><input type="date" id="s-date"></div>
+      <div class="fg"><label>Period From <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-from-display" onchange="renderMovementRows()"></div>
+      <div class="fg"><label>Period To <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-to-display" onchange="renderMovementRows()"></div>
+      <div class="fg"><label>Pickup Date <span class="info-dot" title="The actual date this scrap was physically collected from the hub — usually later than the Period above.">ⓘ</span></label><input type="date" id="s-date"></div>
       <div class="fg"><label>Vendor</label>
         <select id="s-vendor" onchange="onVendorChangeBulk()"><option value="">— select or add via Manage Vendors —</option></select>
       </div>
@@ -344,7 +361,7 @@
     <h3><i class="ti ti-alert-circle"></i> Pending Approval <span id="aqCount" class="pending-flag" style="font-size:12px;margin-left:4px"></span></h3>
     <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
     <table>
-      <thead><tr><th>Movement</th><th>Hub</th><th>Vendor</th><th class="num">Amount (₹)</th><th class="num">Variance %</th><th class="num">Age</th><th></th></tr></thead>
+      <thead><tr><th>Movement</th><th>Hub</th><th>Vendor</th><th class="num">Amount (₹)</th><th class="num">Discrepancy %</th><th class="num">Age</th><th></th></tr></thead>
       <tbody id="aqBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
     </table>
     </div>
@@ -444,6 +461,27 @@
 </div>
 
 <script>
+function heatColor(pct) {
+  if (pct == null) return '';
+  const abs = Math.abs(pct);
+  if (abs < 10) return 'background:#f0fdf4;color:#15803d';
+  if (abs < 30) return 'background:#fffbeb;color:#b45309';
+  return 'background:#fef2f2;color:#b91c1c';
+}
+function skeletonRows(cols, rows) {
+  rows = rows || 3;
+  const widths = [70, 45, 55, 40, 60, 35, 50, 65, 40, 55, 45];
+  let out = '';
+  for (let r = 0; r < rows; r++) {
+    out += '<tr>' + Array.from({length: cols}).map((_, i) =>
+      `<td><span class="skel-bar" style="width:${widths[(i+r) % widths.length]}px"></span></td>`
+    ).join('') + '</tr>';
+  }
+  return out;
+}
+function emptyState(icon, message, hint) {
+  return `<div class="es-icon">${icon}</div><div>${message}</div>${hint ? `<div class="es-hint">${hint}</div>` : ''}`;
+}
 const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON }; // fallback only, used before auth-guard resolves
@@ -597,7 +635,7 @@ async function renderMovementRows() {
 
   if (type === 'Scrap') {
     grandTotalEl.style.display = '';
-    thead.innerHTML = '<tr><th>Category</th><th class="num">Estimated</th><th class="num">Actual</th><th class="num">Variance</th><th>Status</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remark</th><th>Evidence</th></tr>';
+    thead.innerHTML = '<tr><th>Category</th><th class="num">Estimated</th><th class="num">Actual</th><th class="num">Discrepancy</th><th>Status</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remark</th><th>Evidence</th></tr>';
     const visibleCategories = CATEGORIES.filter(c => MOVEMENT_ENABLED_CATEGORIES.includes(c.category));
     tbody.innerHTML = visibleCategories.length ? visibleCategories.map((c, ci) => {
       const pending = pendingByCategory[c.category];
@@ -1046,7 +1084,7 @@ async function loadApprovalQueue(city, hub) {
       <td class="num">${age}d</td>
       <td>${isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve</button>` : ''}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty">Nothing pending approval.</td></tr>';
+  }).join('') : `<tr><td colspan="7">${emptyState('✅', 'Nothing pending approval.', 'Everything is caught up.')}</td></tr>`;
 }
 
 function switchScrapTab(name) {
@@ -1074,11 +1112,11 @@ async function loadHubPerformance(from, to, city) {
     return `<tr class="cat-row" onclick="filterToHub('${h.hub_name.replace(/'/g,"\\'")}')">
       <td>${h.hub_name}</td>
       <td class="num">${fmtN(h.estimated)} kg</td>
-      <td class="num">${h.variance_pct != null ? `<span class="${varClass}">${h.variance_pct}%</span>` : '—'}</td>
+      <td class="num">${h.variance_pct != null ? `<span style="padding:2px 8px;border-radius:5px;font-weight:600;${heatColor(h.variance_pct)}">${h.variance_pct}%</span>` : '—'}</td>
       <td class="num">${fmtN(h.sold)} kg</td>
       <td class="num">${fmtC(h.revenue)}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="5" class="empty">No hub data for this range/filter.</td></tr>';
+  }).join('') : `<tr><td colspan="5">${emptyState('🏢', 'No hub data for this range/filter.', 'Try widening the date range above.')}</td></tr>`;
 }
 function filterToHub(hubName) {
   const sel = document.getElementById('f-hub');
@@ -1093,6 +1131,10 @@ async function loadAll() {
   const city = document.getElementById('f-city').value || null;
   const hub = document.getElementById('f-hub').value || null;
   document.getElementById('syncedLbl').textContent = 'Loading…';
+  document.getElementById('hubPerfBody').innerHTML = skeletonRows(5, 3);
+  document.getElementById('catBody').innerHTML = skeletonRows(7, 4);
+  document.getElementById('aqBody').innerHTML = skeletonRows(7, 2);
+  document.getElementById('salesBody').innerHTML = skeletonRows(11, 4);
 
   const [summaryResult] = await Promise.all([
     rpc('get_scrap_summary', { p_from: from, p_to: to, p_city: city, p_hub: hub }),
@@ -1180,11 +1222,11 @@ function renderSummary() {
     <tr class="cat-row" onclick="openCatDrill('${c.category.replace(/'/g,"\\'")}')"><td>${c.category}</td><td style="color:var(--muted);font-size:11px">${c.tracking_type}</td>
       <td class="num">${genCell}</td>
       <td class="num">${c.variance !== 0 ? '<span class="'+varClass+'">'+fmtN(c.variance)+' '+c.unit+'</span>' : fmtN(c.variance)+' '+c.unit}</td>
-      <td class="num" style="color:var(--muted);font-size:11px">${c.variance_pct != null ? c.variance_pct+'%' : '—'}</td>
+      <td class="num">${c.variance_pct != null ? `<span style="padding:2px 8px;border-radius:5px;font-weight:600;${heatColor(c.variance_pct)}">${c.variance_pct}%</span>` : '—'}</td>
       <td class="num">${fmtN(c.period_sold)} ${c.unit}</td>
       <td class="num">${fmtC(c.revenue)}</td></tr>
   `;
-  }).join('') : '<tr><td colspan="7" class="empty">No scrap data for this range/filter.</td></tr>';
+  }).join('') : `<tr><td colspan="7">${emptyState('📦', 'No scrap data for this range/filter.', 'Try widening the date range, or check City/Hub filters above.')}</td></tr>`;
 }
 
 
@@ -1336,7 +1378,7 @@ function renderSalesRows(rows, capGroups) {
       </tr>`).join('');
 
     return mainRow + subRows;
-  }).join('') : '<tr><td colspan="11" class="empty">No movements logged for this range/filter yet.</td></tr>';
+  }).join('') : `<tr><td colspan="11">${emptyState('🧾', 'No movements logged for this range/filter yet.', 'Use Create Scrap/Refurb Movement above to log the first one.')}</td></tr>`;
 }
 
 document.addEventListener('toggle', (e) => {
@@ -1680,7 +1722,7 @@ async function downloadBatchReceiptPDF(batch) {
     y += 6;
     if (ln.variance_remark) {
       doc.setFontSize(8); doc.setTextColor(150,60,20);
-      doc.text(`↳ Variance (Sys. Calc. ${ln.system_calculated ?? '-'}): ${ln.variance_remark}`, col1 + 4, y);
+      doc.text(`↳ Discrepancy (Sys. Calc. ${ln.system_calculated ?? '-'}): ${ln.variance_remark}`, col1 + 4, y);
       doc.setTextColor(0); doc.setFontSize(9);
       y += 6;
     }
