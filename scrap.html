@@ -1831,11 +1831,17 @@ async function ptInit() {
   // physically stationed there), so they'd never surface in this per-city
   // list otherwise -- added explicitly so they're selectable once a specific
   // City is chosen in Create Movement, matching the get_distinct_hubs() fix
-  // for the "All Cities" case.
-  const RPDC_BY_CITY = { 'Bangalore': 'RPDC Bangalore', 'NCR': 'RPDC NCR' };
-  Object.keys(RPDC_BY_CITY).forEach(city => {
+  // for the "All Cities" case. "All <City> Hubs" is also added here for
+  // reconciliation entries that apply city-wide rather than to one hub.
+  const EXTRA_HUBS_BY_CITY = {
+    'Bangalore': ['RPDC Bangalore', 'All Bangalore Hubs'],
+    'NCR': ['RPDC NCR', 'All NCR Hubs']
+  };
+  Object.keys(EXTRA_HUBS_BY_CITY).forEach(city => {
     if (!ptHubsByCity[city]) ptHubsByCity[city] = [];
-    if (!ptHubsByCity[city].includes(RPDC_BY_CITY[city])) ptHubsByCity[city].push(RPDC_BY_CITY[city]);
+    EXTRA_HUBS_BY_CITY[city].forEach(h => {
+      if (!ptHubsByCity[city].includes(h)) ptHubsByCity[city].push(h);
+    });
   });
 
   // Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
