@@ -34,6 +34,9 @@
     .scrap-tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
     .scrap-tab { background:none; border:none; padding:10px 18px; font-size:13px; font-weight:700; letter-spacing:.03em; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
     .scrap-tab.active { color:var(--red); border-bottom-color:var(--red); }
+    .scrap-subtabs { display:flex; gap:6px; margin-bottom:12px; }
+    .scrap-subtab { background:var(--surface-1,#f8fafc); border:1px solid var(--border); border-radius:999px; padding:6px 16px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; }
+    .scrap-subtab.active { background:var(--red); border-color:var(--red); color:#fff; }
     .recon-flow { display:flex; align-items:center; justify-content:center; gap:18px; padding:16px 0; flex-wrap:wrap; }
     .recon-step { text-align:center; min-width:130px; }
     .recon-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px; }
@@ -183,8 +186,7 @@
 
   <div class="scrap-tabs" role="tablist">
     <button class="scrap-tab active" id="tabBtn-scrap" onclick="switchScrapTab('scrap')">SCRAP</button>
-    <button class="scrap-tab" id="tabBtn-refurb" onclick="switchScrapTab('refurb')">REFURB</button>
-    <button class="scrap-tab" id="tabBtn-tyre" onclick="switchScrapTab('tyre')">TYRE</button>
+    <button class="scrap-tab" id="tabBtn-parts" onclick="switchScrapTab('parts')">REFURB &amp; TYRE</button>
   </div>
 
   <div id="tabPane-scrap">
@@ -243,7 +245,13 @@
   </div>
   </div><!-- /tabPane-scrap -->
 
-  <div id="tabPane-refurb" style="display:none">
+  <div id="tabPane-parts" style="display:none">
+  <div class="scrap-subtabs">
+    <button class="scrap-subtab active" id="subTabBtn-Refurb" onclick="switchPartsSubTab('Refurb')">Refurb</button>
+    <button class="scrap-subtab" id="subTabBtn-Tyre" onclick="switchPartsSubTab('Tyre')">Tyre</button>
+  </div>
+
+  <div id="subPane-Refurb">
   <div class="panel" style="padding:16px">
     <h3><i class="ti ti-recycle"></i> Refurb — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
     <div class="funnel-kpis">
@@ -269,9 +277,9 @@
       </div>
     </div>
   </div>
-  </div><!-- /tabPane-refurb -->
+  </div><!-- /subPane-Refurb -->
 
-  <div id="tabPane-tyre" style="display:none">
+  <div id="subPane-Tyre" style="display:none">
   <div class="panel" style="padding:16px">
     <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
     <div class="funnel-kpis">
@@ -297,7 +305,8 @@
       </div>
     </div>
   </div>
-  </div><!-- /tabPane-tyre -->
+  </div><!-- /subPane-Tyre -->
+  </div><!-- /tabPane-parts -->
 
   <div class="panel">
 
@@ -1041,11 +1050,19 @@ async function loadApprovalQueue(city, hub) {
 }
 
 function switchScrapTab(name) {
-  ['scrap','refurb','tyre'].forEach(t => {
+  ['scrap','parts'].forEach(t => {
     const pane = document.getElementById('tabPane-' + t);
     const btn = document.getElementById('tabBtn-' + t);
     if (pane) pane.style.display = (t === name) ? '' : 'none';
     if (btn) btn.classList.toggle('active', t === name);
+  });
+}
+function switchPartsSubTab(type) {
+  ['Refurb','Tyre'].forEach(t => {
+    const pane = document.getElementById('subPane-' + t);
+    const btn = document.getElementById('subTabBtn-' + t);
+    if (pane) pane.style.display = (t === type) ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === type);
   });
 }
 
