@@ -281,7 +281,7 @@
 
   <div id="subPane-Tyre" style="display:none">
   <div class="panel" style="padding:16px">
-    <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / CN Approved / CN Rejected</h3>
     <div class="funnel-kpis">
       <div class="funnel-kpi"><div class="fk-label">Recovery %</div><div class="fk-val" id="funnelRecovery-Tyre">—</div></div>
       <div class="funnel-kpi"><div class="fk-label">Rejection %</div><div class="fk-val" id="funnelRejection-Tyre">—</div></div>
@@ -293,8 +293,8 @@
         <table>
           <thead><tr>
             <th>Part</th><th>System Consumed</th><th>Actual available in Hub</th>
-            <th>Sent to RPDC</th><th>Sent to vendor</th><th>Refurbed</th><th>Rejected</th>
-            <th>Refurbed part Received at RPDC</th><th>Rejected part Received at RPDC</th><th>Refurb %</th>
+            <th>Sent to RPDC</th><th>Sent to vendor</th><th>CN Approved</th><th>CN Rejected</th>
+            <th>CN Approved part Received at RPDC</th><th>CN Rejected part Received at RPDC</th><th>CN Approved %</th>
           </tr></thead>
           <tbody id="pt-rowsBody-Tyre"></tbody>
         </table>
@@ -1891,9 +1891,11 @@ function renderFunnelSummary(type) {
   if (rejEl) rejEl.textContent = rejectionPct != null ? rejectionPct + '%' : '—';
   const flowEl = document.getElementById('funnelFlow-' + type);
   if (!flowEl) return;
+  const outcomeLabel = type === 'Tyre' ? 'CN Approved' : 'Refurbished';
+  const rejectedLabel = type === 'Tyre' ? 'CN Rejected' : 'Rejected';
   const nodes = [
     ['Consumed', consumed], ['At Hub', atHub], ['RPDC', rpdc],
-    ['Vendor', vendor], ['Refurbished', outcome], ['Rejected', rejected]
+    ['Vendor', vendor], [outcomeLabel, outcome], [rejectedLabel, rejected]
   ];
   flowEl.innerHTML = nodes.map(([label, val], i) =>
     `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
