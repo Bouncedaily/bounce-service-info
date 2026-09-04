@@ -1827,6 +1827,17 @@ async function ptInit() {
   });
   Object.keys(ptHubsByCity).forEach(c => ptHubsByCity[c] = [...ptHubsByCity[c]].sort());
 
+  // RPDC processing points never appear in bike_fleet (no vehicles are
+  // physically stationed there), so they'd never surface in this per-city
+  // list otherwise -- added explicitly so they're selectable once a specific
+  // City is chosen in Create Movement, matching the get_distinct_hubs() fix
+  // for the "All Cities" case.
+  const RPDC_BY_CITY = { 'Bangalore': 'RPDC Bangalore', 'NCR': 'RPDC NCR' };
+  Object.keys(RPDC_BY_CITY).forEach(city => {
+    if (!ptHubsByCity[city]) ptHubsByCity[city] = [];
+    if (!ptHubsByCity[city].includes(RPDC_BY_CITY[city])) ptHubsByCity[city].push(RPDC_BY_CITY[city]);
+  });
+
   // Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
   // "Flipkart hub - Banaswadi", "Famcare hub - Hoodi") but physically report
   // under the parent hub -- fold them together in the city's hub list rather
