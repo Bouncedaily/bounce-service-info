@@ -333,12 +333,12 @@
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
     <div class="sale-form">
       <div class="fg"><label>Type</label>
-        <select id="s-type" onchange="onTypeChange()"><option value="Scrap">Scrap</option><option value="Tyre">Tyre</option><option value="Refurb">Refurb</option></select>
+        <select id="s-type" onchange="onTypeChange();suggestNextPeriod();"><option value="Scrap">Scrap</option><option value="Tyre">Tyre</option><option value="Refurb">Refurb</option></select>
       </div>
       <div class="fg"><label>City</label>
         <select id="s-city" onchange="onMovementCityChange()"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
       </div>
-      <div class="fg"><label>Hub</label><select id="s-hub" onchange="renderMovementRows()"><option value="">— select —</option></select></div>
+      <div class="fg"><label>Hub</label><select id="s-hub" onchange="renderMovementRows();suggestNextPeriod();"><option value="">— select —</option></select></div>
       <div class="fg"><label>Period From <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-from-display" onchange="renderMovementRows()"></div>
       <div class="fg"><label>Period To <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-to-display" onchange="renderMovementRows()"></div>
       <div class="fg"><label>Pickup Date <span class="info-dot" title="The actual date this scrap was physically collected from the hub — usually later than the Period above.">ⓘ</span></label><input type="date" id="s-date"></div>
@@ -1566,6 +1566,39 @@ async function uploadScrapPhoto(file) {
   return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
 }
 
+async function findOverlappingPeriod(hub, type, newFrom, newTo) {
+  try {
+    const rows = await sbGet(`scrap_sales?select=id,batch_id,period_from,period_to&hub_name=eq.${encodeURIComponent(hub)}&movement_type=eq.${encodeURIComponent(type)}&status=neq.Cancelled&period_from=not.is.null&period_to=not.is.null`);
+    // Dedupe by batch (a batch's rows all share the same period)
+    const seen = new Set();
+    for (const r of rows) {
+      const key = r.batch_id || r.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      // Standard range-overlap check: two ranges overlap unless one ends
+      // before the other starts.
+      if (newFrom <= r.period_to && newTo >= r.period_from) return r;
+    }
+  } catch (e) { console.error('overlap check failed', e); }
+  return null;
+}
+
+async function suggestNextPeriod() {
+  const hub = document.getElementById('s-hub').value;
+  const type = document.getElementById('s-type').value;
+  const fromInput = document.getElementById('s-period-from-display');
+  if (!hub || !type || !fromInput || fromInput.value) return; // don't override a value already typed
+  try {
+    const rows = await sbGet(`scrap_sales?select=period_to&hub_name=eq.${encodeURIComponent(hub)}&movement_type=eq.${encodeURIComponent(type)}&status=neq.Cancelled&period_to=not.is.null&order=period_to.desc&limit=1`);
+    if (rows && rows.length && rows[0].period_to) {
+      const next = new Date(rows[0].period_to + 'T00:00:00');
+      next.setDate(next.getDate() + 1);
+      fromInput.value = next.toISOString().slice(0, 10);
+      fromInput.title = `Auto-suggested: the day after the last logged period for ${hub} (${type}) ended.`;
+    }
+  } catch (e) { console.error('suggestNextPeriod failed', e); }
+}
+
 async function createBatch() {
   const type = document.getElementById('s-type').value;
   const isScrap = type === 'Scrap';
@@ -1577,6 +1610,14 @@ async function createBatch() {
   const vendorId = document.getElementById('s-vendor').value || null;
 
   if (!hub || !date) { alert('Hub and Pickup Date are required.'); return; }
+
+  if (periodFrom && periodTo) {
+    const conflict = await findOverlappingPeriod(hub, type, periodFrom, periodTo);
+    if (conflict) {
+      alert(`This period (${periodFrom} to ${periodTo}) overlaps an existing movement for ${hub} (${type}):\n${conflict.period_from} to ${conflict.period_to} — batch ${conflict.batch_id || conflict.id}.\n\nAdjust the Period dates before saving, or this scrap will be double-counted.`);
+      return;
+    }
+  }
 
   const rows = [...document.querySelectorAll('#s-rows-tbody tr[data-category], #s-rows-tbody tr[data-part]')];
   const filled = [];
