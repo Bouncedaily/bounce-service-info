@@ -29,6 +29,11 @@
     .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
 
     .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-bottom: 20px; }
+    .kpi-group-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; padding-left:2px; }
+    .kpi-group-label.kpi-group-alltime::before { content:'●'; color:#b45309; margin-right:5px; }
+    .kpi-group-label.kpi-group-range::before { content:'●'; color:#1e40af; margin-right:5px; }
+    .kpi-row-alltime .kpi { border-top:3px solid #fbbf24; }
+    .kpi-row-range .kpi { border-top:3px solid #60a5fa; }
     .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
     .info-dot { display:inline-block; cursor:help; color:var(--muted); font-size:11px; margin-left:2px; }
     .scrap-tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
@@ -207,25 +212,30 @@
     <span class="scope-chip scope-range">This range</span> figures (Sold, Revenue) respect the date filter above — they answer "what happened in this window?"
     <span class="scope-chip scope-discrepancy">Discrepancy</span> is a different thing entirely — it's how far one single movement was from its own expected quantity, not a category-wide total.
   </div>
-  <div class="kpi-row">
+  <div class="kpi-group-label kpi-group-alltime">Backlog — All-Time, not affected by the date range above</div>
+  <div class="kpi-row kpi-row-alltime">
     <div class="kpi">
-      <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated (All-Time)
+      <div class="kl"><i class="ti ti-scale"></i> Est. Scrap Generated
         <span class="info-dot" title="Estimated using standard reference weights for parts marked Scrap on job cards, cumulative all-time as of the selected To date. This is a running backlog figure, not bound to the From date — a shorter date range won't make this number smaller.">ⓘ</span>
       </div>
       <div class="kv" id="kvGenerated">—</div>
       <div class="ks">kg</div>
     </div>
-    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold (This Range)</div><div class="kv" id="kvSold">—</div><div class="ks">kg</div></div>
     <div class="kpi">
-      <div class="kl"><i class="ti ti-arrows-diff"></i> Outstanding Backlog (All-Time)
-        <span class="info-dot" title="Backlog is cumulative and compares to cumulative Scrap Sold (not the period-scoped Sold figure shown to the left) — so it can only go negative if more has genuinely been sold than was ever generated.">ⓘ</span>
+      <div class="kl"><i class="ti ti-arrows-diff"></i> Outstanding Backlog
+        <span class="info-dot" title="Backlog is cumulative and compares to cumulative Scrap Sold (not the period-scoped Sold figure below) — so it can only go negative if more has genuinely been sold than was ever generated.">ⓘ</span>
       </div>
       <div class="kv" id="kvVariance">—</div>
       <div class="ks">Cumulative generated − cumulative sold, as of To date</div>
     </div>
-    <div class="kpi"><div class="kl"><i class="ti ti-percentage"></i> Backlog % (All-Time)</div><div class="kv" id="kvVariancePct">—</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue (This Range)</div><div class="kv" id="kvRevenue">—</div></div>
-    <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Finance Pending (This Range)</div><div class="kv" id="kvPendingAck">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-percentage"></i> Backlog %</div><div class="kv" id="kvVariancePct">—</div></div>
+  </div>
+
+  <div class="kpi-group-label kpi-group-range">Activity — This Date Range Only</div>
+  <div class="kpi-row kpi-row-range">
+    <div class="kpi"><div class="kl"><i class="ti ti-truck-delivery"></i> Scrap Sold</div><div class="kv" id="kvSold">—</div><div class="ks">kg</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-cash-banknote"></i> Scrap Revenue</div><div class="kv" id="kvRevenue">—</div></div>
+    <div class="kpi"><div class="kl"><i class="ti ti-clipboard-check"></i> Finance Pending</div><div class="kv" id="kvPendingAck">—</div></div>
   </div>
 
   <div class="panel" id="reconPanel">
