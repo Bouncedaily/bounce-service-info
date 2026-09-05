@@ -138,6 +138,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button id="hqtab-queue-btn" class="hqtab-btn active" onclick="hqTab('queue')">Queue</button>
   <button id="hqtab-perf-btn" class="hqtab-btn" onclick="hqTab('perf')">Performance</button>
   <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')">Approval Quality</button>
+  <button id="hqtab-nithish-btn" class="hqtab-btn" onclick="hqTab('nithish')">Nithish Approval</button>
 </div>
 
 <div id="hqtab-queue">
@@ -309,6 +310,21 @@ tr.row-flag:hover{background:#fee2e2}
 <div id="qResults"><div class="empty">Loading…</div></div>
 </div>
 
+</div>
+
+<div id="hqtab-nithish" style="display:none">
+<div class="psub">Job cards waiting for HO approval or re-opened after HO rejection, filtered to what needs a closer personal look: Accident/Physical-damage (issue category A or P) parts cost over ₹3,000, OR a tyre/brake-shoe/brake-pad request where that exact part was itself last replaced suspiciously recently (under 13,000km for tyres, 6,000km for brake shoes, 4,000km for brake pads).</div>
+<div class="bar">
+  <span class="count" id="nCount">Loading…</span>
+  <input type="text" id="nSearch" placeholder="Filter by vehicle, hub, technician or JC…" oninput="nithishRender()">
+  <select id="nFlagFilter" onchange="nithishRender()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+    <option value="">All reasons</option>
+    <option value="cost">High A&amp;P cost only</option>
+    <option value="premature_part">Premature part only</option>
+    <option value="both">Both reasons</option>
+  </select>
+</div>
+<div id="nResults"><div class="empty">Loading…</div></div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -780,22 +796,26 @@ function setAllJC(open){
 }
 load();
 setInterval(load, 120000); // auto-refresh every 2 minutes; load() only resets the date filter on the true first call, so this won't repeatedly hide older pending JCs or disturb the person's own filter/search selections
-try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
+try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality'||_lt==='nithish') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
 // ══════════════════ HO Approval Performance tab ══════════════════
 let PF_INIT=false;
 let QUALITY_INIT=false;
+let NITHISH_INIT=false;
 function hqTab(t){
   document.getElementById('hqtab-queue').style.display=(t==='queue')?'':'none';
   document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
   document.getElementById('hqtab-quality').style.display=(t==='quality')?'':'none';
+  document.getElementById('hqtab-nithish').style.display=(t==='nithish')?'':'none';
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
   document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
+  document.getElementById('hqtab-nithish-btn').classList.toggle('active', t==='nithish');
   try{localStorage.setItem('hq_last_tab',t);}catch(e){}
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
   if(t==='quality' && !QUALITY_INIT){ QUALITY_INIT=true; qualityBoot(); }
+  if(t==='nithish' && !NITHISH_INIT){ NITHISH_INIT=true; nithishBoot(); }
 }
 
 const PF_WINDOW_DAYS=30;
@@ -1371,6 +1391,67 @@ function qualityRender(){
   });
   html+='</tbody></table>';
   document.getElementById('qResults').innerHTML=html;
+}
+
+// ══════════════════ Nithish Approval tab ══════════════════
+let N_ALL=[];
+async function nithishBoot(){
+  document.getElementById('nResults').innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_nithish_approval_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok){document.getElementById('nResults').innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';return;}
+    var payload=await r.json();
+    N_ALL=payload.jcs||[];
+    nithishRender();
+  }catch(e){document.getElementById('nResults').innerHTML='<div class="empty" style="color:var(--red)">Error.</div>';}
+}
+function nithishFlagLabel(reason){
+  if(reason==='both') return '<span class="chip red">⚠ High cost + premature part</span>';
+  if(reason==='cost') return '<span class="chip amber">₹ High A&amp;P cost</span>';
+  if(reason==='premature_part') return '<span class="chip amber">↺ Premature part</span>';
+  return '';
+}
+function nithishCard(jc){
+  var premHtml='';
+  if(jc.premature_items && jc.premature_items.length){
+    premHtml='<div class="reason"><b>Premature part(s):</b> '+jc.premature_items.map(function(p){
+      return esc(p.item)+' — only '+nf(p.km_since)+'km since last replaced (threshold '+nf(p.threshold_km)+'km, category: '+esc(p.category)+')';
+    }).join('; ')+'</div>';
+  }
+  var costHtml = jc.ap_amount>0 ? '<div class="reason"><b>Accident/Physical-damage (A/P) parts cost:</b> ₹'+nf(jc.ap_amount)+'</div>' : '';
+  return '<div class="jc">'+
+    '<div class="jc-hd" style="cursor:default">'+
+      '<div class="jc-hd-left">'+
+        '<div style="min-width:0">'+
+          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
+          '<div class="jc-summary-line">'+esc(jc.hub||'')+', '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km'+((jc.rejection_count||0)>0?' · rejected '+jc.rejection_count+'x before':'')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="chips">'+nithishFlagLabel(jc.flag_reason)+
+        (jc.jc_status==='Job Re-Open (HO Reject)'?'<span class="chip amber">↺ Re-opened after HO rejection</span>':'')+
+      '</div>'+
+    '</div>'+
+    '<div class="jc-body open">'+
+      '<div class="jc-meta" style="padding:0 16px 10px">bike '+esc(jc.bike_status||'')+' · opened '+fmtDate(jc.opened_date)+(jc.reason?' · Reason: '+esc(jc.reason):'')+'</div>'+
+      costHtml+premHtml+
+    '</div>'+
+  '</div>';
+}
+function nithishRender(){
+  var search=(document.getElementById('nSearch').value||'').trim().toLowerCase();
+  var flagFilter=document.getElementById('nFlagFilter').value;
+  var list=N_ALL.filter(function(jc){
+    if(flagFilter && jc.flag_reason!==flagFilter) return false;
+    if(search){
+      var hay=[jc.job_card_number,jc.reg_number,jc.hub,jc.technician].join(' ').toLowerCase();
+      if(hay.indexOf(search)===-1) return false;
+    }
+    return true;
+  });
+  document.getElementById('nCount').textContent=list.length+' job card'+(list.length===1?'':'s')+' need'+(list.length===1?'s':'')+' a closer look';
+  document.getElementById('nResults').innerHTML = list.length
+    ? list.map(nithishCard).join('')
+    : '<div class="empty">Nothing flagged right now — no pending or re-opened job card currently has A/P cost over ₹3,000 or a premature tyre/brake part.</div>';
 }
 </script>
 </body></html>
