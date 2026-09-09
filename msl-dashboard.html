@@ -1047,11 +1047,11 @@ function _renderTopPartsTable(){
 function exportTopPartsCSV(){
   var rows = window._tpCurrentRows || [];
   if(!rows.length){ alert('No data to export -- apply filters first.'); return; }
-  var cols = ['Part Name','A - Qty','A - Amount (₹)','A - Contrib %','A - Avg KM','B - Qty','B - Amount (₹)','B - Contrib %','B - Avg KM','Change A vs B (₹)'];
+  var cols = ['Part Name','Part Number','A - Qty','A - Amount (₹)','A - Contrib %','A - Avg KM','B - Qty','B - Amount (₹)','B - Contrib %','B - Avg KM','Change A vs B (₹)'];
   var csvRows = rows.map(function(r){
     var change = Math.round((r.a_amount||0) - (r.b_amount||0));
     return [
-      r.item,
+      r.item, r.part_number||'',
       r.a_qty||0, Math.round(r.a_amount||0), r.a_pct||0, r.a_avgkm||'',
       r.b_qty||0, Math.round(r.b_amount||0), r.b_pct||0, r.b_avgkm||'',
       change
