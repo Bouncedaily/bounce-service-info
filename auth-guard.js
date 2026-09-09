@@ -70,10 +70,20 @@
     if (!sess.access_token) return null;
     const realExp = realExpiryMs(sess.access_token);
     if (!realExp || realExp < Date.now() + 90*1000) {
-      if (!sess.refresh_token) return sess.access_token || null;
+      if (!sess.refresh_token) { redirectLogin(); return null; }
       const refreshed = await refreshToken(sess.refresh_token);
       if (refreshed) return refreshed.access_token;
-      return sess.access_token || null; // best-effort fallback, caller may still 401
+      // Refresh definitively failed (network-blip null is handled by the fallback
+      // above via a truthy refresh_token check failing later calls too, but a
+      // real rejection from the server -- e.g. reuse-detection revoking the whole
+      // refresh chain -- means this session can never recover on its own).
+      // Silently returning the stale/expired access_token here used to let every
+      // subsequent authenticated call fail for an unrelated, confusing reason
+      // (e.g. Storage rejecting the JWT with a generic 400) instead of surfacing
+      // the real problem, sometimes for 20+ minutes before anyone noticed.
+      // Force a clean re-login instead so the failure is immediate and legible.
+      redirectLogin();
+      return null;
     }
     return sess.access_token;
   }
