@@ -672,7 +672,12 @@ async function renderMovementRows() {
   if (type === 'Scrap') {
     grandTotalEl.style.display = '';
     thead.innerHTML = '<tr><th>Category</th><th class="num">Estimated</th><th class="num">Actual</th><th class="num">Discrepancy</th><th>Status</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remark</th><th>Evidence</th></tr>';
-    const visibleCategories = CATEGORIES.filter(c => MOVEMENT_ENABLED_CATEGORIES.includes(c.category));
+    // Brake Shoes is NCR-specific -- the auto-categorization only ever
+    // routes disposition data there for NCR (everywhere else stays
+    // Aluminium), so it only makes sense to show as an enterable row when
+    // NCR is the city actually being logged for.
+    const enabledForThisCity = scopedCity === 'NCR' ? [...MOVEMENT_ENABLED_CATEGORIES, 'Brake Shoes'] : MOVEMENT_ENABLED_CATEGORIES;
+    const visibleCategories = CATEGORIES.filter(c => enabledForThisCity.includes(c.category));
     tbody.innerHTML = visibleCategories.length ? visibleCategories.map((c, ci) => {
       const pending = pendingByCategory[c.category];
       const pendingText = pending == null ? '—'
