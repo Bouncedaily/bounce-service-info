@@ -442,6 +442,7 @@ body { overflow:auto!important; }
         <button id="mtab-msl" onclick="mslTab('msl')" style="background:none;border:none;padding:9px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--red);border-bottom:2px solid var(--red);margin-bottom:-1px">MSL Fulfillment</button>
         <button id="mtab-parts" onclick="mslTab('parts')" style="background:none;border:none;padding:9px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px">Top Parts Contribution</button>
         <button id="mtab-rider" onclick="mslTab('rider')" style="background:none;border:none;padding:9px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px">Rider Damage</button>
+        <button id="mtab-refurb" onclick="mslTab('refurb')" style="background:none;border:none;padding:9px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px">Refurb Parts</button>
       </div>
 
       <div id="tab-msl">
@@ -662,6 +663,30 @@ body { overflow:auto!important; }
           <div class="heatmap-scroll"><div id="rdTable" class="loading-state"><div class="spin"></div>Loading…</div></div>
         </div>
       </div>
+
+      <div id="tab-refurb" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700">Runway based on last</span>
+          <select id="rfDays" onchange="loadRefurb()" style="padding:5px 10px;border:1px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;font-family:inherit;background:var(--card);color:var(--text)">
+            <option value="4" selected>4 days</option>
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days</option>
+          </select>
+          <span style="font-size:11px;color:var(--muted)">consumption · combines refurb + non-refurb usage of each part</span>
+        </div>
+        <div class="heatmap-panel">
+          <div class="heatmap-header">
+            <div><div class="panel-title">Refurb Parts — RPDC Stock &amp; Runway</div><div class="panel-sub" id="rfSub">RPDC refurb stock vs combined consumption</div></div>
+            <button onclick="exportRefurbCSV()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">
+              <i class="ti ti-download" style="font-size:14px"></i> Export CSV
+            </button>
+          </div>
+          <div class="heatmap-scroll">
+            <div id="rfTable" class="loading-state"><div class="spin"></div>Loading…</div>
+          </div>
+        </div>
+      </div>
   </div>
 </div>
 
@@ -671,10 +696,73 @@ const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 function mslTab(t){
   try{ localStorage.setItem('msl_tab', t); }catch(e){}
-  ['msl','parts','rider'].forEach(function(k){var el=document.getElementById('tab-'+k); if(el) el.style.display=(k===t)?'':'none';});
-  [['mtab-msl','msl'],['mtab-parts','parts'],['mtab-rider','rider']].forEach(function(p){var b=document.getElementById(p[0]); if(b){b.style.color=p[1]===t?'var(--red)':'var(--muted)'; b.style.borderBottomColor=p[1]===t?'var(--red)':'transparent';}});
+  ['msl','parts','rider','refurb'].forEach(function(k){var el=document.getElementById('tab-'+k); if(el) el.style.display=(k===t)?'':'none';});
+  [['mtab-msl','msl'],['mtab-parts','parts'],['mtab-rider','rider'],['mtab-refurb','refurb']].forEach(function(p){var b=document.getElementById(p[0]); if(b){b.style.color=p[1]===t?'var(--red)':'var(--muted)'; b.style.borderBottomColor=p[1]===t?'var(--red)':'transparent';}});
   if(t==='parts') openTopParts();
   if(t==='rider') openRider();
+  if(t==='refurb') loadRefurb();
+}
+var _rfRows=[];
+async function loadRefurb(){
+  var el=document.getElementById('rfTable');
+  el.className='loading-state'; el.innerHTML='<div class="spin"></div>Loading…';
+  var days=document.getElementById('rfDays').value||4;
+  try{
+    var r=await fetch(INFO_URL+'/rest/v1/rpc/get_refurb_parts_runway',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_days:parseInt(days,10)})});
+    if(!r.ok){ el.className=''; el.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
+    var rows=await r.json(); _rfRows=rows||[];
+    renderRefurb(_rfRows, days);
+  }catch(e){ el.className=''; el.innerHTML='<div class="loading-state">Could not load.</div>'; }
+}
+function renderRefurb(rows, days){
+  var el=document.getElementById('rfTable');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  document.getElementById('rfSub').textContent = rows.length+' refurb parts · consumption over last '+days+' days';
+  if(!rows.length){ el.className=''; el.innerHTML='<div class="loading-state">No refurb parts found</div>'; return; }
+  var th='padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--card)';
+  var thL=th.replace('text-align:right','text-align:left');
+  var td='padding:8px 12px;text-align:right;font-size:12.5px;border-bottom:1px solid var(--border);white-space:nowrap';
+  var tdL=td.replace('text-align:right','text-align:left');
+  function runwayCell(rd){
+    if(rd==null) return '<td style="'+td+';color:var(--muted)">—</td>';
+    var bg='transparent', col='var(--text2)';
+    if(rd<=3){ bg='rgba(220,38,38,.12)'; col='#991b1b'; }
+    else if(rd<=7){ bg='rgba(217,119,6,.12)'; col='#92400e'; }
+    else { bg='rgba(22,163,74,.10)'; col='#166534'; }
+    return '<td style="'+td+';background:'+bg+';color:'+col+';font-weight:700">'+rd+' d</td>';
+  }
+  var html='<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+    '<th style="'+thL+'">Part Name</th>'+
+    '<th style="'+th+'">BLR Stock</th>'+
+    '<th style="'+th+'">NCR Stock</th>'+
+    '<th style="'+th+'">RPDC Total Stock</th>'+
+    '<th style="'+th+'">Refurb Qty ('+days+'d)</th>'+
+    '<th style="'+th+'">Non-Refurb Qty ('+days+'d)</th>'+
+    '<th style="'+th+'">Total Consumption</th>'+
+    '<th style="'+th+'">Daily Rate</th>'+
+    '<th style="'+th+'">Runway</th>'+
+    '<th style="'+thL+'">Note</th></tr></thead><tbody>';
+  html+=rows.map(function(r){
+    return '<tr><td style="'+tdL+';font-weight:500">'+esc(r.part_name)+'</td>'+
+      '<td style="'+td+'">'+(r.blr_stock||0)+'</td>'+
+      '<td style="'+td+'">'+(r.ncr_stock||0)+'</td>'+
+      '<td style="'+td+';font-weight:700">'+(r.rpdc_total_stock||0)+'</td>'+
+      '<td style="'+td+'">'+(r.refurb_qty||0)+'</td>'+
+      '<td style="'+td+'">'+(r.nonrefurb_qty||0)+'</td>'+
+      '<td style="'+td+'">'+(r.total_consumption||0)+'</td>'+
+      '<td style="'+td+'">'+(r.daily_rate||0)+'/day</td>'+
+      runwayCell(r.runway_days)+
+      '<td style="'+tdL+';color:var(--muted);font-size:11.5px">'+esc(r.pending_note||'')+'</td></tr>';
+  }).join('');
+  html+='</tbody></table>';
+  el.className=''; el.innerHTML=html;
+}
+function exportRefurbCSV(){
+  if(!_rfRows.length){ alert('No data to export.'); return; }
+  var cols=['Part Name','Part Number','BLR Stock','NCR Stock','RPDC Total Stock','Refurb Qty','Non-Refurb Qty','Total Consumption','Daily Rate','Runway Days','Note'];
+  var csvRows=_rfRows.map(function(r){return [r.part_name,r.part_number||'',r.blr_stock||0,r.ncr_stock||0,r.rpdc_total_stock||0,r.refurb_qty||0,r.nonrefurb_qty||0,r.total_consumption||0,r.daily_rate||0,r.runway_days==null?'':r.runway_days,r.pending_note||''];});
+  var csv='\ufeff'+cols.join(',')+'\n'+csvRows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='refurb_parts_runway.csv'; a.click();
 }
 var RD_INIT=false;
 function rdISO(x){return x.toISOString().slice(0,10);}
