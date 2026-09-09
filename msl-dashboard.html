@@ -674,7 +674,10 @@ body { overflow:auto!important; }
             <option value="30">30 days</option>
           </select>
           <span style="font-size:11px;color:var(--muted)">consumption · combines refurb + non-refurb usage of each part</span>
+          <select id="rfCity" onchange="rfRebuildHubs();loadRefurb()" style="padding:5px 10px;border:1px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;font-family:inherit;background:var(--card);color:var(--text)"><option value="">All Cities</option></select>
+          <select id="rfHub" onchange="loadRefurb()" style="padding:5px 10px;border:1px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;font-family:inherit;background:var(--card);color:var(--text)"><option value="">All Hubs</option></select>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px">City/Hub narrows Total Consumption, Daily Rate, and Runway Days — BLR/NCR Stock always shows the full citywide RPDC total, since stock isn't tracked per hub in the source data.</div>
         <div class="heatmap-panel">
           <div class="heatmap-header">
             <div><div class="panel-title">Refurb Parts — RPDC Stock &amp; Runway</div><div class="panel-sub" id="rfSub">RPDC refurb stock vs combined consumption</div></div>
@@ -700,15 +703,17 @@ function mslTab(t){
   [['mtab-msl','msl'],['mtab-parts','parts'],['mtab-rider','rider'],['mtab-refurb','refurb']].forEach(function(p){var b=document.getElementById(p[0]); if(b){b.style.color=p[1]===t?'var(--red)':'var(--muted)'; b.style.borderBottomColor=p[1]===t?'var(--red)':'transparent';}});
   if(t==='parts') openTopParts();
   if(t==='rider') openRider();
-  if(t==='refurb') loadRefurb();
+  if(t==='refurb'){ fillPartsDims().then(function(){ rfRebuildHubs(); }); loadRefurb(); }
 }
 var _rfRows=[];
 async function loadRefurb(){
   var el=document.getElementById('rfTable');
   el.className='loading-state'; el.innerHTML='<div class="spin"></div>Loading…';
   var days=document.getElementById('rfDays').value||4;
+  var city=(document.getElementById('rfCity')||{}).value||null;
+  var hub=(document.getElementById('rfHub')||{}).value||null;
   try{
-    var r=await fetch(INFO_URL+'/rest/v1/rpc/get_refurb_parts_runway',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_days:parseInt(days,10)})});
+    var r=await fetch(INFO_URL+'/rest/v1/rpc/get_refurb_parts_runway',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_days:parseInt(days,10),p_city:city,p_hub:hub})});
     if(!r.ok){ el.className=''; el.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
     var rows=await r.json(); _rfRows=rows||[];
     renderRefurb(_rfRows, days);
@@ -862,7 +867,7 @@ async function fillPartsDims(){
     var d=await r.json();
     TP_HUBS=d.hubs||[];
     function fill(id,arr,lbl){ var s=document.getElementById(id); if(!s)return; s.innerHTML='<option value="">'+lbl+'</option>'+(arr||[]).map(function(x){return '<option>'+String(x).replace(/</g,'&lt;')+'</option>';}).join(''); }
-    fill('tpCity',d.cities,'All Cities'); fill('tpComm',d.commodities,'All'); fill('tpSub',d.subtypes,'All');
+    fill('tpCity',d.cities,'All Cities'); fill('tpComm',d.commodities,'All'); fill('tpSub',d.subtypes,'All'); fill('rfCity',d.cities,'All Cities');
     tpRebuildHubs();
     TP_DIMS=true;
   }catch(e){}
@@ -875,6 +880,17 @@ function tpRebuildHubs(){
   list.sort();
   document.getElementById('tpHub').innerHTML='<option value="">All Hubs</option>'+list.map(function(h){return '<option>'+String(h).replace(/</g,'&lt;')+'</option>';}).join('');
   document.getElementById('tpHub').value = (list.indexOf(cur)>=0) ? cur : '';
+}
+function rfRebuildHubs(){
+  var citySel=document.getElementById('rfCity'), hubSel=document.getElementById('rfHub');
+  if(!citySel||!hubSel) return;
+  var city=citySel.value;
+  var cur=hubSel.value;
+  var list=[]; var seen={};
+  TP_HUBS.forEach(function(h){ if((!city||h.city===city) && h.hub && !seen[h.hub]){ seen[h.hub]=1; list.push(h.hub); } });
+  list.sort();
+  hubSel.innerHTML='<option value="">All Hubs</option>'+list.map(function(h){return '<option>'+String(h).replace(/</g,'&lt;')+'</option>';}).join('');
+  hubSel.value = (list.indexOf(cur)>=0) ? cur : '';
 }
 async function openTopParts(){
   if(!TP_INIT){ tpDefaults(); await fillPartsDims(); TP_INIT=true; }
