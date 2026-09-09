@@ -736,8 +736,6 @@ function renderRefurb(rows, days){
     '<th style="'+th+'">BLR Stock</th>'+
     '<th style="'+th+'">NCR Stock</th>'+
     '<th style="'+th+'">RPDC Total Stock</th>'+
-    '<th style="'+th+'">Refurb Qty ('+days+'d)</th>'+
-    '<th style="'+th+'">Non-Refurb Qty ('+days+'d)</th>'+
     '<th style="'+th+'">Total Consumption</th>'+
     '<th style="'+th+'">Daily Rate</th>'+
     '<th style="'+th+'">Runway</th>'+
@@ -747,8 +745,6 @@ function renderRefurb(rows, days){
       '<td style="'+td+'">'+(r.blr_stock||0)+'</td>'+
       '<td style="'+td+'">'+(r.ncr_stock||0)+'</td>'+
       '<td style="'+td+';font-weight:700">'+(r.rpdc_total_stock||0)+'</td>'+
-      '<td style="'+td+'">'+(r.refurb_qty||0)+'</td>'+
-      '<td style="'+td+'">'+(r.nonrefurb_qty||0)+'</td>'+
       '<td style="'+td+'">'+(r.total_consumption||0)+'</td>'+
       '<td style="'+td+'">'+(r.daily_rate||0)+'/day</td>'+
       runwayCell(r.runway_days)+
@@ -759,8 +755,8 @@ function renderRefurb(rows, days){
 }
 function exportRefurbCSV(){
   if(!_rfRows.length){ alert('No data to export.'); return; }
-  var cols=['Part Name','Part Number','BLR Stock','NCR Stock','RPDC Total Stock','Refurb Qty','Non-Refurb Qty','Total Consumption','Daily Rate','Runway Days','Note'];
-  var csvRows=_rfRows.map(function(r){return [r.part_name,r.part_number||'',r.blr_stock||0,r.ncr_stock||0,r.rpdc_total_stock||0,r.refurb_qty||0,r.nonrefurb_qty||0,r.total_consumption||0,r.daily_rate||0,r.runway_days==null?'':r.runway_days,r.pending_note||''];});
+  var cols=['Part Name','Part Number','BLR Stock','NCR Stock','RPDC Total Stock','Total Consumption','Daily Rate','Runway Days','Note'];
+  var csvRows=_rfRows.map(function(r){return [r.part_name,r.part_number||'',r.blr_stock||0,r.ncr_stock||0,r.rpdc_total_stock||0,r.total_consumption||0,r.daily_rate||0,r.runway_days==null?'':r.runway_days,r.pending_note||''];});
   var csv='\ufeff'+cols.join(',')+'\n'+csvRows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='refurb_parts_runway.csv'; a.click();
 }
