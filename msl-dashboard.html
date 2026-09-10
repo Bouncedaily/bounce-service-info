@@ -1069,7 +1069,7 @@ function exportTopPartsCSV(){
       change
     ];
   });
-  var csv = [cols].concat(csvRows).map(function(row){
+  var csv = '\ufeff' + [cols].concat(csvRows).map(function(row){
     return row.map(function(v){
       var s = String(v==null?'':v);
       return '"' + s.replace(/"/g,'""') + '"';
