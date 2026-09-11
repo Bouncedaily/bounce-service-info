@@ -354,8 +354,8 @@
       </div>
       <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
       <table>
-        <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">System Calculated</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
-        <tbody id="salesBody"><tr><td colspan="12" class="empty">Loading…</td></tr></tbody>
+        <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">System Calculated</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Period From</th><th>Period To</th><th>Remarks</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
+        <tbody id="salesBody"><tr><td colspan="15" class="empty">Loading…</td></tr></tbody>
       </table>
       </div>
     </div>
@@ -1439,7 +1439,7 @@ async function loadAll() {
   const hub = document.getElementById('f-hub').value || null;
   document.getElementById('syncedLbl').textContent = 'Loading…';
   document.getElementById('aqBody').innerHTML = skeletonRows(7, 2);
-  document.getElementById('salesBody').innerHTML = skeletonRows(11, 4);
+  document.getElementById('salesBody').innerHTML = skeletonRows(15, 4);
 
   await Promise.all([
     loadApprovalQueue(city, hub),
@@ -1557,6 +1557,9 @@ function renderSalesRows(rows, capGroups) {
         <td class="num">${multi ? '—' : fmtN(first.qty_or_weight)}</td>
         <td class="num">${multi ? '—' : fmtC(first.rate)}</td>
         <td class="num">${fmtC(totalValue)}</td>
+        <td>${first.period_from || '—'}</td>
+        <td>${first.period_to || '—'}</td>
+        <td style="max-width:160px;white-space:normal">${multi ? '—' : (first.variance_remark || '—')}</td>
         <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
         <td>${statusText === 'Cancelled' ? '—' : (allApproved
             ? `<span class="status-pill status-PaymentReceived">Approved</span>`
@@ -1587,6 +1590,9 @@ function renderSalesRows(rows, capGroups) {
         <td class="num">${fmtN(r.qty_or_weight)}</td>
         <td class="num">${fmtC(r.rate)}</td>
         <td class="num">${fmtC(r.total_value)}</td>
+        <td></td>
+        <td></td>
+        <td style="max-width:160px;white-space:normal;color:var(--muted)">${r.variance_remark || '—'}</td>
         <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
         <td>${r.status === 'Cancelled' ? '—' : (r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapApprover() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
