@@ -207,7 +207,7 @@
   <div id="cstab-refurbpct" style="display:none">
     <div class="ctl-bar" style="margin-bottom:16px;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. Sorted worst-first within each city.</div>
+        <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. Sorted best-first within each city; parts with no usage data sit at the bottom.</div>
         <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted,#64748b)">
           <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0;display:inline-block"></span>≥80%</span>
           <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#fffbeb;border:1px solid #fde68a;display:inline-block"></span>40-79%</span>
@@ -455,7 +455,18 @@ function renderRefurbPctTables(rows) {
     var parts = ym.split('-'); var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, 1);
     return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
   };
-  var cities = [...new Set(rows.map(function(r){ return r.city; }))].sort();
+  var cities = [...new Set(rows.map(function(r){ return r.city; }))];
+  // Fixed order (not alphabetical): the three main cities first, then any
+  // smaller/secondary cities after -- alphabetical order was accidentally
+  // pushing NCR to the second row behind Indore.
+  var CITY_ORDER = ['Bangalore', 'NCR', 'Hyderabad'];
+  cities.sort(function(a, b) {
+    var ia = CITY_ORDER.indexOf(a), ib = CITY_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
 
   var html = '<div class="refurbpct-grid">';
   cities.forEach(function(city) {
@@ -463,22 +474,27 @@ function renderRefurbPctTables(rows) {
     var parts = [...new Set(cityRows.map(function(r){ return r.part_name || r.part_number; }))];
     var findCell = function(part, m){ return cityRows.find(function(r){ return (r.part_name||r.part_number) === part && r.month === m; }); };
 
-    // Worst-first: parts with the lowest (or missing) latest-month % surface at
-    // the top of each city's table, since those are the ones most likely to
-    // need someone's attention right now.
+    // Best-first: parts with the highest latest-month % surface at the top.
+    // Parts with no usage data at all are always pushed to the bottom,
+    // regardless of sort direction -- "no data" isn't "best" or "worst",
+    // it's just missing, and mixing it in with genuine percentages was
+    // misleading.
     parts.sort(function(a, b) {
       var pa = findCell(a, latestMonth), pb = findCell(b, latestMonth);
-      var va = pa && pa.refurb_pct != null ? pa.refurb_pct : -1;
-      var vb = pb && pb.refurb_pct != null ? pb.refurb_pct : -1;
-      return va - vb;
+      var va = pa && pa.refurb_pct != null ? pa.refurb_pct : null;
+      var vb = pb && pb.refurb_pct != null ? pb.refurb_pct : null;
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return vb - va;
     });
 
     html += '<div class="panel" style="min-width:0"><h3>' + city + '</h3>';
-    html += '<div style="overflow-x:auto"><table><thead><tr><th>Part</th>';
-    months.forEach(function(m){ html += '<th class="num">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
+    html += '<div style="overflow-x:auto"><table><thead><tr><th style="white-space:nowrap">Part</th>';
+    months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
     html += '</tr></thead><tbody>';
     parts.forEach(function(part) {
-      html += '<tr><td>' + part + '</td>';
+      html += '<tr><td style="white-space:nowrap">' + part + '</td>';
       months.forEach(function(m) {
         var cell = findCell(part, m);
         var pct = cell ? cell.refurb_pct : null;
