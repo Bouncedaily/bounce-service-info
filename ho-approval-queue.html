@@ -139,6 +139,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button id="hqtab-perf-btn" class="hqtab-btn" onclick="hqTab('perf')">Performance</button>
   <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')">Approval Quality</button>
   <button id="hqtab-nithish-btn" class="hqtab-btn" onclick="hqTab('nithish')">Special Approval</button>
+  <button id="hqtab-history-btn" class="hqtab-btn" onclick="hqTab('history')">Service History</button>
 </div>
 
 <div id="hqtab-queue">
@@ -329,6 +330,15 @@ tr.row-flag:hover{background:#fee2e2}
   </select>
 </div>
 <div id="nResults"><div class="empty">Loading…</div></div>
+</div>
+
+<div id="hqtab-history" style="display:none">
+  <div class="psub">Search a vehicle's registration number to see every part ever replaced on it, most recent first.</div>
+  <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+    <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001" style="padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:14px;width:260px;text-transform:uppercase" onkeydown="if(event.key==='Enter')loadServiceHistory()">
+    <button class="btn" onclick="loadServiceHistory()">Search</button>
+  </div>
+  <div id="svc-history-results"><div class="empty">Enter a vehicle registration number above and press Search.</div></div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -837,10 +847,12 @@ function hqTab(t){
   document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
   document.getElementById('hqtab-quality').style.display=(t==='quality')?'':'none';
   document.getElementById('hqtab-nithish').style.display=(t==='nithish')?'':'none';
+  document.getElementById('hqtab-history').style.display=(t==='history')?'':'none';
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
   document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
   document.getElementById('hqtab-nithish-btn').classList.toggle('active', t==='nithish');
+  document.getElementById('hqtab-history-btn').classList.toggle('active', t==='history');
   try{localStorage.setItem('hq_last_tab',t);}catch(e){}
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
   if(t==='quality' && !QUALITY_INIT){ QUALITY_INIT=true; qualityBoot(); }
@@ -1431,6 +1443,32 @@ function setNithishDateFilter(which){
   document.getElementById('nDateFilter').value=d.toISOString().slice(0,10);
   nithishRender();
 }
+async function loadServiceHistory(){
+  var reg = document.getElementById('svc-reg-input').value.trim();
+  var box = document.getElementById('svc-history-results');
+  if(!reg){ box.innerHTML='<div class="empty">Enter a vehicle registration number above and press Search.</div>'; return; }
+  box.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_vehicle_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:reg})});
+    if(!r.ok){ box.innerHTML='<div class="empty" style="color:#dc2626">Could not load — try again.</div>'; return; }
+    var rows=await r.json();
+    if(!rows.length){ box.innerHTML='<div class="empty">No service history found for "'+esc(reg)+'".</div>'; return; }
+    var html='<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">'+rows.length+' part'+(rows.length===1?'':'s')+' replaced across this vehicle\u2019s history</div>';
+    html+='<div style="overflow-x:auto"><table><thead><tr><th>Job Card Number</th><th>Date</th><th>Hub</th><th class="num">ODO</th><th>Submission Type</th><th>Item Name</th><th class="num">Qty</th><th class="num">Amount (\u20b9)</th><th>Technician</th></tr></thead><tbody>';
+    rows.forEach(function(x){
+      var d = x.date ? new Date(x.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      html+='<tr><td>'+esc(x.job_card_number||'—')+'</td><td>'+d+'</td><td>'+esc(x.hub||'—')+'</td>'+
+        '<td class="num">'+(x.odo!=null?Number(x.odo).toLocaleString('en-IN'):'—')+'</td>'+
+        '<td>'+esc(x.submission_type||'—')+'</td><td>'+esc(x.item_name||'—')+'</td>'+
+        '<td class="num">'+(x.qty!=null?x.qty:'—')+'</td>'+
+        '<td class="num">'+(x.amount!=null?'₹'+Number(x.amount).toLocaleString('en-IN'):'—')+'</td>'+
+        '<td>'+esc(x.technician||'—')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div class="empty" style="color:#dc2626">Could not load — try again.</div>'; }
+}
+
 async function nithishBoot(){
   document.getElementById('nResults').innerHTML='<div class="empty">Loading…</div>';
   try{
