@@ -424,13 +424,28 @@ function liCheckEmail() {
   if (!email.endsWith('@bounceshare.com')) { liMsg('li-msg-email','Only @bounceshare.com emails allowed.','err'); return; }
   liEmail = email;
   liSetBusy('li-btn-email', true, 'Checking...');
+  liCheckEmailAttempt(0);
+}
+
+// Retries up to 2 extra times (3 attempts total) on a genuine network-level
+// failure ("Failed to fetch" -- the request never reached the server at
+// all, confirmed via server logs showing zero corresponding failed
+// invocations even when this happens). A short backoff between attempts
+// covers most transient blips (flaky wifi, a momentary DNS hiccup) without
+// the user ever seeing an error or needing to click Continue again
+// themselves. Does NOT retry on an actual server error (HTTP non-2xx) or
+// on the request timing out -- those are real, distinct problems, not the
+// same transient case this is meant to smooth over.
+function liCheckEmailAttempt(attemptNum) {
   var ctrl = new AbortController();
-  setTimeout(function(){ ctrl.abort(); }, 10000);
+  var timer = setTimeout(function(){ ctrl.abort(); }, 10000);
+  if (attemptNum > 0) liSetBusy('li-btn-email', true, 'Retrying...');
   fetch(EDGE_FN, {method:'POST',
     headers:{'Content-Type':'application/json','apikey':ANON_KEY},
     body: JSON.stringify({action:'check', email: liEmail}),
     signal: ctrl.signal
   }).then(function(r){
+    clearTimeout(timer);
     if (!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   }).then(function(d){
@@ -448,6 +463,12 @@ function liCheckEmail() {
       document.getElementById('li-pw1').focus();
     }
   }).catch(function(e){
+    clearTimeout(timer);
+    var isNetworkFailure = e.name !== 'AbortError' && /Failed to fetch|NetworkError|Load failed/i.test(e.message||'');
+    if (isNetworkFailure && attemptNum < 2) {
+      setTimeout(function(){ liCheckEmailAttempt(attemptNum+1); }, 800 * (attemptNum+1));
+      return;
+    }
     liSetBusy('li-btn-email',false,'Continue');
     liMsg('li-msg-email', e.name==='AbortError' ? 'Request timed out. Try again.' : 'Error: '+(e.message||'Try again.'), 'err');
   });
@@ -457,6 +478,12 @@ function liSignIn() {
   var pw = document.getElementById('li-pw').value;
   if (!pw) { liMsg('li-msg-signin','Enter your password.','err'); return; }
   liSetBusy('li-btn-signin', true, 'Signing in...');
+  liSignInAttempt(pw, 0);
+}
+// Same retry rationale as liCheckEmailAttempt -- a transient client-side
+// network failure shouldn't force someone to manually retry signing in.
+function liSignInAttempt(pw, attemptNum) {
+  if (attemptNum > 0) liSetBusy('li-btn-signin', true, 'Retrying...');
   fetch(EDGE_FN, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({action:'signin', email:liEmail, password:pw})
@@ -464,7 +491,14 @@ function liSignIn() {
     liSetBusy('li-btn-signin',false,'Sign In');
     if (!d.success || !d.access_token) { liMsg('li-msg-signin', d.error||'Incorrect password.','err'); return; }
     liSaveSession(d.access_token, d.refresh_token, liEmail, liRole, liPerms);
-  }).catch(function(e){ liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error. Try again.','err'); });
+  }).catch(function(e){
+    var isNetworkFailure = /Failed to fetch|NetworkError|Load failed/i.test(e.message||'');
+    if (isNetworkFailure && attemptNum < 2) {
+      setTimeout(function(){ liSignInAttempt(pw, attemptNum+1); }, 800 * (attemptNum+1));
+      return;
+    }
+    liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error. Try again.','err');
+  });
 }
 
 function liCreatePw() {
