@@ -99,6 +99,9 @@ tr.row-flag:hover{background:#fee2e2}
 .hqtab-btn{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
 .hqtab-btn.active{color:var(--red);border-bottom-color:var(--red)}
 .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+@keyframes svcspin{to{transform:rotate(360deg)}}
+.svc-spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border,#e2e8f0);border-top-color:#dc2626;border-radius:50%;animation:svcspin .7s linear infinite;vertical-align:middle;margin-right:8px}
+.num{text-align:right}
 .kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
 .kpi-tile .kpi-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
 .kpi-tile .kpi-val{font-size:22px;font-weight:700;letter-spacing:-.01em}
@@ -334,11 +337,13 @@ tr.row-flag:hover{background:#fee2e2}
 
 <div id="hqtab-history" style="display:none">
   <div class="psub">Search a vehicle's registration number to see every part ever replaced on it, most recent first.</div>
-  <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
-    <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001" style="padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:14px;width:260px;text-transform:uppercase" onkeydown="if(event.key==='Enter')loadServiceHistory()">
-    <button class="btn" onclick="loadServiceHistory()">Search</button>
+  <div style="display:flex;gap:8px;align-items:center;margin:12px 0 16px">
+    <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:280px;text-transform:uppercase;font-weight:600" onkeydown="if(event.key==='Enter')loadServiceHistory()" autofocus>
+    <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Search</button>
+    <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
   </div>
-  <div id="svc-history-results"><div class="empty">Enter a vehicle registration number above and press Search.</div></div>
+  <div id="svc-kpis"></div>
+  <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number above and press Search.</div></div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -1443,30 +1448,109 @@ function setNithishDateFilter(which){
   document.getElementById('nDateFilter').value=d.toISOString().slice(0,10);
   nithishRender();
 }
+let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' };
+const SVC_CAT_LABEL = { A: ['Accident', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'] };
+
 async function loadServiceHistory(){
   var reg = document.getElementById('svc-reg-input').value.trim();
   var box = document.getElementById('svc-history-results');
-  if(!reg){ box.innerHTML='<div class="empty">Enter a vehicle registration number above and press Search.</div>'; return; }
-  box.innerHTML='<div class="empty">Loading…</div>';
+  var kpiBox = document.getElementById('svc-kpis');
+  document.getElementById('svc-export-btn').style.display = 'none';
+  if(!reg){ box.innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number above and press Search.</div>'; kpiBox.innerHTML=''; return; }
+  box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
+  kpiBox.innerHTML='';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_vehicle_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:reg})});
-    if(!r.ok){ box.innerHTML='<div class="empty" style="color:#dc2626">Could not load — try again.</div>'; return; }
+    if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
     var rows=await r.json();
-    if(!rows.length){ box.innerHTML='<div class="empty">No service history found for "'+esc(reg)+'".</div>'; return; }
-    var html='<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">'+rows.length+' part'+(rows.length===1?'':'s')+' replaced across this vehicle\u2019s history</div>';
-    html+='<div style="overflow-x:auto"><table><thead><tr><th>Job Card Number</th><th>Date</th><th>Hub</th><th class="num">ODO</th><th>Submission Type</th><th>Item Name</th><th class="num">Qty</th><th class="num">Amount (\u20b9)</th><th>Technician</th></tr></thead><tbody>';
-    rows.forEach(function(x){
-      var d = x.date ? new Date(x.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      html+='<tr><td>'+esc(x.job_card_number||'—')+'</td><td>'+d+'</td><td>'+esc(x.hub||'—')+'</td>'+
-        '<td class="num">'+(x.odo!=null?Number(x.odo).toLocaleString('en-IN'):'—')+'</td>'+
-        '<td>'+esc(x.submission_type||'—')+'</td><td>'+esc(x.item_name||'—')+'</td>'+
-        '<td class="num">'+(x.qty!=null?x.qty:'—')+'</td>'+
-        '<td class="num">'+(x.amount!=null?'₹'+Number(x.amount).toLocaleString('en-IN'):'—')+'</td>'+
-        '<td>'+esc(x.technician||'—')+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-    box.innerHTML=html;
-  }catch(e){ box.innerHTML='<div class="empty" style="color:#dc2626">Could not load — try again.</div>'; }
+    SVC_ROWS = rows; SVC_REG = reg;
+    if(!rows.length){ box.innerHTML='<div class="empty" style="padding:24px">No service history found for <b>'+esc(reg)+'</b>. Double-check the registration number.</div>'; return; }
+    document.getElementById('svc-export-btn').style.display = '';
+    renderSvcKpis();
+    renderSvcTable();
+  }catch(e){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; }
+}
+
+function renderSvcKpis(){
+  var rows = SVC_ROWS;
+  var totalAmount = rows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
+  var uniqueJCs = new Set(rows.map(function(r){ return r.job_card_number; })).size;
+  var dates = rows.map(function(r){ return r.date; }).filter(Boolean).sort();
+  var first = dates.length ? new Date(dates[0]).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  var last = dates.length ? new Date(dates[dates.length-1]).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  var counts = {}; rows.forEach(function(r){ counts[r.item_name] = (counts[r.item_name]||0)+1; });
+  var repeats = Object.values(counts).filter(function(c){ return c>1; }).length;
+  document.getElementById('svc-kpis').innerHTML =
+    '<div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">' +
+    '<div class="kpi-tile"><div class="kpi-label">Total Parts Replaced</div><div class="kpi-val">'+rows.length+'</div></div>' +
+    '<div class="kpi-tile"><div class="kpi-label">Unique Job Cards</div><div class="kpi-val">'+uniqueJCs+'</div></div>' +
+    '<div class="kpi-tile"><div class="kpi-label">Total Spend</div><div class="kpi-val">₹'+Math.round(totalAmount).toLocaleString('en-IN')+'</div></div>' +
+    '<div class="kpi-tile"><div class="kpi-label">Parts Replaced More Than Once</div><div class="kpi-val" style="color:'+(repeats>0?'#dc2626':'inherit')+'">'+repeats+'</div></div>' +
+    '<div class="kpi-tile"><div class="kpi-label">First → Last Service</div><div class="kpi-val" style="font-size:14px;font-weight:600">'+first+' → '+last+'</div></div>' +
+    '</div>';
+}
+
+function sortSvcBy(col){
+  if(SVC_SORT.col===col){ SVC_SORT.dir = SVC_SORT.dir==='asc'?'desc':'asc'; }
+  else { SVC_SORT = { col:col, dir: col==='date'?'desc':'asc' }; }
+  renderSvcTable();
+}
+
+function renderSvcTable(){
+  var box = document.getElementById('svc-history-results');
+  var counts = {}; SVC_ROWS.forEach(function(r){ counts[r.item_name] = (counts[r.item_name]||0)+1; });
+  var col = SVC_SORT.col, dir = SVC_SORT.dir, mult = dir==='asc'?1:-1;
+  var rows = SVC_ROWS.slice().sort(function(a,b){
+    var av=a[col], bv=b[col];
+    if(av==null && bv==null) return 0;
+    if(av==null) return 1;
+    if(bv==null) return -1;
+    if(typeof av==='string') return av.localeCompare(bv)*mult;
+    return (av-bv)*mult;
+  });
+  var arrow = function(c){ return c===col ? (dir==='asc'?' ▲':' ▼') : ''; };
+  var th = function(label, key, numeric){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
+
+  var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' for <b>'+esc(SVC_REG)+'</b> — click any column to sort, repeated parts highlighted</div>';
+  html += '<div style="overflow-x:auto"><table><thead><tr>'+
+    th('Job Card Number','job_card_number',false)+th('Date','date',false)+th('Hub','hub',false)+
+    th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
+    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var d = r.date ? new Date(r.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    var isRepeat = counts[r.item_name] > 1;
+    var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat];
+    var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
+    html += '<tr'+(isRepeat?' style="background:#fffbeb"':'')+'>'+
+      '<td>'+esc(r.job_card_number||'—')+'</td><td>'+d+'</td><td>'+esc(r.hub||'—')+'</td>'+
+      '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
+      '<td>'+esc(r.submission_type||'—')+'</td>'+
+      '<td>'+esc(r.item_name||'—')+(isRepeat?' <span title="Replaced '+counts[r.item_name]+' times" style="color:#b45309;font-weight:600;font-size:11px">⟳×'+counts[r.item_name]+'</span>':'')+'</td>'+
+      '<td>'+catBadge+'</td>'+
+      '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
+      '<td class="num">'+(r.amount!=null?'₹'+Number(r.amount).toLocaleString('en-IN'):'—')+'</td>'+
+      '<td>'+esc(r.technician||'—')+'</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  box.innerHTML = html;
+}
+
+function exportServiceHistoryCSV(){
+  if(!SVC_ROWS.length) return;
+  var cols = ['Job Card Number','Date','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician'];
+  var rows = SVC_ROWS.map(function(r){
+    var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
+    return [r.job_card_number||'', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||''];
+  });
+  var csv = '\ufeff' + [cols].concat(rows).map(function(row){
+    return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
+  }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'service_history_' + SVC_REG.replace(/[^a-z0-9]+/gi,'_') + '.csv';
+  a.click();
 }
 
 async function nithishBoot(){
