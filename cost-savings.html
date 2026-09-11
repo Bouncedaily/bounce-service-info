@@ -98,6 +98,12 @@
   <div class="page-title"><i class="ti ti-piggy-bank"></i> Cost Savings</div>
   <div class="page-sub">Refurbishment, shared manpower, scrap sale & supplier chargeback — money saved every month.</div>
 
+  <div class="hqtabs" style="display:flex;gap:22px;border-bottom:1px solid var(--border,#e2e8f0);margin-bottom:16px">
+    <button id="cstab-savings-btn" class="hqtab-btn active" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--red,#dc2626);border-bottom:2px solid var(--red,#dc2626);margin-bottom:-1px" onclick="switchCsTab('savings')">Savings</button>
+    <button id="cstab-refurbpct-btn" class="hqtab-btn" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted,#64748b);border-bottom:2px solid transparent;margin-bottom:-1px" onclick="switchCsTab('refurbpct')">Part-Level Refurbishment %</button>
+  </div>
+
+  <div id="cstab-savings">
   <div class="ctl-bar">
     <div class="fg">
       <label>Month</label>
@@ -192,6 +198,14 @@
       </div>
     </div>
   </div>
+  </div><!-- /cstab-savings -->
+
+  <div id="cstab-refurbpct" style="display:none">
+    <div class="ctl-bar" style="margin-bottom:16px">
+      <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. One table per city.</div>
+    </div>
+    <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">Loading…</div></div>
+  </div><!-- /cstab-refurbpct -->
 </div>
 
 <script>
@@ -382,6 +396,72 @@ function computeRefurbSaving(month, city) {
   });
 
   return { total, byPart };
+}
+
+function switchCsTab(t) {
+  document.getElementById('cstab-savings').style.display = (t==='savings') ? '' : 'none';
+  document.getElementById('cstab-refurbpct').style.display = (t==='refurbpct') ? '' : 'none';
+  document.getElementById('cstab-savings-btn').style.color = (t==='savings') ? 'var(--red,#dc2626)' : 'var(--muted,#64748b)';
+  document.getElementById('cstab-savings-btn').style.borderBottomColor = (t==='savings') ? 'var(--red,#dc2626)' : 'transparent';
+  document.getElementById('cstab-refurbpct-btn').style.color = (t==='refurbpct') ? 'var(--red,#dc2626)' : 'var(--muted,#64748b)';
+  document.getElementById('cstab-refurbpct-btn').style.borderBottomColor = (t==='refurbpct') ? 'var(--red,#dc2626)' : 'transparent';
+  if (t === 'refurbpct' && !window._refurbPctLoaded) { window._refurbPctLoaded = true; loadRefurbPct(); }
+}
+
+function refurbPctHeatColor(pct) {
+  if (pct == null) return 'color:var(--muted,#94a3b8)';
+  if (pct >= 80) return 'background:#f0fdf4;color:#15803d;font-weight:600';
+  if (pct >= 40) return 'background:#fffbeb;color:#b45309;font-weight:600';
+  return 'background:#fef2f2;color:#b91c1c;font-weight:600';
+}
+
+async function loadRefurbPct() {
+  var box = document.getElementById('refurbpct-body');
+  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">Loading…</div>';
+  try {
+    var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_percentage_by_city', {
+      method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
+    });
+    if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
+    var rows = await r.json();
+    renderRefurbPctTables(rows);
+  } catch (e) {
+    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>';
+  }
+}
+
+function renderRefurbPctTables(rows) {
+  var box = document.getElementById('refurbpct-body');
+  if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No refurb usage data found.</div>'; return; }
+
+  var months = [...new Set(rows.map(function(r){ return r.month; }))].sort();
+  var monthLabel = function(ym) {
+    var parts = ym.split('-'); var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, 1);
+    return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+  };
+  var cities = [...new Set(rows.map(function(r){ return r.city; }))].sort();
+
+  var html = '';
+  cities.forEach(function(city) {
+    var cityRows = rows.filter(function(r){ return r.city === city; });
+    var parts = [...new Set(cityRows.map(function(r){ return r.part_name || r.part_number; }))];
+    html += '<div class="panel" style="margin-bottom:16px"><h3>' + city + '</h3>';
+    html += '<div style="overflow-x:auto"><table><thead><tr><th>Part</th>';
+    months.forEach(function(m){ html += '<th class="num">' + monthLabel(m) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    parts.forEach(function(part) {
+      html += '<tr><td>' + part + '</td>';
+      months.forEach(function(m) {
+        var cell = cityRows.find(function(r){ return (r.part_name||r.part_number) === part && r.month === m; });
+        var pct = cell ? cell.refurb_pct : null;
+        var title = cell ? (cell.refurb_qty + ' refurb / ' + cell.total_qty + ' total') : 'no usage';
+        html += '<td class="num" style="' + refurbPctHeatColor(pct) + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+  });
+  box.innerHTML = html;
 }
 
 function render() {
