@@ -68,6 +68,8 @@
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .refurbpct-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
     @media (max-width: 1100px) { .refurbpct-grid { grid-template-columns: 1fr; } }
+    @keyframes rpspin { to { transform: rotate(360deg); } }
+    .rp-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border,#e2e8f0); border-top-color: #dc2626; border-radius: 50%; animation: rpspin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
     .saving-pos { color: #16a34a; font-weight: 600; }
 
     .warn-box {
@@ -203,10 +205,18 @@
   </div><!-- /cstab-savings -->
 
   <div id="cstab-refurbpct" style="display:none">
-    <div class="ctl-bar" style="margin-bottom:16px">
-      <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. One table per city.</div>
+    <div class="ctl-bar" style="margin-bottom:16px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. Sorted worst-first within each city.</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted,#64748b)">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0;display:inline-block"></span>≥80%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#fffbeb;border:1px solid #fde68a;display:inline-block"></span>40-79%</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#fef2f2;border:1px solid #fecaca;display:inline-block"></span>&lt;40%</span>
+        </div>
+      </div>
+      <button class="btn secondary" id="refurbpct-export-btn" style="display:none" onclick="exportRefurbPctCSV()">⬇ Export CSV</button>
     </div>
-    <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">Loading…</div></div>
+    <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div></div>
   </div><!-- /cstab-refurbpct -->
 </div>
 
@@ -419,14 +429,17 @@ function refurbPctHeatColor(pct) {
 
 async function loadRefurbPct() {
   var box = document.getElementById('refurbpct-body');
-  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">Loading…</div>';
+  document.getElementById('refurbpct-export-btn').style.display = 'none';
+  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
   try {
     var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_percentage_by_city', {
       method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
     });
     if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
     var rows = await r.json();
+    window._refurbPctRows = rows;
     renderRefurbPctTables(rows);
+    if (rows.length) document.getElementById('refurbpct-export-btn').style.display = '';
   } catch (e) {
     box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>';
   }
@@ -437,6 +450,7 @@ function renderRefurbPctTables(rows) {
   if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No refurb usage data found.</div>'; return; }
 
   var months = [...new Set(rows.map(function(r){ return r.month; }))].sort();
+  var latestMonth = months[months.length - 1], prevMonth = months.length > 1 ? months[months.length - 2] : null;
   var monthLabel = function(ym) {
     var parts = ym.split('-'); var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, 1);
     return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
@@ -447,17 +461,40 @@ function renderRefurbPctTables(rows) {
   cities.forEach(function(city) {
     var cityRows = rows.filter(function(r){ return r.city === city; });
     var parts = [...new Set(cityRows.map(function(r){ return r.part_name || r.part_number; }))];
+    var findCell = function(part, m){ return cityRows.find(function(r){ return (r.part_name||r.part_number) === part && r.month === m; }); };
+
+    // Worst-first: parts with the lowest (or missing) latest-month % surface at
+    // the top of each city's table, since those are the ones most likely to
+    // need someone's attention right now.
+    parts.sort(function(a, b) {
+      var pa = findCell(a, latestMonth), pb = findCell(b, latestMonth);
+      var va = pa && pa.refurb_pct != null ? pa.refurb_pct : -1;
+      var vb = pb && pb.refurb_pct != null ? pb.refurb_pct : -1;
+      return va - vb;
+    });
+
     html += '<div class="panel" style="min-width:0"><h3>' + city + '</h3>';
     html += '<div style="overflow-x:auto"><table><thead><tr><th>Part</th>';
-    months.forEach(function(m){ html += '<th class="num">' + monthLabel(m) + '</th>'; });
+    months.forEach(function(m){ html += '<th class="num">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
     html += '</tr></thead><tbody>';
     parts.forEach(function(part) {
       html += '<tr><td>' + part + '</td>';
       months.forEach(function(m) {
-        var cell = cityRows.find(function(r){ return (r.part_name||r.part_number) === part && r.month === m; });
+        var cell = findCell(part, m);
         var pct = cell ? cell.refurb_pct : null;
         var title = cell ? (cell.refurb_qty + ' refurb / ' + cell.total_qty + ' total') : 'no usage';
-        html += '<td class="num" style="' + refurbPctHeatColor(pct) + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + '</td>';
+        var trend = '';
+        if (m === latestMonth && prevMonth) {
+          var prevCell = findCell(part, prevMonth);
+          var prevPct = prevCell ? prevCell.refurb_pct : null;
+          if (pct != null && prevPct != null) {
+            var delta = pct - prevPct;
+            if (Math.abs(delta) >= 1) {
+              trend = ' <span style="font-size:10px;font-weight:600;color:' + (delta > 0 ? '#15803d' : '#b91c1c') + '">' + (delta > 0 ? '▲' : '▼') + Math.abs(Math.round(delta)) + '</span>';
+            }
+          }
+        }
+        html += '<td class="num" style="' + refurbPctHeatColor(pct) + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + trend + '</td>';
       });
       html += '</tr>';
     });
@@ -465,6 +502,23 @@ function renderRefurbPctTables(rows) {
   });
   html += '</div>';
   box.innerHTML = html;
+}
+
+function exportRefurbPctCSV() {
+  var rows = window._refurbPctRows || [];
+  if (!rows.length) return;
+  var cols = ['City', 'Part Name', 'Part Number', 'Month', 'Refurb Qty', 'Non-Refurb Qty', 'Total Qty', 'Refurb %'];
+  var csvRows = rows.map(function(r) {
+    return [r.city, r.part_name || '', r.part_number || '', r.month, r.refurb_qty, r.nonrefurb_qty, r.total_qty, r.refurb_pct != null ? r.refurb_pct : ''];
+  });
+  var csv = '\ufeff' + [cols].concat(csvRows).map(function(row) {
+    return row.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'refurb_percentage_by_city_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 }
 
 function render() {
