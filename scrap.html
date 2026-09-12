@@ -1805,7 +1805,38 @@ async function fileToDataURL(file) {
   });
 }
 
+// Resizes/recompresses a phone camera photo before upload -- modern phone
+// cameras routinely produce 5-15MB files, and capture="environment" on the
+// row-photo inputs confirms these ARE phone camera captures, not desktop
+// file picks. A large file over a hub location's often-weaker cellular
+// signal can genuinely time out even across several retries -- this
+// shrinks the file itself rather than retrying the same slow upload of
+// the same large file. Caps the longest side at 1600px and re-encodes as
+// JPEG at 0.75 quality, which is still more than enough detail for
+// evidence/audit purposes. Falls back to the original file untouched if
+// anything about compression fails, so a compression bug never blocks a
+// genuinely working upload.
+async function compressPhotoForUpload(file) {
+  if (!file || !file.type || !file.type.startsWith('image/') || file.type === 'image/svg+xml') return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.75));
+    if (!blob || blob.size >= file.size) return file; // compression didn't actually help, keep original
+    return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) {
+    console.error('photo compression failed, using original file', e);
+    return file;
+  }
+}
+
 async function uploadScrapPhoto(file) {
+  file = await compressPhotoForUpload(file);
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
   // Retries up to 2 extra times on a genuine network-level failure (the
