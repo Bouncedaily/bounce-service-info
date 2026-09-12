@@ -1808,11 +1808,31 @@ async function fileToDataURL(file) {
 async function uploadScrapPhoto(file) {
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const r = await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, {
-    method: 'POST', headers: await authHDR({ 'Content-Type': file.type || 'image/jpeg' }), body: file
-  });
-  if (!r.ok) { console.error('photo upload failed', await r.text()); return null; }
-  return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
+  // Retries up to 2 extra times on a genuine network-level failure (the
+  // fetch itself throwing -- "Failed to fetch"/NetworkError -- not an HTTP
+  // error response). Confirmed via storage health checks that the backend
+  // itself is reliable; this class of failure is a transient client-side
+  // blip that a short retry usually resolves without the person needing to
+  // notice or manually retake the photo. Previously had no try/catch at
+  // all, so this exact failure mode would have thrown uncaught instead of
+  // being handled.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, {
+        method: 'POST', headers: await authHDR({ 'Content-Type': file.type || 'image/jpeg' }), body: file
+      });
+      if (!r.ok) { console.error('photo upload failed', await r.text()); return null; }
+      return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
+    } catch (e) {
+      const isNetworkFailure = /Failed to fetch|NetworkError|Load failed/i.test(e.message || '');
+      if (isNetworkFailure && attempt < 2) {
+        await new Promise(res => setTimeout(res, 800 * (attempt + 1)));
+        continue;
+      }
+      console.error('photo upload failed', e);
+      return null;
+    }
+  }
 }
 
 async function findOverlappingPeriods(hub, type, newFrom, newTo) {
