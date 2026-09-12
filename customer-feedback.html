@@ -219,14 +219,14 @@ function renderSummary(cities){
   }
   // Overall KPIs computed from the same per-city numbers already returned --
   // no extra RPC call needed, just a weighted rollup client-side.
-  var totalCount=0, weightedSum=0, posCount=0, negCount=0;
+  var totalCount=0, weightedSum=0, ratedCount=0, posCount=0, negCount=0;
   cities.forEach(function(ct){
     totalCount+=ct.c;
-    if(ct.avg_rating!=null) weightedSum+=Number(ct.avg_rating)*ct.c;
+    if(ct.avg_rating!=null){ weightedSum+=Number(ct.avg_rating)*ct.c; ratedCount+=ct.c; }
     posCount+=Math.round(ct.pos_pct/100*ct.c);
     negCount+=Math.round(ct.neg_pct/100*ct.c);
   });
-  var overallAvg=totalCount?(weightedSum/totalCount).toFixed(2):'—';
+  var overallAvg=ratedCount?(weightedSum/ratedCount).toFixed(2):'—';
   var overallPos=totalCount?Math.round(posCount/totalCount*100):0;
   var overallNeg=totalCount?Math.round(negCount/totalCount*100):0;
   kpiEl.innerHTML='<div class="kpi-row">'+
