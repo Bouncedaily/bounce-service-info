@@ -150,6 +150,7 @@ tr.row-flag:hover{background:#fee2e2}
 <div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
 <div class="bar">
   <span class="count" id="count">Loading…</span>
+  <span id="totalAmount" style="font-size:12px;font-weight:700;color:var(--text)"></span>
   <span id="syncedAt" style="font-size:11px;color:var(--muted2)"></span>
   <input type="date" id="dateFilter" onchange="applyFilter()" style="max-width:150px">
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setDateFilter('today')">Today</button>
@@ -638,8 +639,18 @@ function applyFilter(){
 function render(list){
   var res=document.getElementById('results');
   var dateVal=document.getElementById('dateFilter').value;
-  if(!list||!list.length){res.innerHTML='<div class="empty">No job cards waiting for HO approval'+(dateVal?' entering that status on '+dateVal:'')+'. <a href="#" onclick="clearDateFilter();return false;">Show all dates</a></div>';return;}
-  res.innerHTML=list.map(renderJC).join('');
+  var totalEl=document.getElementById('totalAmount');
+  if(!list||!list.length){
+    res.innerHTML='<div class="empty">No job cards waiting for HO approval'+(dateVal?' entering that status on '+dateVal:'')+'. <a href="#" onclick="clearDateFilter();return false;">Show all dates</a></div>';
+    if(totalEl) totalEl.textContent='';
+    return;
+  }
+  // Sorted by Amount, highest first -- the highest-cost approvals surface
+  // at the top rather than being buried by TAT/status ordering alone.
+  var sorted=list.slice().sort(function(a,b){ return (b.amount||0)-(a.amount||0); });
+  var totalAmount=sorted.reduce(function(s,jc){ return s+(jc.amount||0); }, 0);
+  if(totalEl) totalEl.textContent='· Total ₹'+nf(Math.round(totalAmount))+' across '+sorted.length+' job card'+(sorted.length===1?'':'s');
+  res.innerHTML=sorted.map(renderJC).join('');
 }
 function lastReplaced(p, currOdo){
   if(p.days_since==null) return '<span class="first">first time on this bike'+(currOdo!=null?' - '+nf(currOdo):'')+'</span>';
@@ -783,6 +794,7 @@ function decisionChip(jc){
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
+    (jc.amount ? '<span class="chip" style="background:#eff6ff;color:#1d4ed8;font-weight:700">₹'+nf(Math.round(jc.amount))+'</span>' : '')+
     decisionChip(jc)+
     (jc.jc_status==='Job Re-Open (HO Reject)'?'<span class="chip amber">↺ Re-opened after HO rejection</span>':'')+
     ((jc.rejection_count||0)>0?'<span class="chip red">⚠ Rejected '+jc.rejection_count+'x before this request</span>':'')+
