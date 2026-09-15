@@ -340,7 +340,9 @@ tr.row-flag:hover{background:#fee2e2}
   <div style="display:flex;gap:8px;align-items:center;margin:12px 0 16px">
     <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:280px;text-transform:uppercase;font-weight:600" onkeydown="if(event.key==='Enter')loadServiceHistory()" autofocus>
     <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Search</button>
+    <input type="text" id="svc-part-filter" placeholder="Filter by part name…" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;width:220px" oninput="applyServicePartFilter()">
     <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
+    <span id="svc-refreshed-at" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
   </div>
   <div id="svc-kpis"></div>
   <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number above and press Search.</div></div>
@@ -1454,15 +1456,31 @@ function setNithishDateFilter(which){
   document.getElementById('nDateFilter').value=d.toISOString().slice(0,10);
   nithishRender();
 }
-let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' };
+let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' }, SVC_PART_FILTER = '';
 const SVC_CAT_LABEL = { A: ['Accident', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'] };
+
+// Filters by part name only -- counts used for the "⟳×N" repeat badge stay
+// keyed off the FULL unfiltered history (see renderSvcTable), so filtering
+// down to one part doesn't make its own repeat count look wrong.
+function getFilteredSvcRows(){
+  if(!SVC_PART_FILTER) return SVC_ROWS;
+  return SVC_ROWS.filter(function(r){ return (r.item_name||'').toLowerCase().indexOf(SVC_PART_FILTER)>=0; });
+}
+function applyServicePartFilter(){
+  SVC_PART_FILTER = document.getElementById('svc-part-filter').value.trim().toLowerCase();
+  if(!SVC_ROWS.length) return;
+  renderSvcKpis();
+  renderSvcTable();
+}
 
 async function loadServiceHistory(){
   var reg = document.getElementById('svc-reg-input').value.trim();
   var box = document.getElementById('svc-history-results');
   var kpiBox = document.getElementById('svc-kpis');
   document.getElementById('svc-export-btn').style.display = 'none';
-  if(!reg){ box.innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number above and press Search.</div>'; kpiBox.innerHTML=''; return; }
+  document.getElementById('svc-part-filter').value = '';
+  SVC_PART_FILTER = '';
+  if(!reg){ box.innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number above and press Search.</div>'; kpiBox.innerHTML=''; SVC_REG=''; return; }
   box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
   try{
@@ -1474,11 +1492,33 @@ async function loadServiceHistory(){
     document.getElementById('svc-export-btn').style.display = '';
     renderSvcKpis();
     renderSvcTable();
+    renderSvcRefreshedAt();
   }catch(e){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; }
 }
 
+// Quiet 2-min auto-refresh: re-fetches the currently-searched vehicle's data
+// without touching the reg input, part filter, or sort state, and never
+// clobbers the screen on a transient failure -- last good data just stays up.
+async function refreshServiceHistoryQuiet(){
+  if(!SVC_REG || document.getElementById('hqtab-history').style.display==='none') return;
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_vehicle_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:SVC_REG})});
+    if(!r.ok) return;
+    var rows=await r.json();
+    SVC_ROWS = rows;
+    renderSvcKpis();
+    renderSvcTable();
+    renderSvcRefreshedAt();
+  }catch(e){ /* silent -- keep showing last good data */ }
+}
+function renderSvcRefreshedAt(){
+  var el=document.getElementById('svc-refreshed-at');
+  if(el) el.textContent='Refreshed '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+}
+setInterval(refreshServiceHistoryQuiet, 120000); // auto-refresh every 2 minutes, mirrors the Queue tab's cadence
+
 function renderSvcKpis(){
-  var rows = SVC_ROWS;
+  var rows = getFilteredSvcRows();
   var totalAmount = rows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
   var uniqueJCs = new Set(rows.map(function(r){ return r.job_card_number; })).size;
   var dates = rows.map(function(r){ return r.date; }).filter(Boolean).sort();
@@ -1506,7 +1546,12 @@ function renderSvcTable(){
   var box = document.getElementById('svc-history-results');
   var counts = {}; SVC_ROWS.forEach(function(r){ counts[r.item_name] = (counts[r.item_name]||0)+1; });
   var col = SVC_SORT.col, dir = SVC_SORT.dir, mult = dir==='asc'?1:-1;
-  var rows = SVC_ROWS.slice().sort(function(a,b){
+  var filtered = getFilteredSvcRows();
+  if(SVC_PART_FILTER && !filtered.length){
+    box.innerHTML = '<div class="empty" style="padding:24px">No parts matching "'+esc(SVC_PART_FILTER)+'" for <b>'+esc(SVC_REG)+'</b>.</div>';
+    return;
+  }
+  var rows = filtered.slice().sort(function(a,b){
     var av=a[col], bv=b[col];
     if(av==null && bv==null) return 0;
     if(av==null) return 1;
@@ -1517,7 +1562,7 @@ function renderSvcTable(){
   var arrow = function(c){ return c===col ? (dir==='asc'?' ▲':' ▼') : ''; };
   var th = function(label, key, numeric){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
 
-  var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' for <b>'+esc(SVC_REG)+'</b> — click any column to sort, repeated parts highlighted</div>';
+  var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' for <b>'+esc(SVC_REG)+'</b>'+(SVC_PART_FILTER?' matching "'+esc(SVC_PART_FILTER)+'"':'')+' — click any column to sort, repeated parts highlighted</div>';
   html += '<div style="overflow-x:auto"><table><thead><tr>'+
     th('Job Card Number','job_card_number',false)+th('Date','date',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
@@ -1543,9 +1588,10 @@ function renderSvcTable(){
 }
 
 function exportServiceHistoryCSV(){
-  if(!SVC_ROWS.length) return;
+  var rows = getFilteredSvcRows();
+  if(!rows.length) return;
   var cols = ['Job Card Number','Date','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician'];
-  var rows = SVC_ROWS.map(function(r){
+  rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     return [r.job_card_number||'', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||''];
   });
