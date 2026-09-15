@@ -1388,29 +1388,47 @@ function remarkKey(regNumber, oosSince) {
   return `${regNumber}|${oosSince || ''}`;
 }
 
+// Previously built one massive or=(and(reg_number.eq...,oos_since.eq...))
+// clause covering every row at once -- at scale (900+ vehicles) this
+// produced a ~49,000 character URL, which the infrastructure genuinely
+// rejects (confirmed: HTTP 503 "upstream connect error" testing this
+// exact shape at this scale, not a transient blip). Fixed by filtering on
+// reg_number alone (much shorter per-entry) and chunking into batches of
+// 150, so no single request can ever get large enough to hit this limit
+// again regardless of how many vehicles are shown.
 async function loadRemarksFor(rows, _attempt) {
   _attempt = _attempt || 0;
   const MAX_ATTEMPTS = 5; // exponential backoff: 1s, 2s, 4s, 8s -- absorbs longer DB blips, not just brief ones
-  const pairs = rows.filter(r => r.reg_number).map(r => `and(reg_number.eq.${encodeURIComponent(r.reg_number)},oos_since.eq.${encodeURIComponent(r.latest_oos_date || '')})`);
-  if (!pairs.length) return true;
-  try {
-    const url = `${SB}/rest/v1/oos_remarks?or=(${pairs.join(',')})&select=reg_number,oos_since,remark_type,remark_text`;
-    const res = await fetch(url, { headers: await authHDR() });
-    if (!res.ok) {
-      console.error('loadRemarksFor failed', res.status);
-      if (_attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, _attempt))); return loadRemarksFor(rows, _attempt + 1); }
+  const regNumbers = [...new Set(rows.filter(r => r.reg_number).map(r => r.reg_number))];
+  if (!regNumbers.length) return true;
+  const CHUNK_SIZE = 150;
+  const chunks = [];
+  for (let i = 0; i < regNumbers.length; i += CHUNK_SIZE) chunks.push(regNumbers.slice(i, i + CHUNK_SIZE));
+
+  async function fetchChunk(regs, attempt) {
+    const list = regs.map(r => encodeURIComponent(r)).join(',');
+    const url = `${SB}/rest/v1/oos_remarks?reg_number=in.(${list})&select=reg_number,oos_since,remark_type,remark_text`;
+    try {
+      const res = await fetch(url, { headers: await authHDR() });
+      if (!res.ok) {
+        console.error('loadRemarksFor chunk failed', res.status);
+        if (attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); return fetchChunk(regs, attempt + 1); }
+        return false;
+      }
+      const data = await res.json();
+      data.forEach(rec => {
+        REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text };
+      });
+      return true;
+    } catch (e) {
+      console.warn('loadRemarksFor chunk failed', e);
+      if (attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); return fetchChunk(regs, attempt + 1); }
       return false;
     }
-    const data = await res.json();
-    data.forEach(rec => {
-      REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text };
-    });
-    return true;
-  } catch (e) {
-    console.warn('loadRemarksFor failed', e);
-    if (_attempt < MAX_ATTEMPTS - 1) { await new Promise(r => setTimeout(r, 1000 * Math.pow(2, _attempt))); return loadRemarksFor(rows, _attempt + 1); }
-    return false;
   }
+
+  const results = await Promise.all(chunks.map(c => fetchChunk(c, 0)));
+  return results.every(r => r === true);
 }
 
 async function saveRemark(regNumber, oosSince, remarkType, remarkText) {
