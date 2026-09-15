@@ -305,12 +305,18 @@ tr.row-flag:hover{background:#fee2e2}
   <input type="date" id="qFrom" onchange="qualityLoad()" style="max-width:150px">
   <span style="font-size:12px;color:var(--muted)">to</span>
   <input type="date" id="qTo" onchange="qualityLoad()" style="max-width:150px">
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(0)">Today</button>
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(1)">Yesterday</button>
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(7)">Last 7 days</button>
+  <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(30)">Last 30 days</button>
   <select id="qCity" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
     <option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option>
   </select>
   <select id="qHub" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
+  <button class="btn" id="qExportBtn" style="display:none;margin-left:auto" onclick="exportQualityCSV()">⬇ Export CSV</button>
 </div>
+<div id="qBreakdown"></div>
 <div id="qResults"><div class="empty">Loading…</div></div>
 </div>
 
@@ -1390,23 +1396,68 @@ async function qualityBoot(){
   await qualityLoadHubs();
   qualityLoad();
 }
+let QUALITY_SORT = { col: 'pct_of_life', dir: 'asc' };
+function setQualityDateRange(daysBack){
+  var to=new Date(Date.now()+5.5*60*60*1000);
+  var from=new Date(to);
+  if(daysBack>0) from.setDate(from.getDate()-daysBack);
+  document.getElementById('qFrom').value=from.toISOString().slice(0,10);
+  document.getElementById('qTo').value=to.toISOString().slice(0,10);
+  qualityLoad();
+}
 async function qualityLoad(){
   var from=document.getElementById('qFrom').value;
   var to=document.getElementById('qTo').value;
   var city=document.getElementById('qCity').value||null;
   var hub=document.getElementById('qHub').value||null;
   document.getElementById('qCount').textContent='Loading…';
-  document.getElementById('qResults').innerHTML='<div class="empty">Loading…</div>';
+  document.getElementById('qExportBtn').style.display='none';
+  document.getElementById('qResults').innerHTML='<div class="empty"><span class="svc-spin"></span>Loading…</div>';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_ho_approval_quality',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
       body:JSON.stringify({p_from:from,p_to:to,p_city:city,p_hub:hub,p_min_pct:90})});
     if(!r.ok){ document.getElementById('qResults').innerHTML='<div class="empty" style="color:var(--red)">⚠ Failed to load — try again.</div>'; document.getElementById('qCount').textContent=''; return; }
     QUALITY_DATA=await r.json();
+    if((QUALITY_DATA.rows||[]).length) document.getElementById('qExportBtn').style.display='';
     qualityRender();
   }catch(e){
     document.getElementById('qResults').innerHTML='<div class="empty" style="color:var(--red)">⚠ Failed to load — try again.</div>';
     document.getElementById('qCount').textContent='';
   }
+}
+function qualitySortBy(col){
+  if(QUALITY_SORT.col===col){ QUALITY_SORT.dir=QUALITY_SORT.dir==='asc'?'desc':'asc'; }
+  else { QUALITY_SORT={col:col, dir: col==='pct_of_life'||col==='days_since' ? 'asc' : 'desc'}; }
+  qualityRender();
+}
+function renderQualityBreakdown(rows){
+  var box=document.getElementById('qBreakdown');
+  if(!rows.length){ box.innerHTML=''; return; }
+  function topN(key, label){
+    var counts={};
+    rows.forEach(function(r){ var k=r[key]||'—'; counts[k]=(counts[k]||0)+1; });
+    var sorted=Object.entries(counts).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+    var chips=sorted.map(function(e){ return '<span class="chip" style="margin-right:6px">'+esc(e[0])+' · '+e[1]+'</span>'; }).join('');
+    return '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-right:8px">'+label+'</span>'+chips+'</div>';
+  }
+  box.innerHTML='<div style="background:var(--card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:12px 16px;margin-bottom:12px">'+
+    topN('hub','Top Hubs (flagged)')+topN('technician','Top Technicians (flagged)')+'</div>';
+}
+function exportQualityCSV(){
+  var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
+  if(!rows.length) return;
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','Days Since Last Replaced','KM Since Last Replaced','% of Std Life'];
+  var csvRows=rows.map(function(r){
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.days_since??'',r.km_since??'',r.pct_of_life??''];
+  });
+  var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
+    return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
+  }).join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='ho_approval_quality_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
 }
 function qualityLastReplaced(row){
   if(row.days_since==null) return '<span class="na-life">—</span>';
@@ -1436,8 +1487,26 @@ function qualityRender(){
   var total=QUALITY_DATA.total_wear_tear_jcs||0, flagged=QUALITY_DATA.flagged_count||0;
   var pct=total>0?Math.round(100*flagged/total):0;
   document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)';
+  renderQualityBreakdown(rows);
   if(!rows.length){ document.getElementById('qResults').innerHTML='<div class="empty">No flagged replacements match this filter.</div>'; return; }
-  var html='<table><thead><tr><th>Job Card</th><th>Vehicle</th><th>City</th><th>Hub</th><th>Technician</th><th>Submission Type</th><th>Item</th><th>Amount</th><th>Billed Date</th><th>Last Replaced</th><th>Life Check</th></tr></thead><tbody>';
+
+  var col=QUALITY_SORT.col, dir=QUALITY_SORT.dir, mult=dir==='asc'?1:-1;
+  rows=rows.slice().sort(function(a,b){
+    var av=a[col], bv=b[col];
+    if(av==null&&bv==null) return 0;
+    if(av==null) return 1;
+    if(bv==null) return -1;
+    if(typeof av==='string') return av.localeCompare(bv)*mult;
+    return (av-bv)*mult;
+  });
+  var arrow=function(c){ return c===col?(dir==='asc'?' ▲':' ▼'):''; };
+  var th=function(label,key){ return '<th class="sortable" onclick="qualitySortBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
+
+  var html='<table><thead><tr>'+
+    th('Job Card','job_card')+th('Vehicle','reg_number')+th('City','city')+th('Hub','hub')+th('Technician','technician')+
+    th('Submission Type','submission_type')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
+    th('Last Replaced','days_since')+th('Life Check','pct_of_life')+
+    '</tr></thead><tbody>';
   rows.forEach(function(r){
     html+='<tr><td>'+esc(r.job_card)+'</td><td>'+esc(r.reg_number||'—')+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+esc(r.item)+'</td>'+
