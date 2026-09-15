@@ -309,13 +309,15 @@ tr.row-flag:hover{background:#fee2e2}
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(1)">Yesterday</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(7)">Last 7 days</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(30)">Last 30 days</button>
-  <select id="qCity" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+  <select id="qCity" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
     <option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option>
   </select>
-  <select id="qHub" onchange="qualityLoad()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+  <select id="qHub" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
+  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="qHideReviewed" onchange="qualityRender()">Hide reviewed</label>
   <button class="btn" id="qExportBtn" style="display:none;margin-left:auto" onclick="exportQualityCSV()">⬇ Export CSV</button>
 </div>
+<div id="qTrend"></div>
 <div id="qBreakdown"></div>
 <div id="qResults"><div class="empty">Loading…</div></div>
 </div>
@@ -1395,6 +1397,33 @@ async function qualityBoot(){
   document.getElementById('qTo').value=new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
   await qualityLoadHubs();
   qualityLoad();
+  loadQualityTrend();
+}
+async function loadQualityTrend(){
+  try{
+    var city=document.getElementById('qCity').value||null;
+    var hub=document.getElementById('qHub').value||null;
+    var r=await fetch(SB+'/rest/v1/rpc/get_ho_quality_trend',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_city:city,p_hub:hub})});
+    if(!r.ok) return;
+    var weeks=await r.json();
+    renderQualityTrend(weeks);
+  }catch(e){}
+}
+function renderQualityTrend(weeks){
+  if(!weeks||!weeks.length){ document.getElementById('qTrend').innerHTML=''; return; }
+  var maxRate=Math.max(10, ...weeks.map(function(w){return w.flag_rate_pct;}));
+  var bars=weeks.map(function(w){
+    var h=Math.max(2, Math.round(60*w.flag_rate_pct/maxRate));
+    var color=w.flag_rate_pct>=20?'#dc2626':w.flag_rate_pct>=12?'#d97706':'#16a34a';
+    var wkLabel=new Date(w.week_start).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1" title="'+wkLabel+': '+w.flag_rate_pct+'% ('+w.flagged+' of '+w.total+')">'+
+      '<div style="font-size:10px;color:var(--muted)">'+w.flag_rate_pct+'%</div>'+
+      '<div style="width:70%;height:'+h+'px;background:'+color+';border-radius:3px 3px 0 0"></div>'+
+      '<div style="font-size:9px;color:var(--muted)">'+wkLabel+'</div></div>';
+  }).join('');
+  document.getElementById('qTrend').innerHTML='<div style="background:var(--card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:14px 16px;margin-bottom:12px">'+
+    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-bottom:10px">Weekly Flag Rate — Last 12 Weeks</div>'+
+    '<div style="display:flex;align-items:flex-end;gap:6px;height:90px">'+bars+'</div></div>';
 }
 let QUALITY_SORT = { col: 'pct_of_life', dir: 'asc' };
 function setQualityDateRange(daysBack){
@@ -1474,6 +1503,7 @@ function qualityLifeCheck(row){
 function qualityRender(){
   if(!QUALITY_DATA) return;
   var q=(document.getElementById('qSearch').value||'').toLowerCase().trim();
+  var hideReviewed=document.getElementById('qHideReviewed').checked;
   var rows=QUALITY_DATA.rows||[];
   if(q){
     rows=rows.filter(function(r){
@@ -1484,9 +1514,12 @@ function qualityRender(){
         (r.item||'').toLowerCase().indexOf(q)>=0;
     });
   }
+  if(hideReviewed) rows=rows.filter(function(r){ return (r.review_status||'open')==='open'; });
   var total=QUALITY_DATA.total_wear_tear_jcs||0, flagged=QUALITY_DATA.flagged_count||0;
+  var openCount=(QUALITY_DATA.rows||[]).filter(function(r){ return (r.review_status||'open')==='open'; }).length;
   var pct=total>0?Math.round(100*flagged/total):0;
-  document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)';
+  document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged ('+openCount+' still open) of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)';
+  updateQualityTabBadge(openCount);
   renderQualityBreakdown(rows);
   if(!rows.length){ document.getElementById('qResults').innerHTML='<div class="empty">No flagged replacements match this filter.</div>'; return; }
 
@@ -1505,15 +1538,59 @@ function qualityRender(){
   var html='<table><thead><tr>'+
     th('Job Card','job_card')+th('Vehicle','reg_number')+th('City','city')+th('Hub','hub')+th('Technician','technician')+
     th('Submission Type','submission_type')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
-    th('Last Replaced','days_since')+th('Life Check','pct_of_life')+
+    th('Last Replaced','days_since')+th('Life Check','pct_of_life')+'<th>Review</th>'+
     '</tr></thead><tbody>';
-  rows.forEach(function(r){
-    html+='<tr><td>'+esc(r.job_card)+'</td><td>'+esc(r.reg_number||'—')+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
+  rows.forEach(function(r,idx){
+    var rid='qr'+idx;
+    var status=r.review_status||'open';
+    html+='<tr'+(status!=='open'?' style="opacity:.6"':'')+'>'+
+      '<td>'+esc(r.job_card)+'</td>'+
+      '<td>'+(r.reg_number?'<a href="#" onclick="jumpToServiceHistory(\''+esc(r.reg_number)+'\');return false;" style="color:var(--red);text-decoration:underline">'+esc(r.reg_number)+'</a>':'—')+'</td>'+
+      '<td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+esc(r.item)+'</td>'+
-      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td></tr>';
+      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
+      '<td style="min-width:220px">'+
+        '<select id="'+rid+'-status" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;margin-bottom:3px">'+
+          ['open','reviewed','escalated','false_positive'].map(function(s){ return '<option value="'+s+'"'+(s===status?' selected':'')+'>'+s.replace('_',' ')+'</option>'; }).join('')+
+        '</select> '+
+        '<input id="'+rid+'-remark" type="text" placeholder="remark…" value="'+esc(r.review_remark||'')+'" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;width:110px">'+
+        ' <button class="btn" style="padding:3px 8px;font-size:11px" onclick="saveQualityReview(\''+esc(r.job_card)+'\',\''+esc(r.item).replace(/'/g,"\\'")+'\',\''+rid+'\')">Save</button>'+
+        (r.reviewed_by?'<div style="font-size:10px;color:var(--muted);margin-top:2px">by '+esc(r.reviewed_by)+'</div>':'')+
+      '</td></tr>';
   });
   html+='</tbody></table>';
   document.getElementById('qResults').innerHTML=html;
+}
+function jumpToServiceHistory(regNumber){
+  hqTab('history');
+  var input=document.getElementById('svc-reg-input');
+  if(input){ input.value=regNumber; loadServiceHistory(); }
+}
+async function saveQualityReview(jobCard, item, ridPrefix){
+  var status=document.getElementById(ridPrefix+'-status').value;
+  var remark=document.getElementById(ridPrefix+'-remark').value.trim();
+  var me=currentUser()||'unknown';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/save_ho_quality_review',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_job_card:jobCard,p_item:item,p_status:status,p_remark:remark||null,p_reviewed_by:me})});
+    if(!r.ok){ alert('Could not save — try again.'); return; }
+    var row=(QUALITY_DATA.rows||[]).find(function(x){ return x.job_card===jobCard && x.item===item; });
+    if(row){ row.review_status=status; row.review_remark=remark; row.reviewed_by=me; }
+    qualityRender();
+  }catch(e){ alert('Could not save — try again.'); }
+}
+function updateQualityTabBadge(openCount){
+  var btn=document.getElementById('hqtab-quality-btn');
+  if(!btn) return;
+  var existing=document.getElementById('qualityBadge');
+  if(existing) existing.remove();
+  if(openCount>0){
+    var badge=document.createElement('span');
+    badge.id='qualityBadge';
+    badge.style.cssText='margin-left:5px;background:var(--red,#dc2626);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px';
+    badge.textContent=openCount;
+    btn.appendChild(badge);
+  }
 }
 
 // ══════════════════ Special Approval tab ══════════════════
