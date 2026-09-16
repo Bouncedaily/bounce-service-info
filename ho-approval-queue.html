@@ -115,6 +115,10 @@ tr.row-flag:hover{background:#fee2e2}
 .perf-svg text{fill:var(--muted)}
 .perf-svg .vl{fill:var(--text);font-size:10px;font-weight:600}
 .perf-tbl{width:100%}
+.clickable-row{cursor:pointer}
+.clickable-row:hover{background:var(--bg,#f4f6f9)}
+.clickable-cell{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.clickable-cell:hover{background:var(--bg,#f4f6f9)}
 .perf-tbl th{cursor:pointer;user-select:none;white-space:nowrap}
 .perf-tbl th .arr{font-size:10px;color:var(--muted2);margin-left:3px}
 .perf-tbl th.act{color:var(--text)}.perf-tbl th.act .arr{color:var(--red)}
@@ -240,7 +244,7 @@ tr.row-flag:hover{background:#fee2e2}
     <div class="hr-sub" id="hr-sub"></div>
     <div class="hr-modal-body">
       <table class="perf-tbl" id="hr-table"><thead><tr>
-        <th>DMS JC</th><th>Reg No</th><th>Hub</th><th>City</th><th>Type</th><th>Date</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
+        <th>DMS JC</th><th>Reg No</th><th>Hub</th><th>City</th><th>Type</th><th>Date</th><th>Cycle</th><th>Outcome</th><th>HO User</th><th>TAT</th>
       </tr></thead><tbody></tbody></table>
     </div>
   </div>
@@ -306,7 +310,7 @@ tr.row-flag:hover{background:#fee2e2}
   <h2>Top 10% Slowest Requests <span style="font-weight:400;font-size:12px;color:var(--muted)">— the tail driving SLA misses</span></h2>
   <div class="perf-note" id="pf-top10-note" style="margin:0 0 10px"></div>
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-top10"><thead><tr>
-    <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Hour</th><th>Cycle</th><th>Outcome</th><th>TAT</th>
+    <th>DMS JC</th><th>Hub</th><th>Type</th><th>Date</th><th>Hour</th><th>Cycle</th><th>Outcome</th><th>HO User</th><th>TAT</th>
   </tr></thead><tbody></tbody></table></div>
   <div class="pagination" id="top10-pagination"></div>
 </div>
@@ -1033,6 +1037,7 @@ function pfRejectByJC(rows){
 }
 
 function perfDraw(){
+  PF_DRILL_CACHE=[]; // stale indices from a previous render would otherwise point at the wrong rows
   pfFrom=document.getElementById('pf-from').value||pfFrom; pfTo=document.getElementById('pf-to').value||pfTo;
   const rows=pfFilt();
   const resp=rows.filter(r=>pfTAT(r)!=null);
@@ -1130,20 +1135,44 @@ let HOURLY_FILTERED = [];
 const DOW_NAMES=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function pfDow(dateStr){ return (new Date(dateStr+'T00:00:00').getDay()+6)%7; } // 0=Mon..6=Sun
 
+// Row arrays can't be safely embedded directly in an onclick HTML
+// attribute, so each clickable aggregate row is cached here by index and
+// the onclick just references that index instead.
+let PF_DRILL_CACHE=[];
+function cachePfDrill(title, sub, rows){
+  PF_DRILL_CACHE.push({title,sub,rows});
+  return PF_DRILL_CACHE.length-1;
+}
+function openPfDrillCache(idx){
+  const d=PF_DRILL_CACHE[idx];
+  if(d) openRowsDrilldown(d.title, d.sub, d.rows);
+}
+
 function openHourDrilldown(hour, dow, source){
   const OUT=['Approved','Rejected/Reopened','Pending'];
   let rows=(source||HOURLY_FILTERED).filter(r=>r[2]===hour);
   if(dow!=null) rows=rows.filter(r=>pfDow(r[1])===dow);
   rows=rows.sort((a,b)=>pfTAT(b)-pfTAT(a));
   const dowLbl=dow!=null?DOW_NAMES[dow]+' ':'';
-  document.getElementById('hr-title').textContent=`${dowLbl}${pfHl(hour)} — ${rows.length} request${rows.length===1?'':'s'}`;
   const avg=rows.length?pfMean(rows.map(pfTAT)):0;
-  document.getElementById('hr-sub').textContent=`Avg TAT ${avg.toFixed(1)} min${dow==null&&hourlyCity?' · '+hourlyCity:''}`;
+  openRowsDrilldown(`${dowLbl}${pfHl(hour)} — ${rows.length} request${rows.length===1?'':'s'}`,
+    `Avg TAT ${avg.toFixed(1)} min${dow==null&&hourlyCity?' · '+hourlyCity:''}`, rows);
+}
+
+// Shared by every clickable table on this tab (Hourly TAT, Approval Cycles,
+// Hub/City/HO User Performance) -- reuses the same overlay/table markup
+// instead of each caller building its own modal, so "HO User" and any
+// future raw-data column only needs to be added in this one place.
+function openRowsDrilldown(title, sub, rows){
+  const OUT=['Approved','Rejected/Reopened','Pending'];
+  rows=[...rows].sort((a,b)=>pfTAT(b)-pfTAT(a));
+  document.getElementById('hr-title').textContent=title;
+  document.getElementById('hr-sub').textContent=sub;
   document.querySelector('#hr-table tbody').innerHTML=rows.map(r=>{
     const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
     return `<tr><td>${r[8]??'—'}</td><td style="font-weight:600">${r[10]||'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${PFD.hubCity[r[0]]||'—'}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td>`+
-      `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`;
-  }).join('') || '<tr><td colspan="9" class="empty">No data</td></tr>';
+      `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td>${r[11]||'—'}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`;
+  }).join('') || '<tr><td colspan="10" class="empty">No data</td></tr>';
   document.getElementById('hr-overlay').classList.add('open');
 }
 
@@ -1248,8 +1277,36 @@ function pfDrawCycles(rows){
   const tb=document.querySelector('#pf-cycles tbody');
   if(!list.length){ tb.innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`; return; }
   const pctCell=p=>{ const c=p>=85?pfCss('--green'):p>=75?pfCss('--amber'):pfCss('--red'); return `<td style="color:${c};font-weight:700">${p.toFixed(0)}%</td>`; };
-  const row=(h,bold)=>`<tr${bold?' style="font-weight:700;border-top:2px solid var(--border2)"':''}><td>${h.hub}</td><td>${h.jc1}</td><td>${h.jc2}</td><td>${h.jc3}</td><td>${h.jc4}</td><td>${h.jc5}</td><td>${h.total}</td>`+
-    (bold?`<td style="font-weight:700">${(h.total?h.jc1/h.total*100:0).toFixed(0)}%</td>`:pctCell(h.pct))+`</tr>`;
+  // Each cycle-bucket cell drills into the JCs that reached exactly that
+  // max cycle for that hub -- shown at their highest-cycle row, since
+  // that's the one that determined which bucket they landed in.
+  const bucketRows=(hubName, jcs, cyclePred, label)=>{
+    const matchJcs=Object.entries(jcs||{}).filter(([_,c])=>cyclePred(c)).map(([jc,_])=>jc);
+    const set=new Set(matchJcs.map(String));
+    const out=[];
+    matchJcs.forEach(jc=>{
+      const jcRows=rows.filter(r=>String(r[8])===String(jc) && PFD.hubs[r[0]]===hubName);
+      const top=jcRows.sort((a,b)=>b[5]-a[5])[0];
+      if(top) out.push(top);
+    });
+    return {title:`${hubName} — ${label} — ${out.length} job card${out.length===1?'':'s'}`, sub:'', rows:out};
+  };
+  const cell=(hubName, jcs, n, cyclePred, label)=>{
+    if(!n) return `<td>0</td>`;
+    const d=bucketRows(hubName, jcs, cyclePred, label);
+    const idx=cachePfDrill(d.title, d.sub, d.rows);
+    return `<td class="clickable-cell" onclick="openPfDrillCache(${idx})">${n}</td>`;
+  };
+  const row=(h,bold)=>{
+    if(bold) return `<tr style="font-weight:700;border-top:2px solid var(--border2)"><td>${h.hub}</td><td>${h.jc1}</td><td>${h.jc2}</td><td>${h.jc3}</td><td>${h.jc4}</td><td>${h.jc5}</td><td>${h.total}</td>`+
+      `<td style="font-weight:700">${(h.total?h.jc1/h.total*100:0).toFixed(0)}%</td></tr>`;
+    const jcs=byHubJC[h.hub];
+    return `<tr><td>${h.hub}</td>`+
+      cell(h.hub,jcs,h.jc1,c=>c===1,'1st try')+cell(h.hub,jcs,h.jc2,c=>c===2,'2nd try')+
+      cell(h.hub,jcs,h.jc3,c=>c===3,'3rd try')+cell(h.hub,jcs,h.jc4,c=>c===4,'4th try')+
+      cell(h.hub,jcs,h.jc5,c=>c>=5,'5+ tries')+
+      `<td>${h.total}</td>`+pctCell(h.pct)+`</tr>`;
+  };
   tb.innerHTML=list.map(h=>row(h,false)).join('')+row({hub:'Grand Total',...G},true);
 }
 
@@ -1286,10 +1343,14 @@ function pfDrawHubs(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="7" class="empty">No data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(h=>`<tr><td>${h.hub}</td><td>${h.n}${h.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${h.pending} pending)</span>`:''}</td>`+
+  tb.innerHTML=list.map(h=>{
+    const hubRows=rows.filter(r=>PFD.hubs[r[0]]===h.hub);
+    const idx=cachePfDrill(`${h.hub} — ${hubRows.length} request${hubRows.length===1?'':'s'}`, `Avg TAT ${h.avg.toFixed(1)} min`, hubRows);
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${h.hub}</td><td>${h.n}${h.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${h.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,h.avg/mx*100)}px;background:${h.avg<=30?pfCss('--green'):h.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${h.avg.toFixed(1)}</td>`+
     `<td>${h.min.toFixed(1)}</td><td>${h.med.toFixed(1)}</td><td>${h.max.toFixed(1)}</td>`+
-    `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`).join('');
+    `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`;
+  }).join('');
 }
 
 let citySort='avg', citySortDir=-1;
@@ -1318,10 +1379,14 @@ function pfDrawCities(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="10" class="empty">No data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(c=>`<tr><td>${c.city}</td><td>${c.n}${c.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${c.pending} pending)</span>`:''}</td>`+
+  tb.innerHTML=list.map(c=>{
+    const cityRows=rows.filter(r=>(PFD.hubCity[r[0]]||'Other')===c.city);
+    const idx=cachePfDrill(`${c.city} — ${cityRows.length} request${cityRows.length===1?'':'s'}`, `Avg TAT ${c.avg.toFixed(1)} min`, cityRows);
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${c.city}</td><td>${c.n}${c.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${c.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,c.avg/mx*100)}px;background:${c.avg<=30?pfCss('--green'):c.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${c.avg.toFixed(1)}</td>`+
     `<td>${c.min.toFixed(1)}</td><td>${c.med.toFixed(1)}</td><td>${c.max.toFixed(1)}</td>`+
-    `<td>${c.p90.toFixed(1)}</td><td>${pct(c.sla,85,70)}</td><td>${pctInv(c.rej,5,15)}</td><td>${pct(c.fp,85,75)}</td></tr>`).join('');
+    `<td>${c.p90.toFixed(1)}</td><td>${pct(c.sla,85,70)}</td><td>${pctInv(c.rej,5,15)}</td><td>${pct(c.fp,85,75)}</td></tr>`;
+  }).join('');
 }
 [...document.querySelectorAll('#pf-hubs th[data-k]')].forEach(th=>th.onclick=()=>{
   const k=th.dataset.k;
@@ -1371,10 +1436,14 @@ function pfDrawHoUsers(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="10" class="empty">No HO user data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(u=>`<tr><td>${u.ho_user}</td><td>${u.n}${u.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${u.pending} pending)</span>`:''}</td>`+
+  tb.innerHTML=list.map(u=>{
+    const userRows=rows.filter(r=>(r[11]||'Unknown')===u.ho_user);
+    const idx=cachePfDrill(`${u.ho_user} — ${userRows.length} request${userRows.length===1?'':'s'}`, `Avg TAT ${u.avg.toFixed(1)} min`, userRows);
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${u.ho_user}</td><td>${u.n}${u.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${u.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,u.avg/mx*100)}px;background:${u.avg<=30?pfCss('--green'):u.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${u.avg.toFixed(1)}</td>`+
     `<td>${u.min.toFixed(1)}</td><td>${u.med.toFixed(1)}</td><td>${u.max.toFixed(1)}</td>`+
-    `<td>${u.p90.toFixed(1)}</td><td>${pct(u.sla,85,70)}</td><td>${pctInv(u.rej,5,15)}</td><td>${pct(u.fp,85,75)}</td></tr>`).join('');
+    `<td>${u.p90.toFixed(1)}</td><td>${pct(u.sla,85,70)}</td><td>${pctInv(u.rej,5,15)}</td><td>${pct(u.fp,85,75)}</td></tr>`;
+  }).join('');
 }
 [...document.querySelectorAll('#pf-ho-users th[data-hk]')].forEach(th=>th.onclick=()=>{
   const k=th.dataset.hk;
@@ -1394,7 +1463,7 @@ function pfDrawTop10(resp){
   const k=Math.ceil(sorted.length*0.10);
   if(!k){
     note.textContent='No responded requests in the current view.';
-    document.querySelector('#pf-top10 tbody').innerHTML=`<tr><td colspan="8" class="empty">No data in range</td></tr>`;
+    document.querySelector('#pf-top10 tbody').innerHTML=`<tr><td colspan="9" class="empty">No data in range</td></tr>`;
     document.getElementById('top10-pagination').innerHTML='';
     return;
   }
@@ -1410,7 +1479,7 @@ function renderTop10Page(){
   const start=(top10Page-1)*TOP10_PAGE_SIZE, show=TOP10_ROWS.slice(start,start+TOP10_PAGE_SIZE);
   tb.innerHTML=show.map(r=>{ const tat=pfTAT(r), col=tat>90?pfCss('--red'):tat>30?pfCss('--amber'):pfCss('--text');
     return `<tr><td>${r[8]??'—'}</td><td>${PFD.hubs[r[0]]}</td><td>${r[6]?'Intrip':'Endtrip'}</td><td>${r[1]}</td><td>${pfHl(r[2])}</td>`+
-      `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`; }).join('');
+      `<td>${r[5]}</td><td>${r[9]||OUT[r[4]]}</td><td>${r[11]||'—'}</td><td style="font-weight:700;color:${col}">${tat.toFixed(1)}</td></tr>`; }).join('');
   renderTop10Pagination();
 }
 
