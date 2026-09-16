@@ -1475,9 +1475,9 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','Days Since Last Replaced','KM Since Last Replaced','% of Std Life'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','HO User','Days Since Last Replaced','KM Since Last Replaced','% of Std Life'];
   var csvRows=rows.map(function(r){
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.days_since??'',r.km_since??'',r.pct_of_life??''];
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.ho_user||'',r.days_since??'',r.km_since??'',r.pct_of_life??''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -1538,7 +1538,7 @@ function qualityRender(){
   var html='<table><thead><tr>'+
     th('Job Card','job_card')+th('Vehicle','reg_number')+th('City','city')+th('Hub','hub')+th('Technician','technician')+
     th('Submission Type','submission_type')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
-    th('Last Replaced','days_since')+th('Life Check','pct_of_life')+'<th>Review</th>'+
+    th('HO User','ho_user')+th('Last Replaced','days_since')+th('Life Check','pct_of_life')+'<th>Review</th>'+
     '</tr></thead><tbody>';
   rows.forEach(function(r,idx){
     var rid='qr'+idx;
@@ -1548,7 +1548,7 @@ function qualityRender(){
       '<td>'+(r.reg_number?'<a href="#" onclick="jumpToServiceHistory(\''+esc(r.reg_number)+'\');return false;" style="color:var(--red);text-decoration:underline">'+esc(r.reg_number)+'</a>':'—')+'</td>'+
       '<td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+esc(r.item)+'</td>'+
-      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
+      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
       '<td style="min-width:220px">'+
         '<select id="'+rid+'-status" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;margin-bottom:3px">'+
           ['open','reviewed','escalated','false_positive'].map(function(s){ return '<option value="'+s+'"'+(s===status?' selected':'')+'>'+s.replace('_',' ')+'</option>'; }).join('')+
