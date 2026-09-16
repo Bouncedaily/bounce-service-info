@@ -924,7 +924,7 @@ async function perfBoot(){
 
   try{
     const since=new Date(Date.now()-(PF_WINDOW_DAYS+5)*864e5).toISOString().slice(0,10);
-    const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status,reg_number';
+    const sel='requested_hub,city,request_date,request_hour,tat_minutes,tat_work_minutes,outcome_code,approval_cycle,intrip,dms_jc_id,response_status,reg_number,ho_user';
     const base=SB+'/rest/v1/ho_approval_tat?select='+encodeURIComponent(sel)+'&request_date=gte.'+since+'&order=requested_at.asc';
     // Single large-limit fetch instead of looping in 1000-row pages -- each
     // round trip through this project's REST API carries several seconds of
@@ -936,18 +936,6 @@ async function perfBoot(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const all=await res.json();
     if(!all.length) throw new Error('No rows returned');
-    // ho_approval_tat has no ho_user column of its own (separate Metabase
-    // sync pipeline) -- merged in here via dms_jc_id/dms_jc_no instead of
-    // touching that pipeline. A missing/failed map fetch degrades to
-    // "no HO user data" rather than breaking the whole tab.
-    try{
-      const hoRes=await fetch(SB+'/rest/v1/rpc/get_ho_user_map',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_since:since})});
-      if(hoRes.ok){
-        const hoMap=await hoRes.json();
-        const byJc={}; hoMap.forEach(m=>{ byJc[m.dms_jc_no]=m.ho_user; });
-        all.forEach(r=>{ r.ho_user = r.dms_jc_id!=null ? (byJc[r.dms_jc_id]||null) : null; });
-      }
-    }catch(e){ console.warn('ho_user map fetch failed', e); }
     try{ sessionStorage.setItem(PF_CACHE_KEY, JSON.stringify({at:Date.now(), all})); }catch(e){} // sessionStorage has a size cap -- silently skip caching if the dataset is too large for it, cold fetch just always applies then
     perfBootFinish(all);
   }catch(err){
@@ -1345,8 +1333,8 @@ function pfDrawCities(rows){
 let hoSort='avg', hoSortDir=-1;
 
 function pfDrawHoUsers(rows){
-  // r[11] = ho_user, merged in from jc_details via get_ho_user_map since
-  // ho_approval_tat has no column of its own for it (separate sync pipeline).
+  // r[11] = ho_user, fetched directly from ho_approval_tat (synced from the
+  // HO Approvals TAT Metabase question, which now includes this field).
   const agg={};
   rows.forEach(r=>{ const u=r[11]||'Unknown'; (agg[u]=agg[u]||{t:[]}); const a=agg[u]; const v=pfTAT(r); if(v!=null)a.t.push(v); });
   const byJC=pfRejectByJC(rows);
