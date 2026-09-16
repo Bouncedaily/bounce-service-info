@@ -1261,6 +1261,12 @@ function pfDrawHubs(rows){
   Object.values(byJC).forEach(jc=>{ const h=PFD.hubs[jc.hub]; (rejAgg[h]=rejAgg[h]||{n:0,rej:0}); rejAgg[h].n++; if(jc.rejected)rejAgg[h].rej++; });
   const nByHub={};
   rows.forEach(r=>{ const h=PFD.hubs[r[0]]; nByHub[h]=(nByHub[h]||0)+1; });
+  // "Requests" counts every row including still-Pending ones (outcome_code
+  // 2), while TAT/SLA/Reject/First-Pass all only reflect resolved requests
+  // -- shown separately here so that's clear rather than looking like a
+  // silent mismatch between this column and the others.
+  const pendByHub={};
+  rows.forEach(r=>{ if(r[4]===2){ const h=PFD.hubs[r[0]]; pendByHub[h]=(pendByHub[h]||0)+1; } });
   // Same unique-JC max-cycle bucketing as pfDrawCycles/perfDraw, so this
   // column's "total" (unique JCs) agrees with the Approval Cycles table's
   // Total JCs for the same hub, rather than the old rows-at-cycle-1
@@ -1272,7 +1278,7 @@ function pfDrawHubs(rows){
     const maxCycles=Object.values(byHubJC[h]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[h]||{n:0,rej:0};
-    return {hub:h, n:nByHub[h], avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    return {hub:h, n:nByHub[h], pending:pendByHub[h]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[pfSort], yv=y[pfSort]; const v=xv>yv?1:xv<yv?-1:0; return v*pfSortDir; });
@@ -1280,7 +1286,7 @@ function pfDrawHubs(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="7" class="empty">No data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(h=>`<tr><td>${h.hub}</td><td>${h.n}</td>`+
+  tb.innerHTML=list.map(h=>`<tr><td>${h.hub}</td><td>${h.n}${h.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${h.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,h.avg/mx*100)}px;background:${h.avg<=30?pfCss('--green'):h.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${h.avg.toFixed(1)}</td>`+
     `<td>${h.min.toFixed(1)}</td><td>${h.med.toFixed(1)}</td><td>${h.max.toFixed(1)}</td>`+
     `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`).join('');
@@ -1296,13 +1302,15 @@ function pfDrawCities(rows){
   Object.values(byJC).forEach(jc=>{ const c=PFD.hubCity[jc.hub]||'Other'; (rejAgg[c]=rejAgg[c]||{n:0,rej:0}); rejAgg[c].n++; if(jc.rejected)rejAgg[c].rej++; });
   const nByCity={};
   rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other'; nByCity[c]=(nByCity[c]||0)+1; });
+  const pendByCity={};
+  rows.forEach(r=>{ if(r[4]===2){ const c=PFD.hubCity[r[0]]||'Other'; pendByCity[c]=(pendByCity[c]||0)+1; } });
   const byCityJC={};
   rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other', jc=r[8]; (byCityJC[c]=byCityJC[c]||{}); byCityJC[c][jc]=Math.max(byCityJC[c][jc]||0, r[5]); });
   let list=Object.entries(agg).map(([c,a])=>{
     const maxCycles=Object.values(byCityJC[c]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(x=>x===1).length;
     const rj=rejAgg[c]||{n:0,rej:0};
-    return {city:c, n:nByCity[c], avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    return {city:c, n:nByCity[c], pending:pendByCity[c]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[citySort], yv=y[citySort]; const v=xv>yv?1:xv<yv?-1:0; return v*citySortDir; });
@@ -1310,7 +1318,7 @@ function pfDrawCities(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="10" class="empty">No data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(c=>`<tr><td>${c.city}</td><td>${c.n}</td>`+
+  tb.innerHTML=list.map(c=>`<tr><td>${c.city}</td><td>${c.n}${c.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${c.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,c.avg/mx*100)}px;background:${c.avg<=30?pfCss('--green'):c.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${c.avg.toFixed(1)}</td>`+
     `<td>${c.min.toFixed(1)}</td><td>${c.med.toFixed(1)}</td><td>${c.max.toFixed(1)}</td>`+
     `<td>${c.p90.toFixed(1)}</td><td>${pct(c.sla,85,70)}</td><td>${pctInv(c.rej,5,15)}</td><td>${pct(c.fp,85,75)}</td></tr>`).join('');
@@ -1347,13 +1355,15 @@ function pfDrawHoUsers(rows){
   Object.entries(byJC).forEach(([jc,info])=>{ const u=jcToUser[jc]||'Unknown'; (rejAgg[u]=rejAgg[u]||{n:0,rej:0}); rejAgg[u].n++; if(info.rejected)rejAgg[u].rej++; });
   const nByUser={};
   rows.forEach(r=>{ const u=r[11]||'Unknown'; nByUser[u]=(nByUser[u]||0)+1; });
+  const pendByUser={};
+  rows.forEach(r=>{ if(r[4]===2){ const u=r[11]||'Unknown'; pendByUser[u]=(pendByUser[u]||0)+1; } });
   const byUserJC={};
   rows.forEach(r=>{ const u=r[11]||'Unknown', jc=r[8]; (byUserJC[u]=byUserJC[u]||{}); byUserJC[u][jc]=Math.max(byUserJC[u][jc]||0, r[5]); });
   let list=Object.entries(agg).filter(([u,_])=>u!=='Unknown').map(([u,a])=>{
     const maxCycles=Object.values(byUserJC[u]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[u]||{n:0,rej:0};
-    return {ho_user:u, n:nByUser[u], avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    return {ho_user:u, n:nByUser[u], pending:pendByUser[u]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[hoSort], yv=y[hoSort]; const v=xv>yv?1:xv<yv?-1:0; return v*hoSortDir; });
@@ -1361,7 +1371,7 @@ function pfDrawHoUsers(rows){
   if(!list.length){ tb.innerHTML=`<tr><td colspan="10" class="empty">No HO user data in range</td></tr>`; return; }
   const pct=(v,good,warn)=>{ const c=v>=good?pfCss('--green'):v>=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(0)}%</span>`; };
   const pctInv=(v,good,warn)=>{ const c=v<=good?pfCss('--green'):v<=warn?pfCss('--amber'):pfCss('--red'); return `<span style="color:${c};font-weight:700">${v.toFixed(1)}%</span>`; };
-  tb.innerHTML=list.map(u=>`<tr><td>${u.ho_user}</td><td>${u.n}</td>`+
+  tb.innerHTML=list.map(u=>`<tr><td>${u.ho_user}</td><td>${u.n}${u.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${u.pending} pending)</span>`:''}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,u.avg/mx*100)}px;background:${u.avg<=30?pfCss('--green'):u.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${u.avg.toFixed(1)}</td>`+
     `<td>${u.min.toFixed(1)}</td><td>${u.med.toFixed(1)}</td><td>${u.max.toFixed(1)}</td>`+
     `<td>${u.p90.toFixed(1)}</td><td>${pct(u.sla,85,70)}</td><td>${pctInv(u.rej,5,15)}</td><td>${pct(u.fp,85,75)}</td></tr>`).join('');
