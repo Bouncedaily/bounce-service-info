@@ -1407,7 +1407,7 @@ async function loadRemarksFor(rows, _attempt) {
 
   async function fetchChunk(regs, attempt) {
     const list = regs.map(r => encodeURIComponent(r)).join(',');
-    const url = `${SB}/rest/v1/oos_remarks?reg_number=in.(${list})&select=reg_number,oos_since,remark_type,remark_text`;
+    const url = `${SB}/rest/v1/oos_remarks?reg_number=in.(${list})&select=reg_number,oos_since,remark_type,remark_text,department`;
     try {
       const res = await fetch(url, { headers: await authHDR() });
       if (!res.ok) {
@@ -1417,7 +1417,7 @@ async function loadRemarksFor(rows, _attempt) {
       }
       const data = await res.json();
       data.forEach(rec => {
-        REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text };
+        REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text, department: rec.department };
       });
       return true;
     } catch (e) {
@@ -1487,6 +1487,57 @@ function onRemarkBackToDropdown(btnEl) {
   const cell = btnEl.closest('.remark-cell');
   cell.querySelector('.remark-select').style.display = '';
   cell.querySelector('.remark-text-wrap').style.display = 'none';
+}
+
+async function saveDepartment(regNumber, oosSince, department) {
+  const payload = {
+    reg_number: regNumber,
+    oos_since: oosSince || null,
+    department: department || null,
+    updated_by: window.authGetEmail ? window.authGetEmail() : null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const hdr = await authHDR();
+    const res = await fetch(`${SB}/rest/v1/oos_remarks`, {
+      method: 'POST',
+      headers: { ...hdr, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('saveDepartment failed', res.status, err);
+      if (res.status === 401 || res.status === 403) {
+        alert('Your session has expired. Please refresh the page and log in again to save.');
+      } else {
+        alert('Could not save department (error ' + res.status + '). Please try again.');
+      }
+    }
+  } catch (e) {
+    console.error('saveDepartment error', e);
+    alert('Could not save department — network error.');
+  }
+}
+
+function onDeptChange(selectEl, regNumber, oosSince) {
+  const val = selectEl.value;
+  const key = remarkKey(regNumber, oosSince);
+  const existing = REMARKS_CACHE[key] || {};
+  REMARKS_CACHE[key] = { ...existing, department: val };
+  saveDepartment(regNumber, oosSince, val);
+}
+
+function renderDeptCell(regNumber, oosSince) {
+  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)];
+  const selected = cached ? (cached.department || '') : '';
+  const regAttr = JSON.stringify(regNumber);
+  const sinceAttr = JSON.stringify(oosSince || '');
+  const opts = ['Service', 'Spares', 'Ops'].map(d =>
+    `<option value="${d}"${selected === d ? ' selected' : ''}>${d}</option>`
+  ).join('');
+  return `<td><select class="dept-select" style="padding:4px 6px;border:1px solid var(--border2,#cbd5e1);border-radius:6px;font-size:12px;font-family:inherit" onchange='onDeptChange(this, ${regAttr}, ${sinceAttr})'>
+    <option value="">— Select —</option>${opts}
+  </select></td>`;
 }
 
 function renderRemarkCell(regNumber, oosSince) {
@@ -1571,7 +1622,7 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
@@ -1584,6 +1635,7 @@ function renderDDTable(rows) {
       <td class="${ageCls}">${r.oos_age ?? '—'}</td>
       <td class="num">${labourHrs != null ? Number(labourHrs).toFixed(1) : '—'}</td>
       <td>${since}</td>
+      ${renderDeptCell(r.reg_number, r.latest_oos_date)}
       ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
     </tr>`;
   });
