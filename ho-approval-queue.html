@@ -188,6 +188,8 @@ tr.row-flag:hover{background:#fee2e2}
   <select id="pf-type" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
     <option value="all">All</option><option value="intrip">Intrip</option><option value="endtrip">Endtrip</option>
   </select>
+  <span style="margin-left:6px;font-size:12px;color:var(--muted);font-weight:600">HO User</span>
+  <select id="pf-ho-user" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All HO users</option></select>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfReset()">Reset</button>
 </div>
 
@@ -204,6 +206,12 @@ tr.row-flag:hover{background:#fee2e2}
     <span><i class="ln" style="background:var(--amber);border-top:2px dashed var(--amber);background:none;height:0"></i>30-min SLA</span>
   </div>
   <svg id="pf-daily" class="perf-svg" viewBox="0 0 940 300"></svg>
+</div>
+
+<div class="perf-card">
+  <h2>HO User Trend <span style="font-weight:400;font-size:12px;color:var(--muted)">— avg TAT per day, per HO user — is anyone getting faster or slower</span></h2>
+  <div class="perf-legend" id="pf-ho-trend-legend"></div>
+  <svg id="pf-ho-trend" class="perf-svg" viewBox="0 0 940 300"></svg>
 </div>
 
 <div class="perf-card">
@@ -251,7 +259,10 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div class="perf-card">
-  <h2>Approval Cycles <span style="font-weight:400;font-size:12px;color:var(--muted)">— how many attempts each JC ultimately needed</span></h2>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2>Approval Cycles <span style="font-weight:400;font-size:12px;color:var(--muted)">— how many attempts each JC ultimately needed</span></h2>
+    <button class="btn" style="padding:6px 12px;font-size:12px" onclick="exportPerfTableCSV('pf-cycles','approval_cycles')">⬇ Export CSV</button>
+  </div>
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-cycles"><thead><tr>
     <th>Hub</th><th>1st try</th><th>2nd</th><th>3rd</th><th>4th</th><th>5+</th><th>Total JCs</th><th>First-Pass %</th>
   </tr></thead><tbody></tbody></table></div>
@@ -259,7 +270,10 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div class="perf-card">
-  <h2>HO User Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2>HO User Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+    <button class="btn" style="padding:6px 12px;font-size:12px" onclick="exportPerfTableCSV('pf-ho-users','ho_user_performance')">⬇ Export CSV</button>
+  </div>
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-ho-users"><thead><tr>
     <th data-hk="ho_user">HO User<span class="arr"></span></th>
     <th data-hk="n">Requests<span class="arr"></span></th>
@@ -275,7 +289,10 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div class="perf-card">
-  <h2>City Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2>City Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+    <button class="btn" style="padding:6px 12px;font-size:12px" onclick="exportPerfTableCSV('pf-cities','city_performance')">⬇ Export CSV</button>
+  </div>
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-cities"><thead><tr>
     <th data-ck="city">City<span class="arr"></span></th>
     <th data-ck="n">Requests<span class="arr"></span></th>
@@ -291,7 +308,10 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div class="perf-card">
-  <h2>Hub Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2>Hub Performance <span style="font-weight:400;font-size:12px;color:var(--muted)">— click a column to sort</span></h2>
+    <button class="btn" style="padding:6px 12px;font-size:12px" onclick="exportPerfTableCSV('pf-hubs','hub_performance')">⬇ Export CSV</button>
+  </div>
   <div style="overflow-x:auto"><table class="perf-tbl" id="pf-hubs"><thead><tr>
     <th data-k="hub">Hub<span class="arr"></span></th>
     <th data-k="n">Requests<span class="arr"></span></th>
@@ -964,6 +984,10 @@ function perfBootFinish(all){
   pfPopulateHubs('');
   renderHourlyCityPills(cities);
 
+  const hoUserSel=document.getElementById('pf-ho-user');
+  const hoUsers=[...new Set(rows.map(r=>r[11]).filter(Boolean))].sort();
+  hoUsers.forEach(u=>{ const o=document.createElement('option'); o.value=u; o.textContent=u; hoUserSel.appendChild(o); });
+
   // Default view: this calendar month (1st to latest data date), not a
   // rolling 30-day window -- the 30d preset button still covers that case.
   const dmaxDate=new Date(PFD.dmax+'T00:00:00');
@@ -999,17 +1023,62 @@ function perfReset(){
   document.getElementById('pf-from').value=pfFrom; document.getElementById('pf-to').value=pfTo;
   document.getElementById('pf-city').value=''; pfPopulateHubs('');
   document.getElementById('pf-type').value='all';
+  document.getElementById('pf-ho-user').value='';
   perfDraw();
 }
 
 
+// request_date+request_hour is all the client has (no full timestamp in
+// the fetched columns) -- fine for hour/day-scale aging, which is the
+// scale that actually matters for "is this pending request stale."
+function pfPendingAge(pendingRows){
+  if(!pendingRows.length) return null;
+  const now=Date.now();
+  let oldestHrs=0;
+  pendingRows.forEach(r=>{
+    const t=new Date(r[1]+'T'+String(r[2]).padStart(2,'0')+':00:00').getTime();
+    const hrs=(now-t)/36e5;
+    if(hrs>oldestHrs) oldestHrs=hrs;
+  });
+  return oldestHrs;
+}
+function pfPendingNote(n, oldestHrs){
+  if(!n) return '';
+  const c=oldestHrs>24?pfCss('--red'):oldestHrs>8?pfCss('--amber'):pfCss('--muted');
+  const ageTxt=oldestHrs>24?`, oldest ${Math.floor(oldestHrs/24)}d`:oldestHrs>1?`, oldest ${Math.round(oldestHrs)}h`:', oldest <1h';
+  return ` <span style="color:${c};font-size:11px;font-weight:${oldestHrs>24?700:400}">(${n} pending${ageTxt})</span>`;
+}
+
+function exportPerfTableCSV(tableId, filename){
+  const table=document.getElementById(tableId);
+  if(!table) return;
+  const rowsOut=[...table.querySelectorAll('tr')].map(tr=>
+    [...tr.children].map(cell=>{
+      // Strip the little "(N pending)" note and any inline SVG/bar markup
+      // down to plain text, and drop the sort-arrow glyph from header cells
+      // -- the export should read as data, not a copy of the on-screen markup.
+      const clone=cell.cloneNode(true);
+      clone.querySelectorAll('.arr').forEach(a=>a.remove());
+      return '"'+clone.textContent.trim().replace(/\s+/g,' ').replace(/"/g,'""')+'"';
+    }).join(',')
+  );
+  const csv='\ufeff'+rowsOut.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
 function pfTAT(r){ return r[3]; } // raw clock-time TAT in minutes
 function pfFilt(){
   const city=document.getElementById('pf-city').value, hub=document.getElementById('pf-hub').value, typ=document.getElementById('pf-type').value;
+  const hoUser=document.getElementById('pf-ho-user').value;
   return PFD.rows.filter(r=> r[1]>=pfFrom && r[1]<=pfTo
     && (!city || PFD.hubCity[r[0]]===city)
     && (!hub || PFD.hubs[r[0]]===hub)
-    && (typ==='all' || r[6]===(typ==='intrip'?1:0)) );
+    && (typ==='all' || r[6]===(typ==='intrip'?1:0))
+    && (!hoUser || r[11]===hoUser) );
 }
 
 // The system is supposed to tag a rejected job card's next row with
@@ -1075,7 +1144,7 @@ function perfDraw(){
     return `<div class="kpi-tile"><div class="kpi-label">${k[0]}</div><div class="kpi-val" style="color:${col}">${k[1]}</div></div>`;
   }).join('');
 
-  pfDrawDaily(resp); pfDrawHourly(resp); pfDrawRejectTrend(rows); pfDrawCycles(rows); pfDrawHubs(rows); pfDrawHoUsers(rows); pfDrawCities(rows); pfDrawHeatmap(resp); pfDrawTop10(resp);
+  pfDrawDaily(resp); pfDrawHoTrend(rows); pfDrawHourly(resp); pfDrawRejectTrend(rows); pfDrawCycles(rows); pfDrawHubs(rows); pfDrawHoUsers(rows); pfDrawCities(rows); pfDrawHeatmap(resp); pfDrawTop10(resp);
 }
 
 function pfDrawDaily(resp){
@@ -1098,6 +1167,38 @@ function pfDrawDaily(resp){
   s+='</g>'; svg.innerHTML=s;
 }
 
+const PF_TREND_COLORS=['#dc2626','#2563eb','#16a34a','#d97706','#9333ea','#0891b2','#db2777','#65a30d'];
+function pfDrawHoTrend(rows){
+  const svg=document.getElementById('pf-ho-trend'),W=940,H=300,L=42,R=14,T=14,B=30,iw=W-L-R,ih=H-T-B;
+  const legend=document.getElementById('pf-ho-trend-legend');
+  const resp=rows.filter(r=>pfTAT(r)!=null && r[11]);
+  const byUserDay={};
+  resp.forEach(r=>{ const u=r[11]; (byUserDay[u]=byUserDay[u]||{}); (byUserDay[u][r[1]]=byUserDay[u][r[1]]||[]).push(pfTAT(r)); });
+  const users=Object.keys(byUserDay).sort();
+  if(!users.length){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${pfCss('--muted')}">No HO user data in range</text>`; legend.innerHTML=''; return; }
+  const days=[...new Set(resp.map(r=>r[1]))].sort();
+  const series=users.map((u,ui)=>({u, color:PF_TREND_COLORS[ui%PF_TREND_COLORS.length],
+    pts:days.map(d=>byUserDay[u][d]?pfMean(byUserDay[u][d]):null)}));
+  const allVals=series.flatMap(s=>s.pts.filter(v=>v!=null));
+  const hi=pfNiceHi(Math.max(1,...allVals));
+  const x=i=>days.length>1?i/(days.length-1)*iw:iw/2;
+  legend.innerHTML=series.map(s=>`<span><i class="ln" style="background:${s.color}"></i>${s.u}</span>`).join('');
+  let s=`<g transform="translate(${L},${T})">`;
+  [1,10,100,1000].forEach(g=>{ if(g>hi)return; const y=pfLogY(g,ih,hi); s+=`<line x1="0" y1="${y}" x2="${iw}" y2="${y}" stroke="${pfCss('--border')}"/><text x="-8" y="${y+3}" text-anchor="end" font-size="10">${g}</text>`; });
+  series.forEach(ser=>{
+    // Gaps (a user with no requests that day) break the line rather than
+    // interpolating across days they didn't work, which would misleadingly
+    // imply a value that was never actually observed.
+    let seg=[];
+    const flush=()=>{ if(seg.length>1){ const p=seg.map(([i,v])=>`${x(i)},${pfLogY(v,ih,hi)}`).join(' '); s+=`<polyline points="${p}" fill="none" stroke="${ser.color}" stroke-width="2"/>`; }
+      seg.forEach(([i,v])=>{ s+=`<circle cx="${x(i)}" cy="${pfLogY(v,ih,hi)}" r="2.5" fill="${ser.color}"/>`; }); seg=[]; };
+    ser.pts.forEach((v,i)=>{ if(v==null){ flush(); } else { seg.push([i,v]); } });
+    flush();
+  });
+  const step=Math.ceil(days.length/12);
+  days.forEach((d,i)=>{ if(i%step===0||i===days.length-1) s+=`<text x="${x(i)}" y="${ih+15}" text-anchor="middle" font-size="9">${d.slice(8)}/${d.slice(5,7)}</text>`; });
+  s+='</g>'; svg.innerHTML=s;
+}
 function pfDrawRejectTrend(rows){
   const svg=document.getElementById('pf-reject-trend'),W=940,H=260,L=42,R=14,T=14,B=30,iw=W-L-R,ih=H-T-B;
   const byDate={}; rows.forEach(r=>{ (byDate[r[1]]=byDate[r[1]]||[]).push(r); });
@@ -1323,7 +1424,7 @@ function pfDrawHubs(rows){
   // -- shown separately here so that's clear rather than looking like a
   // silent mismatch between this column and the others.
   const pendByHub={};
-  rows.forEach(r=>{ if(r[4]===2){ const h=PFD.hubs[r[0]]; pendByHub[h]=(pendByHub[h]||0)+1; } });
+  rows.forEach(r=>{ if(r[4]===2){ const h=PFD.hubs[r[0]]; (pendByHub[h]=pendByHub[h]||[]).push(r); } });
   // Same unique-JC max-cycle bucketing as pfDrawCycles/perfDraw, so this
   // column's "total" (unique JCs) agrees with the Approval Cycles table's
   // Total JCs for the same hub, rather than the old rows-at-cycle-1
@@ -1335,7 +1436,8 @@ function pfDrawHubs(rows){
     const maxCycles=Object.values(byHubJC[h]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[h]||{n:0,rej:0};
-    return {hub:h, n:nByHub[h], pending:pendByHub[h]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    const pendRows=pendByHub[h]||[];
+    return {hub:h, n:nByHub[h], pending:pendRows.length, pendingOldestHrs:pfPendingAge(pendRows), avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[pfSort], yv=y[pfSort]; const v=xv>yv?1:xv<yv?-1:0; return v*pfSortDir; });
@@ -1346,7 +1448,7 @@ function pfDrawHubs(rows){
   tb.innerHTML=list.map(h=>{
     const hubRows=rows.filter(r=>PFD.hubs[r[0]]===h.hub);
     const idx=cachePfDrill(`${h.hub} — ${hubRows.length} request${hubRows.length===1?'':'s'}`, `Avg TAT ${h.avg.toFixed(1)} min`, hubRows);
-    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${h.hub}</td><td>${h.n}${h.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${h.pending} pending)</span>`:''}</td>`+
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${h.hub}</td><td>${h.n}${pfPendingNote(h.pending,h.pendingOldestHrs)}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,h.avg/mx*100)}px;background:${h.avg<=30?pfCss('--green'):h.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${h.avg.toFixed(1)}</td>`+
     `<td>${h.min.toFixed(1)}</td><td>${h.med.toFixed(1)}</td><td>${h.max.toFixed(1)}</td>`+
     `<td>${h.p90.toFixed(1)}</td><td>${pct(h.sla,85,70)}</td><td>${pctInv(h.rej,5,15)}</td><td>${pct(h.fp,85,75)}</td></tr>`;
@@ -1364,14 +1466,15 @@ function pfDrawCities(rows){
   const nByCity={};
   rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other'; nByCity[c]=(nByCity[c]||0)+1; });
   const pendByCity={};
-  rows.forEach(r=>{ if(r[4]===2){ const c=PFD.hubCity[r[0]]||'Other'; pendByCity[c]=(pendByCity[c]||0)+1; } });
+  rows.forEach(r=>{ if(r[4]===2){ const c=PFD.hubCity[r[0]]||'Other'; (pendByCity[c]=pendByCity[c]||[]).push(r); } });
   const byCityJC={};
   rows.forEach(r=>{ const c=PFD.hubCity[r[0]]||'Other', jc=r[8]; (byCityJC[c]=byCityJC[c]||{}); byCityJC[c][jc]=Math.max(byCityJC[c][jc]||0, r[5]); });
   let list=Object.entries(agg).map(([c,a])=>{
     const maxCycles=Object.values(byCityJC[c]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(x=>x===1).length;
     const rj=rejAgg[c]||{n:0,rej:0};
-    return {city:c, n:nByCity[c], pending:pendByCity[c]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    const pendRows=pendByCity[c]||[];
+    return {city:c, n:nByCity[c], pending:pendRows.length, pendingOldestHrs:pfPendingAge(pendRows), avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[citySort], yv=y[citySort]; const v=xv>yv?1:xv<yv?-1:0; return v*citySortDir; });
@@ -1382,7 +1485,7 @@ function pfDrawCities(rows){
   tb.innerHTML=list.map(c=>{
     const cityRows=rows.filter(r=>(PFD.hubCity[r[0]]||'Other')===c.city);
     const idx=cachePfDrill(`${c.city} — ${cityRows.length} request${cityRows.length===1?'':'s'}`, `Avg TAT ${c.avg.toFixed(1)} min`, cityRows);
-    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${c.city}</td><td>${c.n}${c.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${c.pending} pending)</span>`:''}</td>`+
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${c.city}</td><td>${c.n}${pfPendingNote(c.pending,c.pendingOldestHrs)}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,c.avg/mx*100)}px;background:${c.avg<=30?pfCss('--green'):c.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${c.avg.toFixed(1)}</td>`+
     `<td>${c.min.toFixed(1)}</td><td>${c.med.toFixed(1)}</td><td>${c.max.toFixed(1)}</td>`+
     `<td>${c.p90.toFixed(1)}</td><td>${pct(c.sla,85,70)}</td><td>${pctInv(c.rej,5,15)}</td><td>${pct(c.fp,85,75)}</td></tr>`;
@@ -1421,14 +1524,15 @@ function pfDrawHoUsers(rows){
   const nByUser={};
   rows.forEach(r=>{ const u=r[11]||'Unknown'; nByUser[u]=(nByUser[u]||0)+1; });
   const pendByUser={};
-  rows.forEach(r=>{ if(r[4]===2){ const u=r[11]||'Unknown'; pendByUser[u]=(pendByUser[u]||0)+1; } });
+  rows.forEach(r=>{ if(r[4]===2){ const u=r[11]||'Unknown'; (pendByUser[u]=pendByUser[u]||[]).push(r); } });
   const byUserJC={};
   rows.forEach(r=>{ const u=r[11]||'Unknown', jc=r[8]; (byUserJC[u]=byUserJC[u]||{}); byUserJC[u][jc]=Math.max(byUserJC[u][jc]||0, r[5]); });
   let list=Object.entries(agg).filter(([u,_])=>u!=='Unknown').map(([u,a])=>{
     const maxCycles=Object.values(byUserJC[u]||{});
     const total=maxCycles.length, jc1=maxCycles.filter(c=>c===1).length;
     const rj=rejAgg[u]||{n:0,rej:0};
-    return {ho_user:u, n:nByUser[u], pending:pendByUser[u]||0, avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
+    const pendRows=pendByUser[u]||[];
+    return {ho_user:u, n:nByUser[u], pending:pendRows.length, pendingOldestHrs:pfPendingAge(pendRows), avg:a.t.length?pfMean(a.t):0, min:a.t.length?Math.min(...a.t):0, med:a.t.length?pfQuantile(a.t,.5):0, max:a.t.length?Math.max(...a.t):0, p90:a.t.length?pfQuantile(a.t,.9):0,
       sla:a.t.length?(a.t.filter(x=>x<=30).length/a.t.length*100):0, rej:rj.n?rj.rej/rj.n*100:0, fp:total?jc1/total*100:0};
   });
   list.sort((x,y)=>{ const xv=x[hoSort], yv=y[hoSort]; const v=xv>yv?1:xv<yv?-1:0; return v*hoSortDir; });
@@ -1439,7 +1543,7 @@ function pfDrawHoUsers(rows){
   tb.innerHTML=list.map(u=>{
     const userRows=rows.filter(r=>(r[11]||'Unknown')===u.ho_user);
     const idx=cachePfDrill(`${u.ho_user} — ${userRows.length} request${userRows.length===1?'':'s'}`, `Avg TAT ${u.avg.toFixed(1)} min`, userRows);
-    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${u.ho_user}</td><td>${u.n}${u.pending?` <span style="color:var(--muted,#64748b);font-size:11px">(${u.pending} pending)</span>`:''}</td>`+
+    return `<tr class="clickable-row" onclick="openPfDrillCache(${idx})"><td>${u.ho_user}</td><td>${u.n}${pfPendingNote(u.pending,u.pendingOldestHrs)}</td>`+
     `<td><span class="perf-bar" style="width:${Math.max(2,u.avg/mx*100)}px;background:${u.avg<=30?pfCss('--green'):u.avg<=90?pfCss('--amber'):pfCss('--red')}"></span> ${u.avg.toFixed(1)}</td>`+
     `<td>${u.min.toFixed(1)}</td><td>${u.med.toFixed(1)}</td><td>${u.max.toFixed(1)}</td>`+
     `<td>${u.p90.toFixed(1)}</td><td>${pct(u.sla,85,70)}</td><td>${pctInv(u.rej,5,15)}</td><td>${pct(u.fp,85,75)}</td></tr>`;
