@@ -104,6 +104,7 @@
   <div class="hqtabs" style="display:flex;gap:22px;border-bottom:1px solid var(--border,#e2e8f0);margin-bottom:16px">
     <button id="cstab-savings-btn" class="hqtab-btn active" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--red,#dc2626);border-bottom:2px solid var(--red,#dc2626);margin-bottom:-1px" onclick="switchCsTab('savings')">Savings</button>
     <button id="cstab-refurbpct-btn" class="hqtab-btn" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted,#64748b);border-bottom:2px solid transparent;margin-bottom:-1px" onclick="switchCsTab('refurbpct')">Part-Level Refurbishment %</button>
+    <button id="cstab-savingspct-btn" class="hqtab-btn" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted,#64748b);border-bottom:2px solid transparent;margin-bottom:-1px" onclick="switchCsTab('savingspct')">Cost Saving % (Refurb)</button>
   </div>
 
   <div id="cstab-savings">
@@ -217,6 +218,14 @@
     </div>
     <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div></div>
   </div><!-- /cstab-refurbpct -->
+
+  <div id="cstab-savingspct" style="display:none">
+    <div class="ctl-bar" style="margin-bottom:16px;justify-content:space-between">
+      <div style="font-size:12px;color:var(--muted,#64748b)">Cost Saving % = (OEM benchmark price − actual amount paid) summed across refurb parts billed that month (excluding the motor-related mapping), ÷ total spend on all A+P category parts that month (including motor).</div>
+      <button class="btn secondary" id="savingspct-export-btn" style="display:none" onclick="exportSavingsPctCSV()">⬇ Export CSV</button>
+    </div>
+    <div id="savingspct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div></div>
+  </div><!-- /cstab-savingspct -->
 </div>
 
 <script>
@@ -412,11 +421,15 @@ function computeRefurbSaving(month, city) {
 function switchCsTab(t) {
   document.getElementById('cstab-savings').style.display = (t==='savings') ? '' : 'none';
   document.getElementById('cstab-refurbpct').style.display = (t==='refurbpct') ? '' : 'none';
+  document.getElementById('cstab-savingspct').style.display = (t==='savingspct') ? '' : 'none';
   document.getElementById('cstab-savings-btn').style.color = (t==='savings') ? 'var(--red,#dc2626)' : 'var(--muted,#64748b)';
   document.getElementById('cstab-savings-btn').style.borderBottomColor = (t==='savings') ? 'var(--red,#dc2626)' : 'transparent';
   document.getElementById('cstab-refurbpct-btn').style.color = (t==='refurbpct') ? 'var(--red,#dc2626)' : 'var(--muted,#64748b)';
   document.getElementById('cstab-refurbpct-btn').style.borderBottomColor = (t==='refurbpct') ? 'var(--red,#dc2626)' : 'transparent';
+  document.getElementById('cstab-savingspct-btn').style.color = (t==='savingspct') ? 'var(--red,#dc2626)' : 'var(--muted,#64748b)';
+  document.getElementById('cstab-savingspct-btn').style.borderBottomColor = (t==='savingspct') ? 'var(--red,#dc2626)' : 'transparent';
   if (t === 'refurbpct' && !window._refurbPctLoaded) { window._refurbPctLoaded = true; loadRefurbPct(); }
+  if (t === 'savingspct' && !window._savingsPctLoaded) { window._savingsPctLoaded = true; loadSavingsPct(); }
 }
 
 function refurbPctHeatColor(pct) {
@@ -424,6 +437,88 @@ function refurbPctHeatColor(pct) {
   if (pct >= 80) return 'background:#f0fdf4;color:#15803d;font-weight:600';
   if (pct >= 40) return 'background:#fffbeb;color:#b45309;font-weight:600';
   return 'background:#fef2f2;color:#b91c1c;font-weight:600';
+}
+
+async function loadSavingsPct() {
+  var box = document.getElementById('savingspct-body');
+  document.getElementById('savingspct-export-btn').style.display = 'none';
+  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
+  try {
+    var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_cost_savings_pct', {
+      method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
+    });
+    if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
+    var rows = await r.json();
+    window._savingsPctRows = rows;
+    renderSavingsPctTable(rows);
+    if (rows.length) document.getElementById('savingspct-export-btn').style.display = '';
+  } catch (e) {
+    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>';
+  }
+}
+
+function renderSavingsPctTable(rows) {
+  var box = document.getElementById('savingspct-body');
+  if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No data found.</div>'; return; }
+  var months = [...new Set(rows.map(function(r){ return r.month; }))].sort();
+  var monthLabel = function(ym) {
+    var parts = ym.split('-'); var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, 1);
+    return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+  };
+  var CITY_ORDER = ['Bangalore', 'NCR', 'Hyderabad'];
+  var cities = [...new Set(rows.map(function(r){ return r.city; }))];
+  cities.sort(function(a, b) {
+    var ia = CITY_ORDER.indexOf(a), ib = CITY_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  var latestMonth = months[months.length - 1], prevMonth = months.length > 1 ? months[months.length - 2] : null;
+  var html = '<div class="panel"><div style="overflow-x:auto"><table><thead><tr><th style="white-space:nowrap">City</th>';
+  months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
+  html += '</tr></thead><tbody>';
+  cities.forEach(function(city) {
+    html += '<tr><td style="white-space:nowrap;font-weight:600">' + city + '</td>';
+    months.forEach(function(m) {
+      var cell = rows.find(function(r){ return r.city === city && r.month === m; });
+      var pct = cell ? cell.savings_pct : null;
+      var title = cell ? ('₹' + Number(cell.refurb_savings).toLocaleString('en-IN') + ' saved / ₹' + Number(cell.total_part_cost).toLocaleString('en-IN') + ' total part cost') : 'no data';
+      var color = pct == null ? 'color:var(--muted,#94a3b8)' : pct >= 15 ? 'background:#f0fdf4;color:#15803d;font-weight:600' : pct >= 5 ? 'background:#fffbeb;color:#b45309;font-weight:600' : 'background:#fef2f2;color:#b91c1c;font-weight:600';
+      var trend = '';
+      if (m === latestMonth && prevMonth) {
+        var prevCell = rows.find(function(r){ return r.city === city && r.month === prevMonth; });
+        var prevPct = prevCell ? prevCell.savings_pct : null;
+        if (pct != null && prevPct != null) {
+          var delta = pct - prevPct;
+          if (Math.abs(delta) >= 0.5) {
+            trend = ' <span style="font-size:10px;font-weight:600;color:' + (delta > 0 ? '#15803d' : '#b91c1c') + '">' + (delta > 0 ? '▲' : '▼') + Math.abs(delta).toFixed(1) + '</span>';
+          }
+        }
+      }
+      html += '<td class="num" style="' + color + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + trend + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  box.innerHTML = html;
+}
+
+function exportSavingsPctCSV() {
+  var rows = window._savingsPctRows || [];
+  if (!rows.length) return;
+  var cols = ['City', 'Month', 'Refurb Savings (Rs)', 'Total Part Cost A+P (Rs)', 'Savings %'];
+  var csvRows = rows.map(function(r) {
+    return [r.city, r.month, r.refurb_savings, r.total_part_cost, r.savings_pct != null ? r.savings_pct : ''];
+  });
+  var csv = '\ufeff' + [cols].concat(csvRows).map(function(row) {
+    return row.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cost_saving_pct_refurb_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 }
 
 async function loadRefurbPct() {
