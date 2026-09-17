@@ -1659,15 +1659,16 @@ function exportDrilldownCSV() {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Department', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
+    const department = cached ? (cached.department || '') : '';
     const labourHrs = r.total_labour_hrs;
     const status = r.status || (r.oos_age != null ? 'OOS' : '');
     return [
       r.reg_number, r.hub_name, r.city, status, r.repair_category,
-      r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', remark
+      r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', department, remark
     ];
   });
   downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
