@@ -1524,11 +1524,11 @@ function onDeptChange(selectEl, regNumber, oosSince) {
   const key = remarkKey(regNumber, oosSince);
   const existing = REMARKS_CACHE[key] || {};
   // Changing department invalidates whatever PO/Category value was there
-  // before (a Spares PO number makes no sense once switched to Service,
-  // for instance), so it's cleared rather than carried over silently.
+  // before (a Spares PO number makes no sense once switched to Service).
+  // Nothing is saved to the backend here -- only committed when the row's
+  // own Save button is clicked, so a half-filled row never gets persisted
+  // as if it were complete.
   REMARKS_CACHE[key] = { ...existing, department: val, po_number_category: null };
-  saveDepartment(regNumber, oosSince, val);
-  savePoCategory(regNumber, oosSince, null);
   refreshSiblingCellsFor(regNumber, oosSince);
 }
 
@@ -1599,8 +1599,7 @@ function onPoCategoryDropdownChange(selectEl, regNumber, oosSince) {
   const val = selectEl.value;
   const key = remarkKey(regNumber, oosSince);
   REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), po_number_category: val };
-  savePoCategory(regNumber, oosSince, val);
-  refreshRemarkCellFor(regNumber, oosSince);
+  refreshRemarkCellFor(regNumber, oosSince); // updates the Remarks placeholder for the newly-picked category
 }
 
 function onPoNumberBlur(inputEl, regNumber, oosSince) {
@@ -1609,14 +1608,13 @@ function onPoNumberBlur(inputEl, regNumber, oosSince) {
   if (val && !PO_NUMBER_PATTERN.test(val)) {
     inputEl.style.borderColor = 'var(--red,#dc2626)';
     if (errEl) errEl.style.display = '';
-    return; // don't save an invalid PO number
+    return; // don't accept an invalid PO number into local state either
   }
   inputEl.style.borderColor = '';
   if (errEl) errEl.style.display = 'none';
   inputEl.value = val;
   const key = remarkKey(regNumber, oosSince);
   REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), po_number_category: val };
-  savePoCategory(regNumber, oosSince, val);
 }
 
 function renderPoCategoryCell(regNumber, oosSince) {
@@ -1663,6 +1661,69 @@ function refreshRemarkCellFor(regNumber, oosSince) {
   tr.querySelectorAll('td')[9].outerHTML = renderRemarkCell(regNumber, oosSince);
 }
 
+// Validates and saves Department + PO Number/Category + Remarks together
+// in a single request, rather than each field auto-saving independently --
+// so a half-filled row (e.g. Department picked but Category/Remarks still
+// blank) never gets persisted as if it were a complete, valid entry.
+async function saveRow(btnEl, regNumber, oosSince) {
+  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)] || {};
+  const department = cached.department || '';
+  const poCategory = cached.po_number_category || '';
+  const remarkText = (cached.remark_text || '').trim();
+
+  const errors = [];
+  if (!department) errors.push('Select a Department.');
+  if (department === 'Spares' && !PO_NUMBER_PATTERN.test(poCategory)) errors.push('PO Number must be "PO" followed by 10 digits.');
+  if (department === 'Service' && !SERVICE_CATEGORY_OPTIONS.includes(poCategory)) errors.push('Select a Category.');
+  if (!remarkText) errors.push('Remarks is required.');
+  if (errors.length) {
+    alert('Cannot save:\n\n' + errors.join('\n'));
+    return;
+  }
+
+  const originalLabel = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = 'Saving…';
+  const payload = {
+    reg_number: regNumber,
+    oos_since: oosSince || null,
+    department,
+    po_number_category: department === 'Ops' ? null : poCategory,
+    remark_type: 'Other',
+    remark_text: remarkText,
+    updated_by: window.authGetEmail ? window.authGetEmail() : null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const hdr = await authHDR();
+    const res = await fetch(`${SB}/rest/v1/oos_remarks`, {
+      method: 'POST',
+      headers: { ...hdr, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('saveRow failed', res.status, err);
+      if (res.status === 401 || res.status === 403) {
+        alert('Your session has expired. Please refresh the page and log in again to save.');
+      } else {
+        alert('Could not save (error ' + res.status + '). Please try again.');
+      }
+      btnEl.disabled = false;
+      btnEl.textContent = originalLabel;
+      return;
+    }
+    btnEl.textContent = 'Saved ✓';
+    btnEl.style.background = 'var(--green,#16a34a)';
+    setTimeout(() => { btnEl.disabled = false; btnEl.textContent = originalLabel; btnEl.style.background = 'var(--red,#dc2626)'; }, 1500);
+  } catch (e) {
+    console.error('saveRow error', e);
+    alert('Could not save — network error.');
+    btnEl.disabled = false;
+    btnEl.textContent = originalLabel;
+  }
+}
+
 function renderRemarkCell(regNumber, oosSince) {
   const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)] || {};
   const department = cached.department || '';
@@ -1683,10 +1744,9 @@ function renderRemarkCell(regNumber, oosSince) {
 
 function onRemarkTextInputBlur(inputEl, regNumber, oosSince) {
   const val = inputEl.value.trim();
-  saveRemark(regNumber, oosSince, 'Other', val);
   const key = remarkKey(regNumber, oosSince);
   REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), remark_type: 'Other', remark_text: val };
-  refreshRemarkCellFor(regNumber, oosSince); // re-render to update the missing-value red border immediately
+  refreshRemarkCellFor(regNumber, oosSince); // updates the missing-value red border immediately
 }
 
 function ddBadgeClass(cat) {
@@ -1750,7 +1810,7 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>PO Number / Category</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>PO Number / Category</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
@@ -1766,6 +1826,7 @@ function renderDDTable(rows) {
       ${renderDeptCell(r.reg_number, r.latest_oos_date)}
       ${renderPoCategoryCell(r.reg_number, r.latest_oos_date)}
       ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
+      <td><button type="button" class="row-save-btn" onclick='saveRow(this, ${JSON.stringify(r.reg_number)}, ${JSON.stringify(r.latest_oos_date || '')})' style="padding:4px 12px;background:var(--red,#dc2626);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Save</button></td>
     </tr>`;
   });
   html += '</tbody>';
