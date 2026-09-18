@@ -349,7 +349,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(1)">Yesterday</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(7)">Last 7 days</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setQualityDateRange(30)">Last 30 days</button>
-  <select id="qCity" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+  <select id="qCity" onchange="onQCityChange()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
     <option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option>
   </select>
   <select id="qHub" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
@@ -1626,6 +1626,16 @@ function qualityDefaultFrom(){
   var d=new Date(Date.now()+5.5*60*60*1000);
   d.setDate(d.getDate()-30);
   return d.toISOString().slice(0,10);
+}
+function onQCityChange(){
+  var city=document.getElementById('qCity').value;
+  var hubSel=document.getElementById('qHub');
+  var keepHub=hubSel.value;
+  var hubs=city?[...(HUBS_BY_CITY[city]||[])].sort():[...new Set(Object.values(HUBS_BY_CITY).flat())].sort();
+  hubSel.innerHTML='<option value="">All hubs</option>'+hubs.map(function(h){return '<option value="'+esc(h)+'">'+esc(h)+'</option>';}).join('');
+  hubSel.value=hubs.indexOf(keepHub)>=0?keepHub:'';
+  qualityLoad();
+  loadQualityTrend();
 }
 async function qualityLoadHubs(){
   try{
