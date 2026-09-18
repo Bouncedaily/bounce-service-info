@@ -533,7 +533,7 @@ body { overflow:auto!important; }
   <!-- Filters -->
   <div class="filter-bar">
     <div class="filter-group"><label>City</label>
-      <select id="f-city" onchange="onFilter()"><option value="">All Cities</option></select>
+      <select id="f-city" onchange="onCityFilterNarrowHubs();onFilter()"><option value="">All Cities</option></select>
     </div>
     <div class="filter-group"><label>Hub</label>
       <select id="f-hub" onchange="onFilter()"><option value="">All Hubs</option></select>
@@ -858,10 +858,16 @@ async function fetchData() {
 }
 
 // ── POPULATE FILTERS ──────────────────────────────────────────────────────────
+let HUBS_BY_CITY_OOS = {};
 function populateFilters({ summary, oosDetail }) {
   const cities = [...new Set(summary.map(r => r.city).filter(Boolean))].sort();
   const hubs   = [...new Set(oosDetail.map(r => r.hub_name).filter(Boolean))].sort();
   const models = [...new Set(summary.map(r => r.model_name).filter(Boolean))].sort();
+  HUBS_BY_CITY_OOS = {};
+  oosDetail.forEach(r => {
+    if (!r.city || !r.hub_name) return;
+    (HUBS_BY_CITY_OOS[r.city] = HUBS_BY_CITY_OOS[r.city] || new Set()).add(r.hub_name);
+  });
   const sel = (id, items, label) => {
     const el = document.getElementById(id), cur = el.value;
     el.innerHTML = `<option value="">All ${label}</option>`;
@@ -870,6 +876,16 @@ function populateFilters({ summary, oosDetail }) {
   sel('f-city',  cities, 'Cities');
   sel('f-hub',   hubs,   'Hubs');
   sel('f-model', models, 'Models');
+}
+
+function onCityFilterNarrowHubs() {
+  const citySel = document.getElementById('f-city');
+  const hubSel = document.getElementById('f-hub');
+  const city = citySel.value;
+  const keep = hubSel.value;
+  const hubs = city ? [...(HUBS_BY_CITY_OOS[city] || [])].sort() : [...new Set(Object.values(HUBS_BY_CITY_OOS).flatMap(s => [...s]))].sort();
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + hubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  hubSel.value = hubs.includes(keep) ? keep : '';
 }
 
 // ── FILTER ────────────────────────────────────────────────────────────────────
