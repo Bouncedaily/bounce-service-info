@@ -1407,7 +1407,7 @@ async function loadRemarksFor(rows, _attempt) {
 
   async function fetchChunk(regs, attempt) {
     const list = regs.map(r => encodeURIComponent(r)).join(',');
-    const url = `${SB}/rest/v1/oos_remarks?reg_number=in.(${list})&select=reg_number,oos_since,remark_type,remark_text,department`;
+    const url = `${SB}/rest/v1/oos_remarks?reg_number=in.(${list})&select=reg_number,oos_since,remark_type,remark_text,department,po_number_category`;
     try {
       const res = await fetch(url, { headers: await authHDR() });
       if (!res.ok) {
@@ -1417,7 +1417,7 @@ async function loadRemarksFor(rows, _attempt) {
       }
       const data = await res.json();
       data.forEach(rec => {
-        REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text, department: rec.department };
+        REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text, department: rec.department, po_number_category: rec.po_number_category };
       });
       return true;
     } catch (e) {
@@ -1523,8 +1523,13 @@ function onDeptChange(selectEl, regNumber, oosSince) {
   const val = selectEl.value;
   const key = remarkKey(regNumber, oosSince);
   const existing = REMARKS_CACHE[key] || {};
-  REMARKS_CACHE[key] = { ...existing, department: val };
+  // Changing department invalidates whatever PO/Category value was there
+  // before (a Spares PO number makes no sense once switched to Service,
+  // for instance), so it's cleared rather than carried over silently.
+  REMARKS_CACHE[key] = { ...existing, department: val, po_number_category: null };
   saveDepartment(regNumber, oosSince, val);
+  savePoCategory(regNumber, oosSince, null);
+  refreshSiblingCellsFor(regNumber, oosSince);
 }
 
 function renderDeptCell(regNumber, oosSince) {
@@ -1540,25 +1545,148 @@ function renderDeptCell(regNumber, oosSince) {
   </select></td>`;
 }
 
-function renderRemarkCell(regNumber, oosSince) {
-  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)];
-  const selectedType = cached ? cached.remark_type : '';
-  const selectedText = cached && cached.remark_type === 'Other' ? (cached.remark_text || '') : '';
-  const showText = selectedType === 'Other';
+const SERVICE_CATEGORY_OPTIONS = ['HO Approval', 'Warranty Approval', 'Technical support for Diagnosis', 'Number plate', 'Support from external vendors'];
+const PO_NUMBER_PATTERN = /^PO\d{10}$/;
+
+// Remarks' required-ness and placeholder both depend on Department (and,
+// for Service, on which category was picked) -- centralized here so the
+// remark cell and the department/category change handlers agree on it.
+function remarkPlaceholderFor(department, poCategory) {
+  if (department === 'Spares') return 'Which part is not available';
+  if (department === 'Ops') return 'Give your remarks';
+  if (department === 'Service') {
+    if (poCategory === 'HO Approval') return 'Please mention JC number';
+    if (poCategory === 'Warranty Approval') return 'Please enter Mail Subject';
+    if (poCategory === 'Technical support for Diagnosis') return 'Please brief the issue';
+    if (poCategory === 'Number plate') return 'Please mention whether Front or rear';
+    if (poCategory === 'Support from external vendors') return 'Give your remarks';
+    return 'Select a category first';
+  }
+  return 'Select a department first';
+}
+
+async function savePoCategory(regNumber, oosSince, poCategory) {
+  const payload = {
+    reg_number: regNumber,
+    oos_since: oosSince || null,
+    po_number_category: poCategory || null,
+    updated_by: window.authGetEmail ? window.authGetEmail() : null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const hdr = await authHDR();
+    const res = await fetch(`${SB}/rest/v1/oos_remarks`, {
+      method: 'POST',
+      headers: { ...hdr, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('savePoCategory failed', res.status, err);
+      if (res.status === 401 || res.status === 403) {
+        alert('Your session has expired. Please refresh the page and log in again to save.');
+      } else {
+        alert('Could not save (error ' + res.status + '). Please try again.');
+      }
+    }
+  } catch (e) {
+    console.error('savePoCategory error', e);
+    alert('Could not save — network error.');
+  }
+}
+
+function onPoCategoryDropdownChange(selectEl, regNumber, oosSince) {
+  const val = selectEl.value;
+  const key = remarkKey(regNumber, oosSince);
+  REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), po_number_category: val };
+  savePoCategory(regNumber, oosSince, val);
+  refreshRemarkCellFor(regNumber, oosSince);
+}
+
+function onPoNumberBlur(inputEl, regNumber, oosSince) {
+  const val = inputEl.value.trim().toUpperCase();
+  const errEl = inputEl.parentElement.querySelector('.po-number-error');
+  if (val && !PO_NUMBER_PATTERN.test(val)) {
+    inputEl.style.borderColor = 'var(--red,#dc2626)';
+    if (errEl) errEl.style.display = '';
+    return; // don't save an invalid PO number
+  }
+  inputEl.style.borderColor = '';
+  if (errEl) errEl.style.display = 'none';
+  inputEl.value = val;
+  const key = remarkKey(regNumber, oosSince);
+  REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), po_number_category: val };
+  savePoCategory(regNumber, oosSince, val);
+}
+
+function renderPoCategoryCell(regNumber, oosSince) {
+  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)] || {};
+  const department = cached.department || '';
+  const poCat = cached.po_number_category || '';
   const regAttr = JSON.stringify(regNumber);
   const sinceAttr = JSON.stringify(oosSince || '');
-  let opts = `<option value="">— Select —</option>`;
-  REMARK_OPTIONS.forEach(o => {
-    opts += `<option value="${o}" ${o === selectedType ? 'selected' : ''}>${o}</option>`;
-  });
+  if (department === 'Spares') {
+    const valid = !poCat || PO_NUMBER_PATTERN.test(poCat);
+    return `<td>
+      <input type="text" placeholder="PO6000018786" value="${poCat.replace(/"/g,'&quot;')}" maxlength="12"
+        style="padding:4px 6px;border:1px solid ${valid ? 'var(--border2,#cbd5e1)' : 'var(--red,#dc2626)'};border-radius:6px;font-size:12px;font-family:inherit;width:120px"
+        onblur='onPoNumberBlur(this, ${regAttr}, ${sinceAttr})'>
+      <div class="po-number-error" style="display:${valid ? 'none' : ''};color:var(--red,#dc2626);font-size:10px;margin-top:2px">Must be PO + 10 digits</div>
+    </td>`;
+  }
+  if (department === 'Service') {
+    const opts = SERVICE_CATEGORY_OPTIONS.map(o => `<option value="${o}"${o === poCat ? ' selected' : ''}>${o}</option>`).join('');
+    return `<td><select style="padding:4px 6px;border:1px solid var(--border2,#cbd5e1);border-radius:6px;font-size:12px;font-family:inherit" onchange='onPoCategoryDropdownChange(this, ${regAttr}, ${sinceAttr})'>
+      <option value="">— Select —</option>${opts}
+    </select></td>`;
+  }
+  // Ops (or no department chosen yet): nothing to enter here.
+  return `<td><span style="color:var(--muted,#94a3b8);font-size:12px">—</span></td>`;
+}
+
+// Called when Department changes, since it changes what the PO/Category
+// cell should look like (text input vs dropdown vs disabled) and what
+// the Remarks placeholder should say -- both siblings of the cell that
+// actually changed, found via the row's data attributes rather than
+// threading extra DOM references through every render call.
+function refreshSiblingCellsFor(regNumber, oosSince) {
+  const tr = document.querySelector(`tr[data-reg="${CSS.escape(regNumber||'')}"][data-since="${CSS.escape(oosSince||'')}"]`);
+  if (!tr) return;
+  const cells = tr.querySelectorAll('td');
+  // Department is the 8th <td> (index 7), PO/Category the 9th (index 8), Remarks the 10th (index 9).
+  cells[8].outerHTML = renderPoCategoryCell(regNumber, oosSince);
+  cells[9].outerHTML = renderRemarkCell(regNumber, oosSince);
+}
+function refreshRemarkCellFor(regNumber, oosSince) {
+  const tr = document.querySelector(`tr[data-reg="${CSS.escape(regNumber||'')}"][data-since="${CSS.escape(oosSince||'')}"]`);
+  if (!tr) return;
+  tr.querySelectorAll('td')[9].outerHTML = renderRemarkCell(regNumber, oosSince);
+}
+
+function renderRemarkCell(regNumber, oosSince) {
+  const cached = REMARKS_CACHE[remarkKey(regNumber, oosSince)] || {};
+  const department = cached.department || '';
+  const poCategory = cached.po_number_category || '';
+  const text = cached.remark_text || '';
+  const placeholder = remarkPlaceholderFor(department, poCategory);
+  const canType = department === 'Ops' || (department === 'Spares') || (department === 'Service' && poCategory);
+  const missing = canType && !text;
+  const regAttr = JSON.stringify(regNumber);
+  const sinceAttr = JSON.stringify(oosSince || '');
   return `<td class="remark-cell">
-    <select class="remark-select" onchange='onRemarkTypeChange(this,${regAttr},${sinceAttr})' style="display:${showText ? 'none' : ''}">${opts}</select>
-    <div class="remark-text-wrap" style="display:${showText ? 'flex' : 'none'}">
-      <input type="text" class="remark-text-input" placeholder="Enter remark..." value="${selectedText.replace(/"/g,'&quot;')}"
-        onblur='onRemarkTextBlur(this,${regAttr},${sinceAttr})'>
-      <button type="button" class="remark-back-btn" title="Choose from list instead" onclick="onRemarkBackToDropdown(this)">↺</button>
-    </div>
+    <input type="text" class="remark-text-input" placeholder="${placeholder.replace(/"/g,'&quot;')}" value="${text.replace(/"/g,'&quot;')}"
+      ${canType ? '' : 'disabled'}
+      style="width:100%;min-width:160px;padding:4px 6px;border:1px solid ${missing ? 'var(--red,#dc2626)' : 'var(--border2,#cbd5e1)'};border-radius:6px;font-size:12px;font-family:inherit${canType ? '' : ';background:#f8fafc;color:var(--muted,#94a3b8)'}"
+      onblur='onRemarkTextInputBlur(this,${regAttr},${sinceAttr})'>
   </td>`;
+}
+
+function onRemarkTextInputBlur(inputEl, regNumber, oosSince) {
+  const val = inputEl.value.trim();
+  saveRemark(regNumber, oosSince, 'Other', val);
+  const key = remarkKey(regNumber, oosSince);
+  REMARKS_CACHE[key] = { ...(REMARKS_CACHE[key] || {}), remark_type: 'Other', remark_text: val };
+  refreshRemarkCellFor(regNumber, oosSince); // re-render to update the missing-value red border immediately
 }
 
 function ddBadgeClass(cat) {
@@ -1622,12 +1750,12 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
 }
 
 function renderDDTable(rows) {
-  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>Remarks</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>PO Number / Category</th><th>Remarks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
     const since = r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '—';
     const labourHrs = r.total_labour_hrs;
-    html += `<tr>
+    html += `<tr data-reg="${(r.reg_number||'').replace(/"/g,'&quot;')}" data-since="${(r.latest_oos_date||'').replace(/"/g,'&quot;')}">
       <td style="font-weight:600">${r.reg_number || '—'}</td>
       <td>${r.hub_name || '—'}</td>
       <td>${r.status || (r.oos_age != null ? 'OOS' : '—')}</td>
@@ -1636,6 +1764,7 @@ function renderDDTable(rows) {
       <td class="num">${labourHrs != null ? Number(labourHrs).toFixed(1) : '—'}</td>
       <td>${since}</td>
       ${renderDeptCell(r.reg_number, r.latest_oos_date)}
+      ${renderPoCategoryCell(r.reg_number, r.latest_oos_date)}
       ${renderRemarkCell(r.reg_number, r.latest_oos_date)}
     </tr>`;
   });
@@ -1659,16 +1788,17 @@ function exportDrilldownCSV() {
 
 function exportOOSDrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Department', 'Remark'];
+  const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Department', 'PO Number / Category', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
     const cached = REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)];
     const remark = cached ? (cached.remark_type === 'Other' ? cached.remark_text : cached.remark_type) : '';
     const department = cached ? (cached.department || '') : '';
+    const poCategory = cached ? (cached.po_number_category || '') : '';
     const labourHrs = r.total_labour_hrs;
     const status = r.status || (r.oos_age != null ? 'OOS' : '');
     return [
       r.reg_number, r.hub_name, r.city, status, r.repair_category,
-      r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', department, remark
+      r.oos_age, labourHrs != null ? Number(labourHrs).toFixed(1) : '', r.latest_oos_date ? fmtDateTime(r.latest_oos_date) : '', department, poCategory, remark
     ];
   });
   downloadCSV('oos_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', header, rows);
