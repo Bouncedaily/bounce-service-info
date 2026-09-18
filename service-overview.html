@@ -180,7 +180,7 @@
     <div class="fg"><label>From</label><input type="date" id="f-from"></div>
     <div class="fg"><label>To</label><input type="date" id="f-to"></div>
     <div class="fg"><label>City</label>
-      <select id="f-city"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
+      <select id="f-city" onchange="onCityFilterNarrowHubsSO()"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
     </div>
     <div class="fg"><label>Hub</label><select id="f-hub"><option value="">All Hubs</option></select></div>
     <button class="btn primary" onclick="loadAll()">Apply</button>
@@ -821,11 +821,26 @@ function renderParts(parts) {
   ).join('') : '<tr><td colspan="6" class="empty">No data</td></tr>';
 }
 
+let HUBS_BY_CITY_SO = {};
 async function loadHubs() {
   const r = await fetch(`${SB}/rest/v1/rpc/get_distinct_hubs`, { method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}' });
   const hubs = await r.json();
   const sel = document.getElementById('f-hub');
   (hubs||[]).forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
+  try {
+    const cr = await fetch(`${SB}/rest/v1/rpc/get_hubs_by_city`, { method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}' });
+    HUBS_BY_CITY_SO = await cr.json() || {};
+  } catch (e) { console.warn('city-hub mapping fetch failed', e); }
+}
+
+function onCityFilterNarrowHubsSO() {
+  const citySel = document.getElementById('f-city');
+  const hubSel = document.getElementById('f-hub');
+  const city = citySel.value;
+  const keep = hubSel.value;
+  const hubs = city ? [...(HUBS_BY_CITY_SO[city] || [])].sort() : [...new Set(Object.values(HUBS_BY_CITY_SO).flat())].sort();
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + hubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  hubSel.value = hubs.includes(keep) ? keep : '';
 }
 
 // Fixed calendar-month comparison, unlike every other Cost KPI — this one
