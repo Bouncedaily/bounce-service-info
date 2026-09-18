@@ -1279,7 +1279,17 @@ async function downloadMovementPDF(row) {
   doc.save(`${row.movement_type}_${(row.category||row.part_name||'item').replace(/[^a-z0-9]+/gi,'_')}_${row.pickup_date}.pdf`);
 }
 
-function onFilterChange() { /* no-op, applied on Apply click */ }
+function onFilterChange() {
+  // Narrows the Hub dropdown to the selected city's hubs, same pattern
+  // already used for Create Movement's own city/hub pair (s-city/s-hub).
+  const citySel = document.getElementById('f-city');
+  const hubSel = document.getElementById('f-hub');
+  const city = citySel.value;
+  const currentHub = hubSel.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) hubSel.value = currentHub;
+}
 
 async function loadApprovalQueue(city, hub) {
   const items = await rpc('get_scrap_approval_queue', { p_city: city, p_hub: hub }) || [];
