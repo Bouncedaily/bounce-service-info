@@ -2032,7 +2032,15 @@ async function createBatchInner() {
     }
     const photoFile = tr.querySelector('.row-photo').files[0];
     if (!photoFile) { missingPhoto.push(label); continue; }
-    filled.push({ category, partName, unit, actualQty: isNaN(actualQty) ? null : actualQty, actualWeight: isNaN(actualWeight) ? null : actualWeight, drivingQty, rate, total, systemCalc, remark: remark || null, photoFile });
+    // If this exact file (by name+size+lastModified) already uploaded
+    // successfully on an earlier Save click for this same row, reuse that
+    // URL instead of re-uploading -- this is what lets a retry after a
+    // partial failure skip everything that already succeeded. Kept on the
+    // <tr> itself (not in a module-level map) since the row element is the
+    // one stable thing that survives between Save attempts on this form.
+    const fingerprint = `${photoFile.name}_${photoFile.size}_${photoFile.lastModified}`;
+    const cachedUrl = (tr.dataset.uploadedPhotoFingerprint === fingerprint) ? tr.dataset.uploadedPhotoUrl : null;
+    filled.push({ category, partName, unit, actualQty: isNaN(actualQty) ? null : actualQty, actualWeight: isNaN(actualWeight) ? null : actualWeight, drivingQty, rate, total, systemCalc, remark: remark || null, photoFile, tr, fingerprint, cachedUrl });
   }
 
   if (periodFrom && periodTo && filled.length) {
@@ -2054,30 +2062,35 @@ async function createBatchInner() {
 
   const vendorName = vendorId ? ((VENDORS.find(v=>String(v.id)===String(vendorId))||{}).vendor_name) : null;
 
-  // Upload each row's own photo first (kept separate per row per requirement)
+  // Upload each row's own photo first (kept separate per row per requirement).
+  // Rows whose exact file already uploaded successfully on an earlier Save
+  // click (cachedUrl, matched by file fingerprint on the <tr>) are skipped
+  // entirely -- so clicking Save again after a partial failure only
+  // re-uploads what actually failed.
   const photoFailed = [];
   for (const f of filled) {
     f.photoDataUrl = await fileToDataURL(f.photoFile);
+    if (f.cachedUrl) { f.photoUrl = f.cachedUrl; continue; }
     f.photoUrl = await uploadScrapPhoto(f.photoFile);
-    if (!f.photoUrl) photoFailed.push(f.category || f.partName);
+    if (f.photoUrl) {
+      f.tr.dataset.uploadedPhotoUrl = f.photoUrl;
+      f.tr.dataset.uploadedPhotoFingerprint = f.fingerprint;
+    } else {
+      photoFailed.push(f.category || f.partName);
+    }
   }
   // Photo is a required control, not a nice-to-have -- if the upload itself
   // failed (network blip, storage issue), the movement must NOT be saved
   // with a null photo_url. That would silently create an unevidenced
   // financial record while the UI still claims evidence was required.
+  //
+  // Successful uploads from THIS SAME attempt (and any earlier attempt) are
+  // deliberately NOT deleted or discarded here -- they stay cached on their
+  // row (see above) so clicking Save again only needs to retry the photo(s)
+  // that actually failed, rather than losing already-good uploads and
+  // forcing a full redo of a potentially large batch.
   if (photoFailed.length) {
-    // Clean up any photos that DID upload successfully in this same batch
-    // attempt -- otherwise a partial failure leaves orphan files in storage
-    // that are never linked to any saved movement.
-    for (const f of filled) {
-      if (f.photoUrl) {
-        try {
-          const path = f.photoUrl.split('/scrap-photos/')[1];
-          if (path) await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, { method: 'DELETE', headers: await authHDR() });
-        } catch (e) { console.error('orphan photo cleanup failed', e); }
-      }
-    }
-    alert('Could not upload photo for:\n\n' + photoFailed.join('\n') + '\n\nThe movement was NOT saved -- nothing was recorded without evidence. Please try again (check your connection), or retake the photo(s) if they failed to load.');
+    alert('Could not upload photo for:\n\n' + photoFailed.join('\n') + '\n\nThose specific row(s) were NOT saved -- nothing is recorded without evidence. Every other row in this batch already has its photo uploaded and will not need to be retaken. Please check your connection and click Save again to retry just the failed photo(s), or retake them first if they look wrong.');
     return;
   }
 
@@ -2097,12 +2110,17 @@ async function createBatchInner() {
   if (!r.ok) {
     // Every photo uploaded fine, but the movement itself failed to save --
     // clean those up too, same reasoning as the upload-failure path above.
+    // Also clears the retry-cache on each row -- otherwise a Save retry
+    // would see the cached fingerprint match and reuse a photo_url that
+    // was just deleted from storage, silently saving a broken link.
     for (const f of filled) {
       if (f.photoUrl) {
         try {
           const path = f.photoUrl.split('/scrap-photos/')[1];
           if (path) await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, { method: 'DELETE', headers: await authHDR() });
         } catch (e) { console.error('orphan photo cleanup failed', e); }
+        delete f.tr.dataset.uploadedPhotoUrl;
+        delete f.tr.dataset.uploadedPhotoFingerprint;
       }
     }
     alert('Could not save: ' + (await r.text()).slice(0,200));
@@ -2118,6 +2136,12 @@ async function createBatchInner() {
   });
 
   document.querySelectorAll('#s-rows-tbody input').forEach(el => { if (el.type === 'file') el.value = ''; else if (!el.readOnly) el.value = ''; });
+  // Clear the retry-cache attached to each row now that the batch is
+  // actually saved -- otherwise a stale uploadedPhotoUrl could get reused
+  // for a completely different photo the person selects for their next
+  // movement, since the file input is cleared here but the <tr> elements
+  // themselves are not rebuilt.
+  document.querySelectorAll('#s-rows-tbody tr').forEach(tr => { delete tr.dataset.uploadedPhotoUrl; delete tr.dataset.uploadedPhotoFingerprint; });
   updateGrandTotal();
   loadAll();
 }
