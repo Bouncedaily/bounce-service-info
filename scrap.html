@@ -328,8 +328,11 @@
       </div>
       <div style="margin-bottom:20px">
         <div class="panel" style="margin-bottom:12px">
-          <h3 style="font-size:13px;margin:0 0 4px"><i class="ti ti-recycle"></i> Scrap</h3>
-          <div class="funnel-flow" id="mgmtFunnelFlow-Scrap"></div>
+          <h3 style="font-size:13px;margin:0 0 4px"><span><i class="ti ti-recycle"></i> Scrap</span></h3>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">By weight (kg) — Aluminium, Iron, Plastic, Wires, Brake Shoes, Rubber, Other Metal</div>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Scrap-kg"></div>
+          <div style="font-size:11px;color:var(--muted);margin:8px 0 2px">By count (nos) — Battery, Charger, Controller, Consumables, Electronics, Lighting, Tyre, Other/Uncategorized</div>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Scrap-nos"></div>
         </div>
         <div class="panel" style="margin-bottom:12px">
           <h3 style="font-size:13px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center">
@@ -2494,17 +2497,29 @@ async function renderMgmtFunnels(city, from, to) {
   ]);
   const sumRows = (rows, key) => (rows || []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
-  // Scrap ends at Vendor (it's sold, not refurbished/rejected) -- no
-  // Recovery/Rejection % shown for it, since those concepts don't apply.
-  const scrapNodes = [
-    ['Consumed', sumRows(scrapRows, 'consumed')], ['At Hub', sumRows(scrapRows, 'actual_in_hub')],
-    ['RPDC', sumRows(scrapRows, 'sent_to_rpdc')], ['Vendor', sumRows(scrapRows, 'sent_to_vendor')]
-  ];
-  const scrapEl = document.getElementById('mgmtFunnelFlow-Scrap');
-  if (scrapEl) scrapEl.innerHTML = scrapNodes.map(([label, val], i) =>
-    `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
-    (i < scrapNodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
-  ).join('');
+  // Scrap categories are tracked in two genuinely different units (kg for
+  // Aluminium/Iron/Plastic/etc, nos for Battery/Electronics/Lighting/etc)
+  // -- summing them together produced a number that mixed kilograms and
+  // piece-counts as if they were the same thing (confirmed: 5,959 kg of
+  // Plastic + 968 pieces of Lighting was showing as a single "11,885").
+  // Split into two rows instead, one per unit, so each total is actually
+  // meaningful. Scrap ends at Vendor (it's sold, not refurbished/rejected)
+  // -- no Recovery/Rejection % shown, since those concepts don't apply.
+  const scrapKgRows = (scrapRows || []).filter(r => r.unit === 'kg');
+  const scrapNosRows = (scrapRows || []).filter(r => r.unit !== 'kg');
+  const renderScrapRow = (elId, rows, unitLabel) => {
+    const nodes = [
+      ['Consumed', sumRows(rows, 'consumed')], ['At Hub', sumRows(rows, 'actual_in_hub')],
+      ['RPDC', sumRows(rows, 'sent_to_rpdc')], ['Vendor', sumRows(rows, 'sent_to_vendor')]
+    ];
+    const el = document.getElementById(elId);
+    if (el) el.innerHTML = nodes.map(([label, val], i) =>
+      `<div class="funnel-node"><div class="fn-val">${fmtN(val)} <span style="font-size:10px;font-weight:400;color:var(--muted)">${unitLabel}</span></div><div class="fn-label">${label}</div></div>` +
+      (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+    ).join('');
+  };
+  renderScrapRow('mgmtFunnelFlow-Scrap-kg', scrapKgRows, 'kg');
+  renderScrapRow('mgmtFunnelFlow-Scrap-nos', scrapNosRows, 'nos');
 
   [['Refurb', refurbRows], ['Tyre', tyreRows]].forEach(([type, rows]) => {
     const consumed = sumRows(rows, 'consumed'), atHub = sumRows(rows, 'actual_in_hub'), rpdc = sumRows(rows, 'sent_to_rpdc'),
