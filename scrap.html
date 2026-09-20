@@ -2481,10 +2481,16 @@ function renderFunnelSummary(type) {
 // page) rather than a new RPC, since this is the same data at a coarser
 // aggregation.
 async function renderMgmtFunnels(city, from, to) {
+  // p_bound_hub_actual:true here (unlike Log a Movement's own use of this
+  // same RPC) -- this view exists to summarize ONE period at a glance, so
+  // "At Hub" must be scoped to that same period too. Without it, "At Hub"
+  // silently falls back to whatever the most recent snapshot happens to be
+  // (even from a completely different, older period), which sat next to a
+  // strictly-this-period Consumed number and looked like a data error.
   const [scrapRows, refurbRows, tyreRows] = await Promise.all([
-    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: null }),
-    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: null }),
-    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: null })
+    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true })
   ]);
   const sumRows = (rows, key) => (rows || []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
