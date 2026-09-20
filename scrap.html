@@ -326,6 +326,32 @@
           <option value="26">Last 26 weeks</option>
         </select>
       </div>
+      <div style="margin-bottom:20px">
+        <div class="panel" style="margin-bottom:12px">
+          <h3 style="font-size:13px;margin:0 0 4px"><i class="ti ti-recycle"></i> Scrap</h3>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Scrap"></div>
+        </div>
+        <div class="panel" style="margin-bottom:12px">
+          <h3 style="font-size:13px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center">
+            <span><i class="ti ti-recycle"></i> Refurb</span>
+            <span style="display:flex;gap:10px;font-weight:400">
+              <span style="font-size:11px;color:var(--muted)">Recovery <b id="mgmtFunnelRecovery-Refurb" style="color:var(--text)">—</b></span>
+              <span style="font-size:11px;color:var(--muted)">Rejection <b id="mgmtFunnelRejection-Refurb" style="color:var(--text)">—</b></span>
+            </span>
+          </h3>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Refurb"></div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <h3 style="font-size:13px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center">
+            <span><i class="ti ti-circle-dot"></i> Tyre</span>
+            <span style="display:flex;gap:10px;font-weight:400">
+              <span style="font-size:11px;color:var(--muted)">Recovery <b id="mgmtFunnelRecovery-Tyre" style="color:var(--text)">—</b></span>
+              <span style="font-size:11px;color:var(--muted)">Rejection <b id="mgmtFunnelRejection-Tyre" style="color:var(--text)">—</b></span>
+            </span>
+          </h3>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Tyre"></div>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div>
           <h3 style="font-size:13px;margin:0 0 8px">Scrap Revenue — Weekly <span style="font-weight:400;font-size:11px;color:var(--muted)">(Scrap sales only — excludes Refurb/Tyre)</span></h3>
@@ -1369,6 +1395,8 @@ async function loadMgmtTab() {
   mgmtSeedCity();
   const city = document.getElementById('mgmt-city').value || null;
   const weeks = parseInt(document.getElementById('mgmt-weeks').value, 10) || 12;
+  const to = todayIST();
+  const from = new Date(Date.now() - weeks * 7 * 864e5).toISOString().slice(0, 10);
   const lbWrap = document.getElementById('mgmt-leaderboard-wrap');
   if (!MGMT_INITIALIZED) { MGMT_INITIALIZED = true; }
   else { lbWrap.innerHTML = '<div class="empty"><span class="spin"></span></div>'; }
@@ -1376,7 +1404,8 @@ async function loadMgmtTab() {
   try {
     const [trend, leaderboard] = await Promise.all([
       rpc('get_scrap_health_trend', { p_city: city, p_hub: null, p_weeks: weeks }),
-      rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: null, p_to: null })
+      rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: null, p_to: null }),
+      renderMgmtFunnels(city, from, to)
     ]);
     mgmtRenderCharts(trend.weeks || []);
     mgmtRenderLeaderboard(leaderboard || []);
@@ -2430,6 +2459,56 @@ function renderFunnelSummary(type) {
     `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
     (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
   ).join('');
+}
+
+// Scoreboard tab's management-level funnels: one per category (Scrap,
+// Refurb, Tyre), summed across every part/category within each type,
+// scoped to the tab's own City + Weeks filter rather than the Log a
+// Movement pipeline's per-part filter -- reuses get_movement_pipeline
+// (already the source of truth for every other pipeline number on this
+// page) rather than a new RPC, since this is the same data at a coarser
+// aggregation.
+async function renderMgmtFunnels(city, from, to) {
+  const [scrapRows, refurbRows, tyreRows] = await Promise.all([
+    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: null }),
+    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: null }),
+    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: null })
+  ]);
+  const sumRows = (rows, key) => (rows || []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
+  // Scrap ends at Vendor (it's sold, not refurbished/rejected) -- no
+  // Recovery/Rejection % shown for it, since those concepts don't apply.
+  const scrapNodes = [
+    ['Consumed', sumRows(scrapRows, 'consumed')], ['At Hub', sumRows(scrapRows, 'actual_in_hub')],
+    ['RPDC', sumRows(scrapRows, 'sent_to_rpdc')], ['Vendor', sumRows(scrapRows, 'sent_to_vendor')]
+  ];
+  const scrapEl = document.getElementById('mgmtFunnelFlow-Scrap');
+  if (scrapEl) scrapEl.innerHTML = scrapNodes.map(([label, val], i) =>
+    `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
+    (i < scrapNodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+  ).join('');
+
+  [['Refurb', refurbRows], ['Tyre', tyreRows]].forEach(([type, rows]) => {
+    const consumed = sumRows(rows, 'consumed'), atHub = sumRows(rows, 'actual_in_hub'), rpdc = sumRows(rows, 'sent_to_rpdc'),
+          vendor = sumRows(rows, 'sent_to_vendor'), outcome = sumRows(rows, 'outcome'), rejected = sumRows(rows, 'rejected');
+    const recoveryPct = consumed > 0 ? Math.round((outcome / consumed) * 1000) / 10 : null;
+    const rejectionPct = consumed > 0 ? Math.round((rejected / consumed) * 1000) / 10 : null;
+    const recEl = document.getElementById('mgmtFunnelRecovery-' + type);
+    const rejEl = document.getElementById('mgmtFunnelRejection-' + type);
+    if (recEl) recEl.textContent = recoveryPct != null ? recoveryPct + '%' : '—';
+    if (rejEl) rejEl.textContent = rejectionPct != null ? rejectionPct + '%' : '—';
+    const outcomeLabel = type === 'Tyre' ? 'CN Approved' : 'Refurbished';
+    const rejectedLabel = type === 'Tyre' ? 'CN Rejected' : 'Rejected';
+    const nodes = [
+      ['Consumed', consumed], ['At Hub', atHub], ['RPDC', rpdc],
+      ['Vendor', vendor], [outcomeLabel, outcome], [rejectedLabel, rejected]
+    ];
+    const flowEl = document.getElementById('mgmtFunnelFlow-' + type);
+    if (flowEl) flowEl.innerHTML = nodes.map(([label, val], i) =>
+      `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
+      (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+    ).join('');
+  });
 }
 
 function ptRenderType(type) {
