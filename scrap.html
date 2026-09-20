@@ -319,11 +319,11 @@
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px">
         <label style="font-size:12px;color:var(--muted);font-weight:600">CITY</label>
         <select id="mgmt-city" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"></select>
-        <label style="font-size:12px;color:var(--muted);font-weight:600">WEEKS</label>
-        <select id="mgmt-weeks" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px">
-          <option value="8">Last 8 weeks</option>
-          <option value="12" selected>Last 12 weeks</option>
-          <option value="26">Last 26 weeks</option>
+        <label style="font-size:12px;color:var(--muted);font-weight:600">PERIOD</label>
+        <select id="mgmt-period" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px">
+          <option value="this_month" selected>This month</option>
+          <option value="last_month">Last month</option>
+          <option value="all_months">All months</option>
         </select>
       </div>
       <div style="margin-bottom:20px">
@@ -1394,17 +1394,29 @@ function mgmtSeedCity() {
 async function loadMgmtTab() {
   mgmtSeedCity();
   const city = document.getElementById('mgmt-city').value || null;
-  const weeks = parseInt(document.getElementById('mgmt-weeks').value, 10) || 12;
-  const to = todayIST();
-  const from = new Date(Date.now() - weeks * 7 * 864e5).toISOString().slice(0, 10);
+  const period = document.getElementById('mgmt-period').value || 'this_month';
+  const now = new Date(Date.now() + 5.5 * 3600 * 1000); // IST, matching todayIST()
+  let from, to;
+  if (period === 'this_month') {
+    from = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-01`;
+    to = todayIST();
+  } else if (period === 'last_month') {
+    const lm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    from = `${lm.getUTCFullYear()}-${String(lm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)); // day 0 of this month = last day of prev month
+    to = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth()+1).padStart(2,'0')}-${String(lastDay.getUTCDate()).padStart(2,'0')}`;
+  } else { // all_months -- fixed start covering every logged movement (earliest on record: 2026-03-05)
+    from = '2026-01-01';
+    to = todayIST();
+  }
   const lbWrap = document.getElementById('mgmt-leaderboard-wrap');
   if (!MGMT_INITIALIZED) { MGMT_INITIALIZED = true; }
   else { lbWrap.innerHTML = '<div class="empty"><span class="spin"></span></div>'; }
 
   try {
     const [trend, leaderboard] = await Promise.all([
-      rpc('get_scrap_health_trend', { p_city: city, p_hub: null, p_weeks: weeks }),
-      rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: null, p_to: null }),
+      rpc('get_scrap_health_trend', { p_city: city, p_hub: null, p_from: from, p_to: to }),
+      rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: from, p_to: to }),
       renderMgmtFunnels(city, from, to)
     ]);
     mgmtRenderCharts(trend.weeks || []);
