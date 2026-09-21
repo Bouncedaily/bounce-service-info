@@ -282,6 +282,18 @@ input[type=date] { min-width: 130px; }
     }
     .fg { display: flex; flex-direction: column; gap: 3px; }
     .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+
+    /* ── multi-select dropdown (Top Parts Contribution filters) ── */
+    .msel{position:relative}
+    .msel-btn{padding:7px 9px;border:1px solid var(--border2,var(--border));border-radius:7px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:6px}
+    .msel-btn:after{content:'▾';color:var(--muted);font-size:10px}
+    .msel-dd{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--card);border:1px solid var(--border2,var(--border));border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:50;min-width:180px;max-height:280px;overflow-y:auto;padding:6px}
+    .msel-dd.on{display:block}
+    .msel-opt{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12.5px;white-space:nowrap}
+    .msel-opt:hover{background:var(--bg,#f1f5f9)}
+    .msel-opt input{margin:0}
+    .msel-actions{display:flex;gap:6px;padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+    .msel-actions a{font-size:11px;color:var(--red);cursor:pointer;text-decoration:none;font-weight:600}
     .fg select, .fg input {
       padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
       border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
@@ -605,10 +617,10 @@ body { overflow:auto!important; }
             <div style="display:flex;align-items:center;gap:6px"><input type="date" id="tpA1" style="width:118px"><span style="color:var(--muted)">–</span><input type="date" id="tpA2" style="width:118px"></div></div>
           <div class="fg"><label>Period B · last month</label>
             <div style="display:flex;align-items:center;gap:6px"><input type="date" id="tpB1" style="width:118px"><span style="color:var(--muted)">–</span><input type="date" id="tpB2" style="width:118px"></div></div>
-          <div class="fg"><label>City</label><select id="tpCity" style="width:105px" onchange="tpRebuildHubs()"><option value="">All Cities</option></select></div>
-          <div class="fg"><label>Hub</label><select id="tpHub" style="width:140px"><option value="">All Hubs</option></select></div>
-          <div class="fg"><label>DMS Cat</label><select id="tpComm" style="width:120px"><option value="">All</option></select></div>
-          <div class="fg"><label>Submission Type</label><select id="tpSub" style="width:130px"><option value="">All</option></select></div>
+          <div class="fg"><label>City</label><div class="msel" id="tp-msel-city"><button type="button" class="msel-btn" onclick="tpMselToggle('city')">All Cities</button><div class="msel-dd" id="tp-msel-city-dd"></div></div></div>
+          <div class="fg"><label>Hub</label><div class="msel" id="tp-msel-hub"><button type="button" class="msel-btn" onclick="tpMselToggle('hub')">All Hubs</button><div class="msel-dd" id="tp-msel-hub-dd"></div></div></div>
+          <div class="fg"><label>DMS Cat</label><div class="msel" id="tp-msel-comm"><button type="button" class="msel-btn" onclick="tpMselToggle('comm')">All</button><div class="msel-dd" id="tp-msel-comm-dd"></div></div></div>
+          <div class="fg"><label>Submission Type</label><div class="msel" id="tp-msel-sub"><button type="button" class="msel-btn" onclick="tpMselToggle('sub')">All</button><div class="msel-dd" id="tp-msel-sub-dd"></div></div></div>
           <div class="fg"><label>Part name</label><input type="text" id="tpPart" placeholder="Search part…" style="width:130px" onkeydown="if(event.key==='Enter')loadTopParts()"></div>
           <button class="toggle-btn active" onclick="loadTopParts()">Apply</button>
           <button class="toggle-btn" onclick="clearTopParts()">✕ Clear</button>
@@ -855,31 +867,81 @@ function setTpPreset(kind, btn){
   loadTopParts();
 }
 function clearTopParts(){
-  ['tpCity','tpHub','tpComm','tpSub','tpPart'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  TP_SEL={city:[],hub:[],comm:[],sub:[]};
+  var partEl=document.getElementById('tpPart'); if(partEl) partEl.value='';
+  tpMselRender('city',TP_CITIES); tpMselRender('comm',TP_COMMODITIES); tpMselRender('sub',TP_SUBTYPES);
+  ['city','hub','comm','sub'].forEach(function(key){ tpMselUpdateLabel(key); });
   tpRebuildHubs();
   setTpPreset('month', document.getElementById('tpp-month'));
 }
-var TP_DIMS=false, TP_INIT=false, TP_HUBS=[];
+var TP_DIMS=false, TP_INIT=false, TP_HUBS=[], TP_CITIES=[], TP_COMMODITIES=[], TP_SUBTYPES=[];
+// Top Parts Contribution's own multi-select state (city/hub/comm/sub) --
+// namespaced tp* so it can't collide with any other multi-select on this
+// page. Empty array means "no filter" (matches everything), same
+// convention the old single-select empty-string value used.
+var TP_SEL={city:[],hub:[],comm:[],sub:[]};
+function tpEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function tpMselToggle(key){
+  var dd=document.getElementById('tp-msel-'+key+'-dd');
+  var isOpen=dd.classList.contains('on');
+  document.querySelectorAll('#tab-parts .msel-dd').forEach(function(d){d.classList.remove('on');});
+  if(!isOpen) dd.classList.add('on');
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.msel')) document.querySelectorAll('.msel-dd').forEach(function(d){d.classList.remove('on');});
+});
+function tpMselRender(key,options){
+  var dd=document.getElementById('tp-msel-'+key+'-dd');
+  if(!dd) return;
+  var html='<div class="msel-actions"><a onclick="tpMselAll(\''+key+'\',true)">Select all</a><a onclick="tpMselAll(\''+key+'\',false)">Clear</a></div>';
+  html+=options.map(function(o){
+    var checked=TP_SEL[key].indexOf(o)>=0?'checked':'';
+    return '<label class="msel-opt"><input type="checkbox" value="'+tpEsc(o)+'" '+checked+' onchange="tpMselChange(\''+key+'\',this)">'+tpEsc(o)+'</label>';
+  }).join('');
+  dd.innerHTML=html;
+}
+function tpMselChange(key,cb){
+  var v=cb.value;
+  if(cb.checked){ if(TP_SEL[key].indexOf(v)<0) TP_SEL[key].push(v); }
+  else { TP_SEL[key]=TP_SEL[key].filter(function(x){return x!==v;}); }
+  tpMselUpdateLabel(key);
+  if(key==='city') tpRebuildHubs();
+}
+function tpMselAll(key,select){
+  var dd=document.getElementById('tp-msel-'+key+'-dd');
+  var opts=Array.from(dd.querySelectorAll('input[type=checkbox]'));
+  TP_SEL[key]=select?opts.map(function(o){return o.value;}):[];
+  opts.forEach(function(o){o.checked=select;});
+  tpMselUpdateLabel(key);
+  if(key==='city') tpRebuildHubs();
+}
+function tpMselUpdateLabel(key){
+  var btn=document.querySelector('#tp-msel-'+key+' .msel-btn');
+  if(!btn) return;
+  var allLabel=key==='city'?'All Cities':key==='hub'?'All Hubs':'All';
+  btn.textContent=TP_SEL[key].length===0?allLabel:(TP_SEL[key].length===1?TP_SEL[key][0]:TP_SEL[key].length+' selected');
+}
 async function fillPartsDims(){
   if(TP_DIMS) return;
   try{
     var r=await fetch(INFO_URL+'/rest/v1/rpc/get_parts_dims',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:'{}'});
     var d=await r.json();
-    TP_HUBS=d.hubs||[];
+    TP_HUBS=d.hubs||[]; TP_CITIES=d.cities||[]; TP_COMMODITIES=d.commodities||[]; TP_SUBTYPES=d.subtypes||[];
     function fill(id,arr,lbl){ var s=document.getElementById(id); if(!s)return; s.innerHTML='<option value="">'+lbl+'</option>'+(arr||[]).map(function(x){return '<option>'+String(x).replace(/</g,'&lt;')+'</option>';}).join(''); }
-    fill('tpCity',d.cities,'All Cities'); fill('tpComm',d.commodities,'All'); fill('tpSub',d.subtypes,'All'); fill('rfCity',d.cities,'All Cities');
+    tpMselRender('city',TP_CITIES); tpMselRender('comm',TP_COMMODITIES); tpMselRender('sub',TP_SUBTYPES);
+    fill('rfCity',d.cities,'All Cities');
     tpRebuildHubs();
     TP_DIMS=true;
   }catch(e){}
 }
 function tpRebuildHubs(){
-  var city=document.getElementById('tpCity').value;
-  var cur=document.getElementById('tpHub').value;
+  var cities=TP_SEL.city;
   var list=[]; var seen={};
-  TP_HUBS.forEach(function(h){ if((!city||h.city===city) && h.hub && !seen[h.hub]){ seen[h.hub]=1; list.push(h.hub); } });
+  TP_HUBS.forEach(function(h){ if((!cities.length||cities.indexOf(h.city)>=0) && h.hub && !seen[h.hub]){ seen[h.hub]=1; list.push(h.hub); } });
   list.sort();
-  document.getElementById('tpHub').innerHTML='<option value="">All Hubs</option>'+list.map(function(h){return '<option>'+String(h).replace(/</g,'&lt;')+'</option>';}).join('');
-  document.getElementById('tpHub').value = (list.indexOf(cur)>=0) ? cur : '';
+  TP_SEL.hub=TP_SEL.hub.filter(function(h){return list.indexOf(h)>=0;});
+  tpMselRender('hub',list);
+  tpMselUpdateLabel('hub');
 }
 function rfRebuildHubs(){
   var citySel=document.getElementById('rfCity'), hubSel=document.getElementById('rfHub');
@@ -900,8 +962,8 @@ async function loadTopParts(){
   var el=document.getElementById('tpTable');
   el.innerHTML='<div class="loading-state"><div class="spin"></div>Loading…</div>';
   var payload={ a_from:tpVal('tpA1'), a_to:tpVal('tpA2'), b_from:tpVal('tpB1'), b_to:tpVal('tpB2'),
-    p_city:tpVal('tpCity')||null, p_hub:tpVal('tpHub')||null, p_commodity:tpVal('tpComm')||null,
-    p_subtype:tpVal('tpSub')||null, p_part:tpVal('tpPart')||null, p_limit:300 };
+    p_city:TP_SEL.city.length?TP_SEL.city:null, p_hub:TP_SEL.hub.length?TP_SEL.hub:null, p_commodity:TP_SEL.comm.length?TP_SEL.comm:null,
+    p_subtype:TP_SEL.sub.length?TP_SEL.sub:null, p_part:tpVal('tpPart')||null, p_limit:300 };
   try{
     var r=await fetch(INFO_URL+'/rest/v1/rpc/get_top_parts_contribution',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok){ el.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
@@ -917,7 +979,7 @@ async function loadPartRaw(item){
   var el=document.getElementById('tpRawTable'); el.className='loading-state'; el.innerHTML='<div class="spin"></div>Loading…';
   try{ panel.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){}
   var payload={ p_item:item, a_from:tpVal('tpA1'), a_to:tpVal('tpA2'), b_from:tpVal('tpB1'), b_to:tpVal('tpB2'),
-    p_city:tpVal('tpCity')||null, p_hub:tpVal('tpHub')||null, p_subtype:tpVal('tpSub')||null };
+    p_city:TP_SEL.city.length?TP_SEL.city:null, p_hub:TP_SEL.hub.length?TP_SEL.hub:null, p_subtype:TP_SEL.sub.length?TP_SEL.sub:null };
   try{
     var r=await fetch(INFO_URL+'/rest/v1/rpc/get_part_summary',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok){ el.className=''; el.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
