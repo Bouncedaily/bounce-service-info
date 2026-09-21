@@ -283,17 +283,25 @@ input[type=date] { min-width: 130px; }
     .fg { display: flex; flex-direction: column; gap: 3px; }
     .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
 
-    /* ── multi-select dropdown (Top Parts Contribution filters) ── */
+    /* ── multi-select dropdown (Top Parts Contribution filters) ──
+       Explicit overrides below (text-transform, font-size, color, font-weight,
+       letter-spacing) are needed because .msel-dd sits nested inside a .fg
+       container for layout purposes, and ".fg label" (a descendant selector)
+       was otherwise bleeding its uppercase/10px/muted label styling onto
+       every option here, since .msel-opt is itself a <label>. */
     .msel{position:relative}
-    .msel-btn{padding:7px 9px;border:1px solid var(--border2,var(--border));border-radius:7px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:6px}
-    .msel-btn:after{content:'▾';color:var(--muted);font-size:10px}
-    .msel-dd{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--card);border:1px solid var(--border2,var(--border));border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:50;min-width:180px;max-height:280px;overflow-y:auto;padding:6px}
+    .msel-btn{padding:7px 10px;border:1px solid var(--border2,var(--border));border-radius:7px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:border-color .15s}
+    .msel-btn:hover{border-color:var(--red)}
+    .msel-btn:after{content:'▾';color:var(--muted);font-size:9px;flex-shrink:0}
+    .msel-dd{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--card);border:1px solid var(--border2,var(--border));border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.16);z-index:50;min-width:190px;max-height:290px;overflow-y:auto;padding:8px}
     .msel-dd.on{display:block}
-    .msel-opt{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12.5px;white-space:nowrap}
+    .msel-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;
+      font-size:13px !important;font-weight:400 !important;text-transform:none !important;letter-spacing:normal !important;color:var(--text) !important;white-space:nowrap}
     .msel-opt:hover{background:var(--bg,#f1f5f9)}
-    .msel-opt input{margin:0}
-    .msel-actions{display:flex;gap:6px;padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
-    .msel-actions a{font-size:11px;color:var(--red);cursor:pointer;text-decoration:none;font-weight:600}
+    .msel-opt input[type=checkbox]{margin:0;width:15px;height:15px;accent-color:var(--red);cursor:pointer;flex-shrink:0}
+    .msel-actions{display:flex;gap:12px;padding:2px 9px 8px;border-bottom:1px solid var(--border);margin-bottom:6px}
+    .msel-actions a{font-size:11px;color:var(--red);cursor:pointer;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+    .msel-actions a:hover{text-decoration:underline}
     .fg select, .fg input {
       padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
       border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
@@ -617,10 +625,10 @@ body { overflow:auto!important; }
             <div style="display:flex;align-items:center;gap:6px"><input type="date" id="tpA1" style="width:118px"><span style="color:var(--muted)">–</span><input type="date" id="tpA2" style="width:118px"></div></div>
           <div class="fg"><label>Period B · last month</label>
             <div style="display:flex;align-items:center;gap:6px"><input type="date" id="tpB1" style="width:118px"><span style="color:var(--muted)">–</span><input type="date" id="tpB2" style="width:118px"></div></div>
-          <div class="fg"><label>City</label><div class="msel" id="tp-msel-city"><button type="button" class="msel-btn" onclick="tpMselToggle('city')">All Cities</button><div class="msel-dd" id="tp-msel-city-dd"></div></div></div>
-          <div class="fg"><label>Hub</label><div class="msel" id="tp-msel-hub"><button type="button" class="msel-btn" onclick="tpMselToggle('hub')">All Hubs</button><div class="msel-dd" id="tp-msel-hub-dd"></div></div></div>
-          <div class="fg"><label>DMS Cat</label><div class="msel" id="tp-msel-comm"><button type="button" class="msel-btn" onclick="tpMselToggle('comm')">All</button><div class="msel-dd" id="tp-msel-comm-dd"></div></div></div>
-          <div class="fg"><label>Submission Type</label><div class="msel" id="tp-msel-sub"><button type="button" class="msel-btn" onclick="tpMselToggle('sub')">All</button><div class="msel-dd" id="tp-msel-sub-dd"></div></div></div>
+          <div class="fg"><label>City</label><div class="msel" id="tp-msel-city"><button type="button" class="msel-btn" style="width:105px" onclick="tpMselToggle('city')">All Cities</button><div class="msel-dd" id="tp-msel-city-dd"></div></div></div>
+          <div class="fg"><label>Hub</label><div class="msel" id="tp-msel-hub"><button type="button" class="msel-btn" style="width:140px" onclick="tpMselToggle('hub')">All Hubs</button><div class="msel-dd" id="tp-msel-hub-dd"></div></div></div>
+          <div class="fg"><label>DMS Cat</label><div class="msel" id="tp-msel-comm"><button type="button" class="msel-btn" style="width:120px" onclick="tpMselToggle('comm')">All</button><div class="msel-dd" id="tp-msel-comm-dd"></div></div></div>
+          <div class="fg"><label>Submission Type</label><div class="msel" id="tp-msel-sub"><button type="button" class="msel-btn" style="width:130px" onclick="tpMselToggle('sub')">All</button><div class="msel-dd" id="tp-msel-sub-dd"></div></div></div>
           <div class="fg"><label>Part name</label><input type="text" id="tpPart" placeholder="Search part…" style="width:130px" onkeydown="if(event.key==='Enter')loadTopParts()"></div>
           <button class="toggle-btn active" onclick="loadTopParts()">Apply</button>
           <button class="toggle-btn" onclick="clearTopParts()">✕ Clear</button>
