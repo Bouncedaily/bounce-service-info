@@ -473,8 +473,12 @@ function parseItemDataString(raw){
   if(!Array.isArray(arr)) return [];
   return arr.filter(function(it){ return it.iItemNo!=='--SELECT--'; }).map(function(it){
     var itemNo=it.iItemNo||'';
-    var sep=itemNo.indexOf(' :: ');
-    var name=sep>=0?itemNo.slice(sep+4).trim():null;
+    // Separator shows up as either "::" or " :: " depending on the JC --
+    // confirmed both exist on real data (item_data itself can use either
+    // form; previous_waiting_item_data consistently uses the spaced one).
+    // Matching bare "::" and trimming the pieces covers both.
+    var sep=itemNo.indexOf('::');
+    var name=sep>=0?itemNo.slice(sep+2).trim():null;
     var code=sep>=0?itemNo.slice(0,sep).trim():(itemNo||it.iLabCode||'');
     if(!name && code && CODE_NAMES[code]) name=CODE_NAMES[code];
     return {
