@@ -112,6 +112,22 @@ tr[data-drill]:hover,tr.drow:hover{background:#f8fafc}
 
 <div class="leakcards" id="l-leaks"></div>
 
+<div class="card" style="margin-bottom:20px">
+  <div class="card-hd">
+    <h2>Leakage trend — last 12 weeks</h2>
+    <span class="sub">Collection Rate %, Under-Charge Rate %, Gap Uncollected (₹)</span>
+  </div>
+  <div class="pad">
+    <div id="trend-city-pills" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
+    <div class="tlegend" style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#64748b">
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:14px;height:2px;background:#16a34a;display:inline-block"></i>Collection Rate %</span>
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:14px;height:2px;background:#d97706;display:inline-block"></i>Under-Charge Rate %</span>
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:14px;height:2px;border-bottom:2px dashed #dc2626;display:inline-block"></i>Gap Uncollected (₹, right scale)</span>
+    </div>
+    <svg id="trend-svg" viewBox="0 0 900 260" style="width:100%"></svg>
+  </div>
+</div>
+
 <div class="cols">
   <div class="col">
     <div class="card">
@@ -225,6 +241,7 @@ async function lDims(){
     LHUBS=d.hubs||[];LCITIES=d.cities||[];LSUBS=d.subtypes||[];
     mselRender('city',LCITIES);mselRender('sub',LSUBS);
     lHubs();LDIMS=true;
+    renderTrendCityPills();
   }catch(e){}
 }
 function lHubs(){
@@ -249,6 +266,79 @@ async function lload(){
     if(!r.ok){document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1">Could not load.</div>';return;}
     render(await r.json());
   }catch(e){document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1">Error.</div>';}
+  loadTrend();
+}
+
+// Trend's own City selector: single-select, clickable pills, deliberately
+// separate from the main page's City multi-select dropdown -- Hub and
+// Submission Type still come from the main filters (SEL.hub/SEL.sub),
+// since only City was asked for as a local, clickable control here.
+var TREND_CITY='';
+function renderTrendCityPills(){
+  var box=document.getElementById('trend-city-pills');
+  if(!box) return;
+  var cities=['All'].concat(LCITIES);
+  box.innerHTML=cities.map(function(c){
+    var val=c==='All'?'':c;
+    var active=(TREND_CITY===val);
+    return '<button type="button" onclick="setTrendCity('+JSON.stringify(val)+')" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(active?'#dc2626':'#e2e8f0')+';background:'+(active?'#dc2626':'#fff')+';color:'+(active?'#fff':'#334155')+'">'+c+'</button>';
+  }).join('');
+}
+function setTrendCity(city){
+  TREND_CITY=city;
+  renderTrendCityPills();
+  loadTrend();
+}
+async function loadTrend(){
+  var svg=document.getElementById('trend-svg');
+  if(!svg) return;
+  try{
+    var body={p_weeks:12, p_city:TREND_CITY||null, p_hub:SEL.hub.length?SEL.hub:null, p_subtype:SEL.sub.length?SEL.sub:null};
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_leakage_trend',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) return;
+    renderTrendChart(await r.json());
+  }catch(e){}
+}
+function renderTrendChart(rows){
+  var svg=document.getElementById('trend-svg');
+  if(!rows || !rows.length){ svg.innerHTML='<text x="450" y="130" text-anchor="middle" font-size="12" fill="#94a3b8">No data in range</text>'; return; }
+  var W=900,H=260,L=44,R=44,T=14,B=30,iw=W-L-R,ih=H-T-B;
+  var maxGap=Math.max(1,...rows.map(function(r){return r.gap_uncollected||0;}));
+  var x=function(i){ return rows.length>1 ? i/(rows.length-1)*iw : iw/2; };
+  var yPct=function(v){ return ih - (v/100)*ih; };
+  var yGap=function(v){ return ih - (v/maxGap)*ih; };
+  var line=function(getter,vf){
+    var seg=[]; var out='';
+    rows.forEach(function(r,i){
+      var v=getter(r);
+      if(v==null){ if(seg.length>1) out+=seg.join(' '); seg=[]; return; }
+      seg.push(x(i)+','+vf(v));
+    });
+    if(seg.length>1) out+=seg.join(' ');
+    return out;
+  };
+  var s='<g transform="translate('+L+','+T+')">';
+  [0,25,50,75,100].forEach(function(g){
+    var y=yPct(g);
+    s+='<line x1="0" y1="'+y+'" x2="'+iw+'" y2="'+y+'" stroke="#e2e8f0"/><text x="-8" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#64748b">'+g+'%</text>';
+  });
+  [0,0.5,1].forEach(function(f){
+    var y=ih-f*ih; var val=Math.round(maxGap*f);
+    var lab=val>=100000?(val/100000).toFixed(1)+'L':val>=1000?(val/1000).toFixed(0)+'k':val;
+    s+='<text x="'+(iw+8)+'" y="'+(y+3)+'" font-size="9" fill="#dc2626">'+lab+'</text>';
+  });
+  s+='<polyline points="'+line(function(r){return r.collection_rate_pct;},yPct)+'" fill="none" stroke="#16a34a" stroke-width="2"/>';
+  s+='<polyline points="'+line(function(r){return r.under_charge_rate_pct;},yPct)+'" fill="none" stroke="#d97706" stroke-width="2"/>';
+  s+='<polyline points="'+line(function(r){return r.gap_uncollected;},yGap)+'" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>';
+  var step=Math.ceil(rows.length/8);
+  rows.forEach(function(r,i){
+    if(i%step===0 || i===rows.length-1){
+      var d=new Date(r.week_start);
+      s+='<text x="'+x(i)+'" y="'+(ih+16)+'" text-anchor="middle" font-size="9" fill="#94a3b8">'+(d.getMonth()+1)+'/'+d.getDate()+'</text>';
+    }
+  });
+  s+='</g>';
+  svg.innerHTML=s;
 }
 function render(d){
   var t=d.totals||{};
