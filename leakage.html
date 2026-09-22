@@ -317,6 +317,17 @@ function renderTrendChart(rows){
     if(seg.length>1) out+=seg.join(' ');
     return out;
   };
+  var dots=function(getter,vf,color,fmt){
+    var out='';
+    rows.forEach(function(r,i){
+      var v=getter(r);
+      if(v==null) return;
+      var d=new Date(r.week_start);
+      var label=(d.getMonth()+1)+'/'+d.getDate()+': '+fmt(v);
+      out+='<circle cx="'+x(i)+'" cy="'+vf(v)+'" r="3.5" fill="'+color+'" stroke="#fff" stroke-width="1.5"><title>'+label+'</title></circle>';
+    });
+    return out;
+  };
   var s='<g transform="translate('+L+','+T+')">';
   [0,25,50,75,100].forEach(function(g){
     var y=yPct(g);
@@ -330,6 +341,9 @@ function renderTrendChart(rows){
   s+='<polyline points="'+line(function(r){return r.collection_rate_pct;},yPct)+'" fill="none" stroke="#16a34a" stroke-width="2"/>';
   s+='<polyline points="'+line(function(r){return r.under_charge_rate_pct;},yPct)+'" fill="none" stroke="#d97706" stroke-width="2"/>';
   s+='<polyline points="'+line(function(r){return r.gap_uncollected;},yGap)+'" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>';
+  s+=dots(function(r){return r.collection_rate_pct;},yPct,'#16a34a',function(v){return v+'% collected';});
+  s+=dots(function(r){return r.under_charge_rate_pct;},yPct,'#d97706',function(v){return v+'% under-charged';});
+  s+=dots(function(r){return r.gap_uncollected;},yGap,'#dc2626',function(v){return '\u20b9'+Math.round(v).toLocaleString('en-IN')+' gap';});
   var step=Math.ceil(rows.length/8);
   rows.forEach(function(r,i){
     if(i%step===0 || i===rows.length-1){
