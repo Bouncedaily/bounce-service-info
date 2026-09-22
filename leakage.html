@@ -281,7 +281,7 @@ function renderTrendCityPills(){
   box.innerHTML=cities.map(function(c){
     var val=c==='All'?'':c;
     var active=(TREND_CITY===val);
-    return '<button type="button" onclick="setTrendCity('+JSON.stringify(val)+')" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(active?'#dc2626':'#e2e8f0')+';background:'+(active?'#dc2626':'#fff')+';color:'+(active?'#fff':'#334155')+'">'+c+'</button>';
+    return "<button type=\"button\" onclick='setTrendCity("+JSON.stringify(val)+")' style=\"padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid "+(active?'#dc2626':'#e2e8f0')+";background:"+(active?'#dc2626':'#fff')+";color:"+(active?'#fff':'#334155')+"\">"+c+"</button>";
   }).join('');
 }
 function setTrendCity(city){
