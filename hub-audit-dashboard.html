@@ -167,8 +167,9 @@ function renderScorecards(){
       <td>${a?esc(audName(a.auditor_id)):'—'}</td>
       <td>${a?fmtDate(a.audit_date):'never'}</td>
       <td>${overdue?'<span class="pill" style="background:#fef2f2;color:#dc2626">Due</span>':'<span class="pill" style="background:#f0fdf4;color:#16a34a">OK</span>'}</td>
-      <td>${a?`<button class="btn btn-ghost" id="dl-${a.id}" onclick="event.stopPropagation();downloadReport('${a.id}')" style="padding:5px 10px;font-size:12px">Download</button>`:'—'}</td></tr>`;}).join('');
-  document.getElementById('scorecards').innerHTML=activeHubs.length?`<table><thead><tr><th>Hub</th><th>City</th><th>Score</th><th>Rating</th><th>Risk</th><th>Audited by</th><th>Last audit</th><th>Cadence</th><th>Download</th></tr></thead><tbody>${rows}</tbody></table>`:'<span class="muted">No hubs.</span>';
+      <td>${a?`<button class="btn btn-ghost" id="dl-${a.id}" onclick="event.stopPropagation();downloadReport('${a.id}')" style="padding:5px 10px;font-size:12px">Download</button>`:'—'}</td>
+      <td><button class="btn btn-ghost" onclick="event.stopPropagation();openHubTrend('${h.id}')" style="padding:5px 10px;font-size:12px">📈 Trend</button></td></tr>`;}).join('');
+  document.getElementById('scorecards').innerHTML=activeHubs.length?`<table><thead><tr><th>Hub</th><th>City</th><th>Score</th><th>Rating</th><th>Risk</th><th>Audited by</th><th>Last audit</th><th>Cadence</th><th>Download</th><th>Trend</th></tr></thead><tbody>${rows}</tbody></table>`:'<span class="muted">No hubs.</span>';
 }
 function renderFlagged(){
   const flagged=AUDITS.filter(a=>(a.location_verified===false||a.submitted_in_hours===false)&&!a.flag_reviewed&&inFilter(a.hub_id));
@@ -408,6 +409,41 @@ window.openAudit=async function(auditId){
     vehicles.forEach(function(v,i){var vph=vphotoBy[v.id]||[];if(vph.length)loadImgs('vp-'+i,vph);});
   }catch(e){card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="err">'+esc(e.message)+'</div>';}
 };
+
+window.openHubTrend=function(hubId){
+  var card=document.getElementById('audit-modal-card');
+  document.getElementById('audit-modal').classList.add('show');
+  var closeBtn='<button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';
+  var hub=HUBS.find(function(h){return h.id===hubId;});
+  var list=AUDITS.filter(function(a){return a.hub_id===hubId;}).slice().sort(function(x,y){return new Date(x.audit_date)-new Date(y.audit_date);});
+  var title='<div class="between"><b>'+esc(hub?hub.name:'Hub')+' — score trend</b>'+closeBtn+'</div>';
+  if(list.length<2){
+    card.innerHTML=title+'<div class="sub" style="margin:10px 0">'+(list.length===1?'Only one audit on record — need at least 2 to show a trend.':'No submitted audits on record for this hub yet.')+'</div>'+
+      (list.length===1?'<button class="btn btn-ghost" onclick="openAudit(\''+list[0].id+'\')">View that audit</button>':'');
+    return;
+  }
+  var W=760,H=260,L=40,R=20,T=16,B=34,iw=W-L-R,ih=H-T-B;
+  var x=function(i){ return list.length>1?i/(list.length-1)*iw:iw/2; };
+  var y=function(v){ return ih-(Math.max(0,Math.min(100,v))/100*ih); };
+  var pts=list.map(function(a,i){ return x(i)+','+y(+a.overall_score||0); }).join(' ');
+  var ratingCol=function(r){ return ratingColor(r); };
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">';
+  s+='<g transform="translate('+L+','+T+')">';
+  [0,25,50,75,100].forEach(function(g){ var gy=y(g); s+='<line x1="0" y1="'+gy+'" x2="'+iw+'" y2="'+gy+'" stroke="#e2e8f0"/><text x="-8" y="'+(gy+3)+'" text-anchor="end" font-size="10" fill="#64748b">'+g+'</text>'; });
+  s+='<polyline points="'+pts+'" fill="none" stroke="#dc2626" stroke-width="2"/>';
+  list.forEach(function(a,i){
+    var cx=x(i), cy=y(+a.overall_score||0), col=ratingCol(a.rating);
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="'+col+'" stroke="#fff" stroke-width="1.5" style="cursor:pointer" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\');setTimeout(function(){openAudit(\''+a.id+'\')},0)"><title>'+fmtDate(a.audit_date)+': '+Math.round(a.overall_score)+' ('+esc(a.rating)+') — click to open this audit</title></circle>';
+    s+='<text x="'+cx+'" y="'+(cy-10)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">'+Math.round(a.overall_score)+'</text>';
+  });
+  var step=Math.ceil(list.length/8);
+  list.forEach(function(a,i){ if(i%step===0||i===list.length-1) s+='<text x="'+x(i)+'" y="'+(ih+16)+'" text-anchor="middle" font-size="9" fill="#94a3b8">'+fmtDate(a.audit_date)+'</text>'; });
+  s+='</g></svg>';
+  var first=+list[0].overall_score||0, last=+list[list.length-1].overall_score||0, delta=Math.round(last-first);
+  var deltaTxt=delta>0?('<span style="color:#16a34a;font-weight:700">▲ +'+delta+'</span> since first audit'):delta<0?('<span style="color:#dc2626;font-weight:700">▼ '+delta+'</span> since first audit'):'No change since first audit';
+  card.innerHTML=title+'<div class="sub" style="margin:6px 0 12px">'+list.length+' audits · '+deltaTxt+'</div>'+s;
+};
+
 load();
 </script>
 </body>
