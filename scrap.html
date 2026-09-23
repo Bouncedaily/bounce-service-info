@@ -960,9 +960,9 @@ function closeWeightManager() { document.getElementById('weights-ov').classList.
 
 let HUB_CAT_DETAIL = [];
 let HUB_CAT_SORT = { col: 'system_consumed_kg', dir: 'desc' };
-async function loadHubCategoryDetail(city) {
+async function loadHubCategoryDetail(city, hub, from, to) {
   try {
-    HUB_CAT_DETAIL = await rpc('get_hub_category_scrap_detail', { p_city: city }) || [];
+    HUB_CAT_DETAIL = await rpc('get_hub_category_scrap_detail', { p_city: city, p_hub: hub, p_from: from, p_to: to }) || [];
     renderHubCategoryDetail();
   } catch (e) {
     console.error('loadHubCategoryDetail failed', e);
@@ -1023,7 +1023,9 @@ function fmtDateShort(d) {
 
 async function loadHubTriggerBanner() {
   try {
-    const rows = await rpc('get_hub_scrap_trigger_status', {}) || [];
+    const city = document.getElementById('f-city') ? (document.getElementById('f-city').value || null) : null;
+    const hub = document.getElementById('f-hub') ? (document.getElementById('f-hub').value || null) : null;
+    const rows = await rpc('get_hub_scrap_trigger_status', { p_city: city, p_hub: hub }) || [];
     const over = rows.filter(r => r.over_threshold);
     const banner = document.getElementById('hub-trigger-banner');
     const list = document.getElementById('hub-trigger-list');
@@ -1340,7 +1342,6 @@ async function loadApprovalQueue(city, hub) {
   const tbody = document.getElementById('aqBody');
   tbody.innerHTML = groups.length ? groups.map(g => {
     const ids = g.items.map(i => i.id);
-    const idsJson = JSON.stringify(ids);
     const amount = g.items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
     const variances = g.items.map(i => i.variance_pct).filter(v => v != null);
     const maxVar = variances.length ? Math.max(...variances) : null;
@@ -1349,6 +1350,8 @@ async function loadApprovalQueue(city, hub) {
     const varCell = maxVar != null
       ? `<span class="${maxVar > 20 ? 'pending-flag' : ''}">${maxVar}%</span>`
       : '<span class="muted-cell">—</span>';
+    const hasUnexplainedHighVariance = g.items.some(i => (i.variance_pct != null && i.variance_pct > 20) && !i.variance_remark);
+    const approveArg = JSON.stringify({ ids, maxVar, hasUnexplainedHighVariance });
     return `<tr>
       <td>${label}${g.items.length > 1 ? ` <span style="color:var(--muted);font-size:10px">(${g.items.length} categories)</span>` : ''}</td>
       <td>${g.hub_name || '—'}</td>
@@ -1356,7 +1359,7 @@ async function loadApprovalQueue(city, hub) {
       <td class="num">${fmtC(amount)}</td>
       <td class="num">${varCell}</td>
       <td class="num">${age}d</td>
-      <td>${isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve</button>` : ''}</td>
+      <td>${isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${approveArg})'>Approve</button>` : ''}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="7">${emptyState('✅', 'Nothing pending approval.', 'Everything is caught up.')}</td></tr>`;
 }
@@ -1496,7 +1499,7 @@ async function loadAll() {
   await Promise.all([
     loadApprovalQueue(city, hub),
     ptLoadAndRender(from, to, city, hub),
-    loadHubCategoryDetail(city),
+    loadHubCategoryDetail(city, hub, from, to),
     loadSales(from, to, city, hub),
     loadHubTriggerBanner()
   ]);
@@ -1599,6 +1602,17 @@ function renderSalesRows(rows, capGroups) {
     const statusText = statuses.length === 1 ? statuses[0] : 'Mixed';
     const gstUrl = first.gst_invoice_url;
     const idsJson = JSON.stringify(g.rows.map(r => r.id));
+    const rowsMaxVar = g.rows.reduce((max, r) => {
+      if (r.system_calculated == null || !r.system_calculated) return max;
+      const v = Math.abs((r.qty_or_weight - r.system_calculated) / r.system_calculated * 100);
+      return v > max ? v : max;
+    }, 0);
+    const rowsHasUnexplainedHighVariance = g.rows.some(r => {
+      if (r.system_calculated == null || !r.system_calculated) return false;
+      const v = Math.abs((r.qty_or_weight - r.system_calculated) / r.system_calculated * 100);
+      return v > 20 && !r.variance_remark;
+    });
+    const approveArg = JSON.stringify({ ids: g.rows.map(r => r.id), maxVar: Math.round(rowsMaxVar), hasUnexplainedHighVariance: rowsHasUnexplainedHighVariance });
 
     const mainRow = `
       <tr title="${g.batch_id ? 'Movement ' + g.batch_id : ''}"><td>${first.pickup_date}</td><td>${first.hub_name}</td>
@@ -1615,7 +1629,7 @@ function renderSalesRows(rows, capGroups) {
         <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
         <td>${statusText === 'Cancelled' ? '—' : (allApproved
             ? `<span class="status-pill status-PaymentReceived">Approved</span>`
-            : (isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${idsJson})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
+            : (isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${approveArg})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
         <td style="white-space:nowrap">
           <details class="action-menu">
             <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
@@ -1690,7 +1704,26 @@ async function uploadGstForGroup(input, ids) {
   loadAll();
 }
 
-async function approveMovementGroup(ids) {
+async function approveMovementGroup(arg) {
+  // arg is either a plain array of ids (legacy/modal call sites not yet
+  // carrying variance context) or {ids, maxVar, hasUnexplainedHighVariance}
+  // from the queue row, which knows whether this batch has a >20% variance
+  // with no explaining remark -- previously approval enforced nothing at
+  // all, so a flagged discrepancy could be signed off with one click same
+  // as a clean one.
+  const ids = Array.isArray(arg) ? arg : arg.ids;
+  const hasUnexplainedHighVariance = Array.isArray(arg) ? false : arg.hasUnexplainedHighVariance;
+  const maxVar = Array.isArray(arg) ? null : arg.maxVar;
+  if (hasUnexplainedHighVariance) {
+    const remark = prompt(`This movement has a ${maxVar}% variance vs system-calculated quantity with no explanation on file.\n\nEnter a remark to proceed with approval (required):`);
+    if (!remark || !remark.trim()) { alert('Approval cancelled — a remark is required to approve a movement with unexplained high variance.'); return; }
+    const rWho = getCurrentUser().email || 'unknown';
+    const rSave = await fetch(`${SB}/rest/v1/scrap_sales?id=in.(${ids.join(',')})&variance_remark=is.null`, {
+      method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ variance_remark: remark.trim() })
+    });
+    if (!rSave.ok) { alert('Could not save remark — approval cancelled:\n' + (await rSave.text()).slice(0,200)); return; }
+  }
   const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
   if (!who) return;
   const now = new Date().toISOString();
@@ -2438,9 +2471,9 @@ let PIPELINE_ROWS = { Scrap: [], Refurb: [], Tyre: [] };
 
 async function ptLoadAndRender(from, to, city, hub) {
   const [scrapRows, refurbRows, tyreRows] = await Promise.all([
-    ptRpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: hub }),
-    ptRpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: hub }),
-    ptRpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: hub })
+    ptRpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    ptRpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    ptRpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true })
   ]);
   PIPELINE_ROWS.Scrap = scrapRows || [];
   PIPELINE_ROWS.Refurb = refurbRows || [];
