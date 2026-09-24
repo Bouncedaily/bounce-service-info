@@ -431,8 +431,8 @@ async function openRaw(dim,val,label){
     if(!rows.length){body.innerHTML='<div class="empty">No job cards match.</div>';return;}
     document.getElementById('drill-csv-btn').style.display='inline-block';
     var shownNote=d.total_rows>rows.length?('<div style="padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">Showing top '+rows.length+' of '+nf(d.total_rows)+' job cards by repair cost — CSV export includes all '+nf(d.total_rows)+'</div>'):'';
-    body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th></tr></thead><tbody>'+
-      rows.map(function(r){return '<tr><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'')+'</td><td class="num">'+nf(r.jc_cost)+'</td><td class="num">'+nf(r.fee_raised)+'</td><td class="num">'+nf(r.fee_collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.gap_amt)+'</td></tr>';}).join('')+
+    body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Vehicle No</th><th>DMS JC ID</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.dms_jc_no||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'')+'</td><td class="num">'+nf(r.jc_cost)+'</td><td class="num">'+nf(r.fee_raised)+'</td><td class="num">'+nf(r.fee_collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.gap_amt)+'</td></tr>';}).join('')+
       '</tbody></table>';
   }catch(e){body.innerHTML='<div class="empty">Error loading raw data.</div>';}
 }
@@ -455,8 +455,8 @@ async function downloadRawCSV(){
       var r2=await fetch(SB+'/rest/v1/rpc/get_damage_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload2)});
       var d2=await r2.json();
       rows=d2.rows||[];
-      headers=['JC','Date','City','Hub','Type','Executive','Repair cost','Raised','Collected','Gap'];
-      rowMapper=function(r){return [r.draft_jc_id,r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.gap_amt];};
+      headers=['JC','Vehicle No','DMS JC ID','Date','City','Hub','Type','Executive','Repair cost','Raised','Collected','Gap'];
+      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.dms_jc_no||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.gap_amt];};
       labelForFile=RAW_LABEL;
     }
     var csvRows=[headers].concat(rows.map(rowMapper));
