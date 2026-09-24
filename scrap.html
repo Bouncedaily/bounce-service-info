@@ -1225,7 +1225,7 @@ async function savePartRow(id) {
   if (!pattern) { alert('Pattern is required.'); return; }
   if (tracking_type === 'kg' && (weight_kg == null || isNaN(weight_kg))) { alert('Tracking is set to Kg — enter a weight.'); return; }
 
-  const weightChanged = existingRow && tracking_type === 'kg' && Number(existingRow.weight_kg) !== weight_kg;
+  const weightChanged = existingRow && tracking_type === 'kg' && existingRow.weight_kg != null && Number(existingRow.weight_kg) !== weight_kg;
   const base = { match_pattern: pattern, part_type, category, tracking_type, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes };
 
   if (!weightChanged) {
