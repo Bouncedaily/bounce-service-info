@@ -392,7 +392,7 @@
   <div class="panel">
 
     <h3>Create Scrap / Refurb Movement
-      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button> <button class="btn secondary" id="btn-manage-weights" style="padding:4px 10px;font-size:11px;display:none" onclick="openWeightManager()"><i class="ti ti-scale"></i> Manage Part Weights</button></span>
+      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button> <button class="btn secondary" id="btn-manage-parts" style="padding:4px 10px;font-size:11px;display:none" onclick="openPartsManager()"><i class="ti ti-list-details"></i> Manage Parts</button></span>
     </h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
     <div class="sale-form">
@@ -480,22 +480,39 @@
   </div>
 </div>
 
-<div class="ov" id="weights-ov" onclick="if(event.target===this)closeWeightManager()">
-  <div class="dpanel" style="max-width:900px">
+<div class="ov" id="parts-ov" onclick="if(event.target===this)closePartsManager()">
+  <div class="dpanel" style="max-width:1200px">
     <div class="dhd">
-      <div><h3>Manage Part Weights</h3><div class="dsub">Reference weight (kg) per part, used to estimate scrap generated for weight-tracked categories</div></div>
-      <button class="dclose" onclick="closeWeightManager()">✕</button>
+      <div><h3>Manage Parts</h3><div class="dsub">Single source of truth for part classification — pattern, type, category, tracking, weight — used by Scrap, Refurb and Tyre alike</div></div>
+      <button class="dclose" onclick="closePartsManager()">✕</button>
     </div>
-    <div style="max-height:75vh;overflow-y:auto;padding:16px">
+    <div style="max-height:78vh;overflow-y:auto;padding:16px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
-        <div class="fg"><label>Part name / pattern</label><input type="text" id="pw-pattern" placeholder="e.g. Front Fork%" style="width:220px"></div>
-        <div class="fg"><label>Weight (kg)</label><input type="number" step="0.001" id="pw-weight" style="width:100px"></div>
-        <div class="fg"><label>Notes</label><input type="text" id="pw-notes" style="width:180px"></div>
-        <button class="btn" onclick="addPartWeight()">Add</button>
+        <div class="fg"><label>Pattern (use % for wildcard)</label><input type="text" id="mp-pattern" placeholder="e.g. %front%cover%" style="width:200px"></div>
+        <div class="fg"><label>Type</label>
+          <select id="mp-type" style="width:100px" onchange="onMpTypeChange()"><option value="Scrap">Scrap</option><option value="Refurb">Refurb</option><option value="Tyre">Tyre</option></select>
+        </div>
+        <div class="fg" id="mp-category-wrap"><label>Category</label><select id="mp-category" style="width:150px"></select></div>
+        <div class="fg"><label>Tracking</label>
+          <select id="mp-tracking" style="width:90px" onchange="onMpTrackingChange()"><option value="qty">Qty</option><option value="kg">Kg</option></select>
+        </div>
+        <div class="fg" id="mp-weight-wrap" style="display:none"><label>Weight (kg)</label><input type="number" step="0.001" id="mp-weight" style="width:90px"></div>
+        <div class="fg"><label>City override</label><select id="mp-city" style="width:110px"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
+        <div class="fg"><label>Priority</label><input type="number" id="mp-priority" value="0" style="width:70px"></div>
+        <div class="fg"><label>Notes</label><input type="text" id="mp-notes" style="width:160px"></div>
+        <button class="btn" onclick="addManagedPart()">Add</button>
       </div>
-      <div id="weights-missing-body" style="margin-bottom:20px"></div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px">Existing weight mappings</div>
-      <div id="weights-list-body"><div class="empty">Loading…</div></div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <input type="text" id="mp-search" placeholder="Search pattern or notes…" style="width:220px" oninput="renderPartsManager()">
+        <select id="mp-filter-type" onchange="renderPartsManager()" style="width:110px"><option value="">All types</option><option value="Scrap">Scrap</option><option value="Refurb">Refurb</option><option value="Tyre">Tyre</option></select>
+        <select id="mp-filter-category" onchange="renderPartsManager()" style="width:150px"><option value="">All categories</option></select>
+        <select id="mp-filter-tracking" onchange="renderPartsManager()" style="width:100px"><option value="">Qty or Kg</option><option value="qty">Qty</option><option value="kg">Kg</option></select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="mp-show-inactive" onchange="renderPartsManager()"> Show inactive</label>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto" id="mp-count"></span>
+      </div>
+
+      <div id="parts-list-body"><div class="empty">Loading…</div></div>
     </div>
   </div>
 </div>
@@ -585,7 +602,6 @@ function isScrapApprover() {
 }
 let REFURB_PARTS = [];
 let VENDORS = [];
-let WEIGHT_ROWS_CACHE = [];
 let _hadFailure = false;
 
 function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
@@ -951,12 +967,23 @@ async function saveVendorRates(id) {
   alert('Rate card saved.');
 }
 
-async function openWeightManager() {
+async function openPartsManager() {
   if (!isScrapWeightAdmin()) return;
-  document.getElementById('weights-ov').classList.add('on');
-  await renderWeightManager();
+  document.getElementById('parts-ov').classList.add('on');
+  document.getElementById('mp-type').value = 'Scrap';
+  onMpTypeChange();
+  await renderPartsManager();
 }
-function closeWeightManager() { document.getElementById('weights-ov').classList.remove('on'); }
+function closePartsManager() { document.getElementById('parts-ov').classList.remove('on'); }
+
+let SCRAP_CATEGORIES_CACHE = [];
+function onMpTypeChange() {
+  const isScrap = document.getElementById('mp-type').value === 'Scrap';
+  document.getElementById('mp-category-wrap').style.display = isScrap ? '' : 'none';
+}
+function onMpTrackingChange() {
+  document.getElementById('mp-weight-wrap').style.display = document.getElementById('mp-tracking').value === 'kg' ? '' : 'none';
+}
 
 let HUB_CAT_DETAIL = [];
 let HUB_CAT_SORT = { col: 'system_consumed_kg', dir: 'desc' };
@@ -1090,130 +1117,169 @@ async function saveHubTrigger(id) {
   await loadHubTriggerBanner();
 }
 
-async function renderWeightManager() {
-  const missingBox = document.getElementById('weights-missing-body');
-  const listBox = document.getElementById('weights-list-body');
-  missingBox.innerHTML = '<div class="empty">Loading…</div>';
-  listBox.innerHTML = '<div class="empty">Loading…</div>';
+let MANAGED_PARTS_CACHE = [];
 
-  const [missing, existing] = await Promise.all([
-    rpc('get_unweighted_parts', {}),
-    sbGet('scrap_part_weights?select=*&effective_to=is.null&order=part_pattern.asc')
-  ]);
-  WEIGHT_ROWS_CACHE = existing || [];
+async function renderPartsManager() {
+  const listBox = document.getElementById('parts-list-body');
+  if (!SCRAP_CATEGORIES_CACHE.length) {
+    SCRAP_CATEGORIES_CACHE = await sbGet('scrap_categories?select=category&order=category.asc') || [];
+    const catOpts = SCRAP_CATEGORIES_CACHE.map(c => `<option>${c.category}</option>`).join('');
+    document.getElementById('mp-category').innerHTML = catOpts;
+    document.getElementById('mp-filter-category').innerHTML = '<option value="">All categories</option>' + catOpts;
+  }
+  if (!MANAGED_PARTS_CACHE.length) {
+    listBox.innerHTML = '<div class="empty">Loading…</div>';
+    MANAGED_PARTS_CACHE = await sbGet('managed_parts?select=*&order=part_type.asc,category.asc,priority.desc') || [];
+  }
 
-  missingBox.innerHTML = `
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px">
-      Parts missing a weight (${(missing||[]).length}) <span style="font-weight:400;text-transform:none;color:var(--muted)">— ordered by total quantity, biggest gaps first</span>
-    </div>
-    <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
-      <table style="width:100%;font-size:12px;border-collapse:collapse">
-        <thead><tr style="background:var(--surface-1,#f8fafc)"><th style="text-align:left;padding:6px 10px">Part</th><th style="text-align:left;padding:6px 10px">Category</th><th class="num" style="padding:6px 10px">Total Qty</th><th style="padding:6px 10px"></th></tr></thead>
-        <tbody>
-        ${(missing||[]).length ? missing.map(m => `
-          <tr style="border-top:1px solid var(--border)">
-            <td style="padding:6px 10px">${m.part_name}</td>
-            <td style="padding:6px 10px;color:var(--muted)">${m.category}</td>
-            <td class="num" style="padding:6px 10px">${fmtN(m.total_qty)}</td>
-            <td style="padding:6px 10px"><button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="prefillWeightForm('${m.part_name.replace(/'/g,"\\'")}')">+ Add</button></td>
-          </tr>`).join('') : '<tr><td colspan="4" style="padding:10px;color:var(--muted)">No gaps — every part has a matching weight.</td></tr>'}
-        </tbody>
-      </table>
-    </div>`;
+  const search = (document.getElementById('mp-search').value || '').trim().toLowerCase();
+  const fType = document.getElementById('mp-filter-type').value;
+  const fCat = document.getElementById('mp-filter-category').value;
+  const fTrack = document.getElementById('mp-filter-tracking').value;
+  const showInactive = document.getElementById('mp-show-inactive').checked;
 
-  listBox.innerHTML = (existing||[]).length ? `
+  const rows = MANAGED_PARTS_CACHE.filter(p =>
+    (showInactive || p.active) &&
+    (!fType || p.part_type === fType) &&
+    (!fCat || p.category === fCat) &&
+    (!fTrack || p.tracking_type === fTrack) &&
+    (!search || (p.match_pattern||'').toLowerCase().includes(search) || (p.notes||'').toLowerCase().includes(search))
+  );
+  document.getElementById('mp-count').textContent = `${rows.length} of ${MANAGED_PARTS_CACHE.length} rows`;
+
+  const catOptsFor = (sel) => SCRAP_CATEGORIES_CACHE.map(c => `<option ${c.category===sel?'selected':''}>${c.category}</option>`).join('');
+  const typeOptsFor = (sel) => ['Scrap','Refurb','Tyre'].map(t => `<option value="${t}" ${t===sel?'selected':''}>${t}</option>`).join('');
+  const cityOptsFor = (sel) => ['', 'Bangalore','NCR','Hyderabad'].map(c => `<option value="${c}" ${c===(sel||'')?'selected':''}>${c||'All cities'}</option>`).join('');
+
+  listBox.innerHTML = rows.length ? `
     <table style="width:100%;font-size:12px;border-collapse:collapse">
-      <thead><tr style="background:var(--surface-1,#f8fafc)"><th style="text-align:left;padding:6px 10px">Pattern</th><th class="num" style="padding:6px 10px">Weight (kg)</th><th style="text-align:left;padding:6px 10px">Notes</th><th style="padding:6px 10px"></th></tr></thead>
+      <thead><tr style="background:var(--surface-1,#f8fafc)">
+        <th style="text-align:left;padding:6px 8px">Pattern</th><th style="text-align:left;padding:6px 8px">Type</th>
+        <th style="text-align:left;padding:6px 8px">Category</th><th style="text-align:left;padding:6px 8px">Tracking</th>
+        <th class="num" style="padding:6px 8px">Weight (kg)</th><th style="text-align:left;padding:6px 8px">City</th>
+        <th class="num" style="padding:6px 8px">Priority</th><th style="text-align:left;padding:6px 8px">Notes</th>
+        <th style="padding:6px 8px"></th>
+      </tr></thead>
       <tbody>
-      ${existing.map(w => `
-        <tr style="border-top:1px solid var(--border)">
-          <td style="padding:6px 10px"><input type="text" value="${(w.part_pattern||'').replace(/"/g,'&quot;')}" id="wp-${w.id}" style="width:220px"></td>
-          <td style="padding:6px 10px" class="num"><input type="number" step="0.001" value="${w.weight_kg ?? ''}" id="ww-${w.id}" style="width:90px"></td>
-          <td style="padding:6px 10px"><input type="text" value="${(w.notes||'').replace(/"/g,'&quot;')}" id="wn-${w.id}" style="width:180px"></td>
-          <td style="padding:6px 10px;white-space:nowrap">
-            <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="saveWeightRow(${w.id})">Save</button>
-            <button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#dc2626" onclick="deleteWeightRow(${w.id})">Delete</button>
+      ${rows.map(p => `
+        <tr style="border-top:1px solid var(--border);${p.active?'':'opacity:.5'}">
+          <td style="padding:6px 8px"><input type="text" value="${(p.match_pattern||'').replace(/"/g,'&quot;')}" id="mpp-${p.id}" style="width:170px"></td>
+          <td style="padding:6px 8px"><select id="mpt-${p.id}" onchange="onRowTypeChange(${p.id})" style="width:80px">${typeOptsFor(p.part_type)}</select></td>
+          <td style="padding:6px 8px" id="mpc-wrap-${p.id}" ${p.part_type!=='Scrap'?'style="display:none"':''}><select id="mpc-${p.id}" style="width:130px">${catOptsFor(p.category)}</select></td>
+          <td style="padding:6px 8px"><select id="mptr-${p.id}" onchange="onRowTrackingChange(${p.id})" style="width:70px"><option value="qty" ${p.tracking_type==='qty'?'selected':''}>Qty</option><option value="kg" ${p.tracking_type==='kg'?'selected':''}>Kg</option></select></td>
+          <td style="padding:6px 8px" class="num"><input type="number" step="0.001" value="${p.weight_kg ?? ''}" id="mpw-${p.id}" style="width:80px" ${p.tracking_type!=='kg'?'disabled':''}></td>
+          <td style="padding:6px 8px"><select id="mpcity-${p.id}" style="width:100px">${cityOptsFor(p.city_override)}</select></td>
+          <td style="padding:6px 8px" class="num"><input type="number" value="${p.priority ?? 0}" id="mppri-${p.id}" style="width:55px"></td>
+          <td style="padding:6px 8px"><input type="text" value="${(p.notes||'').replace(/"/g,'&quot;')}" id="mpn-${p.id}" style="width:150px"></td>
+          <td style="padding:6px 8px;white-space:nowrap">
+            <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="savePartRow(${p.id})">Save</button>
+            ${p.active
+              ? `<button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#dc2626" onclick="deactivatePartRow(${p.id})">Deactivate</button>`
+              : `<button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#16a34a" onclick="reactivatePartRow(${p.id})">Reactivate</button>`}
           </td>
         </tr>`).join('')}
       </tbody>
-    </table>` : '<div class="empty">No weight mappings yet — add one above.</div>';
+    </table>` : '<div class="empty">No matching rows — add one above, or clear filters.</div>';
 }
 
-function prefillWeightForm(partName) {
-  document.getElementById('pw-pattern').value = partName;
-  document.getElementById('pw-weight').focus();
-  document.getElementById('pw-pattern').scrollIntoView({ behavior: 'smooth', block: 'center' });
+function onRowTypeChange(id) {
+  const isScrap = document.getElementById(`mpt-${id}`).value === 'Scrap';
+  document.getElementById(`mpc-wrap-${id}`).style.display = isScrap ? '' : 'none';
+}
+function onRowTrackingChange(id) {
+  document.getElementById(`mpw-${id}`).disabled = document.getElementById(`mptr-${id}`).value !== 'kg';
 }
 
-async function addPartWeight() {
-  const pattern = document.getElementById('pw-pattern').value.trim();
-  const weight = parseFloat(document.getElementById('pw-weight').value);
-  const notes = document.getElementById('pw-notes').value.trim();
-  if (!pattern || isNaN(weight)) { alert('Enter both a part pattern and a weight.'); return; }
-  const r = await fetch(`${SB}/rest/v1/scrap_part_weights`, {
+async function addManagedPart() {
+  const pattern = document.getElementById('mp-pattern').value.trim();
+  const part_type = document.getElementById('mp-type').value;
+  const category = part_type === 'Scrap' ? document.getElementById('mp-category').value : null;
+  const tracking_type = document.getElementById('mp-tracking').value;
+  const weight_kg = tracking_type === 'kg' ? parseFloat(document.getElementById('mp-weight').value) : null;
+  const city_override = document.getElementById('mp-city').value || null;
+  const priority = parseInt(document.getElementById('mp-priority').value, 10) || 0;
+  const notes = document.getElementById('mp-notes').value.trim() || null;
+  if (!pattern) { alert('Enter a pattern.'); return; }
+  if (tracking_type === 'kg' && isNaN(weight_kg)) { alert('Tracking is set to Kg — enter a weight.'); return; }
+  const r = await fetch(`${SB}/rest/v1/managed_parts`, {
     method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ part_pattern: pattern, weight_kg: weight, notes: notes || null })
+    body: JSON.stringify({ match_pattern: pattern, part_type, category, tracking_type, weight_kg, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes, source: 'manual' })
   });
   if (!r.ok) { alert('Could not add: ' + (await r.text()).slice(0,200)); return; }
-  document.getElementById('pw-pattern').value = '';
-  document.getElementById('pw-weight').value = '';
-  document.getElementById('pw-notes').value = '';
-  await renderWeightManager();
+  document.getElementById('mp-pattern').value = ''; document.getElementById('mp-notes').value = '';
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
 }
 
-async function saveWeightRow(id) {
-  const pattern = document.getElementById(`wp-${id}`).value.trim();
-  const weight = parseFloat(document.getElementById(`ww-${id}`).value);
-  const notes = document.getElementById(`wn-${id}`).value.trim();
-  if (!pattern || isNaN(weight)) { alert('Pattern and weight are both required.'); return; }
+async function savePartRow(id) {
+  const existingRow = (MANAGED_PARTS_CACHE || []).find(p => p.id === id);
+  const pattern = document.getElementById(`mpp-${id}`).value.trim();
+  const part_type = document.getElementById(`mpt-${id}`).value;
+  const category = part_type === 'Scrap' ? document.getElementById(`mpc-${id}`).value : null;
+  const tracking_type = document.getElementById(`mptr-${id}`).value;
+  const weightInput = document.getElementById(`mpw-${id}`).value;
+  const weight_kg = tracking_type === 'kg' && weightInput !== '' ? parseFloat(weightInput) : null;
+  const city_override = document.getElementById(`mpcity-${id}`).value || null;
+  const priority = parseInt(document.getElementById(`mppri-${id}`).value, 10) || 0;
+  const notes = document.getElementById(`mpn-${id}`).value.trim() || null;
+  if (!pattern) { alert('Pattern is required.'); return; }
+  if (tracking_type === 'kg' && (weight_kg == null || isNaN(weight_kg))) { alert('Tracking is set to Kg — enter a weight.'); return; }
 
-  const existingRow = (WEIGHT_ROWS_CACHE || []).find(w => w.id === id);
-  const weightChanged = existingRow && Number(existingRow.weight_kg) !== weight;
+  const weightChanged = existingRow && tracking_type === 'kg' && Number(existingRow.weight_kg) !== weight_kg;
+  const base = { match_pattern: pattern, part_type, category, tracking_type, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes };
 
   if (!weightChanged) {
-    // Pattern/notes-only edit -- no history implication, just update in place.
-    const r = await fetch(`${SB}/rest/v1/scrap_part_weights?id=eq.${id}`, {
+    const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
       method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ part_pattern: pattern, notes: notes || null })
+      body: JSON.stringify({ ...base, weight_kg })
     });
     if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
-    await renderWeightManager();
+    MANAGED_PARTS_CACHE = [];
+    await renderPartsManager();
     return;
   }
 
-  // The weight value itself changed -- this affects a business KPI
-  // (Estimated Generated / Backlog), so it needs to be versioned rather
-  // than silently overwritten: close the old value off as of yesterday
-  // (so every past billing_date keeps using what was true for it) and
-  // open a new one starting today.
-  const reason = prompt(`Changing weight from ${existingRow.weight_kg}kg to ${weight}kg for "${pattern}".\n\nReason for this change (kept for audit):`);
-  if (reason === null) return; // cancelled
+  const reason = prompt(`Changing weight from ${existingRow.weight_kg}kg to ${weight_kg}kg for "${pattern}".\n\nReason for this change (kept for audit):`);
+  if (reason === null) return;
   const who = getCurrentUser().email || 'unknown';
   const today = new Date().toISOString().slice(0,10);
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
 
-  const closeR = await fetch(`${SB}/rest/v1/scrap_part_weights?id=eq.${id}`, {
+  const closeR = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
     method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ effective_to: yesterday, part_pattern: pattern })
+    body: JSON.stringify({ ...base, weight_kg: existingRow.weight_kg, effective_to: yesterday })
   });
   if (!closeR.ok) { alert('Could not close out the old weight: ' + (await closeR.text()).slice(0,200)); return; }
 
-  const newR = await fetch(`${SB}/rest/v1/scrap_part_weights`, {
+  const openR = await fetch(`${SB}/rest/v1/managed_parts`, {
     method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ part_pattern: pattern, weight_kg: weight, notes: notes || null, effective_from: today, changed_by: who, change_reason: reason || null })
+    body: JSON.stringify({ ...base, weight_kg, effective_from: today, effective_to: null, changed_by: who, change_reason: reason || null, source: existingRow.source })
   });
-  if (!newR.ok) { alert('Old weight was closed out, but the new one failed to save -- please add it again: ' + (await newR.text()).slice(0,200)); }
-  await renderWeightManager();
+  if (!openR.ok) { alert('Old weight closed out, but could not open the new one: ' + (await openR.text()).slice(0,200)); return; }
+
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
 }
 
-async function deleteWeightRow(id) {
-  if (!confirm('Stop using this weight mapping going forward? (Past estimates that relied on it are kept intact -- this only affects new/future dates.)')) return;
-  const r = await fetch(`${SB}/rest/v1/scrap_part_weights?id=eq.${id}`, {
+async function deactivatePartRow(id) {
+  if (!confirm('Deactivate this pattern? It stops matching new items immediately -- past classifications already recorded are kept intact.')) return;
+  const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
     method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ effective_to: new Date().toISOString().slice(0,10) })
+    body: JSON.stringify({ active: false })
   });
-  if (!r.ok) { alert('Could not remove: ' + (await r.text()).slice(0,200)); return; }
-  await renderWeightManager();
+  if (!r.ok) { alert('Could not deactivate: ' + (await r.text()).slice(0,200)); return; }
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
+}
+
+async function reactivatePartRow(id) {
+  const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
+    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ active: true })
+  });
+  if (!r.ok) { alert('Could not reactivate: ' + (await r.text()).slice(0,200)); return; }
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
 }
 
 async function downloadMovementPDF(row) {
@@ -2402,7 +2468,7 @@ async function ptInit() {
   _ptSbGetHadFailure = false;
   await ptApplyEditPermission();
   const mv = document.getElementById('btn-manage-vendors'); if (mv) mv.style.display = isScrapPowerUser() ? '' : 'none';
-  const mw = document.getElementById('btn-manage-weights'); if (mw) mw.style.display = isScrapWeightAdmin() ? '' : 'none';
+  const mw = document.getElementById('btn-manage-parts'); if (mw) mw.style.display = isScrapWeightAdmin() ? '' : 'none';
 
   const fleet = await ptSbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
   ptHubsByCity = {};
