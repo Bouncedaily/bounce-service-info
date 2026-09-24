@@ -447,8 +447,8 @@ async function downloadRawCSV(){
       var r=await fetch(SB+'/rest/v1/rpc/get_damage_part_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload)});
       var d=await r.json();
       rows=d.rows||[];
-      headers=['JC','Reg Number','Date','City','Hub','Type','Executive','Cost'];
-      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.total_amount];};
+      headers=['JC','Reg Number','DMS JC ID','Date','City','Hub','Type','Executive','Cost'];
+      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.dms_jc_no||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.total_amount];};
       labelForFile=RAW_PART_ITEM+(RAW_PART_EXEC?('_'+RAW_PART_EXEC):'');
     } else {
       var payload2=Object.assign({p_extra_dim:RAW_DIM,p_extra_val:RAW_VAL,p_limit:Math.max(RAW_TOTAL,500,1)},curF());
@@ -489,8 +489,8 @@ async function drill(mode,key,execCtx){
       if(!rows.length){body.innerHTML='<div class="empty">No job cards match.</div>';return;}
       document.getElementById('drill-csv-btn').style.display='inline-block';
       var shownNote=d.total_rows>rows.length?('<div style="padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">Showing top '+rows.length+' of '+nf(d.total_rows)+' job cards by cost — CSV export includes all '+nf(d.total_rows)+'</div>'):'';
-      body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Reg Number</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Cost</th></tr></thead><tbody>'+
-        rows.map(function(r){return '<tr'+(r.executive?' class="drow" data-key="'+esc(r.executive)+'" data-mode="exec" style="cursor:pointer"':'')+'><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'—')+'</td><td class="num" style="font-weight:600">'+nf(r.total_amount)+'</td></tr>';}).join('')+'</tbody></table>';
+      body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Reg Number</th><th>DMS JC ID</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Cost</th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr'+(r.executive?' class="drow" data-key="'+esc(r.executive)+'" data-mode="exec" style="cursor:pointer"':'')+'><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.dms_jc_no||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'—')+'</td><td class="num" style="font-weight:600">'+nf(r.total_amount)+'</td></tr>';}).join('')+'</tbody></table>';
     }catch(e){body.innerHTML='<div class="empty">Error loading raw data.</div>';}
     return;
   }
