@@ -384,18 +384,21 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div id="hqtab-history" style="display:none">
-  <div class="psub">Search a vehicle's registration number to see every part ever replaced on it — or leave it blank and search by part name to see that part across every vehicle, most recent first.</div>
+  <div class="psub">Type a registration number (even partial, e.g. "BLR") to see every part replaced on matching vehicles across all dates — or leave it blank and search by part name instead, filtered to the date range below.</div>
   <div style="display:flex;gap:8px;align-items:center;margin:12px 0 16px;flex-wrap:wrap">
-    <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:280px;text-transform:uppercase;font-weight:600" onkeydown="if(event.key==='Enter')loadServiceHistory()" autofocus>
-    <input type="text" id="svc-part-filter" placeholder="Search by part name…" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;width:220px" onkeydown="if(event.key==='Enter')loadServiceHistory()" oninput="applyServicePartFilter()">
-    <select id="svc-city-filter" onchange="onSvcCityChange()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
-    <select id="svc-hub-filter" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
-    <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Search</button>
+    <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001 or BLR" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:220px;text-transform:uppercase;font-weight:600" oninput="onSvcSearchInput()" autofocus>
+    <input type="text" id="svc-part-filter" placeholder="…or search by part name" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;width:200px" oninput="onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b)">From</span>
+    <input type="date" id="svc-from-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b)">To</span>
+    <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
+    <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
+    <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
     <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
     <span id="svc-refreshed-at" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
   </div>
   <div id="svc-kpis"></div>
-  <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, and press Search.</div></div>
+  <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, to search.</div></div>
 </div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src=""></div>
 <script>
@@ -1867,6 +1870,12 @@ let SVC_DIMS_INIT = false, SVC_HUBS_BY_CITY = {};
 const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'] };
 
 async function loadSvcDims(){
+  // Default date range = this month, only meaningful in part-search mode
+  // (reg-number mode ignores dates entirely -- ties to reg-input's
+  // enabled/disabled state below).
+  var today = new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
+  document.getElementById('svc-from-date').value = today.slice(0,8)+'01';
+  document.getElementById('svc-to-date').value = today;
   try{
     var r = await fetch(SB+'/rest/v1/rpc/get_parts_dims',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     var d = await r.json();
@@ -1883,6 +1892,33 @@ function onSvcCityChange(){
   hubSel.innerHTML = '<option value="">All hubs</option>' + hubs.map(function(h){ return '<option value="'+esc(h)+'">'+esc(h)+'</option>'; }).join('');
 }
 
+// Live search, debounced -- no Search button. Reg-number takes priority:
+// as soon as it has 2+ characters, date/part filters are disabled (greyed
+// out) since reg-mode ignores them entirely and shows every date for any
+// matching vehicle. With reg empty, typing a part name (2+ chars) or
+// changing date/city/hub searches across all vehicles instead.
+var SVC_DEBOUNCE = null;
+function onSvcSearchInput(){
+  var reg = document.getElementById('svc-reg-input').value.trim();
+  var partBox = document.getElementById('svc-part-filter');
+  var fromBox = document.getElementById('svc-from-date');
+  var toBox = document.getElementById('svc-to-date');
+  var regActive = reg.length >= 2;
+  partBox.disabled = regActive; fromBox.disabled = regActive; toBox.disabled = regActive;
+  partBox.style.opacity = fromBox.style.opacity = toBox.style.opacity = regActive ? .45 : 1;
+
+  clearTimeout(SVC_DEBOUNCE);
+  SVC_DEBOUNCE = setTimeout(function(){
+    var part = partBox.value.trim();
+    if(regActive || part.length >= 2){ loadServiceHistory(); }
+    else if(!reg && !part){
+      document.getElementById('svc-history-results').innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, to search.</div>';
+      document.getElementById('svc-kpis').innerHTML=''; document.getElementById('svc-export-btn').style.display='none';
+      SVC_ROWS=[]; SVC_REG='';
+    }
+  }, 400);
+}
+
 // Filters by part name only -- counts used for the "⟳×N" repeat badge stay
 // keyed off the FULL unfiltered history (see renderSvcTable), so filtering
 // down to one part doesn't make its own repeat count look wrong.
@@ -1897,41 +1933,38 @@ function applyServicePartFilter(){
   renderSvcTable();
 }
 
+let SVC_TOTAL_COUNT = 0;
 async function loadServiceHistory(){
   var reg = document.getElementById('svc-reg-input').value.trim();
   var partQuery = document.getElementById('svc-part-filter').value.trim();
   var city = document.getElementById('svc-city-filter').value;
   var hub = document.getElementById('svc-hub-filter').value;
+  var fromDate = document.getElementById('svc-from-date').value;
+  var toDate = document.getElementById('svc-to-date').value;
   var box = document.getElementById('svc-history-results');
   var kpiBox = document.getElementById('svc-kpis');
   document.getElementById('svc-export-btn').style.display = 'none';
 
-  if(!reg && !partQuery){
-    box.innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, and press Search.</div>';
-    kpiBox.innerHTML=''; SVC_REG=''; SVC_ROWS=[]; return;
-  }
-
+  SVC_MODE = reg.length >= 2 ? 'reg' : 'part';
   box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
   try{
-    var rows;
-    if(reg){
-      // Single-vehicle mode -- unchanged behaviour, city/hub filters don't
-      // apply here (a specific vehicle only ever has one).
-      SVC_MODE = 'reg'; SVC_PART_FILTER = '';
-      var r=await fetch(SB+'/rest/v1/rpc/get_vehicle_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:reg})});
-      if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
-      rows = await r.json();
-      SVC_REG = reg;
-      if(!rows.length){ box.innerHTML='<div class="empty" style="padding:24px">No service history found for <b>'+esc(reg)+'</b>. Double-check the registration number.</div>'; return; }
-    } else {
-      // Cross-vehicle mode -- no reg number given, search this part across
-      // every vehicle instead, respecting the city/hub filters.
-      SVC_MODE = 'part'; SVC_REG = '';
-      var r=await fetch(SB+'/rest/v1/rpc/search_service_history_by_part',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_item_name:partQuery, p_city: city?[city]:null, p_hub: hub?[hub]:null})});
-      if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
-      rows = await r.json();
-      if(!rows.length){ box.innerHTML='<div class="empty" style="padding:24px">No vehicles found with a part matching <b>'+esc(partQuery)+'</b>'+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):'')+'.</div>'; return; }
+    var r=await fetch(SB+'/rest/v1/rpc/search_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({
+      p_reg_number: SVC_MODE==='reg' ? reg : null,
+      p_item_name: SVC_MODE==='part' ? (partQuery||null) : null,
+      p_city: SVC_MODE==='part' && city ? [city] : null,
+      p_hub: SVC_MODE==='part' && hub ? [hub] : null,
+      p_from: SVC_MODE==='part' ? (fromDate||null) : null,
+      p_to: SVC_MODE==='part' ? (toDate||null) : null,
+    })});
+    if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
+    var result = await r.json();
+    var rows = result.rows || [];
+    SVC_TOTAL_COUNT = result.total_count || rows.length;
+    SVC_REG = SVC_MODE==='reg' ? reg : '';
+    if(!rows.length){
+      box.innerHTML = '<div class="empty" style="padding:24px">No matches'+(SVC_MODE==='reg' ? ' for <b>'+esc(reg)+'</b>' : (partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):''))+'.</div>';
+      return;
     }
     SVC_ROWS = rows;
     document.getElementById('svc-export-btn').style.display = '';
@@ -1947,10 +1980,11 @@ async function loadServiceHistory(){
 async function refreshServiceHistoryQuiet(){
   if(SVC_MODE !== 'reg' || !SVC_REG || document.getElementById('hqtab-history').style.display==='none') return;
   try{
-    var r=await fetch(SB+'/rest/v1/rpc/get_vehicle_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:SVC_REG})});
+    var r=await fetch(SB+'/rest/v1/rpc/search_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({p_reg_number:SVC_REG})});
     if(!r.ok) return;
-    var rows=await r.json();
-    SVC_ROWS = rows;
+    var result=await r.json();
+    SVC_ROWS = result.rows || [];
+    SVC_TOTAL_COUNT = result.total_count || SVC_ROWS.length;
     renderSvcKpis();
     renderSvcTable();
     renderSvcRefreshedAt();
@@ -2007,10 +2041,11 @@ function renderSvcTable(){
   var arrow = function(c){ return c===col ? (dir==='asc'?' ▲':' ▼') : ''; };
   var th = function(label, key, numeric){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
 
-  var contextLabel = SVC_MODE==='part' ? ('across all vehicles for <b>"'+esc(document.getElementById('svc-part-filter').value.trim())+'"</b>') : ('for <b>'+esc(SVC_REG)+'</b>');
-  var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' '+contextLabel+(SVC_MODE==='reg' && SVC_PART_FILTER?' matching "'+esc(SVC_PART_FILTER)+'"':'')+' — click any column to sort, repeated parts highlighted</div>';
+  var contextLabel = SVC_MODE==='part' ? ('across all vehicles'+(document.getElementById('svc-part-filter').value.trim() ? ' for <b>"'+esc(document.getElementById('svc-part-filter').value.trim())+'"</b>' : '')) : ('matching reg <b>'+esc(SVC_REG)+'</b>');
+  var truncNote = SVC_TOTAL_COUNT > rows.length ? ' — <span style="color:#b45309;font-weight:600">showing most recent '+rows.length.toLocaleString('en-IN')+' of '+SVC_TOTAL_COUNT.toLocaleString('en-IN')+', narrow with dates/city/hub to see the rest</span>' : '';
+  var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' '+contextLabel+truncNote+' — click any column to sort, repeated parts highlighted</div>';
   html += '<div style="overflow-x:auto"><table><thead><tr>'+
-    (SVC_MODE==='part' ? th('Reg Number','reg_number',false) : '') +
+    th('Reg Number','reg_number',false) +
     th('Job Card Number','job_card_number',false)+th('Job Opened','job_opened_date',false)+th('Date','date',false)+th('City','city',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
     th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+
@@ -2022,7 +2057,7 @@ function renderSvcTable(){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat];
     var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
     html += '<tr'+(isRepeat?' style="background:#fffbeb"':'')+'>'+
-      (SVC_MODE==='part' ? '<td style="font-weight:600">'+esc(r.reg_number||'—')+'</td>' : '') +
+      '<td style="font-weight:600">'+esc(r.reg_number||'—')+'</td>' +
       '<td>'+esc(r.job_card_number||'—')+'</td><td>'+dOpened+'</td><td>'+d+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
       '<td>'+esc(r.submission_type||'—')+'</td>'+
@@ -2039,11 +2074,11 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = (SVC_MODE==='part' ? ['Reg Number'] : []).concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician','HO User']);
+  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician','HO User']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
-    return SVC_MODE==='part' ? [r.reg_number||''].concat(base) : base;
+    return [r.reg_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
     return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
