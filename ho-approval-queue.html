@@ -401,6 +401,7 @@ tr.row-flag:hover{background:#fee2e2}
     <span id="svc-refreshed-at" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
   </div>
   <div id="svc-mode-note" style="font-size:12px;margin-bottom:10px"></div>
+  <div id="svc-vehicle-profile"></div>
   <div id="svc-kpis"></div>
   <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, to search.</div></div>
 </div>
@@ -1997,6 +1998,7 @@ function applyServicePartFilter(){
   SVC_PART_FILTER = document.getElementById('svc-part-filter').value.trim().toLowerCase();
   if(!SVC_ROWS.length) return;
   renderSvcKpis();
+  renderVehicleProfile();
   renderSvcTable();
 }
 
@@ -2070,6 +2072,7 @@ async function loadServiceHistory(){
     SVC_ROWS = rows;
     document.getElementById('svc-export-btn').style.display = '';
     renderSvcKpis();
+    renderVehicleProfile();
     renderSvcTable();
     renderSvcRefreshedAt();
   }catch(e){ if(mySeq===SVC_REQ_SEQ) box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; }
@@ -2087,6 +2090,7 @@ async function refreshServiceHistoryQuiet(){
     SVC_ROWS = result.rows || [];
     SVC_TOTAL_COUNT = result.total_count || SVC_ROWS.length;
     renderSvcKpis();
+    renderVehicleProfile();
     renderSvcTable();
     renderSvcRefreshedAt();
   }catch(e){ /* silent -- keep showing last good data */ }
@@ -2103,6 +2107,34 @@ function renderSvcRefreshedAt(){
 }
 setInterval(refreshServiceHistoryQuiet, 120000); // auto-refresh every 2 minutes, mirrors the Queue tab's cadence
 
+function renderVehicleProfile(){
+  var el = document.getElementById('svc-vehicle-profile');
+  var rows = getFilteredSvcRows();
+  var distinctRegs = new Set(rows.map(function(r){ return r.reg_number; }));
+  // Only makes sense for exactly one vehicle -- a broader reg substring
+  // (e.g. "BLR") or a part-name search across many vehicles has no single
+  // "this vehicle" to summarize, so this stays hidden in those cases.
+  if(distinctRegs.size !== 1 || !rows.length){ el.innerHTML=''; return; }
+  var reg = rows[0].reg_number;
+  var totalSpend = rows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
+  var totalRepairs = new Set(rows.map(function(r){ return r.job_card_number; })).size;
+  // "Current" odometer = the reading from whichever row has the latest
+  // date, not just rows[0] -- the table may currently be sorted by a
+  // different column.
+  var latestRow = rows.reduce(function(best,r){
+    if(r.odo==null) return best;
+    if(!best || !r.date) return r;
+    return (new Date(r.date) > new Date(best.date)) ? r : best;
+  }, null);
+  var currentOdo = latestRow && latestRow.odo!=null ? Number(latestRow.odo).toLocaleString('en-IN')+' km' : '—';
+  el.innerHTML =
+    '<div style="background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:28px;flex-wrap:wrap">' +
+    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Vehicle</div><div style="font-size:20px;font-weight:800;color:#0f172a">'+esc(reg)+'</div></div>' +
+    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Current Odometer</div><div style="font-size:17px;font-weight:700">'+currentOdo+'</div></div>' +
+    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Lifetime Spend</div><div style="font-size:17px;font-weight:700">₹'+Math.round(totalSpend).toLocaleString('en-IN')+'</div></div>' +
+    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Total Repairs (Job Cards)</div><div style="font-size:17px;font-weight:700">'+totalRepairs+'</div></div>' +
+    '</div>';
+}
 function renderSvcKpis(){
   var rows = getFilteredSvcRows();
   var totalAmount = rows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
@@ -2174,7 +2206,7 @@ function renderSvcTable(){
       '<td>'+esc(r.job_card_number||'—')+'</td><td>'+dOpened+'</td><td>'+d+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
       '<td>'+esc(r.submission_type||'—')+'</td>'+
-      '<td>'+esc(r.item_name||'—')+'</td>'+
+      '<td>'+esc(r.item_name||'—')+(r.is_early_replacement?' <span title="Replaced at '+Number(r.km_on_part).toLocaleString('en-IN')+' km \u2014 expected life is '+Number(r.expected_life_km).toLocaleString('en-IN')+' km" style="background:#fef2f2;color:#b91c1c;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap">⚠ EARLY</span>':'')+'</td>'+
       '<td class="num">'+(isRepeat?'<span title="Replaced '+repeatCount+' times on this vehicle" style="color:#b45309;font-weight:700">'+repeatCount+'</span>':'1')+'</td>'+
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
@@ -2188,10 +2220,11 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User']);
+  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
-    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
+    var earlyFlag = r.is_early_replacement ? ('Yes ('+r.km_on_part+' km vs '+r.expected_life_km+' km expected)') : '';
+    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
     return [r.reg_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
