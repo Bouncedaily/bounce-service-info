@@ -927,7 +927,7 @@ function hqTab(t){
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
   if(t==='quality' && !QUALITY_INIT){ QUALITY_INIT=true; qualityBoot(); }
   if(t==='nithish' && !NITHISH_INIT){ NITHISH_INIT=true; nithishBoot(); }
-  if(t==='history' && !SVC_DIMS_INIT){ SVC_DIMS_INIT=true; loadSvcDims(); }
+  if(t==='history' && !SVC_DIMS_INIT){ SVC_DIMS_INIT=true; loadSvcDims().then(loadServiceHistory); }
 }
 
 const PF_WINDOW_DAYS=30;
@@ -1910,12 +1910,11 @@ function onSvcSearchInput(){
   clearTimeout(SVC_DEBOUNCE);
   SVC_DEBOUNCE = setTimeout(function(){
     var part = partBox.value.trim();
-    if(regActive || part.length >= 2){ loadServiceHistory(); }
-    else if(!reg && !part){
-      document.getElementById('svc-history-results').innerHTML='<div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, to search.</div>';
-      document.getElementById('svc-kpis').innerHTML=''; document.getElementById('svc-export-btn').style.display='none';
-      SVC_ROWS=[]; SVC_REG='';
-    }
+    // No minimum-length gate when both are empty: with nothing typed,
+    // this is just "show everything" (respecting date/city/hub, which
+    // default to this month/all) ordered by date desc, same as any
+    // other filtered view -- not a separate empty state.
+    if(regActive || part.length >= 2 || (!reg && !part)){ loadServiceHistory(); }
   }, 400);
 }
 
@@ -1963,7 +1962,10 @@ async function loadServiceHistory(){
     SVC_TOTAL_COUNT = result.total_count || rows.length;
     SVC_REG = SVC_MODE==='reg' ? reg : '';
     if(!rows.length){
-      box.innerHTML = '<div class="empty" style="padding:24px">No matches'+(SVC_MODE==='reg' ? ' for <b>'+esc(reg)+'</b>' : (partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):''))+'.</div>';
+      var noneMsg = SVC_MODE==='reg' ? 'No matches for <b>'+esc(reg)+'</b>.'
+        : (partQuery || city || hub) ? 'No matches'+(partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):'')+' in this date range.'
+        : 'No parts found in this date range.';
+      box.innerHTML = '<div class="empty" style="padding:24px">'+noneMsg+'</div>';
       return;
     }
     SVC_ROWS = rows;
