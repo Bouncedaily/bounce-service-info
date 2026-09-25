@@ -394,6 +394,8 @@ tr.row-flag:hover{background:#fee2e2}
     <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
     <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
     <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+    <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Apply Filters</button>
+    <button class="btn" onclick="clearServiceHistoryFilters()">Clear Filters</button>
     <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
     <span id="svc-refreshed-at" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
   </div>
@@ -1893,6 +1895,16 @@ function onSvcCityChange(){
   var hubSel = document.getElementById('svc-hub-filter');
   var hubs = city ? (SVC_HUBS_BY_CITY[city]||[]).slice().sort() : Object.values(SVC_HUBS_BY_CITY).flat().sort();
   hubSel.innerHTML = '<option value="">All hubs</option>' + hubs.map(function(h){ return '<option value="'+esc(h)+'">'+esc(h)+'</option>'; }).join('');
+}
+function clearServiceHistoryFilters(){
+  document.getElementById('svc-reg-input').value = '';
+  document.getElementById('svc-part-filter').value = '';
+  document.getElementById('svc-city-filter').value = '';
+  onSvcCityChange(); // rebuild the hub list back to "all cities" scope
+  document.getElementById('svc-hub-filter').value = '';
+  document.getElementById('svc-from-date').value = SVC_DEFAULT_FROM;
+  document.getElementById('svc-to-date').value = SVC_DEFAULT_TO;
+  loadServiceHistory();
 }
 
 // Live search, debounced -- no Search button. Reg-number takes priority:
