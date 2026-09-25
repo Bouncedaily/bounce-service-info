@@ -1969,7 +1969,7 @@ function renderSvcTable(){
   html += '<div style="overflow-x:auto"><table><thead><tr>'+
     th('Job Card Number','job_card_number',false)+th('Date','date',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
-    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+
+    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+
     '</tr></thead><tbody>';
   rows.forEach(function(r){
     var d = r.date ? new Date(r.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -1984,7 +1984,7 @@ function renderSvcTable(){
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
       '<td class="num">'+(r.amount!=null?'₹'+Number(r.amount).toLocaleString('en-IN'):'—')+'</td>'+
-      '<td>'+esc(r.technician||'—')+'</td></tr>';
+      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.ho_user||'—')+'</td></tr>';
   });
   html += '</tbody></table></div>';
   box.innerHTML = html;
@@ -1993,10 +1993,10 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Job Card Number','Date','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician'];
+  var cols = ['Job Card Number','Date','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician','HO User'];
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
-    return [r.job_card_number||'', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||''];
+    return [r.job_card_number||'', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
     return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
