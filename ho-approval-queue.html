@@ -1939,9 +1939,9 @@ function updateSvcModeNote(reg, part){
   var el = document.getElementById('svc-mode-note');
   if(!el) return;
   if(reg.length >= 2 && part){
-    el.innerHTML = '<span style="color:#b45309;font-weight:600">⚠ Searching by registration number "'+esc(reg)+'" — the part name "'+esc(part)+'" is being ignored. Clear the reg number to search by part instead.</span>';
+    el.innerHTML = '<span style="color:var(--muted,#64748b)">Showing parts matching "'+esc(part)+'" on vehicles matching "'+esc(reg)+'" — all dates (date/city/hub filters don\'t apply while a reg number is set).</span>';
   } else if(reg.length >= 2){
-    el.innerHTML = '<span style="color:var(--muted,#64748b)">Searching by registration number — date/part/city/hub filters don\'t apply in this mode.</span>';
+    el.innerHTML = '<span style="color:var(--muted,#64748b)">Searching by registration number — date/city/hub filters don\'t apply in this mode.</span>';
   } else {
     el.textContent = '';
   }
@@ -2001,7 +2001,7 @@ async function loadServiceHistory(){
       SVC_CACHE_UPDATED_AT = null;
       var r=await fetch(SB+'/rest/v1/rpc/search_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({
         p_reg_number: SVC_MODE==='reg' ? reg : null,
-        p_item_name: SVC_MODE==='part' ? (partQuery||null) : null,
+        p_item_name: partQuery || null,
         p_city: SVC_MODE==='part' && city ? [city] : null,
         p_hub: SVC_MODE==='part' && hub ? [hub] : null,
         p_from: SVC_MODE==='part' ? (fromDate||null) : null,
@@ -2021,7 +2021,7 @@ async function loadServiceHistory(){
     SVC_TOTAL_COUNT = result.total_count || rows.length;
     SVC_REG = SVC_MODE==='reg' ? reg : '';
     if(!rows.length){
-      var noneMsg = SVC_MODE==='reg' ? 'No matches for <b>'+esc(reg)+'</b>.'
+      var noneMsg = SVC_MODE==='reg' ? 'No matches for reg <b>'+esc(reg)+'</b>'+(partQuery?' with part <b>"'+esc(partQuery)+'"</b>':'')+'.'
         : (partQuery || city || hub) ? 'No matches'+(partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):'')+' in this date range.'
         : 'No parts found in this date range.';
       box.innerHTML = '<div class="empty" style="padding:24px">'+noneMsg+'</div>';
@@ -2108,7 +2108,10 @@ function renderSvcTable(){
   var arrow = function(c){ return c===col ? (dir==='asc'?' ▲':' ▼') : ''; };
   var th = function(label, key, numeric){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
 
-  var contextLabel = SVC_MODE==='part' ? ('across all vehicles'+(document.getElementById('svc-part-filter').value.trim() ? ' for <b>"'+esc(document.getElementById('svc-part-filter').value.trim())+'"</b>' : '')) : ('matching reg <b>'+esc(SVC_REG)+'</b>');
+  var svcPartVal = document.getElementById('svc-part-filter').value.trim();
+  var contextLabel = SVC_MODE==='part'
+    ? ('across all vehicles'+(svcPartVal ? ' for <b>"'+esc(svcPartVal)+'"</b>' : ''))
+    : ('matching reg <b>'+esc(SVC_REG)+'</b>'+(svcPartVal ? ' with part <b>"'+esc(svcPartVal)+'"</b>' : ''));
   var truncNote = SVC_TOTAL_COUNT > rows.length ? ' — <span style="color:#b45309;font-weight:600">showing most recent '+rows.length.toLocaleString('en-IN')+' of '+SVC_TOTAL_COUNT.toLocaleString('en-IN')+', narrow with dates/city/hub to see the rest</span>' : '';
   var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' '+contextLabel+truncNote+' — click any column to sort, repeated parts highlighted</div>';
   html += '<div style="overflow-x:auto"><table><thead><tr>'+
