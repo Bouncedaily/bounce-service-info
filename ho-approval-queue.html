@@ -399,6 +399,7 @@ tr.row-flag:hover{background:#fee2e2}
     <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
     <span id="svc-refreshed-at" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
   </div>
+  <div id="svc-mode-note" style="font-size:12px;margin-bottom:10px"></div>
   <div id="svc-kpis"></div>
   <div id="svc-history-results"><div class="empty" style="padding:24px;color:var(--muted,#64748b)">Enter a vehicle registration number, or a part name, to search.</div></div>
 </div>
@@ -1922,6 +1923,7 @@ function onSvcSearchInput(){
   // Part/date stay editable even while a reg-number search is active --
   // they're simply not sent to the query in that mode (see below), so you
   // can freely set them up in advance for when you clear the reg number.
+  updateSvcModeNote(reg, partBox.value.trim());
 
   clearTimeout(SVC_DEBOUNCE);
   SVC_DEBOUNCE = setTimeout(function(){
@@ -1932,6 +1934,17 @@ function onSvcSearchInput(){
     // other filtered view -- not a separate empty state.
     if(regActive || part.length >= 2 || (!reg && !part)){ loadServiceHistory(); }
   }, 400);
+}
+function updateSvcModeNote(reg, part){
+  var el = document.getElementById('svc-mode-note');
+  if(!el) return;
+  if(reg.length >= 2 && part){
+    el.innerHTML = '<span style="color:#b45309;font-weight:600">⚠ Searching by registration number "'+esc(reg)+'" — the part name "'+esc(part)+'" is being ignored. Clear the reg number to search by part instead.</span>';
+  } else if(reg.length >= 2){
+    el.innerHTML = '<span style="color:var(--muted,#64748b)">Searching by registration number — date/part/city/hub filters don\'t apply in this mode.</span>';
+  } else {
+    el.textContent = '';
+  }
 }
 
 // Filters by part name only -- counts used for the "⟳×N" repeat badge stay
@@ -1964,6 +1977,7 @@ async function loadServiceHistory(){
   document.getElementById('svc-export-btn').style.display = 'none';
 
   SVC_MODE = reg.length >= 2 ? 'reg' : 'part';
+  updateSvcModeNote(reg, partQuery);
   var isUnmodifiedDefault = SVC_MODE==='part' && !partQuery && !city && !hub && fromDate===SVC_DEFAULT_FROM && toDate===SVC_DEFAULT_TO;
   box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
