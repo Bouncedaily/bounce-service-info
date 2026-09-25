@@ -1869,13 +1869,16 @@ let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' }, SVC_PA
 let SVC_DIMS_INIT = false, SVC_HUBS_BY_CITY = {};
 const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'] };
 
+let SVC_DEFAULT_FROM = '', SVC_DEFAULT_TO = '';
 async function loadSvcDims(){
   // Default date range = this month, only meaningful in part-search mode
   // (reg-number mode ignores dates entirely -- ties to reg-input's
   // enabled/disabled state below).
   var today = new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
-  document.getElementById('svc-from-date').value = today.slice(0,8)+'01';
-  document.getElementById('svc-to-date').value = today;
+  SVC_DEFAULT_FROM = today.slice(0,8)+'01';
+  SVC_DEFAULT_TO = today;
+  document.getElementById('svc-from-date').value = SVC_DEFAULT_FROM;
+  document.getElementById('svc-to-date').value = SVC_DEFAULT_TO;
   try{
     var r = await fetch(SB+'/rest/v1/rpc/get_parts_dims',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     var d = await r.json();
@@ -1934,6 +1937,7 @@ function applyServicePartFilter(){
 }
 
 let SVC_TOTAL_COUNT = 0;
+let SVC_CACHE_UPDATED_AT = null;
 let SVC_REQ_SEQ = 0;
 async function loadServiceHistory(){
   var mySeq = ++SVC_REQ_SEQ; // this request's ticket number
@@ -1948,26 +1952,45 @@ async function loadServiceHistory(){
   document.getElementById('svc-export-btn').style.display = 'none';
 
   SVC_MODE = reg.length >= 2 ? 'reg' : 'part';
+  var isUnmodifiedDefault = SVC_MODE==='part' && !partQuery && !city && !hub && fromDate===SVC_DEFAULT_FROM && toDate===SVC_DEFAULT_TO;
   box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
   try{
-    var r=await fetch(SB+'/rest/v1/rpc/search_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({
-      p_reg_number: SVC_MODE==='reg' ? reg : null,
-      p_item_name: SVC_MODE==='part' ? (partQuery||null) : null,
-      p_city: SVC_MODE==='part' && city ? [city] : null,
-      p_hub: SVC_MODE==='part' && hub ? [hub] : null,
-      p_from: SVC_MODE==='part' ? (fromDate||null) : null,
-      p_to: SVC_MODE==='part' ? (toDate||null) : null,
-    })});
-    // A newer search has been fired (and possibly already rendered) while
-    // this one was in flight -- e.g. the unfiltered "browse all" request is
-    // slow, and the user typed a reg number before it came back. Discard
-    // this response rather than let a stale, slower result silently
-    // overwrite a more recent, correct one on screen.
-    if(mySeq !== SVC_REQ_SEQ) return;
-    if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
-    var result = await r.json();
-    if(mySeq !== SVC_REQ_SEQ) return; // also re-check after the (slower) .json() parse
+    var result;
+    if(isUnmodifiedDefault){
+      // Fast path: this exact view (this month, no filters) is refreshed
+      // every 20 minutes by a background job and read from a small cache
+      // table instead of running the full live query -- cuts an ~17s load
+      // down to under 2s. Any actual filter/search still goes live below,
+      // since only this one specific "nothing filtered" case can be
+      // usefully pre-computed.
+      var cr = await fetch(SB+'/rest/v1/rpc/get_svc_history_month_cache',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
+      if(mySeq !== SVC_REQ_SEQ) return;
+      if(!cr.ok) throw new Error('cache read failed');
+      var cacheResult = await cr.json();
+      if(mySeq !== SVC_REQ_SEQ) return;
+      result = cacheResult.data;
+      SVC_CACHE_UPDATED_AT = cacheResult.updated_at;
+    } else {
+      SVC_CACHE_UPDATED_AT = null;
+      var r=await fetch(SB+'/rest/v1/rpc/search_service_history',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify({
+        p_reg_number: SVC_MODE==='reg' ? reg : null,
+        p_item_name: SVC_MODE==='part' ? (partQuery||null) : null,
+        p_city: SVC_MODE==='part' && city ? [city] : null,
+        p_hub: SVC_MODE==='part' && hub ? [hub] : null,
+        p_from: SVC_MODE==='part' ? (fromDate||null) : null,
+        p_to: SVC_MODE==='part' ? (toDate||null) : null,
+      })});
+      // A newer search has been fired (and possibly already rendered) while
+      // this one was in flight -- e.g. the unfiltered "browse all" request is
+      // slow, and the user typed a reg number before it came back. Discard
+      // this response rather than let a stale, slower result silently
+      // overwrite a more recent, correct one on screen.
+      if(mySeq !== SVC_REQ_SEQ) return;
+      if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
+      result = await r.json();
+      if(mySeq !== SVC_REQ_SEQ) return; // also re-check after the (slower) .json() parse
+    }
     var rows = result.rows || [];
     SVC_TOTAL_COUNT = result.total_count || rows.length;
     SVC_REG = SVC_MODE==='reg' ? reg : '';
@@ -2004,7 +2027,13 @@ async function refreshServiceHistoryQuiet(){
 }
 function renderSvcRefreshedAt(){
   var el=document.getElementById('svc-refreshed-at');
-  if(el) el.textContent='Refreshed '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+  if(!el) return;
+  if(SVC_CACHE_UPDATED_AT){
+    var t = new Date(SVC_CACHE_UPDATED_AT).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+    el.innerHTML = 'Cached as of '+t+' <span title="This default view refreshes every 20 minutes in the background for speed. Type a reg number or part name for a live, up-to-the-minute search." style="cursor:help;color:var(--muted2,#94a3b8)">ⓘ</span>';
+  } else {
+    el.textContent='Refreshed '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+  }
 }
 setInterval(refreshServiceHistoryQuiet, 120000); // auto-refresh every 2 minutes, mirrors the Queue tab's cadence
 
