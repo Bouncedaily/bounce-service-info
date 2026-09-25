@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <meta charset="UTF-8"><style>
 /* ── BOUNCE SERVICE INFO — BASE THEME ── */
 :root {
@@ -606,6 +607,12 @@ body { overflow:auto!important; }
     <div class="kpi"><div class="kpi-label">Running Repair</div><div class="kpi-val" id="k-rr" style="color:var(--amber)">—</div></div>
     <div class="kpi"><div class="kpi-label">Avg Repair TAT</div><div class="kpi-val" id="k-age">—</div><div class="kpi-sub">days · OOS→RFD</div></div>
     <div class="kpi"><div class="kpi-label">Available Technicians</div><div class="kpi-val" id="k-techs">—</div><div class="kpi-sub">active today (outflow)</div></div>
+  </div>
+
+  <!-- Inflow/Outflow trend -->
+  <div class="card">
+    <div class="card-hd"><h2>Inflow vs Outflow — last 30 days</h2></div>
+    <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
   </div>
 
   <!-- City + Model breakdown -->
@@ -1766,11 +1773,16 @@ async function fetchAndRenderBikeList(from, to) {
 
 async function fetchDailyFlow() {
   var today = todayISTDate();
-  var monthStart = today.slice(0,8) + '01';
+  // Widened from "current month only" to last 35 days so the trend chart
+  // has a full 30-day window even early in a month; updateMTD() below
+  // still filters this down to the current month internally for the MTD
+  // average, so that calculation is unaffected by the wider fetch.
+  var d = new Date(today); d.setDate(d.getDate() - 35);
+  var rangeStart = d.toISOString().slice(0,10);
   try {
     var controller = new AbortController();
     var timer = setTimeout(function(){ controller.abort(); }, 10000); // don't let a slow endpoint block the whole page
-    var r = await fetch(SB + '/rest/v1/daily_flow?select=data_date,city,hub_name,inflow_total,inflow_rr,outflow_total,outflow_rr&data_date=gte.' + monthStart + '&limit=20000', { headers: HDR, signal: controller.signal });
+    var r = await fetch(SB + '/rest/v1/daily_flow?select=data_date,city,hub_name,inflow_total,inflow_rr,outflow_total,outflow_rr&data_date=gte.' + rangeStart + '&limit=20000', { headers: HDR, signal: controller.signal });
     clearTimeout(timer);
     var j = await r.json();
     return Array.isArray(j) ? j : [];
@@ -1800,6 +1812,53 @@ function updateMTD() {
   dates.forEach(function(d){ sIn += byDate[d].in; sOut += byDate[d].out; });
   elIn.textContent  = 'avg ' + Math.round(sIn/dates.length)  + '/day (MTD)';
   elOut.textContent = 'avg ' + Math.round(sOut/dates.length) + '/day (MTD)';
+}
+
+let FLOW_TREND_CHART = null;
+function renderFlowTrendChart() {
+  var canvas = document.getElementById('flow-trend-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  var city = document.getElementById('f-city').value;
+  var hub  = document.getElementById('f-hub').value;
+  var today = todayISTDate();
+  var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 30);
+  var cutoffStr = cutoff.toISOString().slice(0,10);
+
+  // Same definition as the KPI averages above: inflow/outflow exclude
+  // Running Repair (matches the "Today's Inflow"/"Today's Outflow" KPI
+  // cards' own labels, which list Rider Sub./Bike Exchange/Recovery and
+  // OOS-to-RFD/PDI-to-RFD respectively, neither mentioning RR).
+  var byDate = {};
+  (DAILY_FLOW || []).forEach(function(r){
+    if (r.data_date < cutoffStr || r.data_date > today) return;
+    if (city && r.city !== city) return;
+    if (hub && r.hub_name !== hub) return;
+    if (!byDate[r.data_date]) byDate[r.data_date] = { in:0, out:0 };
+    byDate[r.data_date].in  += (r.inflow_total  - r.inflow_rr);
+    byDate[r.data_date].out += (r.outflow_total - r.outflow_rr);
+  });
+  var dates = Object.keys(byDate).sort();
+  var labels = dates.map(function(d){ return d.slice(5); }); // MM-DD
+  var inflowSeries  = dates.map(function(d){ return byDate[d].in; });
+  var outflowSeries = dates.map(function(d){ return byDate[d].out; });
+
+  if (FLOW_TREND_CHART) { FLOW_TREND_CHART.destroy(); }
+  FLOW_TREND_CHART = new Chart(canvas, {
+    type: 'line',
+    data: { labels: labels, datasets: [
+      { label: 'Inflow',  data: inflowSeries,  borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 },
+      { label: 'Outflow', data: outflowSeries, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
 }
 
 function applyBikeListFilters() {
@@ -1838,6 +1897,7 @@ function applyBikeListFilters() {
   renderOutflowTable(outflow);
   renderTechTable(outflow);
   updateMTD();
+  renderFlowTrendChart();
 }
 
 function clearBikeListFilters() {
