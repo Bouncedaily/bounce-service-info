@@ -394,6 +394,7 @@ tr.row-flag:hover{background:#fee2e2}
     <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
     <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
     <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+    <button class="btn" id="svc-back-btn" style="display:none" onclick="goBackServiceHistory()">← Back</button>
     <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Apply Filters</button>
     <button class="btn" onclick="clearServiceHistoryFilters()">Clear Filters</button>
     <button class="btn" id="svc-export-btn" style="display:none" onclick="exportServiceHistoryCSV()">⬇ Export CSV</button>
@@ -1908,6 +1909,44 @@ function clearServiceHistoryFilters(){
   loadServiceHistory();
 }
 
+function captureSvcState(){
+  return {
+    reg: document.getElementById('svc-reg-input').value,
+    part: document.getElementById('svc-part-filter').value,
+    city: document.getElementById('svc-city-filter').value,
+    hub: document.getElementById('svc-hub-filter').value,
+    from: document.getElementById('svc-from-date').value,
+    to: document.getElementById('svc-to-date').value,
+  };
+}
+function applySvcState(s){
+  document.getElementById('svc-reg-input').value = s.reg;
+  document.getElementById('svc-part-filter').value = s.part;
+  document.getElementById('svc-city-filter').value = s.city;
+  onSvcCityChange();
+  document.getElementById('svc-hub-filter').value = s.hub;
+  document.getElementById('svc-from-date').value = s.from;
+  document.getElementById('svc-to-date').value = s.to;
+}
+// Click a vehicle's reg number in a multi-vehicle result (part search, or a
+// partial reg match like "BLR") to drill into just that vehicle's full
+// history. Saves the view you were on so "← Back" can restore it exactly --
+// one level, not a full stack, matching what was asked.
+function drillIntoVehicle(reg){
+  SVC_PREV_STATE = captureSvcState();
+  document.getElementById('svc-reg-input').value = reg;
+  document.getElementById('svc-back-btn').style.display = '';
+  loadServiceHistory();
+  document.getElementById('svc-history-results').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function goBackServiceHistory(){
+  if(!SVC_PREV_STATE) return;
+  applySvcState(SVC_PREV_STATE);
+  SVC_PREV_STATE = null;
+  document.getElementById('svc-back-btn').style.display = 'none';
+  loadServiceHistory();
+}
+
 // Live search, debounced -- no Search button. Reg-number takes priority:
 // as soon as it has 2+ characters, date/part filters are disabled (greyed
 // out) since reg-mode ignores them entirely and shows every date for any
@@ -1964,6 +2003,7 @@ function applyServicePartFilter(){
 let SVC_TOTAL_COUNT = 0;
 let SVC_CACHE_UPDATED_AT = null;
 let SVC_REQ_SEQ = 0;
+let SVC_PREV_STATE = null;
 async function loadServiceHistory(){
   var mySeq = ++SVC_REQ_SEQ; // this request's ticket number
   var reg = document.getElementById('svc-reg-input').value.trim();
@@ -2130,7 +2170,7 @@ function renderSvcTable(){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat];
     var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
     html += '<tr'+(isRepeat?' style="background:#fffbeb"':'')+'>'+
-      '<td style="font-weight:600">'+esc(r.reg_number||'—')+'</td>' +
+      '<td><a href="#" onclick="drillIntoVehicle('+"'"+esc(r.reg_number||'').replace(/'/g,"\\'")+"'"+');return false;" style="font-weight:600;color:var(--red,#dc2626);text-decoration:none" title="See only this vehicle\'s full history">'+esc(r.reg_number||'—')+'</a></td>' +
       '<td>'+esc(r.job_card_number||'—')+'</td><td>'+dOpened+'</td><td>'+d+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
       '<td>'+esc(r.submission_type||'—')+'</td>'+
