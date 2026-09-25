@@ -1904,8 +1904,9 @@ function onSvcSearchInput(){
   var fromBox = document.getElementById('svc-from-date');
   var toBox = document.getElementById('svc-to-date');
   var regActive = reg.length >= 2;
-  partBox.disabled = regActive; fromBox.disabled = regActive; toBox.disabled = regActive;
-  partBox.style.opacity = fromBox.style.opacity = toBox.style.opacity = regActive ? .45 : 1;
+  // Part/date stay editable even while a reg-number search is active --
+  // they're simply not sent to the query in that mode (see below), so you
+  // can freely set them up in advance for when you clear the reg number.
 
   clearTimeout(SVC_DEBOUNCE);
   SVC_DEBOUNCE = setTimeout(function(){
@@ -1933,7 +1934,9 @@ function applyServicePartFilter(){
 }
 
 let SVC_TOTAL_COUNT = 0;
+let SVC_REQ_SEQ = 0;
 async function loadServiceHistory(){
+  var mySeq = ++SVC_REQ_SEQ; // this request's ticket number
   var reg = document.getElementById('svc-reg-input').value.trim();
   var partQuery = document.getElementById('svc-part-filter').value.trim();
   var city = document.getElementById('svc-city-filter').value;
@@ -1956,8 +1959,15 @@ async function loadServiceHistory(){
       p_from: SVC_MODE==='part' ? (fromDate||null) : null,
       p_to: SVC_MODE==='part' ? (toDate||null) : null,
     })});
+    // A newer search has been fired (and possibly already rendered) while
+    // this one was in flight -- e.g. the unfiltered "browse all" request is
+    // slow, and the user typed a reg number before it came back. Discard
+    // this response rather than let a stale, slower result silently
+    // overwrite a more recent, correct one on screen.
+    if(mySeq !== SVC_REQ_SEQ) return;
     if(!r.ok){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; return; }
     var result = await r.json();
+    if(mySeq !== SVC_REQ_SEQ) return; // also re-check after the (slower) .json() parse
     var rows = result.rows || [];
     SVC_TOTAL_COUNT = result.total_count || rows.length;
     SVC_REG = SVC_MODE==='reg' ? reg : '';
@@ -1973,7 +1983,7 @@ async function loadServiceHistory(){
     renderSvcKpis();
     renderSvcTable();
     renderSvcRefreshedAt();
-  }catch(e){ box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; }
+  }catch(e){ if(mySeq===SVC_REQ_SEQ) box.innerHTML='<div class="empty" style="padding:24px;color:#dc2626">⚠ Could not load — try again.</div>'; }
 }
 
 // Quiet 2-min auto-refresh: re-fetches the currently-searched vehicle's data
