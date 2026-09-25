@@ -2070,14 +2070,14 @@ function renderSvcKpis(){
   var dates = rows.map(function(r){ return r.date; }).filter(Boolean).sort();
   var first = dates.length ? new Date(dates[0]).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
   var last = dates.length ? new Date(dates[dates.length-1]).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-  var counts = {}; rows.forEach(function(r){ counts[r.item_name] = (counts[r.item_name]||0)+1; });
+  var counts = {}; rows.forEach(function(r){ var k=r.reg_number+'|'+r.item_name; counts[k] = (counts[k]||0)+1; });
   var repeats = Object.values(counts).filter(function(c){ return c>1; }).length;
   document.getElementById('svc-kpis').innerHTML =
     '<div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">' +
     '<div class="kpi-tile"><div class="kpi-label">Total Parts Replaced</div><div class="kpi-val">'+rows.length+'</div></div>' +
     '<div class="kpi-tile"><div class="kpi-label">Unique Job Cards</div><div class="kpi-val">'+uniqueJCs+'</div></div>' +
     '<div class="kpi-tile"><div class="kpi-label">Total Spend</div><div class="kpi-val">₹'+Math.round(totalAmount).toLocaleString('en-IN')+'</div></div>' +
-    '<div class="kpi-tile"><div class="kpi-label">Parts Replaced More Than Once</div><div class="kpi-val" style="color:'+(repeats>0?'#dc2626':'inherit')+'">'+repeats+'</div></div>' +
+    '<div class="kpi-tile"><div class="kpi-label">Parts Repeated on Same Vehicle</div><div class="kpi-val" style="color:'+(repeats>0?'#dc2626':'inherit')+'">'+repeats+'</div></div>' +
     '<div class="kpi-tile"><div class="kpi-label">First → Last Service</div><div class="kpi-val" style="font-size:14px;font-weight:600">'+first+' → '+last+'</div></div>' +
     '</div>';
 }
@@ -2090,7 +2090,8 @@ function sortSvcBy(col){
 
 function renderSvcTable(){
   var box = document.getElementById('svc-history-results');
-  var counts = {}; SVC_ROWS.forEach(function(r){ counts[r.item_name] = (counts[r.item_name]||0)+1; });
+  var counts = {}; SVC_ROWS.forEach(function(r){ var k=r.reg_number+'|'+r.item_name; counts[k] = (counts[k]||0)+1; });
+  SVC_ROWS.forEach(function(r){ r.repeat_count = counts[r.reg_number+'|'+r.item_name] || 1; });
   var col = SVC_SORT.col, dir = SVC_SORT.dir, mult = dir==='asc'?1:-1;
   var filtered = getFilteredSvcRows();
   if(SVC_PART_FILTER && !filtered.length){
@@ -2118,12 +2119,14 @@ function renderSvcTable(){
     th('Reg Number','reg_number',false) +
     th('Job Card Number','job_card_number',false)+th('Job Opened','job_opened_date',false)+th('Date','date',false)+th('City','city',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
+    th('Repeats (this vehicle)','repeat_count',true)+
     th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+
     '</tr></thead><tbody>';
   rows.forEach(function(r){
     var d = r.date ? new Date(r.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
     var dOpened = r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    var isRepeat = counts[r.item_name] > 1;
+    var repeatCount = r.repeat_count || 1;
+    var isRepeat = repeatCount > 1;
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat];
     var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
     html += '<tr'+(isRepeat?' style="background:#fffbeb"':'')+'>'+
@@ -2131,7 +2134,8 @@ function renderSvcTable(){
       '<td>'+esc(r.job_card_number||'—')+'</td><td>'+dOpened+'</td><td>'+d+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
       '<td>'+esc(r.submission_type||'—')+'</td>'+
-      '<td>'+esc(r.item_name||'—')+(isRepeat?' <span title="Replaced '+counts[r.item_name]+' times" style="color:#b45309;font-weight:600;font-size:11px">⟳×'+counts[r.item_name]+'</span>':'')+'</td>'+
+      '<td>'+esc(r.item_name||'—')+'</td>'+
+      '<td class="num">'+(isRepeat?'<span title="Replaced '+repeatCount+' times on this vehicle" style="color:#b45309;font-weight:700">'+repeatCount+'</span>':'1')+'</td>'+
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
       '<td class="num">'+(r.amount!=null?'₹'+Number(r.amount).toLocaleString('en-IN'):'—')+'</td>'+
@@ -2144,10 +2148,10 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Category','Qty','Amount (Rs)','Technician','HO User']);
+  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
-    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
+    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
     return [r.reg_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
