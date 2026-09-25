@@ -384,14 +384,14 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div id="hqtab-history" style="display:none">
-  <div class="psub">Type a registration number (even partial, e.g. "BLR") to see every part replaced on matching vehicles across all dates — or leave it blank and search by part name instead, filtered to the date range below.</div>
+  <div class="psub">Type a registration number (even partial, e.g. "BLR") to see every part replaced on matching vehicles across all dates — or leave it blank and search by part name instead (this month by default).</div>
   <div style="display:flex;gap:8px;align-items:center;margin:12px 0 16px;flex-wrap:wrap">
     <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001 or BLR" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:220px;text-transform:uppercase;font-weight:600" oninput="onSvcSearchInput()" autofocus>
     <input type="text" id="svc-part-filter" placeholder="…or search by part name" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;width:200px" oninput="onSvcSearchInput()">
-    <span style="font-size:11px;color:var(--muted,#64748b)">From</span>
-    <input type="date" id="svc-from-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
-    <span style="font-size:11px;color:var(--muted,#64748b)">To</span>
-    <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b);display:none">From</span>
+    <input type="date" id="svc-from-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit;display:none" onchange="onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b);display:none">To</span>
+    <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit;display:none" onchange="onSvcSearchInput()">
     <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
     <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
     <button class="btn" id="svc-back-btn" style="display:none" onclick="goBackServiceHistory()">← Back</button>
@@ -1907,6 +1907,12 @@ function clearServiceHistoryFilters(){
   document.getElementById('svc-hub-filter').value = '';
   document.getElementById('svc-from-date').value = SVC_DEFAULT_FROM;
   document.getElementById('svc-to-date').value = SVC_DEFAULT_TO;
+  // A drill-down's saved "previous state" is only meaningful relative to
+  // where you drilled in from -- clearing filters is a fresh start, so any
+  // pending Back target is stale and would otherwise resurrect filters
+  // you just explicitly cleared.
+  SVC_PREV_STATE = null;
+  document.getElementById('svc-back-btn').style.display = 'none';
   loadServiceHistory();
 }
 
