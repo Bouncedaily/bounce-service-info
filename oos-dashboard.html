@@ -401,6 +401,9 @@ input[type=date] { min-width: 130px; }
 .card-hd { display:flex; align-items:baseline; gap:8px; padding:14px 16px 10px; border-bottom:1px solid var(--border); }
 .card-hd h2 { font-size:13px; font-weight:700; color:var(--text); margin:0; }
 .card-hd .sub { font-size:11px; color:var(--muted); }
+.flow-pill { padding:6px 14px; border-radius:999px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; border:1px solid var(--border2); background:var(--card); color:var(--text2); transition:all .15s; }
+.flow-pill:hover { border-color:var(--red); }
+.flow-pill.on { background:var(--red); border-color:var(--red); color:#fff; }
 
 /* Tables */
 .tbl { overflow-x:auto; }
@@ -612,10 +615,10 @@ body { overflow:auto!important; }
   <!-- Inflow/Outflow trend -->
   <div class="card">
     <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it</div></div>
-    <div style="padding:10px 16px 0;display:flex;gap:16px;font-size:12px">
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="flow-filter-inflow" checked onchange="onFlowGroupFilterChange()"> Inflow</label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="flow-filter-outflow" checked onchange="onFlowGroupFilterChange()"> Outflow</label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="flow-filter-rr" checked onchange="onFlowGroupFilterChange()"> Running Repair</label>
+    <div style="padding:10px 16px 0;display:flex;gap:8px">
+      <button type="button" class="flow-pill on" id="flow-pill-inflow" onclick="toggleFlowPill('inflow')">Inflow</button>
+      <button type="button" class="flow-pill on" id="flow-pill-outflow" onclick="toggleFlowPill('outflow')">Outflow</button>
+      <button type="button" class="flow-pill on" id="flow-pill-rr" onclick="toggleFlowPill('rr')">Running Repair</button>
     </div>
     <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
   </div>
@@ -1851,8 +1854,6 @@ function renderFlowTrendChart() {
   var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 30);
   var cutoffStr = cutoff.toISOString().slice(0,10);
 
-  // Outflow stays a single combined line (unchanged) -- same definition as
-  // the KPI averages above (excludes Running Repair).
   var byDateOut = {};
   (DAILY_FLOW || []).forEach(function(r){
     if (r.data_date < cutoffStr || r.data_date > today) return;
@@ -1862,9 +1863,6 @@ function renderFlowTrendChart() {
     byDateOut[r.data_date] += (r.outflow_total - r.outflow_rr);
   });
 
-  // Inflow splits into its 3 constituent submission types (matching what
-  // "Inflow" already means on this page), plus Running Repair now shown as
-  // its own separate line rather than being excluded entirely.
   var SUB_TYPES = ['Rider Submission', 'Bike Exchange', 'Recovery'];
   var byDateIn = {}; // { date: { 'Rider Submission': n, ... } }
   var byDateRR = {};
@@ -1881,35 +1879,76 @@ function renderFlowTrendChart() {
   });
 
   var dates = Array.from(new Set(Object.keys(byDateOut).concat(Object.keys(byDateIn)).concat(Object.keys(byDateRR)))).sort();
-  var labels = dates.map(function(d){ return d.slice(5); }); // MM-DD
-  var outflowSeries = dates.map(function(d){ return byDateOut[d] || 0; });
-  var rrSeries = dates.map(function(d){ return byDateRR[d] || 0; });
-  var inflowColors = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
-  var inflowDatasets = SUB_TYPES.map(function(t){
-    return {
-      label: 'Inflow: ' + t,
-      data: dates.map(function(d){ return (byDateIn[d] && byDateIn[d][t]) || 0; }),
-      borderColor: inflowColors[t], backgroundColor: inflowColors[t] + '14',
-      borderWidth: 2, tension: .25, fill: false, pointRadius: 2,
-    };
+
+  // Stored globally so pill clicks can rebuild the chart instantly without
+  // re-fetching -- this is all the data any pill combination could need.
+  FLOW_CHART_DATA = {
+    labels: dates.map(function(d){ return d.slice(5); }), // MM-DD
+    outflow: dates.map(function(d){ return byDateOut[d] || 0; }),
+    runningRepair: dates.map(function(d){ return byDateRR[d] || 0; }),
+    overallInflow: dates.map(function(d){
+      var day = byDateIn[d] || {};
+      return SUB_TYPES.reduce(function(s,t){ return s + (day[t]||0); }, 0);
+    }),
+    subTypes: {},
+  };
+  SUB_TYPES.forEach(function(t){
+    FLOW_CHART_DATA.subTypes[t] = dates.map(function(d){ return (byDateIn[d] && byDateIn[d][t]) || 0; });
   });
-  // Dataset order matters -- applyFlowGroupFilters() below assumes indices
-  // 0-2 are the 3 inflow lines, 3 is Running Repair, 4 is Outflow.
-  var allDatasets = inflowDatasets.concat([
-    { label: 'Running Repair', data: rrSeries, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: 2, borderDash: [4,3] },
-    { label: 'Outflow', data: outflowSeries, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 },
-  ]);
+
+  rebuildFlowChart();
+}
+
+var FLOW_CHART_DATA = null;
+var FLOW_PILLS = { inflow: true, outflow: true, rr: true };
+var SUB_TYPE_COLORS = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
+
+function toggleFlowPill(which){
+  FLOW_PILLS[which] = !FLOW_PILLS[which];
+  document.getElementById('flow-pill-' + which).classList.toggle('on', FLOW_PILLS[which]);
+  rebuildFlowChart();
+}
+
+// Decides which lines to actually plot based on the 3 pills' current
+// state, per the agreed rule: with Inflow on alongside Outflow and/or
+// Running Repair (or all three on, the default), Inflow shows as one
+// clean combined line. Isolating Inflow alone (the other two switched
+// off) expands it into its full breakdown -- overall total plus each of
+// the 3 submission types -- since that detail is only useful once you've
+// focused in on inflow specifically.
+function rebuildFlowChart(){
+  if (!FLOW_CHART_DATA) return;
+  var canvas = document.getElementById('flow-trend-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  var d = FLOW_CHART_DATA;
+  var datasets = [];
+  var inflowIsolated = FLOW_PILLS.inflow && !FLOW_PILLS.outflow && !FLOW_PILLS.rr;
+
+  if (FLOW_PILLS.inflow && inflowIsolated) {
+    datasets.push({ label: 'Inflow: Overall', data: d.overallInflow, borderColor: '#111827', backgroundColor: 'rgba(17,24,39,.06)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+    Object.keys(d.subTypes).forEach(function(t){
+      datasets.push({ label: 'Inflow: ' + t, data: d.subTypes[t], borderColor: SUB_TYPE_COLORS[t], backgroundColor: SUB_TYPE_COLORS[t] + '14', borderWidth: 2, tension: .25, fill: false, pointRadius: 2 });
+    });
+  } else if (FLOW_PILLS.inflow) {
+    datasets.push({ label: 'Inflow', data: d.overallInflow, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+  }
+  if (FLOW_PILLS.rr) {
+    datasets.push({ label: 'Running Repair', data: d.runningRepair, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: 2, borderDash: [4,3] });
+  }
+  if (FLOW_PILLS.outflow) {
+    datasets.push({ label: 'Outflow', data: d.outflow, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+  }
 
   if (FLOW_TREND_CHART) { FLOW_TREND_CHART.destroy(); }
   FLOW_TREND_CHART = new Chart(canvas, {
     type: 'line',
-    data: { labels: labels, datasets: allDatasets },
+    data: { labels: d.labels, datasets: datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       // Chart.js's default legend is clickable out of the box -- clicking
       // any series name toggles just that line on/off, on top of whatever
-      // the 3 group checkboxes below the title already show/hide.
+      // the 3 pill buttons above already show/hide.
       plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } } },
       scales: {
         x: { ticks: { font: { size: 10 } }, grid: { display: false } },
@@ -1917,24 +1956,7 @@ function renderFlowTrendChart() {
       }
     }
   });
-  applyFlowGroupFilters(); // respect whatever the 3 checkboxes are currently set to
 }
-
-// The 3 checkboxes toggle whole GROUPS of lines at once (all 3 inflow
-// types together, Running Repair, or Outflow) -- separate from the
-// legend's own per-line click-to-toggle, which still works independently
-// on top of whatever these checkboxes leave visible.
-function applyFlowGroupFilters(){
-  if (!FLOW_TREND_CHART) return;
-  var showInflow = document.getElementById('flow-filter-inflow').checked;
-  var showRR = document.getElementById('flow-filter-rr').checked;
-  var showOutflow = document.getElementById('flow-filter-outflow').checked;
-  [0,1,2].forEach(function(i){ var m = FLOW_TREND_CHART.getDatasetMeta(i); if (m) m.hidden = !showInflow; });
-  var rrMeta = FLOW_TREND_CHART.getDatasetMeta(3); if (rrMeta) rrMeta.hidden = !showRR;
-  var outMeta = FLOW_TREND_CHART.getDatasetMeta(4); if (outMeta) outMeta.hidden = !showOutflow;
-  FLOW_TREND_CHART.update();
-}
-function onFlowGroupFilterChange(){ applyFlowGroupFilters(); }
 
 function applyBikeListFilters() {
   if (!RAW) return;
