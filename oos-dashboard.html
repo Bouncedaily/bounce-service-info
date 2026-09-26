@@ -611,7 +611,7 @@ body { overflow:auto!important; }
 
   <!-- Inflow/Outflow trend -->
   <div class="card">
-    <div class="card-hd"><h2>Inflow vs Outflow — last 30 days</h2></div>
+    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it</div></div>
     <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
   </div>
 
@@ -1393,6 +1393,17 @@ function pfDrawHubs(rows){
 
 let RAW = null;
 let DAILY_FLOW = [];
+let INFLOW_BY_TYPE = [];
+async function fetchInflowByType() {
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, 10000);
+    var r = await fetch(SB + '/rest/v1/rpc/get_inflow_by_submission_type', { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR), body: JSON.stringify({p_days: 30}), signal: controller.signal });
+    clearTimeout(timer);
+    var j = await r.json();
+    return Array.isArray(j) ? j : [];
+  } catch(e) { console.error('fetchInflowByType error (or timed out)', e); return []; }
+}
 let LAST_OOS_DETAIL = [];
 
 // ── FETCH — split into 3 small targeted queries instead of 1 full-table scan ──
@@ -1835,34 +1846,55 @@ function renderFlowTrendChart() {
   var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 30);
   var cutoffStr = cutoff.toISOString().slice(0,10);
 
-  // Same definition as the KPI averages above: inflow/outflow exclude
-  // Running Repair (matches the "Today's Inflow"/"Today's Outflow" KPI
-  // cards' own labels, which list Rider Sub./Bike Exchange/Recovery and
-  // OOS-to-RFD/PDI-to-RFD respectively, neither mentioning RR).
-  var byDate = {};
+  // Outflow stays a single combined line (unchanged) -- same definition as
+  // the KPI averages above (excludes Running Repair).
+  var byDateOut = {};
   (DAILY_FLOW || []).forEach(function(r){
     if (r.data_date < cutoffStr || r.data_date > today) return;
     if (city && r.city !== city) return;
     if (hub && r.hub_name !== hub) return;
-    if (!byDate[r.data_date]) byDate[r.data_date] = { in:0, out:0 };
-    byDate[r.data_date].in  += (r.inflow_total  - r.inflow_rr);
-    byDate[r.data_date].out += (r.outflow_total - r.outflow_rr);
+    if (!byDateOut[r.data_date]) byDateOut[r.data_date] = 0;
+    byDateOut[r.data_date] += (r.outflow_total - r.outflow_rr);
   });
-  var dates = Object.keys(byDate).sort();
+
+  // Inflow now splits into its 3 constituent submission types (matching
+  // what "Inflow" already means on this page -- Rider Submission, Bike
+  // Exchange, Recovery; Running Repair stays excluded, same as before).
+  var SUB_TYPES = ['Rider Submission', 'Bike Exchange', 'Recovery'];
+  var byDateIn = {}; // { date: { 'Rider Submission': n, ... } }
+  (INFLOW_BY_TYPE || []).forEach(function(r){
+    if (r.data_date < cutoffStr || r.data_date > today) return;
+    if (city && r.city !== city) return;
+    if (hub && r.hub_name !== hub) return;
+    if (!byDateIn[r.data_date]) byDateIn[r.data_date] = {};
+    byDateIn[r.data_date][r.submission_type] = (byDateIn[r.data_date][r.submission_type] || 0) + r.cnt;
+  });
+
+  var dates = Array.from(new Set(Object.keys(byDateOut).concat(Object.keys(byDateIn)))).sort();
   var labels = dates.map(function(d){ return d.slice(5); }); // MM-DD
-  var inflowSeries  = dates.map(function(d){ return byDate[d].in; });
-  var outflowSeries = dates.map(function(d){ return byDate[d].out; });
+  var outflowSeries = dates.map(function(d){ return byDateOut[d] || 0; });
+  var inflowColors = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
+  var inflowDatasets = SUB_TYPES.map(function(t){
+    return {
+      label: 'Inflow: ' + t,
+      data: dates.map(function(d){ return (byDateIn[d] && byDateIn[d][t]) || 0; }),
+      borderColor: inflowColors[t], backgroundColor: inflowColors[t] + '14',
+      borderWidth: 2, tension: .25, fill: false, pointRadius: 2,
+    };
+  });
 
   if (FLOW_TREND_CHART) { FLOW_TREND_CHART.destroy(); }
   FLOW_TREND_CHART = new Chart(canvas, {
     type: 'line',
-    data: { labels: labels, datasets: [
-      { label: 'Inflow',  data: inflowSeries,  borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 },
+    data: { labels: labels, datasets: inflowDatasets.concat([
       { label: 'Outflow', data: outflowSeries, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 },
-    ]},
+    ])},
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      // Chart.js's default legend is clickable out of the box -- clicking
+      // any series name (each inflow type, or Outflow) toggles just that
+      // line on/off, letting you isolate whichever you want to compare.
       plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } } },
       scales: {
         x: { ticks: { font: { size: 10 } }, grid: { display: false } },
@@ -3331,6 +3363,7 @@ async function refresh() {
   try {
     RAW = await fetchData();
     try { DAILY_FLOW = await fetchDailyFlow(); } catch(e) { DAILY_FLOW = []; }
+    try { INFLOW_BY_TYPE = await fetchInflowByType(); } catch(e) { INFLOW_BY_TYPE = []; }
     populateFilters(RAW);
     render(applyFilters(RAW));
     saveOOSCache(RAW);
