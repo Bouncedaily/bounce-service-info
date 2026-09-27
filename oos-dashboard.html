@@ -604,7 +604,6 @@ body { overflow:auto!important; }
   <div class="kpi-row" id="kpi-row">
     <div class="kpi"><div class="kpi-label">Total Bikes</div><div class="kpi-val" id="k-total">—</div></div>
     <div class="kpi"><div class="kpi-label">OOS Bikes</div><div class="kpi-val red" id="k-oos">—</div></div>
-    <div class="kpi"><div class="kpi-label">OOS %</div><div class="kpi-val red" id="k-pct">—</div></div>
     <div class="kpi"><div class="kpi-label">Today's Inflow</div><div class="kpi-val blue" id="k-inflow">—</div><div class="kpi-sub">Rider Sub. · Bike Exchange · Recovery</div><div class="kpi-sub" id="k-inflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
     <div class="kpi"><div class="kpi-label">Today's Outflow</div><div class="kpi-val green" id="k-outflow">—</div><div class="kpi-sub">OOS to RFD · PDI to RFD</div><div class="kpi-sub" id="k-outflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
     <div class="kpi"><div class="kpi-label">Running Repair</div><div class="kpi-val" id="k-rr" style="color:var(--amber)">—</div></div>
@@ -2027,13 +2026,11 @@ function pctClass(p) { const v = parseFloat(p); return v > 6 ? 'hi' : 'ok'; }
 function render({ summary, oosDetail, inflow, outflow }) {
   const total  = summary.length;
   const oosN   = summary.filter(r => r.status === 'OOS').length;
-  const oosPct = total ? (oosN/total*100).toFixed(1)+'%' : '—';
   const _rTAT = outflow.filter(function(r){ return OOS_TYPES.indexOf(r.submission_type)>=0 && r.oos_to_rfd_tat_days != null; });
   const avgAge = _rTAT.length ? (_rTAT.reduce(function(s,r){ return s+(parseFloat(r.oos_to_rfd_tat_days)||0); }, 0) / _rTAT.length).toFixed(1) : '—';
 
   document.getElementById('k-total').textContent   = total.toLocaleString('en-IN');
   document.getElementById('k-oos').textContent     = oosN.toLocaleString('en-IN');
-  document.getElementById('k-pct').textContent     = oosPct;
   document.getElementById('k-inflow').textContent  = '...';
   document.getElementById('k-outflow').textContent = '...';
   document.getElementById('k-age').textContent     = avgAge;
