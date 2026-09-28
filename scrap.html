@@ -517,6 +517,18 @@
   </div>
 </div>
 
+<div class="ov" id="partbd-ov" onclick="if(event.target===this)closePartBreakdown()">
+  <div class="dpanel" style="max-width:700px">
+    <div class="dhd">
+      <div><h3 id="partbd-title">Part-wise Weight Breakdown</h3><div class="dsub" id="partbd-scope"></div></div>
+      <button class="dclose" onclick="closePartBreakdown()">✕</button>
+    </div>
+    <div style="max-height:70vh;overflow-y:auto;padding:16px" id="partbd-body">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="hubtrigger-ov" onclick="if(event.target===this)closeHubTriggerManager()">
   <div class="dpanel" style="max-width:700px">
     <div class="dhd">
@@ -727,7 +739,7 @@ async function renderMovementRows() {
         : pending < 0 ? `${fmtN(pending)} ${c.unit} <span class="info-dot" title="Negative because of incomplete weight-reference data for this category (see Manage Part Weights) — the real amount outstanding is understated, not actually negative.">⚠</span>`
         : `${fmtN(pending)} ${c.unit}`;
       return `<tr data-category="${c.category.replace(/"/g,'&quot;')}" data-unit="${c.unit}" data-rate="${c.reference_rate || ''}" data-syscalc-raw="${pending != null ? pending : ''}">
-        <td>${c.category} <span style="color:var(--muted);font-size:10px">(${c.unit})</span></td>
+        <td>${c.unit==='kg' ? `<a href="#" onclick="openPartBreakdown('${c.category.replace(/'/g,"\\'")}','${(scopedCity||'').replace(/'/g,"\\'")}','${(scopedHub||'').replace(/'/g,"\\'")}','${scopedFrom}','${scopedTo}');return false;" style="color:var(--red);text-decoration:none;font-weight:600" title="See part-wise weight breakdown">${c.category}</a>` : c.category} <span style="color:var(--muted);font-size:10px">(${c.unit})</span></td>
         <td class="num row-syscalc">${pendingText}</td>
         <td>
           <input type="number" class="row-weight" step="0.01" placeholder="0" style="${c.unit!=='kg'?'display:none':''}" oninput="checkRowVariance(this.closest('tr'))">
@@ -975,6 +987,47 @@ async function openPartsManager() {
   await renderPartsManager();
 }
 function closePartsManager() { document.getElementById('parts-ov').classList.remove('on'); }
+
+async function openPartBreakdown(category, city, hub, from, to) {
+  document.getElementById('partbd-ov').classList.add('on');
+  document.getElementById('partbd-title').textContent = category + ' — Part-wise Weight Breakdown';
+  document.getElementById('partbd-scope').textContent =
+    (city ? city : 'All Cities') + (hub ? ' / ' + hub : '') + ' · ' + from + ' to ' + to;
+  const body = document.getElementById('partbd-body');
+  body.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  try {
+    const rows = await rpc('get_scrap_category_part_breakdown', {
+      p_category: category, p_from: from, p_to: to,
+      p_city: city || null, p_hub: hub || null,
+    });
+    if (!rows || !rows.length) { body.innerHTML = '<div class="empty">No parts found for this scope.</div>'; return; }
+    const grandTotal = rows.reduce((s, r) => s + (r.total_kg || 0), 0);
+    body.innerHTML = `
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px">Part Name</th>
+          <th class="num" style="padding:6px 8px">Qty</th>
+          <th class="num" style="padding:6px 8px">Weight/Unit</th>
+          <th class="num" style="padding:6px 8px">Total (kg)</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map(r => `<tr style="border-top:1px solid var(--border)${!r.is_weighted?';background:#fffbeb':''}">
+          <td style="padding:6px 8px">${esc(r.part_name)}${!r.is_weighted ? ' <span class="info-dot" title="No weight on file yet — not counted in the Estimated total">⚠ no weight</span>' : ''}</td>
+          <td class="num" style="padding:6px 8px">${r.qty}</td>
+          <td class="num" style="padding:6px 8px">${r.weight_per_unit_kg != null ? r.weight_per_unit_kg + ' kg' : '—'}</td>
+          <td class="num" style="padding:6px 8px;font-weight:600">${r.is_weighted ? r.total_kg.toFixed(2) : '—'}</td>
+        </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
+          <td style="padding:6px 8px" colspan="3">Total (weighted parts only)</td>
+          <td class="num" style="padding:6px 8px">${grandTotal.toFixed(2)} kg</td>
+        </tr></tfoot>
+      </table>`;
+  } catch (e) {
+    body.innerHTML = '<div class="empty" style="color:#dc2626">⚠ Could not load — try again.</div>';
+  }
+}
+function closePartBreakdown() { document.getElementById('partbd-ov').classList.remove('on'); }
 
 let SCRAP_CATEGORIES_CACHE = [];
 function onMpTypeChange() {
