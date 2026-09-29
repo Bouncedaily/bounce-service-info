@@ -2198,7 +2198,7 @@ function renderSvcTable(){
     th('Job Card Number','job_card_number',false)+th('Job Opened','job_opened_date',false)+th('Date','date',false)+th('City','city',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
     th('Repeats (this vehicle)','repeat_count',true)+
-    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+
+    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+th('HO Approval Remarks','ho_approval_remarks',false)+
     '</tr></thead><tbody>';
   rows.forEach(function(r){
     var d = r.date ? new Date(r.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -2217,7 +2217,7 @@ function renderSvcTable(){
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
       '<td class="num">'+(r.amount!=null?'₹'+Number(r.amount).toLocaleString('en-IN'):'—')+'</td>'+
-      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.ho_user||'—')+'</td></tr>';
+      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+esc(r.ho_approval_remarks||'—')+'</td></tr>';
   });
   html += '</tbody></table></div>';
   box.innerHTML = html;
@@ -2226,11 +2226,11 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User']);
+  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     var earlyFlag = r.is_early_replacement ? ('Yes ('+r.km_on_part+' km vs '+r.expected_life_km+' km expected)') : '';
-    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||''];
+    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
     return [r.reg_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
