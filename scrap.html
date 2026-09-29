@@ -368,6 +368,7 @@
     <div class="panel" style="margin-top:14px">
       <h3 style="font-size:14px;margin:0 0 4px">Hub Leaderboard</h3>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Ranked by unexplained-discrepancy rate (lowest first), then revenue. "Streak" is consecutive recent weeks with a movement logged and no unexplained gap.</div>
+      <div id="mgmt-movers" style="display:none;margin-bottom:12px;flex-wrap:wrap;gap:8px"></div>
       <div class="tbl" id="mgmt-leaderboard-wrap"><div class="empty"><span class="spin"></span></div></div>
     </div>
     <div class="panel" style="margin-top:14px">
@@ -1514,36 +1515,55 @@ function mgmtSeedCity() {
   sel.value = document.getElementById('f-city').value || '';
 }
 
+function ymd(d) { return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`; }
 async function loadMgmtTab() {
   mgmtSeedCity();
   const city = document.getElementById('mgmt-city').value || null;
   const period = document.getElementById('mgmt-period').value || 'this_month';
   const now = new Date(Date.now() + 5.5 * 3600 * 1000); // IST, matching todayIST()
-  let from, to;
+  let from, to, prevFrom = null, prevTo = null;
   if (period === 'this_month') {
     from = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-01`;
     to = todayIST();
+    // Comparable previous period: same day-of-month cutoff, one month back --
+    // matching the convention Top Parts Contribution already uses for "This
+    // month vs last month" (month-to-date vs month-to-the-same-date), not a
+    // full-month comparison which would be apples-to-oranges against a
+    // still-in-progress month.
+    const pm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    prevFrom = `${pm.getUTCFullYear()}-${String(pm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const pmLastDay = new Date(Date.UTC(pm.getUTCFullYear(), pm.getUTCMonth() + 1, 0)).getUTCDate();
+    const cutoffDay = Math.min(now.getUTCDate(), pmLastDay);
+    prevTo = `${pm.getUTCFullYear()}-${String(pm.getUTCMonth()+1).padStart(2,'0')}-${String(cutoffDay).padStart(2,'0')}`;
   } else if (period === 'last_month') {
     const lm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
     from = `${lm.getUTCFullYear()}-${String(lm.getUTCMonth()+1).padStart(2,'0')}-01`;
     const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)); // day 0 of this month = last day of prev month
     to = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth()+1).padStart(2,'0')}-${String(lastDay.getUTCDate()).padStart(2,'0')}`;
+    // Previous is the full month before that -- last_month is always complete,
+    // so a full-month vs full-month comparison is fair here.
+    const ppm = new Date(Date.UTC(lm.getUTCFullYear(), lm.getUTCMonth() - 1, 1));
+    prevFrom = `${ppm.getUTCFullYear()}-${String(ppm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const ppmLastDay = new Date(Date.UTC(ppm.getUTCFullYear(), ppm.getUTCMonth() + 1, 0));
+    prevTo = ymd(ppmLastDay);
   } else { // all_months -- fixed start covering every logged movement (earliest on record: 2026-03-05)
     from = '2026-01-01';
     to = todayIST();
+    // No clean "previous" for an open-ended all-time range -- comparison is skipped.
   }
   const lbWrap = document.getElementById('mgmt-leaderboard-wrap');
   if (!MGMT_INITIALIZED) { MGMT_INITIALIZED = true; }
   else { lbWrap.innerHTML = '<div class="empty"><span class="spin"></span></div>'; }
 
   try {
-    const [trend, leaderboard] = await Promise.all([
+    const [trend, leaderboard, prevLeaderboard] = await Promise.all([
       rpc('get_scrap_health_trend', { p_city: city, p_hub: null, p_from: from, p_to: to }),
       rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: from, p_to: to }),
-      renderMgmtFunnels(city, from, to)
+      prevFrom ? rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: prevFrom, p_to: prevTo }) : Promise.resolve(null),
+      renderMgmtFunnels(city, from, to, prevFrom, prevTo)
     ]);
     mgmtRenderCharts(trend.weeks || []);
-    mgmtRenderLeaderboard(leaderboard || []);
+    mgmtRenderLeaderboard(leaderboard || [], prevLeaderboard);
   } catch (e) {
     console.error('loadMgmtTab failed', e);
     lbWrap.innerHTML = '<div class="empty" style="color:var(--red)">Error loading — try refreshing.</div>';
@@ -1555,6 +1575,34 @@ function mgmtWeekLabel(w) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
+// Draws each point's value directly above it, matching the labeled-line
+// style used elsewhere on this site (HO Approval's Daily TAT Trend) --
+// values readable at a glance without hovering. fmt formats the raw value
+// for display; alternate offsets each dataset's labels up/down slightly so
+// two overlapping lines' numbers don't collide.
+function mgmtLabelPlugin(fmt) {
+  return {
+    id: 'mgmtValueLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      chart.data.datasets.forEach((ds, dsIndex) => {
+        const meta = chart.getDatasetMeta(dsIndex);
+        if (meta.hidden) return;
+        ctx.save();
+        ctx.font = '600 10px sans-serif';
+        ctx.fillStyle = ds.borderColor;
+        ctx.textAlign = 'center';
+        const yOffset = dsIndex % 2 === 0 ? -8 : 14;
+        meta.data.forEach((point, i) => {
+          const v = ds.data[i];
+          if (v == null) return;
+          ctx.fillText(fmt(v), point.x, point.y + yOffset);
+        });
+        ctx.restore();
+      });
+    }
+  };
+}
 function mgmtRenderCharts(weeks) {
   const labels = weeks.map(mgmtWeekLabel);
 
@@ -1566,7 +1614,8 @@ function mgmtRenderCharts(weeks) {
       label: 'Scrap Revenue (₹)', data: weeks.map(w => w.revenue),
       borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', fill: true, tension: 0.25, pointRadius: 3
     }] },
-    options: { responsive: true, plugins: { legend: { display: false } },
+    plugins: [mgmtLabelPlugin(v => '₹' + (Number(v) >= 1000 ? Math.round(v/1000) + 'k' : Number(v).toLocaleString('en-IN')))],
+    options: { responsive: true, layout: { padding: { top: 16 } }, plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + Number(v).toLocaleString('en-IN') } } } }
   });
 
@@ -1580,24 +1629,65 @@ function mgmtRenderCharts(weeks) {
       { label: 'Unexplained (no remark)', data: weeks.map(w => w.unexplained_rate_pct),
         borderColor: '#dc2626', backgroundColor: 'transparent', borderDash: [6,4], tension: 0.25, pointRadius: 3 }
     ] },
-    options: { responsive: true, plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 11 } } } },
+    plugins: [mgmtLabelPlugin(v => v + '%')],
+    options: { responsive: true, layout: { padding: { top: 20, bottom: 10 } }, plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 11 } } } },
       scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }
   });
 }
 
-function mgmtRenderLeaderboard(rows) {
+// Inline bar behind an unexplained-rate cell, same visual language as the
+// Parts Dashboard MSL heatmap's severity coloring -- green under 10%, amber
+// 10-30%, red above that, width proportional to the rate itself (capped at
+// 100%) so the worst hubs are visually obvious without reading the number.
+function mgmtRateBar(pct) {
+  const color = pct <= 10 ? 'var(--green)' : pct <= 30 ? '#f59e0b' : 'var(--red)';
+  const width = Math.min(100, pct);
+  return `<div style="position:relative;background:var(--bg);border-radius:4px;height:18px;min-width:70px">
+    <div style="position:absolute;inset:0;width:${width}%;background:${color};opacity:.18;border-radius:4px"></div>
+    <div style="position:relative;text-align:right;padding-right:6px;line-height:18px;font-size:12px;font-weight:${pct>0?'700':'400'};color:${pct>0?color:'var(--muted)'}">${pct}%</div>
+  </div>`;
+}
+function mgmtRenderMovers(rows, prevRows) {
+  const box = document.getElementById('mgmt-movers');
+  if (!prevRows || !prevRows.length) { box.style.display = 'none'; return; }
+  const prevByHub = Object.fromEntries(prevRows.map(r => [r.hub_name, r]));
+  const diffs = rows.map(r => {
+    const p = prevByHub[r.hub_name];
+    if (!p) return null;
+    return {
+      hub: r.hub_name,
+      revenueDiff: Number(r.revenue) - Number(p.revenue),
+      unexplainedDiff: Math.round((r.unexplained_rate_pct - p.unexplained_rate_pct) * 10) / 10
+    };
+  }).filter(Boolean);
+  if (!diffs.length) { box.style.display = 'none'; return; }
+  const pill = (label, color, text) => `<span style="background:${color}1a;color:${color};border-radius:14px;padding:4px 12px;font-size:11px;font-weight:600;white-space:nowrap">${label} <b>${text}</b></span>`;
+  const pills = [];
+  const revUp = diffs.slice().sort((a,b) => b.revenueDiff - a.revenueDiff)[0];
+  const revDown = diffs.slice().sort((a,b) => a.revenueDiff - b.revenueDiff)[0];
+  const worseningHub = diffs.slice().sort((a,b) => b.unexplainedDiff - a.unexplainedDiff)[0];
+  const improvingHub = diffs.slice().sort((a,b) => a.unexplainedDiff - b.unexplainedDiff)[0];
+  if (revUp && revUp.revenueDiff > 0) pills.push(pill('▲ ' + revUp.hub + ' revenue', 'var(--green)', '+₹' + Math.round(revUp.revenueDiff).toLocaleString('en-IN')));
+  if (revDown && revDown.revenueDiff < 0) pills.push(pill('▼ ' + revDown.hub + ' revenue', 'var(--red)', '-₹' + Math.abs(Math.round(revDown.revenueDiff)).toLocaleString('en-IN')));
+  if (worseningHub && worseningHub.unexplainedDiff > 0) pills.push(pill('▲ ' + worseningHub.hub + ' unexplained', 'var(--red)', '+' + worseningHub.unexplainedDiff + 'pp'));
+  if (improvingHub && improvingHub.unexplainedDiff < 0) pills.push(pill('▼ ' + improvingHub.hub + ' unexplained', 'var(--green)', improvingHub.unexplainedDiff + 'pp'));
+  if (!pills.length) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = pills.join('');
+}
+function mgmtRenderLeaderboard(rows, prevRows) {
   const wrap = document.getElementById('mgmt-leaderboard-wrap');
+  mgmtRenderMovers(rows, prevRows);
   if (!rows.length) { wrap.innerHTML = '<div class="empty">No scrap movements logged in this window for the selected city.</div>'; return; }
   let html = '<table><thead><tr><th>Hub</th><th class="num">Revenue</th><th class="num">Sold (kg)</th><th class="num">Movements</th><th class="num">Discrepancy Rate</th><th class="num">Unexplained</th><th class="num">Streak</th></tr></thead><tbody>';
   rows.forEach(r => {
-    const unexplainedColor = r.unexplained_rate_pct > 0 ? 'color:var(--red);font-weight:600' : '';
     html += `<tr>
       <td>${r.hub_name}</td>
       <td class="num">₹${Number(r.revenue).toLocaleString('en-IN')}</td>
       <td class="num">${r.sold_kg}</td>
       <td class="num">${r.movement_count}</td>
-      <td class="num">${r.discrepancy_rate_pct}%</td>
-      <td class="num" style="${unexplainedColor}">${r.unexplained_rate_pct}%</td>
+      <td class="num">${mgmtRateBar(r.discrepancy_rate_pct)}</td>
+      <td class="num">${mgmtRateBar(r.unexplained_rate_pct)}</td>
       <td class="num">${r.streak_weeks} wk${r.streak_weeks === 1 ? '' : 's'}</td>
     </tr>`;
   });
@@ -2633,18 +2723,45 @@ function renderFunnelSummary(type) {
 // (already the source of truth for every other pipeline number on this
 // page) rather than a new RPC, since this is the same data at a coarser
 // aggregation.
-async function renderMgmtFunnels(city, from, to) {
+// Neutral volume-change arrow (grey) -- Consumed/At Hub/RPDC/Vendor are
+// flow-stage counts with no inherent "up is good" direction, so this is
+// informational context only, not a health signal.
+function mgmtVolArrow(curr, prev) {
+  if (prev == null || prev === 0) return '';
+  const diff = curr - prev, pct = Math.round((diff / prev) * 100);
+  if (diff === 0) return '<span style="font-size:10px;color:var(--muted)"> (flat)</span>';
+  const arrow = diff > 0 ? '▲' : '▼';
+  return `<span style="font-size:10px;color:var(--muted)"> ${arrow}${Math.abs(pct)}%</span>`;
+}
+// Directional arrow (colored) -- for metrics where the direction genuinely
+// means better/worse, e.g. Recovery% (up=good) or Rejection%/Discrepancy%
+// (up=bad). goodDirection: 'up' or 'down'.
+function mgmtDirArrow(curr, prev, goodDirection) {
+  if (prev == null || curr == null) return '';
+  const diff = Math.round((curr - prev) * 10) / 10;
+  if (diff === 0) return '<span style="font-size:10px;color:var(--muted)"> (flat)</span>';
+  const isGood = goodDirection === 'up' ? diff > 0 : diff < 0;
+  const color = isGood ? 'var(--green)' : 'var(--red)';
+  const arrow = diff > 0 ? '▲' : '▼';
+  return `<span style="font-size:10px;font-weight:700;color:${color}"> ${arrow}${Math.abs(diff)}pp</span>`;
+}
+async function renderMgmtFunnels(city, from, to, prevFrom, prevTo) {
   // p_bound_hub_actual:true here (unlike Log a Movement's own use of this
   // same RPC) -- this view exists to summarize ONE period at a glance, so
   // "At Hub" must be scoped to that same period too. Without it, "At Hub"
   // silently falls back to whatever the most recent snapshot happens to be
   // (even from a completely different, older period), which sat next to a
   // strictly-this-period Consumed number and looked like a data error.
-  const [scrapRows, refurbRows, tyreRows] = await Promise.all([
-    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true }),
-    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true }),
-    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: null, p_bound_hub_actual: true })
+  const fetchSet = (f, t) => Promise.all([
+    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true })
   ]);
+  const [[scrapRows, refurbRows, tyreRows], prevSet] = await Promise.all([
+    fetchSet(from, to),
+    prevFrom ? fetchSet(prevFrom, prevTo) : Promise.resolve([null, null, null])
+  ]);
+  const [prevScrapRows, prevRefurbRows, prevTyreRows] = prevSet;
   const sumRows = (rows, key) => (rows || []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
   // Restricted to Aluminium/Iron/Plastic for now (per explicit request) --
@@ -2654,34 +2771,41 @@ async function renderMgmtFunnels(city, from, to) {
   // showed 5,959 kg of Plastic + 968 pieces of Lighting as one "11,885").
   const SCRAP_FUNNEL_CATEGORIES = ['Aluminium', 'Iron', 'Plastic'];
   const scrapFilteredRows = (scrapRows || []).filter(r => SCRAP_FUNNEL_CATEGORIES.includes(r.part_name));
+  const prevScrapFilteredRows = (prevScrapRows || []).filter(r => SCRAP_FUNNEL_CATEGORIES.includes(r.part_name));
   const scrapNodes = [
-    ['Consumed', sumRows(scrapFilteredRows, 'consumed')], ['At Hub', sumRows(scrapFilteredRows, 'actual_in_hub')],
-    ['RPDC', sumRows(scrapFilteredRows, 'sent_to_rpdc')], ['Vendor', sumRows(scrapFilteredRows, 'sent_to_vendor')]
+    ['Consumed', sumRows(scrapFilteredRows, 'consumed'), sumRows(prevScrapFilteredRows, 'consumed')],
+    ['At Hub', sumRows(scrapFilteredRows, 'actual_in_hub'), sumRows(prevScrapFilteredRows, 'actual_in_hub')],
+    ['RPDC', sumRows(scrapFilteredRows, 'sent_to_rpdc'), sumRows(prevScrapFilteredRows, 'sent_to_rpdc')],
+    ['Vendor', sumRows(scrapFilteredRows, 'sent_to_vendor'), sumRows(prevScrapFilteredRows, 'sent_to_vendor')]
   ];
   const scrapEl = document.getElementById('mgmtFunnelFlow-Scrap');
-  if (scrapEl) scrapEl.innerHTML = scrapNodes.map(([label, val], i) =>
-    `<div class="funnel-node"><div class="fn-val">${fmtN(val)} <span style="font-size:10px;font-weight:400;color:var(--muted)">kg</span></div><div class="fn-label">${label}</div></div>` +
+  if (scrapEl) scrapEl.innerHTML = scrapNodes.map(([label, val, prevVal], i) =>
+    `<div class="funnel-node"><div class="fn-val">${fmtN(val)} <span style="font-size:10px;font-weight:400;color:var(--muted)">kg</span>${prevFrom ? mgmtVolArrow(val, prevVal) : ''}</div><div class="fn-label">${label}</div></div>` +
     (i < scrapNodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
   ).join('');
 
-  [['Refurb', refurbRows], ['Tyre', tyreRows]].forEach(([type, rows]) => {
+  [['Refurb', refurbRows, prevRefurbRows], ['Tyre', tyreRows, prevTyreRows]].forEach(([type, rows, prevRows]) => {
     const consumed = sumRows(rows, 'consumed'), atHub = sumRows(rows, 'actual_in_hub'), rpdc = sumRows(rows, 'sent_to_rpdc'),
           vendor = sumRows(rows, 'sent_to_vendor'), outcome = sumRows(rows, 'outcome'), rejected = sumRows(rows, 'rejected');
+    const pConsumed = sumRows(prevRows, 'consumed'), pAtHub = sumRows(prevRows, 'actual_in_hub'), pRpdc = sumRows(prevRows, 'sent_to_rpdc'),
+          pVendor = sumRows(prevRows, 'sent_to_vendor'), pOutcome = sumRows(prevRows, 'outcome'), pRejected = sumRows(prevRows, 'rejected');
     const recoveryPct = consumed > 0 ? Math.round((outcome / consumed) * 1000) / 10 : null;
     const rejectionPct = consumed > 0 ? Math.round((rejected / consumed) * 1000) / 10 : null;
+    const prevRecoveryPct = prevFrom && pConsumed > 0 ? Math.round((pOutcome / pConsumed) * 1000) / 10 : null;
+    const prevRejectionPct = prevFrom && pConsumed > 0 ? Math.round((pRejected / pConsumed) * 1000) / 10 : null;
     const recEl = document.getElementById('mgmtFunnelRecovery-' + type);
     const rejEl = document.getElementById('mgmtFunnelRejection-' + type);
-    if (recEl) recEl.textContent = recoveryPct != null ? recoveryPct + '%' : '—';
-    if (rejEl) rejEl.textContent = rejectionPct != null ? rejectionPct + '%' : '—';
+    if (recEl) recEl.innerHTML = (recoveryPct != null ? recoveryPct + '%' : '—') + mgmtDirArrow(recoveryPct, prevRecoveryPct, 'up');
+    if (rejEl) rejEl.innerHTML = (rejectionPct != null ? rejectionPct + '%' : '—') + mgmtDirArrow(rejectionPct, prevRejectionPct, 'down');
     const outcomeLabel = type === 'Tyre' ? 'CN Approved' : 'Refurbished';
     const rejectedLabel = type === 'Tyre' ? 'CN Rejected' : 'Rejected';
     const nodes = [
-      ['Consumed', consumed], ['At Hub', atHub], ['RPDC', rpdc],
-      ['Vendor', vendor], [outcomeLabel, outcome], [rejectedLabel, rejected]
+      ['Consumed', consumed, pConsumed], ['At Hub', atHub, pAtHub], ['RPDC', rpdc, pRpdc],
+      ['Vendor', vendor, pVendor], [outcomeLabel, outcome, pOutcome], [rejectedLabel, rejected, pRejected]
     ];
     const flowEl = document.getElementById('mgmtFunnelFlow-' + type);
-    if (flowEl) flowEl.innerHTML = nodes.map(([label, val], i) =>
-      `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
+    if (flowEl) flowEl.innerHTML = nodes.map(([label, val, prevVal], i) =>
+      `<div class="funnel-node"><div class="fn-val">${fmtN(val)}${prevFrom ? mgmtVolArrow(val, prevVal) : ''}</div><div class="fn-label">${label}</div></div>` +
       (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
     ).join('');
   });
