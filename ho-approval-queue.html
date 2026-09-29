@@ -99,8 +99,6 @@ tr.row-flag:hover{background:#fee2e2}
 .hqtab-btn{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
 .hqtab-btn.active{color:var(--red);border-bottom-color:var(--red)}
 .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
-@keyframes svcspin{to{transform:rotate(360deg)}}
-.svc-spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border,#e2e8f0);border-top-color:#dc2626;border-radius:50%;animation:svcspin .7s linear infinite;vertical-align:middle;margin-right:8px}
 .num{text-align:right}
 .kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
 .kpi-tile .kpi-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
@@ -165,7 +163,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setAllJC(true)">Expand all</button>
   <button class="btn" style="padding:8px 12px;font-size:12px" onclick="setAllJC(false)">Collapse all</button>
 </div>
-<div id="results"><div class="empty">Loading…</div></div>
+<div id="results"><div class="empty"><span class="spin"></span>Loading…</div></div>
 </div>
 
 <div id="hqtab-perf" style="display:none">
@@ -195,7 +193,7 @@ tr.row-flag:hover{background:#fee2e2}
 
 <div id="pf-sub" style="font-size:12px;color:var(--muted);margin:-4px 0 14px"></div>
 
-<div class="kpi-grid" id="pf-kpis"></div>
+<div class="kpi-grid" id="pf-kpis"><div class="empty" style="grid-column:1/-1"><span class="spin"></span>Loading…</div></div>
 
 <div class="perf-card">
   <h2>Daily TAT Trend</h2>
@@ -359,7 +357,7 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 <div id="qTrend"></div>
 <div id="qBreakdown"></div>
-<div id="qResults"><div class="empty">Loading…</div></div>
+<div id="qResults"><div class="empty"><span class="spin"></span>Loading…</div></div>
 </div>
 
 </div>
@@ -380,7 +378,7 @@ tr.row-flag:hover{background:#fee2e2}
     <option value="both">Both reasons</option>
   </select>
 </div>
-<div id="nResults"><div class="empty">Loading…</div></div>
+<div id="nResults"><div class="empty"><span class="spin"></span>Loading…</div></div>
 </div>
 
 <div id="hqtab-history" style="display:none">
@@ -605,7 +603,7 @@ async function load(){
   var isFirstLoad = !load._hasRun;
   load._hasRun = true;
   if(isFirstLoad){
-    res.innerHTML='<div class="empty">Loading…</div>';
+    res.innerHTML='<div class="empty"><span class="spin"></span>Loading…</div>';
     document.getElementById('dateFilter').value=todayISTStr();
   }
   try{
@@ -1709,7 +1707,7 @@ async function qualityLoad(){
   var hub=document.getElementById('qHub').value||null;
   document.getElementById('qCount').textContent='Loading…';
   document.getElementById('qExportBtn').style.display='none';
-  document.getElementById('qResults').innerHTML='<div class="empty"><span class="svc-spin"></span>Loading…</div>';
+  document.getElementById('qResults').innerHTML='<div class="empty"><span class="spin"></span>Loading…</div>';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_ho_approval_quality',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
       body:JSON.stringify({p_from:from,p_to:to,p_city:city,p_hub:hub,p_min_pct:90})});
@@ -2027,7 +2025,7 @@ async function loadServiceHistory(){
   SVC_MODE = reg.length >= 2 ? 'reg' : 'part';
   updateSvcModeNote(reg, partQuery);
   var isUnmodifiedDefault = SVC_MODE==='part' && !partQuery && !city && !hub && fromDate===SVC_DEFAULT_FROM && toDate===SVC_DEFAULT_TO;
-  box.innerHTML='<div class="empty" style="padding:24px"><span class="svc-spin"></span>Loading service history…</div>';
+  box.innerHTML='<div class="empty" style="padding:24px"><span class="spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
   try{
     var result;
@@ -2244,7 +2242,7 @@ function exportServiceHistoryCSV(){
 }
 
 async function nithishBoot(){
-  document.getElementById('nResults').innerHTML='<div class="empty">Loading…</div>';
+  document.getElementById('nResults').innerHTML='<div class="empty"><span class="spin"></span>Loading…</div>';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_nithish_approval_queue',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
     if(!r.ok){document.getElementById('nResults').innerHTML='<div class="empty" style="color:var(--red)">Error loading.</div>';return;}
