@@ -19,6 +19,8 @@
   --purple:#7c3aed;--teal:#0891b2;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;
   --text:#0f172a;--muted:#64748b;
 }
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:_spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes _spin{to{transform:rotate(360deg)}}
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
 .wrap{max-width:900px;margin:0 auto;padding:16px}
@@ -136,7 +138,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
     </div>
     <div class="card">
       <b>Completed audit scores</b>
-      <div id="recent" style="margin-top:10px" class="muted">Loading…</div>
+      <div id="recent" style="margin-top:10px" class="muted"><span class="spin"></span>Loading…</div>
     </div>
   </div>
 
@@ -1104,7 +1106,7 @@ async function loadCapas(){
   const el=document.getElementById('capa-list-view');
   const sum=document.getElementById('capa-summary');
   if(!hubId){el.innerHTML='';if(sum)sum.innerHTML='';CAPAS_ALL=[];CAPA_FILTER=null;return;}
-  el.innerHTML='<div class="card muted">Loading…</div>';
+  el.innerHTML='<div class="card muted"><span class="spin"></span>Loading…</div>';
   try{
     const all=await api('capa_items?select=id,finding,action,owner_id,owner_role,due_date,status,created_at,closure_remark,closure_photo_url,checkpoint_id,origin_photos,owner:owner_id(name),audits!inner(hub_id,audit_number)&audits.hub_id=eq.'+hubId+'&order=created_at.desc');
     const _cut=Date.now()-60*86400000; CAPA_REC={};
@@ -1196,7 +1198,7 @@ function showAdminTab(t){
 }
 document.getElementById('admin-tab-users-btn').onclick=()=>showAdminTab('users');
 document.getElementById('admin-tab-checklist-btn').onclick=()=>showAdminTab('checklist');
-async function loadAdminUsers(){const el=document.getElementById('admin-list');el.innerHTML='<div class="card muted">Loading…</div>';try{ADMIN_USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');renderAdminList();}catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}}
+async function loadAdminUsers(){const el=document.getElementById('admin-list');el.innerHTML='<div class="card muted"><span class="spin"></span>Loading…</div>';try{ADMIN_USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');renderAdminList();}catch(e){el.innerHTML='<div class="card err">'+esc(e.message)+'</div>';}}
 function renderAdminList(){const el=document.getElementById('admin-list');if(!ADMIN_USERS.length){el.innerHTML='<div class="card muted">No users yet.</div>';return;}el.innerHTML=ADMIN_USERS.map((u,i)=>'<div class="card" style="padding:12px"><div class="between"><div><b>'+esc(u.name)+'</b> <span class="sub">'+esc(u.email)+'</span><div class="sub">'+roleLabel(u.role)+(u.hub_id?(' · '+esc(adminHubName(u.hub_id))):'')+(u.city?(' · '+esc(u.city)):'')+(u.can_audit?' · audits':'')+(u.is_admin?' · admin':'')+(u.is_active===false?' · inactive':'')+'</div></div><button class="btn btn-ghost" onclick="editUser('+i+')">Edit</button></div></div>').join('');}
 function userForm(u){
   const roles=[['auditor','Auditor'],['hub_manager','Hub Manager'],['service_manager','Service Manager'],['city_head','City Head'],['regional_manager_ops','Regional Manager - Ops'],['regional_manager_service','Regional Manager - Service'],['ops_head','Ops Head'],['service_head','Service Head'],['founder','Founder']];
@@ -1246,7 +1248,7 @@ const MODE_OPTS=['binary','multi_select','numeric','count','text_only'];
 const SEV_OPTS=['','Low','Medium','Critical'];
 let CL_SECTIONS=[],CL_CPS=[],CL_TAGS=[];
 async function loadChecklistAdmin(){
-  const el=document.getElementById('cl-list'); el.innerHTML='<div class="card muted">Loading…</div>';
+  const el=document.getElementById('cl-list'); el.innerHTML='<div class="card muted"><span class="spin"></span>Loading…</div>';
   try{
     CL_SECTIONS=await api('audit_sections?select=id,name,sort_order,owner_role,is_external_only,is_active&template_version_id=eq.'+TEMPLATE_ID+'&order=sort_order.asc');
     CL_CPS=await api('audit_checkpoints?select=id,section_id,label,sort_order,mode,severity,owner_role,photo_required_on_ng,photo_required_on_ok,is_external_only,active_to&order=sort_order.asc');

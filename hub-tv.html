@@ -23,6 +23,8 @@
   --blue:     #3b82f6;
   --purple:   #8b5cf6;
 }
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:_spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes _spin{to{transform:rotate(360deg)}}
 
 body {
   background: var(--bg);
@@ -298,7 +300,7 @@ body {
     <!-- RUNWAY -->
     <div class="panel">
       <div class="panel-title">Runway · RFD stock by model</div>
-      <div class="runway-row" id="runwayRow"><div class="na">Loading…</div></div>
+      <div class="runway-row" id="runwayRow"><div class="na"><span class="spin"></span>Loading…</div></div>
     </div>
 
     <!-- PARTS -->

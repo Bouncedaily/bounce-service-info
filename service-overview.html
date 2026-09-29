@@ -210,7 +210,7 @@
       <h3>By submission type</h3>
       <table>
         <thead><tr><th>Type</th><th class="num">Inflow</th><th class="num">Outflow</th></tr></thead>
-        <tbody id="flowTypeBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+        <tbody id="flowTypeBody"><tr><td colspan="3" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -235,7 +235,7 @@
           <th class="num">RR</th>
           <th class="num">PDI</th>
         </tr></thead>
-        <tbody id="techBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        <tbody id="techBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -281,7 +281,7 @@
       <th class="num sortable" onclick="sortTable('subTable',1,true)">This period JCs</th>
       <th class="num sortable" onclick="sortTable('subTable',2,true)">This period ₹</th>
       <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-      <tbody id="costSubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+      <tbody id="costSubBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="panel">
@@ -295,7 +295,7 @@
       <th class="num sortable" onclick="sortTable('cityTable',1,true)">This period JCs</th>
       <th class="num sortable" onclick="sortTable('cityTable',2,true)">This period ₹</th>
       <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-      <tbody id="costCityBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+      <tbody id="costCityBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
   </div>
 
   <div class="panel">
@@ -311,7 +311,7 @@
         <th class="num sortable" onclick="sortTable('hubTable',1,true)">This period JCs</th>
         <th class="num sortable" onclick="sortTable('hubTable',2,true)">This period ₹</th>
         <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-        <tbody id="costHubBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+        <tbody id="costHubBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table>
     </div>
   </div>
 
@@ -328,7 +328,7 @@
         <th class="num sortable" onclick="sortTable('partsTable',2,true)">This period ₹</th>
         <th class="num">Last month Qty</th>
         <th class="num">Last month ₹</th><th class="num">Δ</th></tr></thead>
-      <tbody id="topPartsBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      <tbody id="topPartsBody"><tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -344,7 +344,7 @@
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">This period</div>
         <div style="overflow-x:auto"><table id="vehATable"><thead><tr>
           <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
-          <tbody id="vehABody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          <tbody id="vehABody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehAGrand">—</td><td></td></tr></tfoot>
         </table></div>
       </div>
@@ -352,7 +352,7 @@
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Last month</div>
         <div style="overflow-x:auto"><table id="vehBTable"><thead><tr>
           <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
-          <tbody id="vehBBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          <tbody id="vehBBody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehBGrand">—</td><td></td></tr></tfoot>
         </table></div>
       </div>
@@ -366,12 +366,12 @@
         <div class="panel compact">
           <h3>By JC TAT bucket <span style="font-weight:400;font-size:11px;color:var(--muted)">— JC Billed − JC Opened; cost/JC rises the longer a JC stays open</span></h3>
           <div style="overflow-x:auto"><table id="tatTable"><thead><tr><th>TAT Bucket</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-            <tbody id="costTatBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+            <tbody id="costTatBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
         </div>
         <div class="panel compact">
           <h3>By issue category <span style="font-weight:400;font-size:11px;color:var(--muted)">— A = Wear &amp; Tear · W = Warranty · P = Rider Payable</span></h3>
           <div style="overflow-x:auto"><table id="catgTable"><thead><tr><th>Category</th><th class="num">This period JCs</th><th class="num">This period ₹</th><th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-            <tbody id="costCatgBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+            <tbody id="costCatgBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
         </div>
       </div>
       <div class="panel compact" style="margin-top:14px">
@@ -385,7 +385,7 @@
           <th class="num sortable" onclick="sortTable('modelTable',1,true)">This period JCs</th>
           <th class="num sortable" onclick="sortTable('modelTable',2,true)">This period ₹</th>
           <th class="num">This period Avg/JC</th><th class="num">Δ Avg/JC</th><th class="num">Last month JCs</th><th class="num">Last month ₹</th><th class="num">Last month Avg/JC</th></tr></thead>
-          <tbody id="costModelBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+          <tbody id="costModelBody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
       </div>
     </div>
   </details>
@@ -452,7 +452,7 @@ function sectionDone() {
 
 function setLoadingStates() {
   document.querySelectorAll('#fleetKpis .kv, #costKpis .kv').forEach(el => el.textContent = '—');
-  const loadingRow = (n) => `<tr><td colspan="${n}" class="empty">Loading…</td></tr>`;
+  const loadingRow = (n) => `<tr><td colspan="${n}" class="empty"><span class="spin"></span>Loading…</td></tr>`;
   document.getElementById('flowTypeBody').innerHTML = loadingRow(3);
   document.getElementById('techBody').innerHTML = loadingRow(8);
   document.getElementById('costTatBody').innerHTML = loadingRow(8);

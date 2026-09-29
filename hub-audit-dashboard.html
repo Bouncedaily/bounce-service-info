@@ -5,6 +5,8 @@
 <title>Hub Audit Dashboard</title>
 <style>
 :root{--red:#f53b3b;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--bg:#f4f6f9;--card:#fff;--border:#e5e9f0;--text:#0f172a;--muted:#64748b;}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:_spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes _spin{to{transform:rotate(360deg)}}
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
 .wrap{max-width:1100px;margin:0 auto;padding:18px}
@@ -57,10 +59,10 @@ textarea{min-height:52px;resize:vertical}
   <div id="err" class="err"></div>
   <div class="card"><div class="filters"><div style="flex:1;min-width:130px"><label>City</label><select id="f-city"></select></div><div style="flex:1;min-width:170px"><label>Hub</label><select id="f-hub"></select></div><button class="btn btn-ghost" id="f-clear" style="align-self:flex-end">Clear</button></div></div>
   <div class="kpis" id="kpis"></div>
-  <div class="card"><h3>Hub scorecards</h3><div id="scorecards" class="muted">Loading…</div></div>
-  <div class="card"><h3>CAPA management</h3><div id="capa-sum" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted">Loading…</div></div>
-  <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted">Loading…</div></div>
-  <div class="card"><h3>Recent audits</h3><div id="recent" class="muted">Loading…</div></div>
+  <div class="card"><h3>Hub scorecards</h3><div id="scorecards" class="muted"><span class="spin"></span>Loading…</div></div>
+  <div class="card"><h3>CAPA management</h3><div id="capa-sum" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted"><span class="spin"></span>Loading…</div></div>
+  <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted"><span class="spin"></span>Loading…</div></div>
+  <div class="card"><h3>Recent audits</h3><div id="recent" class="muted"><span class="spin"></span>Loading…</div></div>
 </div>
 <div class="modal" id="audit-modal"><div class="modal-card" id="audit-modal-card"></div></div>
 
@@ -355,7 +357,7 @@ window.openAudit=async function(auditId){
   var card=document.getElementById('audit-modal-card');
   document.getElementById('audit-modal').classList.add('show');
   var closeBtn='<button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';
-  card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="muted">Loading…</div>';
+  card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="muted"><span class="spin"></span>Loading…</div>';
   try{
     var a=AUDBYID[auditId];
     var resp=await api('audit_responses?select=id,response,observation,checkpoint:checkpoint_id(label,sort_order,section_id)&audit_id=eq.'+auditId);

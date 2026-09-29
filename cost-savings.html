@@ -67,8 +67,6 @@
     tr:last-child td { border-bottom: none; }
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .refurbpct-grid { display: flex; flex-direction: column; gap: 14px; }
-    @keyframes rpspin { to { transform: rotate(360deg); } }
-    .rp-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border,#e2e8f0); border-top-color: #dc2626; border-radius: 50%; animation: rpspin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
     .saving-pos { color: #16a34a; font-weight: 600; }
 
     .warn-box {
@@ -216,7 +214,7 @@
       </div>
       <button class="btn secondary" id="refurbpct-export-btn" style="display:none" onclick="exportRefurbPctCSV()">⬇ Export CSV</button>
     </div>
-    <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div></div>
+    <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div></div>
   </div><!-- /cstab-refurbpct -->
 
   <div id="cstab-savingspct" style="display:none">
@@ -224,7 +222,7 @@
       <div style="font-size:12px;color:var(--muted,#64748b)">Cost Saving % = (OEM benchmark price − actual amount paid) summed across refurb parts billed that month (excluding the motor-related mapping), ÷ total spend on all A+P category parts that month (including motor).</div>
       <button class="btn secondary" id="savingspct-export-btn" style="display:none" onclick="exportSavingsPctCSV()">⬇ Export CSV</button>
     </div>
-    <div id="savingspct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div></div>
+    <div id="savingspct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div></div>
   </div><!-- /cstab-savingspct -->
 </div>
 
@@ -442,7 +440,7 @@ function refurbPctHeatColor(pct) {
 async function loadSavingsPct() {
   var box = document.getElementById('savingspct-body');
   document.getElementById('savingspct-export-btn').style.display = 'none';
-  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
+  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div>';
   try {
     var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_cost_savings_pct', {
       method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
@@ -524,7 +522,7 @@ function exportSavingsPctCSV() {
 async function loadRefurbPct() {
   var box = document.getElementById('refurbpct-body');
   document.getElementById('refurbpct-export-btn').style.display = 'none';
-  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
+  box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div>';
   try {
     var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_percentage_by_city', {
       method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'

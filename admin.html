@@ -92,7 +92,7 @@
           <button class="btn" onclick="haU_reset()">Clear</button>
         </div>
         <div id="hau-msg" style="color:#dc2626;font-size:12px;margin-top:6px"></div>
-        <div id="hau-list" style="margin-top:10px">Loading…</div>
+        <div id="hau-list" style="margin-top:10px"><span class="spin"></span>Loading…</div>
       </div>
 
       <!-- Users -->
@@ -115,7 +115,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th style="width:24px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this)"></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
-            <tbody id="users-tbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+            <tbody id="users-tbody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -128,7 +128,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th><th>Action</th></tr></thead>
-            <tbody id="health-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+            <tbody id="health-tbody"><tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -157,7 +157,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th>Uploaded</th><th>By</th><th>File</th><th>Date Range</th><th>Rows (raw / inserted)</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="rmc-upload-history-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+            <tbody id="rmc-upload-history-tbody"><tr><td colspan="7" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -166,7 +166,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th>User</th><th>Dashboards Used</th><th>Total Views</th><th>Last Active</th></tr></thead>
-            <tbody id="usage-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+            <tbody id="usage-tbody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -177,7 +177,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th>Email</th><th>Logged In At</th></tr></thead>
-            <tbody id="act-tbody"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody>
+            <tbody id="act-tbody"><tr><td colspan="2" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -188,7 +188,7 @@
         <div class="tbl">
           <table>
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
-            <tbody id="audit-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+            <tbody id="audit-tbody"><tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -464,7 +464,7 @@ async function loadActivity() {
 // ── SYSTEM HEALTH ──
 async function loadCronHealth() {
   const tbody = document.getElementById('health-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr>';
   try {
     const r = await rpc('get_cron_health', {});
     const jobs = await r.json();
@@ -514,7 +514,7 @@ async function rerunJob(jobname, btn) {
 // ── DASHBOARD USAGE ──
 async function loadDashboardUsage() {
   const tbody = document.getElementById('usage-tbody');
-  tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr>';
   try {
     const r = await rpc('get_dashboard_usage_by_user', {});
     const rows = await r.json();
@@ -536,7 +536,7 @@ async function loadDashboardUsage() {
 // ── AUDIT LOG ──
 async function loadAuditLog() {
   const tbody = document.getElementById('audit-tbody');
-  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr>';
   try {
     const r = await rpc('get_permission_audit_log', {p_limit: 100});
     const rows = await r.json();
