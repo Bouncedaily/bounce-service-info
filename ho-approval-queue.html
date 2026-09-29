@@ -1636,9 +1636,10 @@ function goTop10Page(p){
 // currently-pending queue.
 let QUALITY_DATA=null;
 function qualityDefaultFrom(){
-  var d=new Date(Date.now()+5.5*60*60*1000);
-  d.setDate(d.getDate()-30);
-  return d.toISOString().slice(0,10);
+  // Defaults to today (was trailing 30 days) -- a full month was also the
+  // range most likely to hit the loading-failure issue on first load,
+  // before the user had a chance to narrow it themselves.
+  return new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
 }
 function onQCityChange(){
   var city=document.getElementById('qCity').value;
