@@ -7,7 +7,7 @@
 // than failing outright. Static assets (icons, manifest) are cached
 // normally since they rarely change.
 
-const CACHE_VERSION = 'hub-audit-v2';
+const CACHE_VERSION = 'hub-audit-v3';
 const SHELL_URLS = [
   './hub-audit.html',
   './manifest.webmanifest',
