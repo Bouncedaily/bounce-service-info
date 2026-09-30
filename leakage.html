@@ -135,8 +135,12 @@ tr[data-drill]:hover,tr.drow:hover{background:#f8fafc}
       <div id="l-city"><div class="empty"><span class="spin"></span></div></div>
     </div>
     <div class="card">
-      <div class="card-hd"><h2>Collection rate by submission type</h2></div>
+      <div class="card-hd"><h2>Collection rate by submission type</h2><span class="sub">reflects the City filter above</span></div>
       <div id="l-sub"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>Collection rate by submission type — by city</h2><span class="sub">every city at once, not one at a time</span></div>
+      <div id="l-sub-city"><div class="empty"><span class="spin"></span></div></div>
     </div>
     <div class="card">
       <div class="card-hd"><h2>Under-charged JCs by executive</h2><span class="sub">fee raised &lt; repair cost</span></div>
@@ -267,6 +271,20 @@ async function lload(){
     render(await r.json());
   }catch(e){document.getElementById('l-kpis').innerHTML='<div class="empty" style="grid-column:1/-1">Error.</div>';}
   loadTrend();
+  loadSubByCity();
+}
+// Deliberately no p_city here -- this view exists specifically to show
+// every city at once regardless of the City filter above, unlike every
+// other card on this page which does respect it.
+async function loadSubByCity(){
+  var from=document.getElementById('lf-from').value,to=document.getElementById('lf-to').value;
+  if(!from||!to)return;
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_damage_leakage_submission_by_city',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_from:from,p_to:to,p_hub:SEL.hub.length?SEL.hub:null,p_subtype:SEL.sub.length?SEL.sub:null})});
+    if(!r.ok){document.getElementById('l-sub-city').innerHTML='<div class="empty">Could not load.</div>';return;}
+    renderSubByCity(await r.json());
+  }catch(e){document.getElementById('l-sub-city').innerHTML='<div class="empty">Error.</div>';}
 }
 
 // Trend's own City selector: single-select, clickable pills, deliberately
@@ -385,6 +403,13 @@ function renderSubs(rows){
   document.getElementById('l-sub').innerHTML='<table><thead><tr><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
     rows.map(function(r){var rate=r.coll_rate||0;var col=rate>=80?'var(--green)':rate>=40?'var(--amber)':'var(--red)';var k=esc(r.submission_type);
       return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td>'+
+      '<td><div class="bar"><i style="width:'+rate+'%;background:'+col+'"></i></div><span style="font-size:10px;color:var(--muted)">'+rate+'%</span></td></tr>';}).join('')+'</tbody></table>';
+}
+function renderSubByCity(rows){
+  if(!rows.length){document.getElementById('l-sub-city').innerHTML='<div class="empty">No data</div>';return;}
+  document.getElementById('l-sub-city').innerHTML='<table><thead><tr><th>City</th><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
+    rows.map(function(r){var rate=r.coll_rate||0;var col=rate>=80?'var(--green)':rate>=40?'var(--amber)':'var(--red)';
+      return '<tr><td>'+esc(r.city)+'</td><td>'+esc(r.submission_type)+'</td><td class="num">'+L(r.cost)+'</td><td class="num">'+L(r.raised)+'</td><td class="num">'+L(r.collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+L(r.gap_amt)+'</td>'+
       '<td><div class="bar"><i style="width:'+rate+'%;background:'+col+'"></i></div><span style="font-size:10px;color:var(--muted)">'+rate+'%</span></td></tr>';}).join('')+'</tbody></table>';
 }
 function renderMini(id,rows){
