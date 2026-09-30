@@ -268,10 +268,22 @@ async function get(path) {
   }
 }
 
+// Sends the real logged-in session's token, not the public anon key, as
+// the Authorization header -- required for any RPC that checks the
+// caller's own identity server-side (is_calling_user_admin()-gated
+// functions specifically: add/remove_allowed_user, update_user_permissions,
+// clear_user_password). Falls back to the anon key if no session exists
+// yet, matching the same fallback pattern used elsewhere on this page --
+// those calls will then correctly get rejected server-side rather than
+// silently using elevated access they shouldn't have.
+function sessionToken(){
+  try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON_KEY; }
+  catch(e){ return ANON_KEY; }
+}
 async function rpc(fn, body) {
   return fetch(`${SB}/rest/v1/rpc/${fn}`, {
     method:'POST',
-    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${sessionToken()}`,'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
 }
