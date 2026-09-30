@@ -318,7 +318,9 @@
     <div class="panel" style="margin-top:14px">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px">
         <label style="font-size:12px;color:var(--muted);font-weight:600">CITY</label>
-        <select id="mgmt-city" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"></select>
+        <select id="mgmt-city" onchange="onMgmtCityChange()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"></select>
+        <label style="font-size:12px;color:var(--muted);font-weight:600">HUB</label>
+        <select id="mgmt-hub" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"><option value="">All Hubs</option></select>
         <label style="font-size:12px;color:var(--muted);font-weight:600">PERIOD</label>
         <select id="mgmt-period" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px">
           <option value="this_month" selected>This month</option>
@@ -1514,11 +1516,21 @@ function mgmtSeedCity() {
   });
   sel.value = document.getElementById('f-city').value || '';
 }
+function onMgmtCityChange() {
+  const city = document.getElementById('mgmt-city').value;
+  const hubSel = document.getElementById('mgmt-hub');
+  const currentHub = hubSel.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) hubSel.value = currentHub;
+  loadMgmtTab();
+}
 
 function ymd(d) { return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`; }
 async function loadMgmtTab() {
   mgmtSeedCity();
   const city = document.getElementById('mgmt-city').value || null;
+  const hub = document.getElementById('mgmt-hub').value || null;
   const period = document.getElementById('mgmt-period').value || 'this_month';
   const now = new Date(Date.now() + 5.5 * 3600 * 1000); // IST, matching todayIST()
   let from, to, prevFrom = null, prevTo = null;
@@ -1557,10 +1569,10 @@ async function loadMgmtTab() {
 
   try {
     const [trend, leaderboard, prevLeaderboard] = await Promise.all([
-      rpc('get_scrap_health_trend', { p_city: city, p_hub: null, p_from: from, p_to: to }),
-      rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: from, p_to: to }),
-      prevFrom ? rpc('get_scrap_hub_leaderboard', { p_city: city, p_from: prevFrom, p_to: prevTo }) : Promise.resolve(null),
-      renderMgmtFunnels(city, from, to, prevFrom, prevTo)
+      rpc('get_scrap_health_trend', { p_city: city, p_hub: hub, p_from: from, p_to: to }),
+      rpc('get_scrap_hub_leaderboard', { p_city: city, p_hub: hub, p_from: from, p_to: to }),
+      prevFrom ? rpc('get_scrap_hub_leaderboard', { p_city: city, p_hub: hub, p_from: prevFrom, p_to: prevTo }) : Promise.resolve(null),
+      renderMgmtFunnels(city, hub, from, to, prevFrom, prevTo)
     ]);
     mgmtRenderCharts(trend.weeks || []);
     mgmtRenderLeaderboard(leaderboard || [], prevLeaderboard);
@@ -2745,7 +2757,7 @@ function mgmtDirArrow(curr, prev, goodDirection) {
   const arrow = diff > 0 ? '▲' : '▼';
   return `<span style="font-size:10px;font-weight:700;color:${color}"> ${arrow}${Math.abs(diff)}pp</span>`;
 }
-async function renderMgmtFunnels(city, from, to, prevFrom, prevTo) {
+async function renderMgmtFunnels(city, hub, from, to, prevFrom, prevTo) {
   // p_bound_hub_actual:true here (unlike Log a Movement's own use of this
   // same RPC) -- this view exists to summarize ONE period at a glance, so
   // "At Hub" must be scoped to that same period too. Without it, "At Hub"
@@ -2753,9 +2765,9 @@ async function renderMgmtFunnels(city, from, to, prevFrom, prevTo) {
   // (even from a completely different, older period), which sat next to a
   // strictly-this-period Consumed number and looked like a data error.
   const fetchSet = (f, t) => Promise.all([
-    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true }),
-    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true }),
-    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: f, p_to: t, p_city: city, p_hub: null, p_bound_hub_actual: true })
+    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true })
   ]);
   const [[scrapRows, refurbRows, tyreRows], prevSet] = await Promise.all([
     fetchSet(from, to),
