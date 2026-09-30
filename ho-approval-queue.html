@@ -1742,9 +1742,10 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','HO User','HO Approval Remarks','Days Since Last Replaced','KM Since Last Replaced','% of Std Life'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative'];
   var csvRows=rows.map(function(r){
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',r.days_since??'',r.km_since??'',r.pct_of_life??''];
+    var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':'Early Replacement';
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -1762,6 +1763,7 @@ function qualityLastReplaced(row){
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+row.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
 }
 function qualityLifeCheck(row){
+  if(row.flag_type==='brand_new_not_refurb') return '<span class="bad-life">⚠ Refurb available: '+esc(row.refurb_alternative||'')+'</span>';
   if(row.life_km==null) return '<span class="na-life">—</span>';
   if(row.pct_of_life==null) return '<span class="na-life">Std life: '+nf(row.life_km)+' km</span>';
   var early=row.pct_of_life<90;
