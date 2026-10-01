@@ -66,14 +66,6 @@
     .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; min-width: 0; }
     .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
     .panel.compact { padding: 12px 14px; border-color: rgba(148,148,148,.18); }
-    .bw-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .bw-tbl td { padding: 5px 6px; border-bottom: 1px solid var(--border); }
-    .bw-tbl td.bw-rank { width: 16px; color: var(--muted); font-weight: 700; }
-    .bw-tbl td.bw-metric { text-align: right; font-weight: 700; white-space: nowrap; }
-    .bw-hd { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding-top: 10px !important; border-bottom: none !important; }
-    .bw-hd.best { color: var(--green, #16a34a); }
-    .bw-hd.worst { color: var(--red); }
-    @media (max-width: 900px) { .bw-grid { grid-template-columns: 1fr !important; } }
     .panel.compact h3 { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
     .panel.compact table { font-size: 11px; }
     .chart-box { height: 220px; }
@@ -224,25 +216,6 @@
   </div>
 
   <div class="section-lbl" id="sec3"><span class="n">3</span> Inflow / outflow per technician <span class="zone-badge live">Live</span></div>
-
-  <div class="panel">
-    <h3>Best &amp; worst performers <span style="font-weight:400;font-size:11px;color:var(--muted)">ranked by Jobs/Day, needs 5+ active days in range to qualify (avoids noise from a technician active only 1-2 days) — FREELANCER (an aggregate bucket, not a real person) excluded from the technician view</span></h3>
-    <div class="bw-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">TECHNICIANS</div>
-        <table class="bw-tbl"><tbody id="bwTech"></tbody></table>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">HUBS</div>
-        <table class="bw-tbl"><tbody id="bwHub"></tbody></table>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">CITIES</div>
-        <table class="bw-tbl"><tbody id="bwCity"></tbody></table>
-      </div>
-    </div>
-  </div>
-
   <div class="panel">
     <h3>Technician leaderboard (outflow-side — repairs closed)
       <span class="table-tools">
@@ -756,51 +729,14 @@ function renderFlow(flow) {
   ).join('') + `<tr style="font-weight:800;border-top:2px solid var(--border)"><td>Total</td><td class="num">${fmtN(totalIn)}</td><td class="num">${fmtN(totalOut)}</td></tr>` : '<tr><td colspan="3" class="empty">No data</td></tr>';
 }
 
-// Renders a "Best 5 / Worst 5" mini-table pair into one <tbody>. rows must
-// already be filtered to whatever qualifies (min activity threshold, etc);
-// this only sorts by metricKey and slices top/bottom 5. name/metric are
-// formatter functions so the same helper serves technicians (name + a
-// "X jobs/day Â· Y hrs/day" pair), hubs, and cities alike.
-function renderBestWorst(tbodyId, rows, metricKey, nameFn, metricFn) {
-  const el = document.getElementById(tbodyId);
-  if (!rows.length) { el.innerHTML = '<tr><td class="bw-hd">No qualifying rows in range</td></tr>'; return; }
-  const sorted = [...rows].sort((a,b) => b[metricKey] - a[metricKey]);
-  const best = sorted.slice(0, 5);
-  const worst = sorted.slice(-5).reverse();
-  const row = (r, i) => `<tr><td class="bw-rank">${i+1}</td><td>${nameFn(r)}</td><td class="bw-metric">${metricFn(r)}</td></tr>`;
-  el.innerHTML =
-    '<tr><td class="bw-hd best" colspan="3">🏆 Best 5</td></tr>' + best.map(row).join('') +
-    '<tr><td class="bw-hd worst" colspan="3">⚠ Worst 5</td></tr>' + worst.map(row).join('');
-}
-
-function renderBestWorstPanels(data) {
-  const MIN_ACTIVE_DAYS = 5; // below this, one or two busy/quiet days can swing jobs/day wildly -- not a fair "best/worst" read yet
-  const techRows = (data.leaderboard || []).filter(r => r.technician_name !== 'FREELANCER' && (r.active_days||0) >= MIN_ACTIVE_DAYS);
-  renderBestWorst('bwTech', techRows, 'jobs_per_day',
-    r => `${r.technician_name}<span style="color:var(--muted);font-size:10.5px"> · ${r.hub||'—'}</span>`,
-    r => `${r.jobs_per_day}/d <span style="color:var(--muted);font-weight:400">· ${r.labour_hrs_per_day}h/d</span>`);
-
-  const hubRows = (data.by_hub || []).filter(r => (r.techs||0) >= 2); // a 1-technician hub isn't a fair hub-level comparison
-  renderBestWorst('bwHub', hubRows, 'jobs_per_tech_day',
-    r => `${r.hub}<span style="color:var(--muted);font-size:10.5px"> · ${r.city||'—'}</span>`,
-    r => `${r.jobs_per_tech_day}/d <span style="color:var(--muted);font-weight:400">· ${r.labour_per_tech_day}h/d</span>`);
-
-  const cityRows = data.by_city || [];
-  renderBestWorst('bwCity', cityRows, 'jobs_per_tech_day',
-    r => `${r.city}<span style="color:var(--muted);font-size:10.5px"> · ${r.hubs} hub${r.hubs===1?'':'s'}</span>`,
-    r => `${r.jobs_per_tech_day}/d <span style="color:var(--muted);font-weight:400">· ${r.labour_per_tech_day}h/d</span>`);
-}
-
 async function loadTechnicians(from, to, city, hub) {
   const data = await rpc('get_tech_productivity', { p_start: from, p_end: to, p_city: city, p_hub: hub });
   const body = document.getElementById('techBody');
   if (data === null) {
     body.innerHTML = '<tr><td colspan="8" class="empty" style="color:var(--red)">⚠️ Failed to load — try Apply again.</td></tr>';
-    ['bwTech','bwHub','bwCity'].forEach(id => document.getElementById(id).innerHTML = '<tr><td class="bw-hd" style="color:var(--red)">⚠ Failed to load</td></tr>');
     sectionDone();
     return;
   }
-  renderBestWorstPanels(data);
   const rows = (data && data.leaderboard) || [];
   body.innerHTML = rows.length ? rows.slice(0,20).map(r =>
     `<tr><td>${r.technician_name}</td><td>${r.hub||'—'}</td><td class="num">${fmtN(r.jobs)}</td><td class="num">${r.labour_hrs}</td><td class="num">${r.jobs_per_day}</td><td class="num">${fmtN(r.oos)}</td><td class="num">${fmtN(r.rr)}</td><td class="num">${fmtN(r.pdi)}</td></tr>`
