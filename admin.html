@@ -81,8 +81,10 @@
       <div class="card" id="hau-card" style="display:none">
         <div class="card-hd"><h2>Hub Audit Users</h2><span class="sub">Audit roles, hubs &amp; CAPA ownership</span></div>
         <div class="add-form">
-          <div><label>Name</label><input type="text" id="hau-name"/></div>
-          <div><label>Email</label><input type="email" id="hau-email" placeholder="user@bounceshare.com"/></div>
+          <div style="grid-column:span 2"><label>Person (must already have Scrap Management or Hub Audit access in Allowed Users)</label><select id="hau-person" onchange="haU_personChange()"><option value="">— select —</option></select>
+            <div id="hau-editing-label" style="display:none;font-size:12px;color:var(--muted);margin-top:4px"></div>
+            <input type="hidden" id="hau-name"/><input type="hidden" id="hau-email"/>
+          </div>
           <div><label>Role</label><select id="hau-role"><option value="auditor">Auditor</option><option value="hub_manager">Hub Manager</option><option value="service_manager">Service Manager</option><option value="city_head">City Head</option><option value="ops_head">Ops Head</option><option value="service_head">Service Head</option><option value="founder">Founder</option></select></div>
           <div><label>City</label><select id="hau-city"></select></div>
           <div><label>Hub</label><select id="hau-hub"></select></div>
@@ -345,11 +347,11 @@ async function bulkRevoke() {
   loadAuditLog();
 }
 function renderUsers(users) {
-  const DASH_ACCESS = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker']];
+  const DASH_ACCESS = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker'],['scrap','Scrap Management']];
   document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
     const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,oos:false};
     const isProt = u.email===ADMIN;
-    const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `<fieldset style="border:none;padding:0;margin:0"><legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Sidebar Access</legend>${DASH_ACCESS.map(it=>`<label style="font-size:11px;margin-right:8px;cursor:pointer;display:inline-block"><input type="checkbox" ${p[it[0]]?'checked':''} onchange="setPerm('${u.email}','${it[0]}',this.checked)"> ${it[1]}</label>`).join('')}</fieldset>`;
+    const perms = isProt ? '<span style="color:var(--muted);font-size:11px">All access</span>' : `<fieldset style="border:none;padding:0;margin:0"><legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Sidebar Access</legend>${DASH_ACCESS.map(it=>`<label style="font-size:11px;margin-right:8px;cursor:pointer;display:inline-block"><input type="checkbox" ${p[it[0]]?'checked':''} onchange="setPerm('${u.email}','${it[0]}',this.checked)"> ${it[1]}</label>`).join('')}</fieldset><fieldset style="border:none;padding:0;margin:8px 0 0"><legend style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Edit Access</legend><label style="font-size:11px;margin-right:8px;cursor:pointer;display:inline-block"><input type="checkbox" ${p.scrap_edit?'checked':''} onchange="setPerm('${u.email}','scrap_edit',this.checked)"> Can Edit Scrap Dashboard</label></fieldset>`;
     return `<tr data-email="${u.email}">
       <td><input type="checkbox" class="user-select-cb" data-email="${u.email}" ${isProt?'disabled':''} onchange="updateBulkBar()"></td>
       <td class="user-name" style="font-weight:600">${u.name||'—'}</td>
@@ -448,7 +450,7 @@ async function revokeUser(email) {
 async function restoreUser(email) {
   await fetch(`${SB}/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}`,{
     method:'PATCH',
-    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
+    headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${sessionToken()}`,'Content-Type':'application/json'},
     body:JSON.stringify({is_active:true})
   });
   logAudit(email, 'restore');
@@ -803,11 +805,12 @@ async function deleteRmcBatch(batchId){
     // tier (measured ~9s for 44k rows with no way to speed that up further,
     // since DELETE needs real heap access unlike SELECT). Chunking keeps
     // each individual request comfortably fast.
+    const AH = { ...HDR, 'Authorization': `Bearer ${sessionToken()}` }; // real logged-in session -- both delete steps are admin-only
     let totalDeleted = 0;
     while (true) {
       if (statusEl) statusEl.textContent = `Deleting… ${totalDeleted} row(s) removed so far`;
       const r = await fetch(`${SB}/rest/v1/rpc/delete_rmc_batch_chunk`, {
-        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+        method: 'POST', headers: { ...AH, 'Content-Type': 'application/json' },
         body: JSON.stringify({ p_batch_id: batchId, p_chunk_size: 5000 })
       });
       if (!r.ok) { alert(`Could not delete line items: HTTP ${r.status} — ${(await r.text()).slice(0,200)}`); return; }
@@ -816,10 +819,19 @@ async function deleteRmcBatch(batchId){
       if (deletedInChunk === 0) break;
       await new Promise(res => setTimeout(res, 200));
     }
-    const delBatch = await fetch(`${SB}/rest/v1/rmc_jc_upload_batches?id=eq.${batchId}`, {
-      method: 'DELETE', headers: HDR
+    // A delete that matches zero rows still reports success, so a missing permission looks identical to a real
+    // delete. Check the number of rows actually removed rather than trusting the status code.
+    if (totalDeleted === 0 && typeof rowCount === 'number' && rowCount > 0) {
+      alert('No line items were removed -- your session may not have permission. Nothing was changed.');
+      if (statusEl) statusEl.textContent = ''; return;
+    }
+    const delBatch = await fetch(`${SB}/rest/v1/rpc/delete_rmc_batch_record`, {
+      method: 'POST', headers: { ...AH, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_batch_id: batchId })
     });
-    if (!delBatch.ok) { alert(`Line items were deleted, but the batch record itself could not be removed: HTTP ${delBatch.status}`); }
+    const delBatchCount = delBatch.ok ? await delBatch.json().catch(() => 0) : 0;
+    if (!delBatch.ok || !(delBatchCount > 0)) {
+      alert(`Line items were deleted, but the batch record itself could not be removed${delBatch.ok ? ' (no permission)' : ': HTTP ' + delBatch.status}`);
+    }
     try {
       await fetch(`${SB}/rest/v1/rpc/refresh_rmc_monthly_dim_summary`, {
         method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
@@ -931,10 +943,25 @@ loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAud
     var hb=document.getElementById('hau-hub');if(hb)hb.innerHTML='<option value="">—</option>'+HUBS.map(function(h){return '<option value="'+h.id+'">'+esc(h.name)+' — '+esc(h.city)+'</option>';}).join('');
     load();
   }
-  async function load(){var el=document.getElementById('hau-list');try{USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');render();}catch(e){el.innerHTML='<span style="color:#dc2626">'+esc(e.message)+'</span>';}}
+  async function load(){var el=document.getElementById('hau-list');try{USERS=await api('auditors?select=id,name,email,role,hub_id,city,can_audit,is_admin,is_active&order=name.asc');render();}catch(e){el.innerHTML='<span style="color:#dc2626">'+esc(e.message)+'</span>';}loadEligiblePeople();}
+  async function loadEligiblePeople(){
+    try{
+      var all=await get('allowed_users?select=email,name,permissions&order=name.asc');
+      var existingEmails={};(USERS||[]).forEach(function(u){existingEmails[u.email]=true;});
+      var eligible=all.filter(function(u){var p=u.permissions||{};return (p.scrap||p.hub_audit)&&!existingEmails[u.email];});
+      var sel=document.getElementById('hau-person');
+      if(!sel)return;
+      sel.innerHTML='<option value="">— select —</option>'+eligible.map(function(u){return '<option value="'+esc(u.email)+'" data-name="'+esc(u.name||u.email)+'">'+esc(u.name||u.email)+' ('+esc(u.email)+')</option>';}).join('');
+    }catch(e){console.error('loadEligiblePeople failed',e);}
+  }
+  window.haU_personChange=function(){
+    var sel=document.getElementById('hau-person');var opt=sel.options[sel.selectedIndex];
+    document.getElementById('hau-email').value=sel.value;
+    document.getElementById('hau-name').value=opt?(opt.getAttribute('data-name')||''):'';
+  };
   function render(){var el=document.getElementById('hau-list');if(!USERS.length){el.innerHTML='No Hub Audit users yet.';return;}el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:4px">Name</th><th style="text-align:left;padding:4px">Email</th><th style="text-align:left;padding:4px">Role</th><th style="text-align:left;padding:4px">Hub/City</th><th></th></tr></thead><tbody>'+USERS.map(function(u,i){return '<tr style="border-top:1px solid #eee"><td style="padding:4px">'+esc(u.name)+(u.is_admin?' <b>(admin)</b>':'')+'</td><td style="padding:4px">'+esc(u.email)+'</td><td style="padding:4px">'+(RLBL[u.role]||u.role)+(u.can_audit?' · audits':'')+(u.is_active===false?' · inactive':'')+'</td><td style="padding:4px">'+esc(u.hub_id?hubName(u.hub_id):(u.city||''))+'</td><td style="padding:4px"><button class="btn" onclick="haU_edit('+i+')">Edit</button></td></tr>';}).join('')+'</tbody></table>';}
-  window.haU_edit=function(i){var u=USERS[i];EDIT_ID=u.id;document.getElementById('hau-name').value=u.name||'';var em=document.getElementById('hau-email');em.value=u.email||'';em.disabled=true;document.getElementById('hau-role').value=u.role||'auditor';document.getElementById('hau-city').value=u.city||'';document.getElementById('hau-hub').value=u.hub_id||'';document.getElementById('hau-audit').checked=!!u.can_audit;document.getElementById('hau-admin').checked=!!u.is_admin;document.getElementById('hau-card').scrollIntoView({behavior:'smooth',block:'start'});};
-  window.haU_reset=function(){EDIT_ID=null;document.getElementById('hau-name').value='';var em=document.getElementById('hau-email');em.value='';em.disabled=false;document.getElementById('hau-role').value='auditor';document.getElementById('hau-city').value='';document.getElementById('hau-hub').value='';document.getElementById('hau-audit').checked=false;document.getElementById('hau-admin').checked=false;document.getElementById('hau-msg').textContent='';};
+  window.haU_edit=function(i){var u=USERS[i];EDIT_ID=u.id;document.getElementById('hau-name').value=u.name||'';var em=document.getElementById('hau-email');em.value=u.email||'';document.getElementById('hau-role').value=u.role||'auditor';document.getElementById('hau-city').value=u.city||'';document.getElementById('hau-hub').value=u.hub_id||'';document.getElementById('hau-audit').checked=!!u.can_audit;document.getElementById('hau-admin').checked=!!u.is_admin;document.getElementById('hau-person').style.display='none';var lbl=document.getElementById('hau-editing-label');lbl.style.display='';lbl.textContent='Editing: '+(u.name||'')+' ('+(u.email||'')+')';document.getElementById('hau-card').scrollIntoView({behavior:'smooth',block:'start'});};
+  window.haU_reset=function(){EDIT_ID=null;document.getElementById('hau-name').value='';var em=document.getElementById('hau-email');em.value='';document.getElementById('hau-role').value='auditor';document.getElementById('hau-city').value='';document.getElementById('hau-hub').value='';document.getElementById('hau-audit').checked=false;document.getElementById('hau-admin').checked=false;document.getElementById('hau-msg').textContent='';document.getElementById('hau-person').style.display='';document.getElementById('hau-person').value='';document.getElementById('hau-editing-label').style.display='none';loadEligiblePeople();};
   window.haU_save=async function(){
     var m=document.getElementById('hau-msg');m.textContent='';
     var name=document.getElementById('hau-name').value.trim();
