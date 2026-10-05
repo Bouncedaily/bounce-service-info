@@ -614,11 +614,12 @@ body { overflow:auto!important; }
 
   <!-- Inflow/Outflow trend -->
   <div class="card">
-    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it</div></div>
-    <div style="padding:10px 16px 0;display:flex;gap:8px">
+    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it · Net reduction above 0 = more bikes leaving OOS than entering</div></div>
+    <div style="padding:10px 16px 0;display:flex;gap:8px;flex-wrap:wrap">
       <button type="button" class="flow-pill on" id="flow-pill-inflow" onclick="toggleFlowPill('inflow')">Inflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-outflow" onclick="toggleFlowPill('outflow')">Outflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-rr" onclick="toggleFlowPill('rr')">Running Repair</button>
+      <button type="button" class="flow-pill on" id="flow-pill-net" onclick="toggleFlowPill('net')">Net Reduction</button>
     </div>
     <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
   </div>
@@ -1895,12 +1896,16 @@ function renderFlowTrendChart() {
   SUB_TYPES.forEach(function(t){
     FLOW_CHART_DATA.subTypes[t] = dates.map(function(d){ return (byDateIn[d] && byDateIn[d][t]) || 0; });
   });
+  // Net reduction = Outflow - Inflow, computed from the same two plotted series (so it
+  // always agrees with the lines above it). Positive = more bikes left OOS than entered,
+  // i.e. the OOS pool shrank that day; negative = it grew.
+  FLOW_CHART_DATA.net = FLOW_CHART_DATA.outflow.map(function(v, i){ return v - FLOW_CHART_DATA.overallInflow[i]; });
 
   rebuildFlowChart();
 }
 
 var FLOW_CHART_DATA = null;
-var FLOW_PILLS = { inflow: true, outflow: true, rr: true };
+var FLOW_PILLS = { inflow: true, outflow: true, rr: true, net: true };
 var SUB_TYPE_COLORS = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
 
 function toggleFlowPill(which){
@@ -1938,6 +1943,9 @@ function rebuildFlowChart(){
   if (FLOW_PILLS.outflow) {
     datasets.push({ label: 'Outflow', data: d.outflow, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
   }
+  if (FLOW_PILLS.net) {
+    datasets.push({ label: 'Net Reduction', data: d.net, borderColor: '#be185d', backgroundColor: '#be185d', borderWidth: 2.5, tension: .25, fill: false, pointRadius: 3, isNet: true });
+  }
 
   if (FLOW_TREND_CHART) { FLOW_TREND_CHART.destroy(); }
   FLOW_TREND_CHART = new Chart(canvas, {
@@ -1949,10 +1957,18 @@ function rebuildFlowChart(){
       // Chart.js's default legend is clickable out of the box -- clicking
       // any series name toggles just that line on/off, on top of whatever
       // the 3 pill buttons above already show/hide.
-      plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } } },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: function(ctx){
+          var v = ctx.parsed.y;
+          return ctx.dataset.label + ': ' + (ctx.dataset.isNet && v > 0 ? '+' : '') + v;   // net reduction shown with its sign
+        } } }
+      },
       scales: {
         x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+        y: { beginAtZero: true, ticks: { font: { size: 10 } },
+             grid: { color: function(c){ return c.tick && c.tick.value === 0 ? '#9ca3af' : 'rgba(0,0,0,0.1)'; },
+                     lineWidth: function(c){ return c.tick && c.tick.value === 0 ? 1.5 : 1; } } }
       }
     }
   });
