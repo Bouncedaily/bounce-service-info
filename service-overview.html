@@ -339,21 +339,21 @@
         <button class="btn chip tbl-export" onclick="exportTableCSV('vehBTable','top_vehicles_last_month')">⬇ CSV last month</button>
       </span>
     </h3>
-    <div class="row2">
+    <div class="row2" style="grid-template-columns:1fr">
       <div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">This period</div>
         <div style="overflow-x:auto"><table id="vehATable"><thead><tr>
-          <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
-          <tbody id="vehABody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
-          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehAGrand">—</td><td></td></tr></tfoot>
+          <th>Reg Number</th><th>DMS JC ID</th><th>Draft JC</th><th>Hub</th><th>City</th><th>Submission Type</th><th>Billed Date</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
+          <tbody id="vehABody"><tr><td colspan="9" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
+          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num" id="vehAGrand">—</td><td></td></tr></tfoot>
         </table></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Last month</div>
         <div style="overflow-x:auto"><table id="vehBTable"><thead><tr>
-          <th>Reg Number</th><th>Job No</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
-          <tbody id="vehBBody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
-          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td class="num" id="vehBGrand">—</td><td></td></tr></tfoot>
+          <th>Reg Number</th><th>DMS JC ID</th><th>Draft JC</th><th>Hub</th><th>City</th><th>Submission Type</th><th>Billed Date</th><th class="num">Sum of Amount</th><th class="num">TAT</th></tr></thead>
+          <tbody id="vehBBody"><tr><td colspan="9" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
+          <tfoot><tr style="font-weight:800;border-top:2px solid var(--border)"><td>Grand Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="num" id="vehBGrand">—</td><td></td></tr></tfoot>
         </table></div>
       </div>
     </div>
@@ -401,6 +401,11 @@ let flowChartInst = null;
 
 function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
 function fmtN(n) { return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-IN'); }
+function fmtDay(s) { // 'YYYY-MM-DD' -> '23 Sep 2026' (parsed directly, no Date object, so no timezone shift)
+  if (!s) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (!m) return s;
+  return parseInt(m[3], 10) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m[2], 10) - 1] + ' ' + m[1];
+}
 function todayIST() { return new Date(Date.now() + 5.5*3600*1000).toISOString().slice(0,10); }
 function addDays(dateStr, days) { const d = new Date(dateStr+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+days); return d.toISOString().slice(0,10); }
 function sameRangeLastMonth(from, to) {
@@ -610,7 +615,7 @@ function toggleModelFilter(i) {
 
 function renderTopVehicles(data) {
   if (!data) {
-    const err = '<tr><td colspan="4" class="empty" style="color:var(--red)">⚠ Failed to load — try Apply again.</td></tr>';
+    const err = '<tr><td colspan="9" class="empty" style="color:var(--red)">⚠ Failed to load — try Apply again.</td></tr>';
     document.getElementById('vehABody').innerHTML = err;
     document.getElementById('vehBBody').innerHTML = err;
     document.getElementById('vehAGrand').textContent = '—';
@@ -618,8 +623,8 @@ function renderTopVehicles(data) {
     return;
   }
   const rowsHtml = (rows) => rows.length ? rows.map(r =>
-    `<tr><td>${r.reg_number}</td><td>${r.job_no}</td><td class="num">${fmtC(r.amount)}</td><td class="num">${r.tat_days!=null ? Number(r.tat_days).toFixed(1)+'d' : '—'}</td></tr>`
-  ).join('') : '<tr><td colspan="4" class="empty">No data</td></tr>';
+    `<tr><td>${r.reg_number}</td><td>${r.dms_jc_no||'—'}</td><td>${r.job_no}</td><td>${r.hub||'—'}</td><td>${r.city||'—'}</td><td>${r.submission_type||'—'}</td><td>${fmtDay(r.billed_date)}</td><td class="num">${fmtC(r.amount)}</td><td class="num">${r.tat_days!=null ? Number(r.tat_days).toFixed(1)+'d' : '—'}</td></tr>`
+  ).join('') : '<tr><td colspan="9" class="empty">No data</td></tr>';
   document.getElementById('vehABody').innerHTML = rowsHtml(data.a_rows||[]);
   document.getElementById('vehAGrand').textContent = fmtC(data.a_grand_total||0);
   document.getElementById('vehBBody').innerHTML = rowsHtml(data.b_rows||[]);
