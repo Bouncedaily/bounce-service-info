@@ -351,6 +351,9 @@ tr.row-flag:hover{background:#fee2e2}
     <option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option>
   </select>
   <select id="qHub" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+  <select id="qLife" onchange="qualityRender()" title="Life check" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+    <option value="">All life checks</option><option value="early_replacement">Early replacement</option><option value="brand_new_not_refurb">Refurb available</option>
+  </select>
   <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
   <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="qHideReviewed" onchange="qualityRender()">Hide reviewed</label>
   <button class="btn" id="qExportBtn" style="display:none;margin-left:auto" onclick="exportQualityCSV()">⬇ Export CSV</button>
@@ -1742,10 +1745,10 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative'];
   var csvRows=rows.map(function(r){
     var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':'Early Replacement';
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||''];
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',(SVC_CAT_LABEL[r.category]?SVC_CAT_LABEL[r.category][0]:(r.category||'')),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -1761,6 +1764,11 @@ function qualityLastReplaced(row){
   var recent=row.days_since<30;
   var kmpart=(row.km_since!=null && row.km_since>0)?(nf(row.km_since)+' km · '):'';
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+row.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
+}
+function qualityCategory(row){
+  // same labels + badge style as the Service History tab (SVC_CAT_LABEL)
+  var cat=row.category && SVC_CAT_LABEL[row.category];
+  return cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span class="na-life">—</span>';
 }
 function qualityLifeCheck(row){
   if(row.flag_type==='brand_new_not_refurb') return '<span class="bad-life">⚠ Refurb available: '+esc(row.refurb_alternative||'')+'</span>';
@@ -1783,6 +1791,8 @@ function qualityRender(){
         (r.item||'').toLowerCase().indexOf(q)>=0;
     });
   }
+  var life=document.getElementById('qLife').value;
+  if(life) rows=rows.filter(function(r){ return (r.flag_type||'early_replacement')===life; });
   if(hideReviewed) rows=rows.filter(function(r){ return (r.review_status||'open')==='open'; });
   var total=QUALITY_DATA.total_wear_tear_jcs||0, flagged=QUALITY_DATA.flagged_count||0;
   var openCount=(QUALITY_DATA.rows||[]).filter(function(r){ return (r.review_status||'open')==='open'; }).length;
@@ -1806,7 +1816,7 @@ function qualityRender(){
 
   var html='<table><thead><tr>'+
     th('Job Card','job_card')+th('Vehicle','reg_number')+th('City','city')+th('Hub','hub')+th('Technician','technician')+
-    th('Submission Type','submission_type')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
+    th('Submission Type','submission_type')+th('Category','category')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
     th('HO User','ho_user')+th('HO Approval Remarks','ho_approval_remarks')+th('Last Replaced','days_since')+th('Life Check','pct_of_life')+'<th>Review</th>'+
     '</tr></thead><tbody>';
   rows.forEach(function(r,idx){
@@ -1816,7 +1826,7 @@ function qualityRender(){
       '<td>'+esc(r.job_card)+'</td>'+
       '<td>'+(r.reg_number?'<a href="#" onclick="jumpToServiceHistory(\''+esc(r.reg_number)+'\');return false;" style="color:var(--red);text-decoration:underline">'+esc(r.reg_number)+'</a>':'—')+'</td>'+
       '<td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
-      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+esc(r.item)+'</td>'+
+      '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+qualityCategory(r)+'</td><td>'+esc(r.item)+'</td>'+
       '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+esc(r.ho_approval_remarks||'—')+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
       '<td style="min-width:220px">'+
         '<select id="'+rid+'-status" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;margin-bottom:3px">'+
