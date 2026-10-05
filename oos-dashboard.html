@@ -604,6 +604,7 @@ body { overflow:auto!important; }
   <div class="kpi-row" id="kpi-row">
     <div class="kpi"><div class="kpi-label">Total Bikes</div><div class="kpi-val" id="k-total">—</div></div>
     <div class="kpi"><div class="kpi-label">OOS Bikes</div><div class="kpi-val red" id="k-oos">—</div></div>
+    <div class="kpi"><div class="kpi-label">OOS %</div><div class="kpi-val red" id="k-pct">—</div></div>
     <div class="kpi"><div class="kpi-label">Today's Inflow</div><div class="kpi-val blue" id="k-inflow">—</div><div class="kpi-sub">Rider Sub. · Bike Exchange · Recovery</div><div class="kpi-sub" id="k-inflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
     <div class="kpi"><div class="kpi-label">Today's Outflow</div><div class="kpi-val green" id="k-outflow">—</div><div class="kpi-sub">OOS to RFD · PDI to RFD</div><div class="kpi-sub" id="k-outflow-avg" style="color:var(--muted)">avg —/day (MTD)</div></div>
     <div class="kpi"><div class="kpi-label">Running Repair</div><div class="kpi-val" id="k-rr" style="color:var(--amber)">—</div></div>
@@ -627,14 +628,14 @@ body { overflow:auto!important; }
     <div class="card">
       <div class="card-hd"><h2>OOS by City</h2></div>
       <div class="tbl"><table id="tbl-city">
-        <thead><tr><th>City</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
+        <thead><tr><th>City</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
         <tbody><tr><td colspan="7" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
     <div class="card">
       <div class="card-hd"><h2>OOS by Bike Model</h2></div>
       <div class="tbl"><table id="tbl-model">
-        <thead><tr><th>Model</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
+        <thead><tr><th>Model</th><th class="num">Total Bikes</th><th class="num">OOS Bikes</th><th class="num">OOS %</th><th class="num">PDI Bikes</th><th class="num">RFD Bikes</th><th class="num">Active Rental</th></tr></thead>
         <tbody><tr><td colspan="7" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
     </div>
@@ -2026,11 +2027,13 @@ function pctClass(p) { const v = parseFloat(p); return v > 6 ? 'hi' : 'ok'; }
 function render({ summary, oosDetail, inflow, outflow }) {
   const total  = summary.length;
   const oosN   = summary.filter(r => r.status === 'OOS').length;
+  const oosPct = total ? (oosN/total*100).toFixed(1)+'%' : '—';
   const _rTAT = outflow.filter(function(r){ return OOS_TYPES.indexOf(r.submission_type)>=0 && r.oos_to_rfd_tat_days != null; });
   const avgAge = _rTAT.length ? (_rTAT.reduce(function(s,r){ return s+(parseFloat(r.oos_to_rfd_tat_days)||0); }, 0) / _rTAT.length).toFixed(1) : '—';
 
   document.getElementById('k-total').textContent   = total.toLocaleString('en-IN');
   document.getElementById('k-oos').textContent     = oosN.toLocaleString('en-IN');
+  document.getElementById('k-pct').textContent     = oosPct;
   document.getElementById('k-inflow').textContent  = '...';
   document.getElementById('k-outflow').textContent = '...';
   document.getElementById('k-age').textContent     = avgAge;
@@ -2087,7 +2090,7 @@ function cityModelRows(summary, oosDetail, key, tblId) {
 
   const groups = [...new Set(summary.map(r => r[key]).filter(Boolean))].sort();
   const tbody = document.querySelector('#' + tblId + ' tbody');
-  if (!groups.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No data</td></tr>'; return; }
+  if (!groups.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No data</td></tr>'; return; }
   const K = JSON.stringify(key);
   let rows = '', gt = 0, go = 0, gpdi = 0, grfd = 0, gact = 0;
   groups.forEach(g => {
@@ -2096,18 +2099,22 @@ function cityModelRows(summary, oosDetail, key, tblId) {
     const pdi = summary.filter(r => r[key]===g && r.status === 'pdi').length;
     const rfd = summary.filter(r => r[key]===g && r.status === 'RFD').length;
     const act = summary.filter(r => r[key]===g && r.status === 'Active_rental').length;
+    const p = pct(o, t);
     gt += t; go += o; gpdi += pdi; grfd += rfd; gact += act;
     const G = JSON.stringify(g);
     rows += `<tr><td>${g}</td>`+
       `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},null)'>${t.toLocaleString('en-IN')}</td>`+
       `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("OOS")})'>${o.toLocaleString('en-IN')}</td>`+
+      `<td class="pct ${pctClass(p)}">${p}</td>`+
       `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("pdi")})'>${pdi.toLocaleString('en-IN')}</td>`+
       `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("RFD")})'>${rfd.toLocaleString('en-IN')}</td>`+
       `<td class="num num-click" onclick='openCityModelDrilldown(${K},${G},${JSON.stringify("Active_rental")})'>${act.toLocaleString('en-IN')}</td></tr>`;
   });
+  const tp = pct(go, gt);
   rows += `<tr class="tfoot"><td>Total</td>`+
     `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,null)'>${gt.toLocaleString('en-IN')}</td>`+
     `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("OOS")})'>${go.toLocaleString('en-IN')}</td>`+
+    `<td class="pct ${pctClass(tp)}">${tp}</td>`+
     `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("pdi")})'>${gpdi.toLocaleString('en-IN')}</td>`+
     `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("RFD")})'>${grfd.toLocaleString('en-IN')}</td>`+
     `<td class="num num-click" onclick='openCityModelDrilldown(${K},null,${JSON.stringify("Active_rental")})'>${gact.toLocaleString('en-IN')}</td></tr>`;
