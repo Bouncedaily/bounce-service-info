@@ -358,7 +358,7 @@ body { overflow:auto!important; }
 
 
       <!-- TOP FILTER BAR -->
-      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadRepeats();loadIntervals()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');loadAllReplacements();loadRepeats();loadIntervals()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><select id="top-part" onchange="loadAllReplacements();loadRepeats();loadIntervals()"><option value="">All parts</option><optgroup label="Tyres"><option>Rear Tyre (Energy Ride / 12Inch)</option><option>Rear Tyre 12 Inch (Zoom)</option><option>Front Tyre (Zoom)</option><option>Front Tyre 12-Inch</option></optgroup><optgroup label="Brakes &amp; Wear"><option>Front Brake Pad</option><option>Rear Brake Pad</option><option>Front Brake Disc</option><option>Rear Brake Disc</option><option>Cone Set Assy</option><option>Rr Brake Shoe Set - Drum</option><option>Fr Brake Shoe Set - Drum</option></optgroup><optgroup label="Bearings"><option>Front Wheel Bearing</option><option>Rear Wheel Bearing</option></optgroup></select></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');loadAllReplacements();loadRepeats();loadIntervals();renderConsumption()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
       <!-- KPIs driven by All Replacements filters -->
       <div class="kpi-row" id="kpi-row">
         <div class="kpi"><div class="loading-state" style="padding:12px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div>
@@ -628,7 +628,7 @@ function err(id, msg) {
 }
 
 // ---------- ALL REPLACEMENTS (also drives KPIs + by-part + by-sub) ----------
-function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadRepeats();loadIntervals();}
+function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadRepeats();loadIntervals();renderConsumption();}
 
 async function loadAllReplacements() {
   _allPage = 1;
@@ -938,43 +938,60 @@ async function loadConsumption() {
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     _consumptionRows = await r.json();
-    _consumptionRows.sort((a,b) => (b.total_cost||0) - (a.total_cost||0));
     renderConsumption();
-    const upd = document.getElementById('consumption-updated');
-    if (upd && _consumptionRows.length) upd.textContent = 'Updated ' + fmtD(_consumptionRows[0].updated_at);
   } catch(e) {
     console.error('loadConsumption error:', e);
     body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadConsumption();return false;">Retry</a></div>';
   }
 }
+// The summary table carries blr_/ncr_/hyd_ columns for every metric next to
+// the all-city ones, so the City filter just selects which set to read.
+// (Achievement is this_month_achievement_pct overall, <prefix>_achievement_pct per city.)
+const CONS_CITY_PREFIX = { Bangalore:'blr', NCR:'ncr', Hyderabad:'hyd' };
+function consCity() { return document.getElementById('top-city').value || ''; }
+function consView(r, city) {
+  const p = CONS_CITY_PREFIX[city];
+  if (!p) return { w3:r.window3_avg_km, lm:r.last_month_avg_km, tm:r.this_month_avg_km, ach:r.this_month_achievement_pct, cost:r.total_cost, cpk:r.cost_per_km };
+  return { w3:r[p+'_window3_avg_km'], lm:r[p+'_last_month_avg_km'], tm:r[p+'_this_month_avg_km'], ach:r[p+'_achievement_pct'], cost:r[p+'_total_cost'], cpk:r[p+'_cost_per_km'] };
+}
+function consSortedRows(city) {
+  return _consumptionRows.map(r => ({ r, v: consView(r, city) })).sort((a, b) => (b.v.cost || 0) - (a.v.cost || 0));
+}
 function renderConsumption() {
   const body = document.getElementById('consumption-body');
+  if (!body) return;
   if (!_consumptionRows.length) { body.innerHTML = '<div class="loading-state" style="padding:20px">No data</div>'; return; }
+  const city = consCity();
+  const upd = document.getElementById('consumption-updated');
+  if (upd) upd.textContent = 'Updated ' + fmtD(_consumptionRows[0].updated_at) + ' · ' + (city || 'All cities');
+  // Never silently fall back to all-city numbers for a city this table has no columns for
+  if (city && !CONS_CITY_PREFIX[city]) { body.innerHTML = '<div class="loading-state" style="padding:20px">No consumption data for ' + city + '.</div>'; return; }
   const w3 = _consumptionRows[0].window3_label || '', lm = _consumptionRows[0].last_month_label || '', tm = _consumptionRows[0].this_month_label || '';
   const achClass = pct => pct==null ? '' : (pct<50 ? 'style="color:#dc2626;font-weight:600"' : pct<80 ? 'style="color:#d97706;font-weight:600"' : 'style="color:#15803d;font-weight:600"');
-  const rows = _consumptionRows.map(r => `<tr>
+  const rows = consSortedRows(city).map(({ r, v }) => `<tr>
     <td>${r.part_bucket}</td>
     <td class="num">${fmt(r.expected_life_km)}</td>
-    <td class="num">${fmt(r.window3_avg_km)}</td>
-    <td class="num">${fmt(r.last_month_avg_km)}</td>
-    <td class="num" style="font-weight:600">${fmt(r.this_month_avg_km)}</td>
-    <td class="num" ${achClass(r.this_month_achievement_pct)}>${r.this_month_achievement_pct==null?'—':r.this_month_achievement_pct+'%'}</td>
-    <td class="num">${fmtC(r.total_cost)}</td>
-    <td class="num" style="color:var(--accent,#0891b2);font-weight:600">${r.cost_per_km==null?'—':'₹'+r.cost_per_km}</td>
+    <td class="num">${fmt(v.w3)}</td>
+    <td class="num">${fmt(v.lm)}</td>
+    <td class="num" style="font-weight:600">${fmt(v.tm)}</td>
+    <td class="num" ${achClass(v.ach)}>${v.ach==null?'—':v.ach+'%'}</td>
+    <td class="num">${fmtC(v.cost)}</td>
+    <td class="num" style="color:var(--accent,#0891b2);font-weight:600">${v.cpk==null?'—':'₹'+v.cpk}</td>
   </tr>`).join('');
   body.innerHTML = `<table><thead><tr>
     <th>Part Type</th><th class="num">Expected Life (KM)</th>
     <th class="num">${w3} Avg</th><th class="num">${lm} Avg</th><th class="num">${tm} Avg</th>
     <th class="num">This Month Achievement</th><th class="num">Total Cost (₹) — YTD</th><th class="num">Cost/KM (₹) — YTD</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below, so the two reconcile for the same date range. Rolling window advances automatically each month, refreshed nightly. Cost/KM = (Total Cost ÷ Replacements) ÷ Avg KM, matching the formula already used in "By Part Type"'s Cost/KM column.</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below, so the two reconcile for the same date range. Rolling window advances automatically each month, refreshed nightly. Cost/KM = (Total Cost ÷ Replacements) ÷ Avg KM, matching the formula already used in "By Part Type"'s Cost/KM column. The City filter applies to this table; the date and part filters do not (it is year-to-date with rolling monthly windows).</div>`;
 }
 function getConsumptionRows() {
-  return _consumptionRows.map(r => [r.part_bucket, r.expected_life_km, r.window3_avg_km, r.last_month_avg_km, r.this_month_avg_km, r.this_month_achievement_pct, r.total_cost, r.cost_per_km]);
+  return consSortedRows(consCity()).map(({ r, v }) => [r.part_bucket, r.expected_life_km, v.w3, v.lm, v.tm, v.ach, v.cost, v.cpk]);
 }
 function exportConsumptionXLSX() {
   const w3 = _consumptionRows[0]?.window3_label||'W3', lm = _consumptionRows[0]?.last_month_label||'LM', tm = _consumptionRows[0]?.this_month_label||'TM';
-  exportXLSX('wear_tear_consumption_'+today()+'.xlsx',
+  const city = consCity();
+  exportXLSX('wear_tear_consumption_' + (city ? city.toLowerCase() + '_' : '') + today() + '.xlsx',
     ['Part Type','Expected Life (KM)', w3+' Avg', lm+' Avg', tm+' Avg', 'This Month Achievement %', 'Total Cost (YTD)', 'Cost/KM (YTD)'],
     getConsumptionRows());
 }
