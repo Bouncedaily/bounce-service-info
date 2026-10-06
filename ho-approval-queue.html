@@ -352,7 +352,7 @@ tr.row-flag:hover{background:#fee2e2}
   </select>
   <select id="qHub" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <select id="qLife" onchange="qualityRender()" title="Life check" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
-    <option value="">All life checks</option><option value="early_replacement">Early replacement</option><option value="brand_new_not_refurb">Refurb available</option>
+    <option value="">All life checks</option><option value="early_replacement">Early replacement</option><option value="brand_new_not_refurb">Refurb available</option><option value="fork_parts_set">Suspension set</option>
   </select>
   <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
   <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="qHideReviewed" onchange="qualityRender()">Hide reviewed</label>
@@ -1745,10 +1745,10 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative','Set Parts'];
   var csvRows=rows.map(function(r){
-    var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':'Early Replacement';
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',(SVC_CAT_LABEL[r.category]?SVC_CAT_LABEL[r.category][0]:(r.category||'')),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||''];
+    var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':(r.flag_type==='fork_parts_set'?'Suspension Set (3 parts on one JC)':'Early Replacement');
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',qualityCategoryText(r.category),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||'',r.set_parts||''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -1766,12 +1766,20 @@ function qualityLastReplaced(row){
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+row.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
 }
 function qualityCategory(row){
-  // same labels + badge style as the Service History tab (SVC_CAT_LABEL)
-  var cat=row.category && SVC_CAT_LABEL[row.category];
-  return cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span class="na-life">—</span>';
+  // same labels + badge style as the Service History tab (SVC_CAT_LABEL). A suspension set can span categories
+  // (e.g. legs Paid but T-Steam Warranty), so category may be a comma-separated list: one badge each.
+  var badges=String(row.category||'').split(',').filter(Boolean).map(function(c){
+    var cat=SVC_CAT_LABEL[c];
+    return cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;margin-right:3px">'+cat[0]+'</span>' : '';
+  }).join('');
+  return badges || '<span class="na-life">—</span>';
+}
+function qualityCategoryText(cats){   // plain-text version for the CSV: "Paid + Warranty"
+  return String(cats||'').split(',').filter(Boolean).map(function(c){ return SVC_CAT_LABEL[c]?SVC_CAT_LABEL[c][0]:c; }).join(' + ');
 }
 function qualityLifeCheck(row){
   if(row.flag_type==='brand_new_not_refurb') return '<span class="bad-life">⚠ Refurb available: '+esc(row.refurb_alternative||'')+'</span>';
+  if(row.flag_type==='fork_parts_set') return '<span class="bad-life">⚠ All 3 on one JC: '+esc(row.set_parts||'')+'</span>';
   if(row.life_km==null) return '<span class="na-life">—</span>';
   if(row.pct_of_life==null) return '<span class="na-life">Std life: '+nf(row.life_km)+' km</span>';
   var early=row.pct_of_life<90;
