@@ -145,6 +145,7 @@ tr.row-flag:hover{background:#fee2e2}
   <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')">Approval Quality</button>
   <button id="hqtab-nithish-btn" class="hqtab-btn" onclick="hqTab('nithish')">Special Approval</button>
   <button id="hqtab-history-btn" class="hqtab-btn" onclick="hqTab('history')">Service History</button>
+  <button id="hqtab-manual-btn" class="hqtab-btn" onclick="hqTab('manual')">Manual JC</button>
 </div>
 
 <div id="hqtab-queue">
@@ -382,6 +383,17 @@ tr.row-flag:hover{background:#fee2e2}
   </select>
 </div>
 <div id="nResults"><div class="empty"><span class="spin"></span>Loading…</div></div>
+</div>
+
+<div id="hqtab-manual" style="display:none">
+  <div class="psub">Before opening a manual job card, search the vehicle: this lists every job card for it that is <strong>not billed yet</strong>, with its current status, hub, DMS JC ID, when it was opened and the bike's status. Same data as the HO queue, refreshed every 2 minutes.</div>
+  <div style="display:flex;gap:8px;align-items:center;margin:12px 0 14px;flex-wrap:wrap">
+    <input type="text" id="mjc-input" placeholder="e.g. KA05AQ6846 or KA05" autocomplete="off" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:240px;text-transform:uppercase;font-weight:600" oninput="mjcOnInput()">
+    <button class="btn" onclick="mjcClear()">Clear</button>
+    <span id="mjc-meta" style="font-size:11px;color:var(--muted2,#94a3b8);margin-left:auto"></span>
+  </div>
+  <div id="mjc-summary" style="font-size:13px;font-weight:600;margin:0 0 8px"></div>
+  <div id="mjc-results"><div class="empty">Type at least 3 characters of a registration number.</div></div>
 </div>
 
 <div id="hqtab-history" style="display:none">
@@ -924,16 +936,106 @@ function hqTab(t){
   document.getElementById('hqtab-quality').style.display=(t==='quality')?'':'none';
   document.getElementById('hqtab-nithish').style.display=(t==='nithish')?'':'none';
   document.getElementById('hqtab-history').style.display=(t==='history')?'':'none';
+  document.getElementById('hqtab-manual').style.display=(t==='manual')?'':'none';
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
   document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
   document.getElementById('hqtab-nithish-btn').classList.toggle('active', t==='nithish');
   document.getElementById('hqtab-history-btn').classList.toggle('active', t==='history');
+  document.getElementById('hqtab-manual-btn').classList.toggle('active', t==='manual');
   try{localStorage.setItem('hq_last_tab',t);}catch(e){}
   if(t==='perf' && !PF_INIT){ PF_INIT=true; perfBoot(); }
   if(t==='quality' && !QUALITY_INIT){ QUALITY_INIT=true; qualityBoot(); }
   if(t==='nithish' && !NITHISH_INIT){ NITHISH_INIT=true; nithishBoot(); }
   if(t==='history' && !SVC_DIMS_INIT){ SVC_DIMS_INIT=true; loadSvcDims().then(loadServiceHistory); }
+  if(t==='manual'){ setTimeout(function(){ var b=document.getElementById('mjc-input'); if(b) b.focus(); },0); }
+}
+
+/* ===== Manual JC tab: job cards NOT billed yet for a vehicle =====
+   Source: ho_approval_jc -- the same table the HO queue uses (synced every 2 min from the Metabase "not billed" question),
+   so a vehicle only appears here while it has at least one unbilled job card. */
+var MJC_TIMER=null, MJC_SEQ=0, MJC_LIMIT=300;
+var MJC_STATUS_STYLE=[ /* first match wins: [text to find, background, text colour] */
+  ['not opened in dms','#fef3c7','#92400e'],
+  ['re-open','#fee2e2','#b91c1c'],
+  ['waiting for ho approval','#ede9fe','#6d28d9'],
+  ['waiting for approval','#ede9fe','#6d28d9'],
+  ['waiting for billing','#ccfbf1','#0f766e'],
+  ['closed','#ccfbf1','#0f766e'],
+  ['open','#dbeafe','#1d4ed8']
+];
+var MJC_BIKE_STYLE=[['active','#dcfce7','#15803d'],['oos','#fee2e2','#b91c1c'],['marked for recovery','#fef3c7','#92400e'],['recovered','#e2e8f0','#475569'],['pdi','#dbeafe','#1d4ed8']];
+function mjcBadge(txt, styles){
+  var low=String(txt||'').toLowerCase(), bg='#f1f5f9', fg='#475569';
+  for(var i=0;i<styles.length;i++){ if(low.indexOf(styles[i][0])>=0){ bg=styles[i][1]; fg=styles[i][2]; break; } }
+  return '<span style="background:'+bg+';color:'+fg+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap">'+esc(txt||'—')+'</span>';
+}
+function mjcAge(t){
+  if(!t) return '';
+  var d=Math.floor((Date.now()-new Date(t).getTime())/86400000);
+  return d<=0 ? 'today' : d+'d ago';
+}
+function mjcClear(){
+  var el=document.getElementById('mjc-input'); el.value=''; MJC_SEQ++;
+  mjcMessage('Type at least 3 characters of a registration number.'); document.getElementById('mjc-summary').textContent=''; document.getElementById('mjc-meta').textContent='';
+  el.focus();
+}
+function mjcMessage(html){ document.getElementById('mjc-results').innerHTML='<div class="empty">'+html+'</div>'; }
+function mjcOnInput(){
+  clearTimeout(MJC_TIMER);
+  var q=document.getElementById('mjc-input').value.toUpperCase().replace(/[^A-Z0-9]/g,'');   // registration numbers are letters + digits only
+  if(q.length<3){ MJC_SEQ++; mjcMessage('Type at least 3 characters of a registration number.'); document.getElementById('mjc-summary').textContent=''; document.getElementById('mjc-meta').textContent=''; return; }
+  MJC_TIMER=setTimeout(function(){ mjcSearch(q); }, 250);
+}
+async function mjcSearch(q){
+  var seq=++MJC_SEQ;
+  document.getElementById('mjc-summary').textContent='Searching…';
+  var url=SB+'/rest/v1/ho_approval_jc?select=job_card_number,dms_jc_id,reg_number,city,hub_name,jc_status,jc_opened_date,bike_status,synced_at'
+    +'&reg_number=ilike.*'+q+'*&order=reg_number.asc,jc_opened_date.desc&limit='+(MJC_LIMIT+1);
+  var rows;
+  try{
+    var r=await fetch(url,{headers:HDR});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    rows=await r.json();
+  }catch(e){
+    if(seq!==MJC_SEQ) return;
+    document.getElementById('mjc-summary').textContent='';
+    mjcMessage('<span style="color:#b91c1c">Could not load job cards ('+esc(e.message)+'). Please try again.</span>');
+    return;
+  }
+  if(seq!==MJC_SEQ) return;                                   // a newer search has started: ignore this older answer
+  mjcRender(q, rows);
+}
+function mjcRender(q, rows){
+  var sum=document.getElementById('mjc-summary'), meta=document.getElementById('mjc-meta');
+  if(!rows.length){
+    sum.textContent='';
+    meta.textContent='';
+    mjcMessage('No unbilled job cards found for <strong>'+esc(q)+'</strong>.<br><span style="font-size:12px">This list only holds job cards that are not billed yet, so a vehicle with none will not appear.</span>');
+    return;
+  }
+  var capped=rows.length>MJC_LIMIT; if(capped) rows=rows.slice(0,MJC_LIMIT);
+  var perBike={}; rows.forEach(function(r){ perBike[r.reg_number]=(perBike[r.reg_number]||0)+1; });
+  var bikes=Object.keys(perBike).length;
+  sum.innerHTML=rows.length+' job card'+(rows.length===1?'':'s')+' not billed yet'+(bikes>1?' across '+bikes+' vehicles':' for <span style="color:var(--red,#dc2626)">'+esc(rows[0].reg_number)+'</span>')
+    +(capped?' <span style="font-weight:400;color:#92400e">· showing the first '+MJC_LIMIT+' &mdash; type more of the registration number to narrow it</span>':'');
+  var newest=rows.reduce(function(m,r){ return (r.synced_at && r.synced_at>m)?r.synced_at:m; },'');
+  meta.textContent=newest ? 'Data as of '+fmtDT(newest)+' IST (refreshes every 2 min)' : '';
+  var seen={}, h='<div style="background:#fff;border:1px solid var(--border,#e2e8f0);border-radius:12px;overflow-x:auto"><table><thead><tr>'
+    +'<th>Vehicle</th><th>JC status</th><th>City</th><th>Hub</th><th>DMS JC ID</th><th>JC opened</th><th>Bike status</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var first=!seen[r.reg_number]; seen[r.reg_number]=1;
+    var multi=(perBike[r.reg_number]>1 && first) ? ' <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap">'+perBike[r.reg_number]+' open</span>' : '';
+    var dms=r.dms_jc_id ? '<span style="font-weight:600">'+esc(r.dms_jc_id)+'</span>'
+      : '<span style="color:#92400e">Not in DMS yet</span><div style="font-size:10px;color:var(--muted2,#94a3b8)">'+esc(r.job_card_number||'')+'</div>';
+    h+='<tr><td style="font-weight:600;white-space:nowrap">'+esc(r.reg_number)+multi+'</td>'
+      +'<td>'+mjcBadge(r.jc_status, MJC_STATUS_STYLE)+'</td>'
+      +'<td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub_name||'—')+'</td>'
+      +'<td>'+dms+'</td>'
+      +'<td style="white-space:nowrap">'+fmtDate(r.jc_opened_date)+' <span style="color:var(--muted2,#94a3b8);font-size:11px">· '+mjcAge(r.jc_opened_date)+'</span></td>'
+      +'<td>'+mjcBadge(r.bike_status, MJC_BIKE_STYLE)+'</td></tr>';
+  });
+  document.getElementById('mjc-results').innerHTML=h+'</tbody></table></div>';
 }
 
 const PF_WINDOW_DAYS=30;
