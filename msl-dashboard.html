@@ -281,22 +281,22 @@ input[type=date] { min-width: 130px; }
       border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
     }
     .fg { display: flex; flex-direction: column; gap: 3px; }
-    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg > label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
 
     /* ── multi-select dropdown (Top Parts Contribution filters) ──
-       Explicit overrides below (text-transform, font-size, color, font-weight,
-       letter-spacing) are needed because .msel-dd sits nested inside a .fg
-       container for layout purposes, and ".fg label" (a descendant selector)
-       was otherwise bleeding its uppercase/10px/muted label styling onto
-       every option here, since .msel-opt is itself a <label>. */
+       Ported directly from Damage Leakage's version for a consistent look
+       across dashboards. Scoping ".fg label" to ".fg > label" (direct child
+       only) above means .msel-opt, itself a <label> but nested inside
+       .msel-dd rather than being a direct child of .fg, no longer inherits
+       that uppercase/10px/muted styling -- so none of the !important
+       overrides this used to need are necessary anymore. */
     .msel{position:relative}
-    .msel-btn{padding:7px 10px;border:1px solid var(--border2,var(--border));border-radius:7px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:border-color .15s}
+    .msel-btn{padding:7px 10px;border:1px solid var(--border2,var(--border));border-radius:7px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer;text-align:left;min-width:130px;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:border-color .15s}
     .msel-btn:hover{border-color:var(--red)}
     .msel-btn:after{content:'▾';color:var(--muted);font-size:9px;flex-shrink:0}
     .msel-dd{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--card);border:1px solid var(--border2,var(--border));border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.16);z-index:50;min-width:190px;max-height:290px;overflow-y:auto;padding:8px}
     .msel-dd.on{display:block}
-    .msel-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;
-      font-size:13px !important;font-weight:400 !important;text-transform:none !important;letter-spacing:normal !important;color:var(--text) !important;white-space:nowrap}
+    .msel-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px;white-space:nowrap}
     .msel-opt:hover{background:var(--bg,#f1f5f9)}
     .msel-opt input[type=checkbox]{margin:0;width:15px;height:15px;accent-color:var(--red);cursor:pointer;flex-shrink:0}
     .msel-actions{display:flex;gap:12px;padding:2px 9px 8px;border-bottom:1px solid var(--border);margin-bottom:6px}
@@ -491,6 +491,7 @@ body { overflow:auto!important; }
             <option>Hebbal</option>
             <option>Hoodi</option>
             <option>HSR Layout</option>
+            <option>Indiranagar</option>
             <option>RR Nagar</option>
             <option>Yeshwanthpur</option>
             </optgroup>
@@ -502,6 +503,10 @@ body { overflow:auto!important; }
             </optgroup>
             <optgroup label="Hyderabad">
             <option>Fathe nagar</option>
+            <option>Miyapur</option>
+            </optgroup>
+            <optgroup label="Mumbai">
+            <option>Sakinaka</option>
             </optgroup>
           </select>
         </div>
@@ -644,6 +649,16 @@ body { overflow:auto!important; }
           <div id="tpMovers" style="padding:12px 16px 0"></div>
           <div class="heatmap-scroll">
             <div id="tpTable" class="loading-state"><div class="spin"></div>Loading…</div>
+          </div>
+        </div>
+
+        <div id="tpCellOv" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:200;align-items:center;justify-content:center" onclick="if(event.target===this)closeCellRaw()">
+          <div style="background:var(--card);border-radius:12px;max-width:900px;width:92%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:16px 20px;border-bottom:1px solid var(--border)">
+              <div><div style="font-weight:700;font-size:14px" id="tpCellTitle">Raw job cards</div><div style="font-size:11px;color:var(--muted)" id="tpCellSub"></div></div>
+              <button onclick="closeCellRaw()" class="toggle-btn" style="padding:5px 11px">✕ Close</button>
+            </div>
+            <div style="overflow-y:auto;padding:16px 20px" id="tpCellBody"><div class="loading-state"><div class="spin"></div>Loading…</div></div>
           </div>
         </div>
 
@@ -1018,14 +1033,46 @@ function renderPartSummary(d){
       '<th style="'+th+';text-align:center" colspan="5">Period A</th><th style="'+th+';text-align:center;border-left:2px solid var(--border)" colspan="5">Period B</th></tr>'+
     '<tr>'+['A','P','W','F','Tot'].map(function(c){return '<th style="'+th+'">'+c+'</th>';}).join('')+
       ['A','P','W','F','Tot'].map(function(c,ix){return '<th style="'+th+(ix===0?';border-left:2px solid var(--border)':'')+'">'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
-    m.map(function(r){return '<tr><td style="'+tdL+'">'+esc(r.city||'—')+'</td><td style="'+tdL+'">'+esc(r.hub||'—')+'</td>'+
-      '<td style="'+td+'">'+(r.aa||'')+'</td><td style="'+td+'">'+(r.ap||'')+'</td><td style="'+td+'">'+(r.aw||'')+'</td><td style="'+td+'">'+(r.af||'')+'</td><td style="'+td+';font-weight:700">'+(r.a_total||'')+'</td>'+
-      '<td style="'+td+';border-left:2px solid var(--border)">'+(r.ba||'')+'</td><td style="'+td+'">'+(r.bp||'')+'</td><td style="'+td+'">'+(r.bw||'')+'</td><td style="'+td+'">'+(r.bf||'')+'</td><td style="'+td+';font-weight:700">'+(r.b_total||'')+'</td></tr>';}).join('')+
+    m.map(function(r){
+      function cell(val,hub,cat,period,bold,extraStyle){
+        var style=td+(bold?';font-weight:700':'')+(extraStyle||'');
+        if(!val) return '<td style="'+style+'"></td>';
+        return '<td style="'+style+'"><a href="#" class="tp-cell-link" data-hub="'+esc(hub)+'" data-cat="'+(cat||'')+'" data-period="'+period+'" style="color:var(--red);text-decoration:none;cursor:pointer">'+val+'</a></td>';
+      }
+      return '<tr><td style="'+tdL+'">'+esc(r.city||'—')+'</td><td style="'+tdL+'">'+esc(r.hub||'—')+'</td>'+
+      cell(r.aa,r.hub,'A','A')+cell(r.ap,r.hub,'P','A')+cell(r.aw,r.hub,'W','A')+cell(r.af,r.hub,'F','A')+cell(r.a_total,r.hub,null,'A',true)+
+      cell(r.ba,r.hub,'A','B',false,';border-left:2px solid var(--border)')+cell(r.bp,r.hub,'P','B')+cell(r.bw,r.hub,'W','B')+cell(r.bf,r.hub,'F','B')+cell(r.b_total,r.hub,null,'B',true)+'</tr>';}).join('')+
     totRow+'</tbody></table></div>') : '<div class="loading-state">No replacements for these filters</div>';
   var bikes = tb.length ? ('<div style="padding:10px 14px"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px">Top bikes (most replacements in A)</div>'+
     '<div style="display:flex;flex-wrap:wrap;gap:6px">'+tb.map(function(x){return '<span style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:12px">'+esc(x.reg)+' <b>'+x.a_qty+'</b></span>';}).join('')+'</div></div>') : '';
   el.className=''; el.innerHTML=strip+mtx+bikes;
+  el.querySelectorAll('.tp-cell-link').forEach(function(a){
+    a.onclick=function(e){ e.preventDefault(); openCellRaw(a.dataset.hub, a.dataset.cat||null, a.dataset.period); };
+  });
 }
+var CAT_LABEL={A:'Accident/Wear',P:'Paid',W:'Warranty',F:'Free'};
+async function openCellRaw(hub,cat,period){
+  var ov=document.getElementById('tpCellOv'); ov.style.display='flex';
+  var from=period==='A'?tpVal('tpA1'):tpVal('tpB1'), to=period==='A'?tpVal('tpA2'):tpVal('tpB2');
+  document.getElementById('tpCellTitle').textContent=TP_ITEM+' — '+hub+(cat?' · '+(CAT_LABEL[cat]||cat):' · All categories');
+  document.getElementById('tpCellSub').textContent='Period '+period+' · '+from+' to '+to;
+  var body=document.getElementById('tpCellBody'); body.innerHTML='<div class="loading-state"><div class="spin"></div>Loading…</div>';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  try{
+    var r=await fetch(INFO_URL+'/rest/v1/rpc/get_part_raw_jcs',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({p_item:TP_ITEM,p_hub:hub,p_dms_cat:cat,p_from:from,p_to:to,p_city:TP_SEL.city.length?TP_SEL.city:null,p_subtype:TP_SEL.sub.length?TP_SEL.sub:null})});
+    if(!r.ok){ body.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
+    var rows=await r.json();
+    if(!rows.length){ body.innerHTML='<div class="loading-state">No matching job cards.</div>'; return; }
+    var th='padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap';
+    var td='padding:6px 9px;font-size:12px;border-bottom:1px solid var(--border);white-space:nowrap';
+    body.innerHTML='<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+      ['Reg Number','DMS JC ID','City','Date','Submission Type','Cat','Qty','Amount','ODO','Avg KM','HO User','HO Approval Remarks'].map(function(h){return '<th style="'+th+'">'+h+'</th>';}).join('')+
+      '</tr></thead><tbody>'+rows.map(function(x){return '<tr><td style="'+td+'">'+esc(x.reg_number)+'</td><td style="'+td+'">'+esc(x.dms_jc_no)+'</td><td style="'+td+'">'+esc(x.city)+'</td><td style="'+td+'">'+esc(x.data_date)+'</td><td style="'+td+'">'+esc(x.submission_type)+'</td><td style="'+td+'">'+esc(x.dms_cat)+'</td><td style="'+td+'">'+esc(x.qty)+'</td><td style="'+td+'">₹'+tpINR(x.amount)+'</td><td style="'+td+'">'+esc(x.bike_odo)+'</td><td style="'+td+'">'+(x.km_gap!=null?tpINR(x.km_gap)+' km':'—')+'</td><td style="'+td+'">'+esc(x.ho_user||'—')+'</td><td style="'+td+'">'+esc(x.ho_approval_remarks||'—')+'</td></tr>';}).join('')+
+      '</tbody></table>';
+  }catch(e){ body.innerHTML='<div class="loading-state">Could not load.</div>'; }
+}
+function closeCellRaw(){ document.getElementById('tpCellOv').style.display='none'; }
 function closePartRaw(){ document.getElementById('tpRawPanel').style.display='none'; }
 function downloadPartRaw(){
   if(!TP_SUMMARY||!TP_SUMMARY.matrix||!TP_SUMMARY.matrix.length) return;
@@ -1157,9 +1204,9 @@ let allData = [];
 let showShortOnly = true;
 
 const CITY_HUBS = {
-  'Bangalore': ['Banaswadi','Bellandur','Bilekahalli','Electronic City','Hebbal','Hoodi','HSR Layout','RR Nagar','Yeshwanthpur'],
+  'Bangalore': ['Banaswadi','Bellandur','Bilekahalli','Electronic City','Hebbal','Hoodi','HSR Layout','Indiranagar','RR Nagar','Yeshwanthpur'],
   'NCR':       ['Gurugram','Indirapuram','Okhla','Rohini'],
-  'Hyderabad': ['Fathe nagar'],
+  'Hyderabad': ['Fathe nagar','Miyapur'],
   'Mumbai':    ['Sakinaka'],
 };
 
