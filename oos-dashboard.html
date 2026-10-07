@@ -1756,6 +1756,20 @@ async function onBLCustomRange() {
   applyBikeListFilters();
 }
 
+// Row cap for the inflow/outflow range fetch. This used to be 5000, which silently dropped the OLDEST rows for any
+// range longer than ~11 days (a 30-day range has ~13,000 outflow rows, so the dashboard only saw the latest 12 days)
+// and under-counted every number built from them (technician table, outflow by hub, repair aging, ...).
+// 100,000 is far above any realistic range; if it is ever reached the dashboard now says so instead of staying quiet.
+const ROW_CAP = 100000;
+function showRowCapWarning(inflowN, outflowN) {
+  var id = 'rowcap-warning', el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div'); el.id = id;
+    el.style.cssText = 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:10px 16px;margin:8px 16px;border-radius:8px;font-size:13px;font-weight:600';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.textContent = 'This date range is larger than the dashboard can load (' + inflowN.toLocaleString() + ' inflow / ' + outflowN.toLocaleString() + ' outflow rows). Numbers below are incomplete. Please choose a shorter range.';
+}
 async function fetchAndRenderBikeList(from, to) {
   // Fetch server-side filtered data for the given date range
   var fromParam = from ? `&data_date=gte.${from}` : '';
@@ -1780,13 +1794,16 @@ async function fetchAndRenderBikeList(from, to) {
   var outflowTable = isTodayOnly ? 'outflow_today' : 'outflow_hist';
   try {
     const [inflowR, outflowR] = await Promise.all([
-      fetch(`${SB}/rest/v1/${inflowTable}?select=*${dateParam}&order=event_time.desc&limit=5000`, { headers: HDR }),
-      fetch(`${SB}/rest/v1/${outflowTable}?select=*${dateParam}&order=repaired_datetime.desc&limit=5000`, { headers: HDR }),
+      fetch(`${SB}/rest/v1/${inflowTable}?select=*${dateParam}&order=event_time.desc&limit=${ROW_CAP}`, { headers: HDR }),
+      fetch(`${SB}/rest/v1/${outflowTable}?select=*${dateParam}&order=repaired_datetime.desc&limit=${ROW_CAP}`, { headers: HDR }),
     ]);
     const inflow  = await inflowR.json();
     const outflow = await outflowR.json();
     RAW.inflow  = applyHubMerge(Array.isArray(inflow)  ? inflow  : []);
     RAW.outflow = applyHubMerge(Array.isArray(outflow) ? outflow : []);
+    var _capEl = document.getElementById('rowcap-warning');
+    if (RAW.inflow.length >= ROW_CAP || RAW.outflow.length >= ROW_CAP) showRowCapWarning(RAW.inflow.length, RAW.outflow.length);
+    else if (_capEl) _capEl.remove();
     try { var _fo = applyFilters(RAW).outflow; LAST_OUTFLOW = _fo; renderRepairAging(_fo); } catch(e) {}
   } catch(e) { console.error('fetchAndRenderBikeList error', e); }
 }
