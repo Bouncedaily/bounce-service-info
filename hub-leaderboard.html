@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px;max-width:980px;line-height:1.5}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+input,select{padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text);font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--red)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--border2);background:#f8fafc}
+.spacer{flex:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.kpi-val{font-size:24px;font-weight:800;line-height:1.15}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}
+.kpi-sub{font-size:11.5px;color:var(--muted2);margin-top:2px}
+.kpi.good{background:linear-gradient(135deg,#f0fdf4,#fff);border-color:#bbf7d0}.kpi.good .kpi-val{color:#15803d}
+.kpi.bad{background:linear-gradient(135deg,#fef2f2,#fff);border-color:#fecaca}.kpi.bad .kpi-val{color:#b91c1c}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin:0 0 16px}
+.tab{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.card-bd{padding:14px 16px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;font-size:12.5px}
+th{background:#eef2f7;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;position:sticky;top:0}
+td.l,th.l{text-align:left}
+tr.hubrow{cursor:pointer}
+tr.hubrow:hover td{background:#eef4ff}
+tr.hubrow.open td{background:#f1f5ff}
+.rank{color:var(--muted);font-weight:800;font-size:14px;width:44px}
+.hubname{font-weight:700;font-size:13.5px}
+.citysub{color:var(--muted2);font-size:11px}
+.tier{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
+.tier.good{background:#dcfce7;color:#15803d}.tier.watch{background:#fef3c7;color:#a16207}.tier.bad{background:#fee2e2;color:#b91c1c}.tier.na{background:#f1f5f9;color:var(--muted)}
+.scorecell{display:flex;align-items:center;gap:8px;justify-content:center;min-width:140px}
+.scorenum{font-weight:800;font-size:15px;width:38px;text-align:right}
+.sbar{flex:1;height:8px;background:#eef2f7;border-radius:4px;overflow:hidden;min-width:60px}
+.sbar>span{display:block;height:100%;border-radius:4px}
+.hi{color:#15803d}.mid{color:#a16207}.lo{color:#b91c1c}.na{color:var(--muted2)}
+.bg-hi{background:#16a34a}.bg-mid{background:#d97706}.bg-lo{background:#dc2626}
+.chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start}
+.chip{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700}
+.chip.weak{background:#fee2e2;color:#b91c1c}.chip.strong{background:#dcfce7;color:#15803d}
+.chev{color:var(--muted2);font-size:15px;width:26px}
+th.selcol{background:#fee2e2;color:#991b1b}
+td.selcol{background:#fff5f5}
+tr.detail td{background:#fafbfd;padding:0;white-space:normal}
+.dwrap{padding:12px 18px 16px 70px}
+.dt{width:auto;min-width:640px}
+.dt th{position:static;background:#f1f5f9}
+.dt td{font-size:12px}
+.muted{color:var(--muted);font-size:11px}
+.cov{margin-top:8px;color:var(--muted);font-size:11.5px}
+.hm td.cell{font-weight:700;min-width:84px;border-left:1px solid #fff}
+.hm th.sortable{cursor:pointer}.hm th.sortable:hover{background:#e2e8f2}
+.hm .grp{background:#e2e8f0;font-size:10px;letter-spacing:.06em}
+.legend{display:flex;gap:14px;align-items:center;font-size:11.5px;color:var(--muted);padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
+.lg{width:14px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;vertical-align:middle}
+.msg{padding:28px;text-align:center;color:var(--muted)}
+.msg b{color:var(--text)}
+.err{color:var(--red)}
+details.how{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px}
+details.how summary{cursor:pointer;font-weight:700;font-size:13px}
+details.how ul{margin:10px 0 0 18px;padding:0;color:var(--text2);line-height:1.65}
+details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
+.spin{padding:40px;text-align:center;color:var(--muted)}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Hub Leaderboard</h1>
+<div class="psub">Ranks every service hub from best to worst so the good and the bad stand out. Each hub is scored by where it stands <b>among the other hubs</b>, on nine measures of availability, speed, productivity, parts, customers and control. Click a hub to see exactly why it ranks where it does.</div>
+<div class="bar">
+  <span><label>From</label><input type="date" id="from"></span>
+  <span><label>To</label><input type="date" id="to"></span>
+  <span><label>City</label><select id="city" onchange="render()"><option value="">All cities</option></select></span>
+  <span><label>Rank by</label><select id="rankby" onchange="render()"><option value="overall">Overall</option><option value="ops_score">Operations only</option><option value="cq_score">Control &amp; quality only</option></select></span>
+  <span class="spacer"></span>
+  <span id="status" class="muted"></span>
+  <button class="btn" onclick="exportCsv()"><i class="ti ti-download"></i> Export CSV</button>
+</div>
+<div id="msg"></div>
+<div id="main" style="display:none">
+  <div class="kpis" id="kpis"></div>
+  <div class="tabs"><button class="tab active" id="tabbtn-lb" onclick="showTab('lb')">Leaderboard</button><button class="tab" id="tabbtn-hm" onclick="showTab('hm')">Heatmap</button></div>
+  <div id="tab-lb"><div class="card"><div class="card-hd"><span>Hubs ranked best to worst</span><span class="muted" id="lb-note"></span></div><div class="scroll"><table id="lb"><thead><tr><th>#</th><th class="l">Hub</th><th>Tier</th><th id="th-overall">Overall score</th><th id="th-ops_score">Operations</th><th id="th-cq_score">Control &amp; quality</th><th>In city</th><th class="l">Weak on</th><th class="l">Strong on</th><th></th></tr></thead><tbody id="lb-body"></tbody></table></div></div></div>
+  <div id="tab-hm" style="display:none"><div class="card"><div class="card-hd"><span>Every hub, every measure</span><span class="muted">Click a column to sort. Green = better than most hubs, red = worse than most.</span></div><div class="scroll" id="hm-wrap"></div>
+    <div class="legend"><span><i class="lg" style="background:hsl(120,55%,86%)"></i>Among the best</span><span><i class="lg" style="background:hsl(60,70%,88%)"></i>Middle</span><span><i class="lg" style="background:hsl(0,70%,88%)"></i>Among the worst</span><span><i class="lg" style="background:#f1f5f9"></i>No data (not counted as zero)</span></div></div></div>
+  <div class="card" id="nr-card" style="display:none"><div class="card-hd">Not ranked</div><div class="card-bd" id="nr-body"></div></div>
+  <details class="how"><summary>How the score works</summary>
+    <p>Each hub gets a score from 0 to 100 on every measure, based on its position among the ranked hubs (100 = best hub, 0 = worst). Scores are relative, so they show who is ahead and who is behind, not whether a target was met.</p>
+    <ul>
+      <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; repairs completed within 48 hours &middot; net OOS clearing per 100 bikes (OOS repairs finished minus new rider, exchange and recovery inflow) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
+      <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee collected (needs 10+ damage job cards) &middot; latest audit score.</li>
+      <li><b>Missing data is never counted as zero.</b> A hub is ranked only if it has at least 4 of the 5 operations measures, and gets a control &amp; quality score only if it has at least 2 of the 4. Otherwise it is ranked on operations alone.</li>
+      <li><b>Tiers are thirds of the ranking</b>: Good (top third), Watch, Needs attention (bottom third). They are relative, so some hubs are always in the bottom third.</li>
+      <li><b>Fleet measures</b> (OOS %, aged OOS) are as of now. The others cover the dates selected above.</li>
+      <li><b>Comparison set:</b> the main service hubs only. The plant, pilot, test and very small sites are left out, and partner hubs (for example "Flipkart hub - Hoodi") count under their parent hub.</li>
+    </ul></details>
+</div>
+</div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var DATA=null, OPEN={}, HM_SORT={k:'overall',dir:-1};
+function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
+function istToday(){return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10);}
+function daysAgo(n){var d=new Date(Date.now()+5.5*3600*1000);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+function nf(n){return (n==null?0:Number(n)).toLocaleString('en-IN');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function num(v){return (v===null||v===undefined||v==='')?null:Number(v);}
+function median(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y;});var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function signed(v,d){return (v>0?'+':'')+v.toFixed(d);}
+// The nine measures. s = the 0-100 score field returned by the database, better = which direction is good.
+var METRICS=[
+ {k:'oos_pct',s:'s_oos',label:'OOS % of fleet',short:'OOS %',block:'ops',better:'low',fmt:function(v){return v.toFixed(1)+'%';},note:function(h){return nf(h.oos)+' of '+nf(h.bikes)+' bikes are OOS now';}},
+ {k:'aged_per_100',s:'s_aged',label:'Aged OOS (over 7 days) per 100 bikes',short:'Aged OOS',block:'ops',better:'low',fmt:function(v){return v.toFixed(1);},note:function(h){return nf(h.aged)+' bikes, '+(h.aged_pct_of_oos==null?'-':h.aged_pct_of_oos)+'% of the hub\'s OOS';}},
+ {k:'pct_within_48h',s:'s_tat',label:'OOS repairs finished within 48h',short:'Repair speed',block:'ops',better:'high',fmt:function(v){return v.toFixed(0)+'%';},note:function(h){return h.tat_n==null?'':'median '+h.tat_median_days+'d, average '+h.tat_mean_days+'d, '+h.pct_over_7d+'% took over 7 days ('+nf(h.tat_n)+' repairs)';}},
+ {k:'net_per_100',s:'s_net',label:'Net OOS clearing per 100 bikes',short:'Net clearing',block:'ops',better:'high',fmt:function(v){return signed(v,1);},note:function(h){return nf(h.outflow)+' OOS repairs finished vs '+nf(h.inflow)+' new OOS bikes (positive = pool shrinking)';}},
+ {k:'hrs_per_tech_day',s:'s_lab',label:'Labour hrs per technician per day',short:'Labour hrs',block:'ops',better:'high',fmt:function(v){return v.toFixed(1);},note:function(h){return h.techs==null?'':nf(h.techs)+' technicians with 3+ working days';}},
+ {k:'msl_short_pct',s:'s_msl',label:'MSL parts short',short:'MSL short',block:'cq',better:'low',fmt:function(v){return v.toFixed(1)+'%';},note:function(h){return nf(h.msl_parts)+' parts tracked against the minimum stock level';}},
+ {k:'rating',s:'s_rating',label:'Customer rating',short:'Rating',block:'cq',better:'high',fmt:function(v){return v.toFixed(2);},note:function(h){return nf(h.rating_n)+' ratings in the period';}},
+ {k:'damage_coll_pct',s:'s_dmg',label:'Damage fee collected',short:'Damage fee',block:'cq',better:'high',fmt:function(v){return v.toFixed(0)+'%';},note:function(h){return nf(h.damage_jcs)+' damage job cards, collected '+inr(h.damage_collected)+' of '+inr(h.damage_raised)+' raised';}},
+ {k:'audit_score',s:'s_audit',label:'Latest audit score',short:'Audit',block:'cq',better:'high',fmt:function(v){return Math.round(v)+'';},note:function(h){return h.audit_date?'audited '+h.audit_date+(h.risk_band?', risk band '+h.risk_band:''):'';}}
+];
+function inr(n){n=Number(n)||0;if(n>=1e7)return '₹'+(n/1e7).toFixed(2)+'Cr';if(n>=1e5)return '₹'+(n/1e5).toFixed(1)+'L';if(n>=1000)return '₹'+(n/1000).toFixed(1)+'k';return '₹'+Math.round(n);}
+function scoreCls(s){return s==null?'na':(s>=67?'hi':(s>=34?'mid':'lo'));}
+function tierCls(t){return t==='Good'?'good':(t==='Watch'?'watch':(t==='Needs attention'?'bad':'na'));}
+function heatBg(s){if(s==null)return '#f1f5f9';return 'hsl('+Math.round(s*1.2)+',60%,88%)';}
+
+async function load(){
+  var f=document.getElementById('from').value||daysAgo(29), t=document.getElementById('to').value||istToday();
+  document.getElementById('status').textContent='Loading…';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_hub_leaderboard',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+sessionToken(),'Content-Type':'application/json'},body:JSON.stringify({p_start:f,p_end:t})});
+    if(r.status===401||r.status===403){
+      document.getElementById('main').style.display='none'; document.getElementById('status').textContent='';
+      document.getElementById('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the Hub Leaderboard.</b><br>Ask an admin to switch it on for you.</div></div>';
+      return;
+    }
+    if(!r.ok){ throw new Error('HTTP '+r.status); }
+    DATA=await r.json();
+    document.getElementById('msg').innerHTML='';
+    document.getElementById('main').style.display='';
+    populateCities(); render();
+    document.getElementById('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' · '+DATA.period.days+' days';
+  }catch(e){
+    document.getElementById('status').innerHTML='<span class="err">Could not load</span>';
+    document.getElementById('msg').innerHTML='<div class="card"><div class="msg err">Could not load the leaderboard ('+esc(e.message)+'). Please try again.</div></div>';
+  }
+}
+function populateCities(){
+  var sel=document.getElementById('city'); if(sel.options.length>1) return;
+  var cs={}; (DATA.hubs||[]).forEach(function(h){ if(h.city) cs[h.city]=1; });
+  Object.keys(cs).sort().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+}
+function showTab(t){
+  document.getElementById('tab-lb').style.display=t==='lb'?'':'none'; document.getElementById('tab-hm').style.display=t==='hm'?'':'none';
+  document.getElementById('tabbtn-lb').classList.toggle('active',t==='lb'); document.getElementById('tabbtn-hm').classList.toggle('active',t==='hm');
+}
+// Rank hubs by the chosen score. "Overall" uses the rank computed in the database; the other two are ranked here the same way.
+function rankedHubs(){
+  var key=document.getElementById('rankby').value;
+  var hubs=(DATA.hubs||[]).map(function(h){return Object.assign({},h);});
+  var scored=hubs.filter(function(h){return num(h[key])!=null;}).sort(function(a,b){return num(b[key])-num(a[key]);});
+  scored.forEach(function(h,i){ var prev=scored[i-1]; h._rank=(prev&&num(prev[key])===num(h[key]))?prev._rank:i+1; h._score=num(h[key]); });
+  hubs.forEach(function(h){ if(h._rank==null){ h._rank=null; h._score=null; } });
+  var n=scored.length, base=Math.floor(n/3), rem=n%3, g1=base+(rem>0?1:0), g2=base+(rem>1?1:0);
+  scored.forEach(function(h,i){ h._tier=(key==='overall')?h.tier:(i<g1?'Good':(i<g1+g2?'Watch':'Needs attention')); });
+  return {all:hubs, ranked:scored, unranked:hubs.filter(function(h){return h._rank==null;}), key:key};
+}
+function render(){
+  if(!DATA) return;
+  var R=rankedHubs(), city=document.getElementById('city').value;
+  var shown=R.ranked.filter(function(h){return !city||h.city===city;});
+  renderKpis(R);
+  renderLb(shown,R);
+  renderHeat(R.all.filter(function(h){return !city||h.city===city;}));
+  renderUnranked(R.unranked.filter(function(h){return !city||h.city===city;}));
+}
+function renderKpis(R){
+  var all=R.all, ranked=R.ranked;
+  var best=ranked[0], worst=ranked[ranked.length-1];
+  var bikes=0,oos=0,aged=0,tatN=0,tatW=0;
+  all.forEach(function(h){ bikes+=num(h.bikes)||0; oos+=num(h.oos)||0; aged+=num(h.aged)||0; if(num(h.pct_within_48h)!=null&&num(h.tat_n)){ tatN+=num(h.tat_n); tatW+=num(h.pct_within_48h)*num(h.tat_n);} });
+  var needs=ranked.filter(function(h){return h._tier==='Needs attention';}).length;
+  var k=[];
+  k.push('<div class="kpi"><div class="kpi-val">'+ranked.length+' <span style="font-size:15px;color:var(--muted2);font-weight:600">of '+all.length+'</span></div><div class="kpi-lbl">Hubs ranked</div><div class="kpi-sub">'+(all.length-ranked.length)+' without enough data</div></div>');
+  if(best) k.push('<div class="kpi good"><div class="kpi-val">'+esc(best.hub)+'</div><div class="kpi-lbl">Best hub</div><div class="kpi-sub">score '+best._score.toFixed(1)+' · '+esc(best.city||'')+'</div></div>');
+  if(worst) k.push('<div class="kpi bad"><div class="kpi-val">'+esc(worst.hub)+'</div><div class="kpi-lbl">Weakest hub</div><div class="kpi-sub">score '+worst._score.toFixed(1)+' · '+esc(worst.city||'')+'</div></div>');
+  k.push('<div class="kpi"><div class="kpi-val">'+needs+'</div><div class="kpi-lbl">Hubs needing attention</div><div class="kpi-sub">bottom third of the ranking</div></div>');
+  k.push('<div class="kpi"><div class="kpi-val">'+(bikes?(100*oos/bikes).toFixed(1):'-')+'%</div><div class="kpi-lbl">Network OOS</div><div class="kpi-sub">'+nf(oos)+' of '+nf(bikes)+' bikes · '+nf(aged)+' aged over 7 days</div></div>');
+  k.push('<div class="kpi"><div class="kpi-val">'+(tatN?Math.round(tatW/tatN):'-')+'%</div><div class="kpi-lbl">OOS repairs within 48h</div><div class="kpi-sub">'+nf(tatN)+' repairs in the period</div></div>');
+  document.getElementById('kpis').innerHTML=k.join('');
+}
+function chipsFor(h){
+  var weak=[],strong=[];
+  METRICS.forEach(function(m){ var s=num(h[m.s]); if(s==null) return; if(s<=25) weak.push({m:m,s:s}); else if(s>=75) strong.push({m:m,s:s}); });
+  weak.sort(function(a,b){return a.s-b.s;}); strong.sort(function(a,b){return b.s-a.s;});
+  var w=weak.slice(0,3).map(function(x){return '<span class="chip weak">'+esc(x.m.short)+'</span>';}).join('')||'<span class="muted">-</span>';
+  var s=strong.slice(0,3).map(function(x){return '<span class="chip strong">'+esc(x.m.short)+'</span>';}).join('')||'<span class="muted">-</span>';
+  return {weak:'<div class="chips">'+w+'</div>',strong:'<div class="chips">'+s+'</div>'};
+}
+function scoreCell(v){
+  if(v==null) return '<span class="na">n/a</span>';
+  return '<div class="scorecell"><span class="scorenum '+scoreCls(v)+'">'+v.toFixed(0)+'</span><span class="sbar"><span class="bg-'+scoreCls(v)+'" style="width:'+Math.max(2,v)+'%"></span></span></div>';
+}
+function netMedians(){
+  var med={}; METRICS.forEach(function(m){ med[m.k]=median((DATA.hubs||[]).filter(function(h){return num(h.overall)!=null;}).map(function(h){return num(h[m.k]);}).filter(function(v){return v!=null;})); }); return med;
+}
+function renderLb(shown,R){
+  var key=R.key, label=key==='overall'?'overall score':(key==='ops_score'?'operations score':'control & quality score');
+  ['overall','ops_score','cq_score'].forEach(function(c){ var th=document.getElementById('th-'+c); if(th) th.className=(c===key?'selcol':''); });
+  document.getElementById('lb-note').textContent=shown.length+' hubs · ranked by '+label+' · click a hub for the detail';
+  var body=shown.map(function(h){
+    var ch=chipsFor(h), open=!!OPEN[h.hub];
+    var row='<tr class="hubrow'+(open?' open':'')+'" onclick="toggleHub(\''+esc(h.hub).replace(/'/g,"\\'")+'\')">'+
+      '<td class="rank">'+h._rank+'</td><td class="l"><div class="hubname">'+esc(h.hub)+'</div><div class="citysub">'+esc(h.city||'')+' · '+nf(h.bikes)+' bikes</div></td>'+
+      '<td><span class="tier '+tierCls(h._tier)+'">'+esc(h._tier)+'</span></td>'+
+      '<td class="'+(key==='overall'?'selcol':'')+'">'+scoreCell(num(h.overall))+'</td><td class="'+(key==='ops_score'?'selcol':'')+'">'+scoreCell(num(h.ops_score))+'</td><td class="'+(key==='cq_score'?'selcol':'')+'">'+scoreCell(num(h.cq_score))+'</td>'+
+      '<td>'+(h.city_rank!=null?'#'+h.city_rank:'<span class="na">-</span>')+'</td><td class="l">'+ch.weak+'</td><td class="l">'+ch.strong+'</td>'+
+      '<td class="chev"><i class="ti ti-chevron-'+(open?'up':'down')+'"></i></td></tr>';
+    if(open) row+='<tr class="detail"><td colspan="10">'+detailHtml(h)+'</td></tr>';
+    return row;
+  }).join('');
+  document.getElementById('lb-body').innerHTML=body||'<tr><td colspan="10"><div class="msg">No ranked hubs for this selection.</div></td></tr>';
+}
+function detailHtml(h){
+  var med=netMedians();
+  var rows=METRICS.map(function(m){
+    var v=num(h[m.k]), s=num(h[m.s]);
+    var val=v==null?'<span class="na">n/a</span>':'<b>'+m.fmt(v)+'</b>';
+    var md=med[m.k]==null?'-':m.fmt(med[m.k]);
+    var sc=s==null?'<span class="na">n/a</span>':'<span class="tier '+(s>=67?'good':(s>=34?'watch':'bad'))+'">'+s.toFixed(0)+'</span>';
+    var ctx=v==null?'<span class="muted">'+missingWhy(m,h)+'</span>':'<span class="muted">'+esc(m.note(h))+'</span>';
+    return '<tr><td class="l">'+esc(m.label)+'<div class="citysub">'+(m.block==='ops'?'Operations':'Control & quality')+' · '+(m.better==='low'?'lower is better':'higher is better')+'</div></td><td>'+val+'</td><td>'+md+'</td><td>'+sc+'</td><td class="l" style="white-space:normal">'+ctx+'</td></tr>';
+  }).join('');
+  return '<div class="dwrap"><table class="dt"><thead><tr><th class="l">Measure</th><th>This hub</th><th>Median hub</th><th>Score</th><th class="l">Detail</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="cov">Operations score uses '+h.ops_n+' of 5 measures'+(h.cq_n!=null?' · control & quality uses '+h.cq_n+' of 4':'')+'. Missing measures are left out, never counted as zero.</div></div>';
+}
+function missingWhy(m,h){
+  if(m.k==='rating') return h.rating_n?('only '+h.rating_n+' ratings (needs 20)'):'no ratings in the period';
+  if(m.k==='damage_coll_pct') return h.damage_jcs?('only '+h.damage_jcs+' damage job cards (needs 10)'):'no damage job cards in the period';
+  if(m.k==='audit_score') return 'not audited yet';
+  if(m.k==='msl_short_pct') return 'no minimum-stock list for this hub';
+  if(m.k==='pct_within_48h') return h.tat_n?('only '+h.tat_n+' repairs (needs 30)'):'no OOS repairs in the period';
+  if(m.k==='hrs_per_tech_day') return 'fewer than 3 technicians with 3+ working days';
+  return 'no data';
+}
+function toggleHub(name){ OPEN[name]=!OPEN[name]; render(); }
+function renderHeat(hubs){
+  var sorted=hubs.slice();
+  var key=HM_SORT.k;
+  sorted.sort(function(a,b){ var x=num(a[key]),y=num(b[key]); if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1; return HM_SORT.dir===-1 ? (y-x) : (x-y); });
+  var head1='<tr><th class="l" rowspan="2">Hub</th><th rowspan="2">Overall</th><th class="grp" colspan="5">Operations</th><th class="grp" colspan="4">Control &amp; quality</th></tr>';
+  var head2='<tr>'+METRICS.map(function(m){return '<th class="sortable" onclick="sortHeat(\''+m.s+'\')" title="'+esc(m.label)+'">'+esc(m.short)+'</th>';}).join('')+'</tr>';
+  var body=sorted.map(function(h){
+    var o=num(h.overall);
+    var cells=METRICS.map(function(m){ var v=num(h[m.k]), s=num(h[m.s]); return '<td class="cell" style="background:'+heatBg(s)+'" title="'+esc(m.label)+': '+(v==null?'no data':m.fmt(v))+(s==null?'':' (score '+s.toFixed(0)+')')+'">'+(v==null?'<span class="na">-</span>':m.fmt(v))+'</td>'; }).join('');
+    return '<tr><td class="l"><div class="hubname">'+esc(h.hub)+'</div><div class="citysub">'+esc(h.city||'')+'</div></td><td class="cell" style="background:'+heatBg(o)+'">'+(o==null?'<span class="na">-</span>':o.toFixed(0))+'</td>'+cells+'</tr>';
+  }).join('');
+  document.getElementById('hm-wrap').innerHTML='<table class="hm"><thead>'+head1+head2+'</thead><tbody>'+body+'</tbody></table>';
+}
+function sortHeat(k){ HM_SORT.dir=(HM_SORT.k===k)?-HM_SORT.dir:-1; HM_SORT.k=k; render(); }
+function renderUnranked(list){
+  var card=document.getElementById('nr-card');
+  if(!list.length){ card.style.display='none'; return; }
+  card.style.display='';
+  document.getElementById('nr-body').innerHTML=list.map(function(h){
+    return '<div style="margin-bottom:6px"><b>'+esc(h.hub)+'</b> <span class="muted">('+esc(h.city||'')+', '+nf(h.bikes)+' bikes)</span> &mdash; not enough data to rank fairly: only '+h.ops_n+' of the 5 operations measures are available.</div>';
+  }).join('');
+}
+function exportCsv(){
+  if(!DATA) return;
+  var R=rankedHubs();
+  var cols=[['Rank','_rank'],['Hub','hub'],['City','city'],['Tier','_tier'],['Overall score','overall'],['Operations score','ops_score'],['Control & quality score','cq_score'],['City rank','city_rank'],['Bikes','bikes'],['OOS bikes','oos'],['Aged OOS bikes','aged']];
+  METRICS.forEach(function(m){ cols.push([m.label,m.k]); cols.push([m.short+' score',m.s]); });
+  var q=function(v){ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  var lines=[cols.map(function(c){return q(c[0]);}).join(',')];
+  R.all.slice().sort(function(a,b){ return (a._rank==null?999:a._rank)-(b._rank==null?999:b._rank); }).forEach(function(h){ lines.push(cols.map(function(c){return q(h[c[1]]);}).join(',')); });
+  var blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hub-leaderboard_'+DATA.period.from+'_to_'+DATA.period.to+'.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
+}
+document.getElementById('from').value=daysAgo(29);
+document.getElementById('to').value=istToday();
+document.getElementById('from').addEventListener('change',load);
+document.getElementById('to').addEventListener('change',load);
+load();
+</script>
+</body></html>
