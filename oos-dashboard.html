@@ -735,7 +735,7 @@ body { overflow:auto!important; }
         <span style="font-size:12px;color:var(--muted)">to</span>
         <input type="date" id="jbo-to" onchange="setJBODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
       </div>
-      <div style="padding:6px 16px 0;font-size:11px;color:var(--muted)">Job cards that were billed but whose vehicle had still not moved to RFD (RFD Status = “Vehicle is in OOS”), as of the last sync. Click a number to see the bikes.</div>
+      <div style="padding:6px 16px 0;font-size:11px;color:var(--muted)">Job cards that were billed but whose vehicle had still not moved to RFD (RFD Status = “Vehicle is in OOS”), as of the last sync. Rows show whether the job card was billed today, yesterday or earlier; click a number to see the bikes.</div>
       <div class="tbl" id="jbo-tbl-wrap" style="margin-top:8px">
         <div class="empty"><span class="spin"></span></div>
       </div>
@@ -2929,6 +2929,13 @@ function exportNBODrilldownCSV() {
 // ── Job cards billed, vehicle still in OOS (Metabase "RFD Status" = "Vehicle is in OOS"), hub-wise ──
 let JBO_ALL_ROWS = [];
 function jboEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+const JBO_ROWS = [ { key: 'today', label: 'Today' }, { key: 'yesterday', label: 'Yesterday' }, { key: 'older', label: 'Older' } ];
+function jboDayKey(billedAt) { // the IST calendar day the job card was billed, against today (IST)
+  const d = String(billedAt || '').slice(0, 10), today = nbnoISO(nbnoIST()), yesterday = nbnoISO(new Date(nbnoIST().getTime() - 86400000));
+  if (d >= today) return 'today';
+  if (d === yesterday) return 'yesterday';
+  return 'older';
+}
 function jboFmt(s) { // 'YYYY-MM-DDTHH:MM:SS' (IST clock time) -> '05 Oct 22:53', no timezone maths
   var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(s || '')); if (!m) return '—';
   return m[3] + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + m[4] + ':' + m[5];
@@ -2987,28 +2994,44 @@ async function loadJBO() {
   }
 }
 
-function renderJBOPivot(rows) { // one count per hub, biggest first
+function renderJBOPivot(rows) {
   const wrap = document.getElementById('jbo-tbl-wrap');
   if (!rows.length) { wrap.innerHTML = '<div class="empty">None — no billed job card in this range has its vehicle still in OOS.</div>'; return; }
-  const byHub = {};
-  rows.forEach(function (r) { const h = r.hub_name || '(no hub)'; if (!byHub[h]) byHub[h] = { hub: h, city: r.city || '', n: 0 }; byHub[h].n++; });
-  const list = Object.keys(byHub).map(function (k) { return byHub[k]; }).sort(function (a, b) { return b.n - a.n || a.hub.localeCompare(b.hub); });
-  let html = '<table><thead><tr><th>Hub</th><th>City</th><th class="num">Billed, vehicle still in OOS</th></tr></thead><tbody>';
-  list.forEach(function (x) {
-    html += '<tr><td>' + jboEsc(x.hub) + '</td><td>' + jboEsc(x.city || '—') + '</td><td class="num cell-click" onclick="openJBODrilldown(' + jboEsc(JSON.stringify(x.hub)) + ')">' + x.n + '</td></tr>';
+  const hubs = [...new Set(rows.map(function (r) { return r.hub_name; }).filter(Boolean))].sort();
+  let html = '<table><thead><tr><th>Billed</th>';
+  hubs.forEach(function (h) { html += '<th class="num">' + jboEsc(h) + '</th>'; });
+  html += '<th class="num">Total</th></tr></thead><tbody>';
+  const colTotals = {}; hubs.forEach(function (h) { colTotals[h] = 0; });
+  let grand = 0;
+  JBO_ROWS.forEach(function (b) {
+    const inRow = rows.filter(function (r) { return jboDayKey(r.billed_at) === b.key; });
+    grand += inRow.length;
+    let row = '<tr><td>' + b.label + '</td>';
+    hubs.forEach(function (h) {
+      const c = inRow.filter(function (r) { return r.hub_name === h; }).length;
+      colTotals[h] += c;
+      row += c ? '<td class="num cell-click" onclick="openJBODrilldown(' + jboEsc(JSON.stringify(b.key)) + ',' + jboEsc(JSON.stringify(h)) + ')">' + c + '</td>' : '<td class="num"></td>';
+    });
+    row += inRow.length
+      ? '<td class="num cell-click" style="font-weight:600" onclick="openJBODrilldown(' + jboEsc(JSON.stringify(b.key)) + ',null)">' + inRow.length + '</td></tr>'
+      : '<td class="num" style="font-weight:600">0</td></tr>';
+    html += row;
   });
-  html += '<tr class="tfoot"><td>Total</td><td></td><td class="num cell-click" onclick="openJBODrilldown(null)">' + rows.length + '</td></tr></tbody></table>';
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(function (h) { html += colTotals[h] ? '<td class="num cell-click" onclick="openJBODrilldown(null,' + jboEsc(JSON.stringify(h)) + ')">' + colTotals[h] + '</td>' : '<td class="num"></td>'; });
+  html += '<td class="num cell-click" onclick="openJBODrilldown(null,null)">' + grand + '</td></tr></tbody></table>';
   wrap.innerHTML = html;
 }
 
-function openJBODrilldown(hub) {
+function openJBODrilldown(dayKey, hub) {
   DD_MODE = 'jbo';
-  const rows = JBO_ALL_ROWS.filter(function (r) { return hub === null || (r.hub_name || '(no hub)') === hub; });
+  const rows = JBO_ALL_ROWS.filter(function (r) { return (dayKey === null || jboDayKey(r.billed_at) === dayKey) && (hub === null || r.hub_name === hub); });
   rows.sort(function (a, b) { return String(a.billed_at).localeCompare(String(b.billed_at)); });
   DD_CURRENT_ROWS = rows;
-  DD_CURRENT_TITLE = 'Billed_VehicleStillOOS_' + (hub || 'AllHubs');
-  document.getElementById('dd-title').textContent = hub === null ? 'All billed job cards — vehicle still in OOS' : hub + ' — billed, vehicle still in OOS';
-  document.getElementById('dd-sub').textContent = rows.length + ' job card' + (rows.length === 1 ? '' : 's');
+  DD_CURRENT_TITLE = 'Billed_VehicleStillOOS_' + (hub || 'AllHubs') + '_' + (dayKey || 'AllDays');
+  const row = JBO_ROWS.filter(function (x) { return x.key === dayKey; })[0];
+  document.getElementById('dd-title').textContent = (hub === null && dayKey === null) ? 'All billed job cards — vehicle still in OOS' : (hub === null ? 'All hubs' : hub) + ' — billed ' + (row ? row.label.toLowerCase() : 'any day');
+  document.getElementById('dd-sub').textContent = rows.length + ' job card' + (rows.length === 1 ? '' : 's') + ' billed, vehicle still in OOS';
   document.getElementById('dd-overlay').classList.add('open');
   let html = '<thead><tr><th>JC Number</th><th>DMS JC</th><th>Reg Number</th><th>Billed (IST)</th><th class="num">Days Ago</th><th>Hub</th><th>City</th><th>Model</th><th>Submission Type</th></tr></thead><tbody>';
   rows.forEach(function (r) {
