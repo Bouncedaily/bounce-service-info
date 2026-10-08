@@ -99,7 +99,7 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
 <div id="main" style="display:none">
   <div class="kpis" id="kpis"></div>
   <div class="tabs"><button class="tab active" id="tabbtn-lb" onclick="showTab('lb')">Leaderboard</button><button class="tab" id="tabbtn-hm" onclick="showTab('hm')">Heatmap</button></div>
-  <div id="tab-lb"><div class="card"><div class="card-hd"><span>Hubs against the standards</span><span class="muted" id="lb-note"></span></div><div class="scroll"><table id="lb"><thead><tr><th>#</th><th class="l">Hub</th><th>Status</th><th id="th-overall">Overall</th><th id="th-ops_score">Operations</th><th id="th-cq_score">Control &amp; quality</th><th title="how many of the hub's measures fall in each band"><span data-w="G"></span> · <span data-w="A"></span> · <span data-w="R"></span></th><th class="l"><span data-w="R"></span> on</th><th class="l"><span data-w="G"></span> on</th><th></th></tr></thead><tbody id="lb-body"></tbody></table></div></div></div>
+  <div id="tab-lb"><div class="card"><div class="card-hd"><span>Hubs against the standards</span><span class="muted" id="lb-note"></span></div><div class="scroll"><table id="lb"><thead><tr><th>#</th><th class="l">Hub</th><th>Status</th><th id="th-overall">Overall</th><th id="th-ops_score">Operations</th><th id="th-cq_score">Control &amp; quality</th><th title="how many of the hub's measures fall in each band"><span data-w="G"></span> · <span data-w="A"></span> · <span data-w="R"></span></th><th class="l" title="measures that are off target"><span data-w="R"></span></th><th class="l" title="measures that are on target"><span data-w="G"></span></th><th></th></tr></thead><tbody id="lb-body"></tbody></table></div></div></div>
   <div id="tab-hm" style="display:none"><div class="card"><div class="card-hd"><span>Every hub, every measure</span><span class="muted">Click a column to sort. Under each name: the cut-offs (<span data-w="G"></span> | <span data-w="R"></span>).</span></div><div class="scroll" id="hm-wrap"></div>
     <div class="legend"><span><i class="lg" style="background:#bbf7d0"></i><b data-w="G"></b>: meets the standard</span><span><i class="lg" style="background:#fde68a"></i><b data-w="A"></b>: between the two cut-offs</span><span><i class="lg" style="background:#fecaca"></i><b data-w="R"></b>: at or beyond its cut-off</span><span><i class="lg" style="background:#f1f5f9"></i>No data (never counted as zero)</span></div></div></div>
   <div class="card" id="nr-card" style="display:none"><div class="card-hd">Not rated</div><div class="card-bd" id="nr-body"></div></div>
@@ -122,7 +122,7 @@ const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 var DATA=null, OPEN={}, HM_SORT={k:'overall',dir:-1};
 // The three bands are still drawn in green / amber / red, but the WORDS for them live here, in one place.
-var BAND_WORDS={G:'Meets',A:'Close',R:'Short'};
+var BAND_WORDS={G:'On target',A:'Near',R:'Off target'};
 function W(b){return BAND_WORDS[b];}
 function applyWords(){ var els=document.querySelectorAll('[data-w]'); for(var i=0;i<els.length;i++){ els[i].textContent=BAND_WORDS[els[i].getAttribute('data-w')]; } }
 function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
@@ -148,7 +148,7 @@ var METRICS=[
 function stdFor(m){ var a=(DATA&&DATA.standards)||[]; for(var i=0;i<a.length;i++){ if(a[i].metric===m.k) return a[i]; } return null; }
 // "green <= 3 | red >= 6" written short for a column header, and long for the detail row
 function stdShort(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return (low?'≤':'≥')+m.cut(s.green)+' | '+(low?'≥':'≤')+m.cut(s.red); }
-function stdLong(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return W('G')+' '+(low?'at or below ':'at or above ')+m.cut(s.green)+' · '+W('R')+' '+(low?'at or above ':'at or below ')+m.cut(s.red); }
+function stdLong(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return W('G')+': '+(low?'at or below ':'at or above ')+m.cut(s.green)+' · '+W('R')+': '+(low?'at or above ':'at or below ')+m.cut(s.red); }
 function bandCls(b){return b==='G'?'good':(b==='A'?'watch':(b==='R'?'bad':'na'));}
 function bandWord(b){return BAND_WORDS[b]||'n/a';}
 function statusCls(t){return t==='Good'?'good':(t==='Watch'?'watch':(t==='Needs attention'?'bad':'na'));}
@@ -261,7 +261,7 @@ function detailHtml(h){
     return '<tr><td class="l">'+esc(m.label)+'<div class="citysub">'+(m.block==='ops'?'Operations':'Control & quality')+(stdFor(m)&&stdFor(m).core?' · core':'')+'</div></td><td>'+val+'</td><td class="l"><span class="muted">'+esc(stdLong(m))+'</span></td><td>'+pill+'</td><td>'+(s==null?'<span class="na">n/a</span>':s.toFixed(0))+'</td><td class="l" style="white-space:normal">'+ctx+'</td></tr>';
   }).join('');
   return '<div class="dwrap"><table class="dt"><thead><tr><th class="l">Measure</th><th>This hub</th><th class="l">Standard</th><th>Status</th><th>Score</th><th class="l">Detail</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div class="cov">'+W('G')+' '+h.greens+' · '+W('A')+' '+h.ambers+' · '+W('R')+' '+h.reds+(h.core_reds?' ('+h.core_reds+' of them core measures)':'')+'. Operations score uses '+h.ops_n+' of 5 measures'+(h.cq_n!=null?' · control & quality uses '+h.cq_n+' of 4':'')+'. Missing measures are left out, never counted as zero.</div></div>';
+    '<div class="cov">'+W('G')+': '+h.greens+' · '+W('A')+': '+h.ambers+' · '+W('R')+': '+h.reds+(h.core_reds?' ('+h.core_reds+' of them core measures)':'')+'. Operations score uses '+h.ops_n+' of 5 measures'+(h.cq_n!=null?' · control & quality uses '+h.cq_n+' of 4':'')+'. Missing measures are left out, never counted as zero.</div></div>';
 }
 function missingWhy(m,h){
   if(m.k==='rating') return h.rating_n?('only '+h.rating_n+' ratings (needs 20)'):'no ratings in the period';
