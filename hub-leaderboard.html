@@ -107,7 +107,7 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
     <p>Every measure is judged against a <b>fixed standard</b>, never against the other hubs. A hub scores 100 on a measure when it meets the green cut-off, 0 when it reaches the red cut-off, and a straight line in between. A hub that is better than all the others but still short of the standard is not called good.</p>
     <ul>
       <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; OOS repairs finished within 48 hours &middot; net OOS clearing per 100 bikes (OOS repairs finished minus new rider, exchange and recovery inflow) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
-      <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee collected (needs 10+ damage job cards) &middot; latest audit score.</li>
+      <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee charged: the share of the fee that should have been charged (the chargeable cost, capped at ₹3,000 per job card) that was actually raised, as in the Damage Leakage dashboard, Manual JCs excluded (needs 10+ damage job cards) &middot; latest audit score.</li>
       <li><b>Status:</b> <span id="rule-good"></span></li>
       <li><b>Core measures</b> are OOS %, aged OOS and repairs within 48 hours. A red on a core measure stops a hub from being Good.</li>
       <li><b>Missing data is never counted as zero.</b> A hub is rated only if it has enough operations measures, and gets a control &amp; quality score only if it has enough of those.</li>
@@ -138,7 +138,7 @@ var METRICS=[
  {k:'hrs_per_tech_day',s:'s_lab',b:'b_lab',label:'Labour hrs per technician per day',short:'Labour hrs',block:'ops',fmt:function(v){return v.toFixed(1);},cut:function(v){return String(v);},note:function(h){return h.techs==null?'':nf(h.techs)+' technicians with 3+ working days';}},
  {k:'msl_short_pct',s:'s_msl',b:'b_msl',label:'MSL parts short',short:'MSL short',block:'cq',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.msl_parts)+' parts tracked against the minimum stock level';}},
  {k:'rating',s:'s_rating',b:'b_rating',label:'Customer rating',short:'Rating',block:'cq',fmt:function(v){return v.toFixed(2);},cut:function(v){return String(v);},note:function(h){return nf(h.rating_n)+' ratings in the period';}},
- {k:'damage_coll_pct',s:'s_dmg',b:'b_dmg',label:'Damage fee collected',short:'Damage fee',block:'cq',fmt:function(v){return v.toFixed(0)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.damage_jcs)+' damage job cards, collected '+inr(h.damage_collected)+' of '+inr(h.damage_raised)+' raised';}},
+ {k:'damage_charged_pct',s:'s_dmg',b:'b_dmg',label:'Damage fee charged',short:'Damage fee',block:'cq',fmt:function(v){return v.toFixed(0)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.damage_jcs)+' damage job cards ('+nf(h.damage_not_raised_jcs)+' with no fee raised at all). Should be charged '+inr(h.damage_expected)+', raised '+inr(h.damage_raised)+'. Collected '+inr(h.damage_collected)+(h.damage_raised>0?' ('+Math.round(100*h.damage_collected/h.damage_raised)+'% of what was raised, shown for information only)':'');}},
  {k:'audit_score',s:'s_audit',b:'b_audit',label:'Latest audit score',short:'Audit',block:'cq',fmt:function(v){return Math.round(v)+'';},cut:function(v){return String(v);},note:function(h){return h.audit_date?'audited '+h.audit_date+(h.risk_band?', risk band '+h.risk_band:''):'';}}
 ];
 function stdFor(m){ var a=(DATA&&DATA.standards)||[]; for(var i=0;i<a.length;i++){ if(a[i].metric===m.k) return a[i]; } return null; }
@@ -261,7 +261,7 @@ function detailHtml(h){
 }
 function missingWhy(m,h){
   if(m.k==='rating') return h.rating_n?('only '+h.rating_n+' ratings (needs 20)'):'no ratings in the period';
-  if(m.k==='damage_coll_pct') return h.damage_jcs?('only '+h.damage_jcs+' damage job cards (needs 10)'):'no damage job cards in the period';
+  if(m.k==='damage_charged_pct') return h.damage_jcs?('only '+h.damage_jcs+' damage job cards (needs 10)'):'no damage job cards in the period';
   if(m.k==='audit_score') return 'not audited yet';
   if(m.k==='msl_short_pct') return 'no minimum-stock list for this hub';
   if(m.k==='pct_within_48h') return h.tat_n?('only '+h.tat_n+' repairs (needs 30)'):'no OOS repairs in the period';
