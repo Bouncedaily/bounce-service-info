@@ -268,6 +268,9 @@ input[type=date] { min-width: 130px; }
 .nbo-qbtn { padding:3px 12px; border:none; border-right:1px solid var(--border); font-size:12px; font-family:inherit; cursor:pointer; background:none; color:var(--text); font-weight:400; }
 .nbo-qbtn:last-child { border-right:none; }
 .nbo-qbtn.active { background:var(--accent); color:#fff; font-weight:600; }
+.jbo-qbtn { padding:3px 12px; border:none; border-right:1px solid var(--border); font-size:12px; font-family:inherit; cursor:pointer; background:none; color:var(--text); font-weight:400; }
+.jbo-qbtn:last-child { border-right:none; }
+.jbo-qbtn.active { background:var(--accent); color:#fff; font-weight:600; }
 </style><script>
 (function() {
   var sess = {};
@@ -708,6 +711,32 @@ body { overflow:auto!important; }
         <input type="date" id="nbno-to" onchange="setNBNODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
       </div>
       <div class="tbl" id="nbno-tbl-wrap" style="margin-top:8px">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Billed, vehicle still OOS (Metabase "RFD Status" = "Vehicle is in OOS") -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd">
+        <h2>Job Cards Billed — Vehicle Still OOS</h2>
+        <span class="sub" id="jbo-count">—</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px 0">
+        <span style="font-size:11px;color:var(--muted);font-weight:600">JC Billed Date</span>
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <button id="jbo-btn-today" onclick="setJBODate('today')" class="jbo-qbtn">Today</button>
+          <button id="jbo-btn-thismonth" onclick="setJBODate('thismonth')" class="jbo-qbtn">This Month</button>
+          <button id="jbo-btn-lastmonth" onclick="setJBODate('lastmonth')" class="jbo-qbtn">Last Month</button>
+          <button id="jbo-btn-all" onclick="setJBODate('all')" class="jbo-qbtn">All Time</button>
+        </div>
+        <input type="date" id="jbo-from" onchange="setJBODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+        <span style="font-size:12px;color:var(--muted)">to</span>
+        <input type="date" id="jbo-to" onchange="setJBODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+      </div>
+      <div style="padding:6px 16px 0;font-size:11px;color:var(--muted)">Job cards that were billed but whose vehicle had still not moved to RFD (RFD Status = “Vehicle is in OOS”), as of the last sync. Rows show how long ago the job card was billed; click a number to see the bikes.</div>
+      <div class="tbl" id="jbo-tbl-wrap" style="margin-top:8px">
         <div class="empty"><span class="spin"></span></div>
       </div>
     </div>
@@ -2081,6 +2110,7 @@ function render({ summary, oosDetail, inflow, outflow }) {
   renderRepairPivot(oosDetail);
   loadNotBilledOOSEntry();
   loadNotBilledNotOOSEntry();
+  loadJBOEntry();
   loadBLDates().then(function() {
     // This used to unconditionally reset to Today here, every single time
     // render() ran -- which is also every 2-minute auto-refresh. Since this
@@ -2638,6 +2668,7 @@ document.addEventListener('keydown', e => {
 function exportDrilldownCSV() {
   if (DD_MODE === 'nbno') { exportNBNODrilldownCSV(); return; }
   if (DD_MODE === 'nbo') { exportNBODrilldownCSV(); return; }
+  if (DD_MODE === 'jbo') { exportJBODrilldownCSV(); return; }
   exportOOSDrilldownCSV();
 }
 
@@ -2893,6 +2924,132 @@ function exportNBODrilldownCSV() {
     return [r.job_card_number, r.reg_number, r.jc_status, opened ? opened.toLocaleDateString('en-IN') : '', daysOpen, r.hub_name, r.city, r.bike_model, r.submission_type, r.fleet_status];
   });
   downloadCSV((DD_CURRENT_TITLE || 'not_billed_oos') + '.csv', header, rows);
+}
+
+// ── Job cards billed, vehicle still in OOS (Metabase "RFD Status" = "Vehicle is in OOS"), hub-wise ──
+let JBO_ALL_ROWS = [];
+const JBO_BUCKETS = [
+  { key: 'lt1',  label: 'Under 1 day', test: function (d) { return d < 1; } },
+  { key: 'd1_3', label: '1 – 3 days',  test: function (d) { return d >= 1 && d < 3; } },
+  { key: 'd3_7', label: '3 – 7 days',  test: function (d) { return d >= 3 && d < 7; } },
+  { key: 'd7p',  label: '7+ days',     test: function (d) { return d >= 7; } }
+];
+function jboBucketKey(d) { for (var i = 0; i < JBO_BUCKETS.length; i++) { if (JBO_BUCKETS[i].test(Number(d) || 0)) return JBO_BUCKETS[i].key; } return 'd7p'; }
+function jboEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function jboFmt(s) { // 'YYYY-MM-DDTHH:MM:SS' (IST clock time) -> '05 Oct 22:53', no timezone maths
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(s || '')); if (!m) return '—';
+  return m[3] + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + m[4] + ':' + m[5];
+}
+async function jboHeaders() { // the user's own session where there is one (the data function is for signed-in users only)
+  const h = await authHDR();
+  if (h.Authorization === 'Bearer ' + ANON) {
+    try { const s = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || '{}'); if (s.access_token) h.Authorization = 'Bearer ' + s.access_token; } catch (e) {}
+  }
+  return h;
+}
+
+function setJBODate(preset) {
+  const t = nbnoIST(), y = t.getUTCFullYear(), m = t.getUTCMonth(), day = t.getUTCDate();
+  let from, to;
+  if (preset === 'today') { from = to = new Date(Date.UTC(y, m, day)); }
+  else if (preset === 'thismonth') { from = new Date(Date.UTC(y, m, 1)); to = new Date(Date.UTC(y, m, day)); }
+  else if (preset === 'lastmonth') { from = new Date(Date.UTC(y, m - 1, 1)); to = new Date(Date.UTC(y, m, 0)); }
+  else if (preset === 'all') { from = null; to = null; }
+  // 'custom' — leave from/to exactly as the user set them
+  if (preset !== 'custom') {
+    document.getElementById('jbo-from').value = from ? nbnoISO(from) : '';
+    document.getElementById('jbo-to').value = to ? nbnoISO(to) : '';
+  }
+  document.querySelectorAll('.jbo-qbtn').forEach(function (b) { b.classList.remove('active'); });
+  if (preset !== 'custom') { const btn = document.getElementById('jbo-btn-' + preset); if (btn) btn.classList.add('active'); }
+  loadJBO();
+}
+
+let JBO_INITIALIZED = false;
+function loadJBOEntry() {
+  if (!JBO_INITIALIZED) { JBO_INITIALIZED = true; setJBODate('thismonth'); return; }
+  loadJBO();
+}
+
+async function loadJBO() {
+  const wrap = document.getElementById('jbo-tbl-wrap');
+  const from = document.getElementById('jbo-from').value || null;
+  const to = document.getElementById('jbo-to').value || null;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  const model = document.getElementById('f-model').value || null;
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/get_jc_billed_oos`, {
+      method: 'POST', headers: await jboHeaders(), body: JSON.stringify({ p_from: from, p_to: to, p_city: city, p_hub: hub, p_model: model })
+    });
+    if (!r.ok) { wrap.innerHTML = '<div class="empty" style="color:#dc2626">' + ((r.status === 401 || r.status === 403) ? 'Not signed in — please sign in again.' : 'Failed to load — try refreshing.') + '</div>'; return; }
+    const d = await r.json();
+    JBO_ALL_ROWS = d.rows || [];
+    const n = d.total || 0;
+    document.getElementById('jbo-count').textContent = n.toLocaleString('en-IN') + ' billed job card' + (n === 1 ? '' : 's') + ' with the vehicle still in OOS';
+    renderJBOPivot(JBO_ALL_ROWS);
+  } catch (e) {
+    console.error('loadJBO failed', e);
+    wrap.innerHTML = '<div class="empty" style="color:#dc2626">Error loading — try refreshing.</div>';
+  }
+}
+
+function renderJBOPivot(rows) {
+  const wrap = document.getElementById('jbo-tbl-wrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">None — no billed job card in this range has its vehicle still in OOS.</div>'; return; }
+  const hubs = [...new Set(rows.map(function (r) { return r.hub_name; }).filter(Boolean))].sort();
+  let html = '<table><thead><tr><th>Billed (ago)</th>';
+  hubs.forEach(function (h) { html += '<th class="num">' + jboEsc(h) + '</th>'; });
+  html += '<th class="num">Total</th></tr></thead><tbody>';
+  const colTotals = {}; hubs.forEach(function (h) { colTotals[h] = 0; });
+  let grand = 0;
+  JBO_BUCKETS.forEach(function (b) {
+    const inB = rows.filter(function (r) { return jboBucketKey(r.days_since_billed) === b.key; });
+    grand += inB.length;
+    let row = '<tr><td>' + b.label + '</td>';
+    hubs.forEach(function (h) {
+      const c = inB.filter(function (r) { return r.hub_name === h; }).length;
+      colTotals[h] += c;
+      row += c ? '<td class="num cell-click" onclick="openJBODrilldown(' + jboEsc(JSON.stringify(b.key)) + ',' + jboEsc(JSON.stringify(h)) + ')">' + c + '</td>' : '<td class="num"></td>';
+    });
+    row += inB.length
+      ? '<td class="num cell-click" style="font-weight:600" onclick="openJBODrilldown(' + jboEsc(JSON.stringify(b.key)) + ',null)">' + inB.length + '</td></tr>'
+      : '<td class="num" style="font-weight:600">0</td></tr>';
+    html += row;
+  });
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(function (h) { html += colTotals[h] ? '<td class="num cell-click" onclick="openJBODrilldown(null,' + jboEsc(JSON.stringify(h)) + ')">' + colTotals[h] + '</td>' : '<td class="num"></td>'; });
+  html += '<td class="num cell-click" onclick="openJBODrilldown(null,null)">' + grand + '</td></tr></tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function openJBODrilldown(bucketKey, hub) {
+  DD_MODE = 'jbo';
+  const rows = JBO_ALL_ROWS.filter(function (r) {
+    return (bucketKey === null || jboBucketKey(r.days_since_billed) === bucketKey) && (hub === null || r.hub_name === hub);
+  });
+  rows.sort(function (a, b) { return String(a.billed_at).localeCompare(String(b.billed_at)); });
+  DD_CURRENT_ROWS = rows;
+  DD_CURRENT_TITLE = 'Billed_VehicleStillOOS_' + (hub || 'AllHubs') + '_' + (bucketKey || 'AllAges');
+  const b = JBO_BUCKETS.filter(function (x) { return x.key === bucketKey; })[0];
+  document.getElementById('dd-title').textContent = (hub === null && bucketKey === null) ? 'All billed job cards — vehicle still in OOS' : (hub === null ? 'All hubs' : hub) + ' — billed ' + (b ? b.label.toLowerCase() : 'any time') + (b ? ' ago' : '');
+  document.getElementById('dd-sub').textContent = rows.length + ' job card' + (rows.length === 1 ? '' : 's') + ' billed, vehicle still in OOS';
+  document.getElementById('dd-overlay').classList.add('open');
+  let html = '<thead><tr><th>JC Number</th><th>DMS JC</th><th>Reg Number</th><th>Billed (IST)</th><th class="num">Days Ago</th><th>Hub</th><th>City</th><th>Model</th><th>Submission Type</th></tr></thead><tbody>';
+  rows.forEach(function (r) {
+    const d = Number(r.days_since_billed);
+    html += '<tr><td style="font-weight:600">' + jboEsc(r.job_card_number || '—') + '</td><td>' + jboEsc(r.dms_jc_no || '—') + '</td><td>' + jboEsc(r.reg_number || '—') + '</td><td>' + jboFmt(r.billed_at) + '</td>'
+      + '<td class="' + (d >= 7 ? 'num dd-age-high' : 'num') + '">' + (isNaN(d) ? '—' : d.toFixed(1)) + '</td><td>' + jboEsc(r.hub_name || '—') + '</td><td>' + jboEsc(r.city || '—') + '</td><td>' + jboEsc(r.bike_model || '—') + '</td><td>' + jboEsc(r.submission_type || '—') + '</td></tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('dd-table').innerHTML = html;
+}
+
+function exportJBODrilldownCSV() {
+  if (!DD_CURRENT_ROWS.length) return;
+  const header = ['JC Number', 'DMS JC No', 'Reg Number', 'Billed (IST)', 'Days Since Billed', 'Hub', 'City', 'Model', 'Submission Type'];
+  const rows = DD_CURRENT_ROWS.map(function (r) { return [r.job_card_number, r.dms_jc_no, r.reg_number, jboFmt(r.billed_at), r.days_since_billed, r.hub_name, r.city, r.bike_model, r.submission_type]; });
+  downloadCSV((DD_CURRENT_TITLE || 'billed_vehicle_still_oos') + '.csv', header, rows);
 }
 
 let NBNO_ALL_ROWS = [];
