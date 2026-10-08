@@ -84,8 +84,8 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
 <body>
 <div class="wrap">
 <h1>Hub Leaderboard</h1>
-<div class="psub">Judges every service hub against fixed standards, so you can see which hubs are genuinely good and which are not. Each of nine measures is green (meets the standard), red (clearly short) or amber (in between). Click a hub to see exactly where it stands on each one.</div>
-<div id="prov" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Provisional standards.</b> The green and red cut-offs are placeholders until you confirm them, so treat the good / bad labels as a draft. They are listed under "How the score works" below.</div></div>
+<div class="psub">Judges every service hub against fixed standards, so you can see which hubs are genuinely good and which are not. Each of nine measures is rated <b data-w="G"></b> (it meets the standard), <b data-w="A"></b> (in between) or <b data-w="R"></b> (clearly short of it), shown in green, amber and red. Click a hub to see exactly where it stands on each one.</div>
+<div id="prov" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Provisional standards.</b> The cut-offs that decide <b data-w="G"></b>, <b data-w="A"></b> and <b data-w="R"></b> are placeholders until you confirm them, so treat the Good / Watch / Needs attention labels as a draft. They are listed under "How the score works" below.</div></div>
 <div class="bar">
   <span><label>From</label><input type="date" id="from"></span>
   <span><label>To</label><input type="date" id="to"></span>
@@ -99,17 +99,17 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
 <div id="main" style="display:none">
   <div class="kpis" id="kpis"></div>
   <div class="tabs"><button class="tab active" id="tabbtn-lb" onclick="showTab('lb')">Leaderboard</button><button class="tab" id="tabbtn-hm" onclick="showTab('hm')">Heatmap</button></div>
-  <div id="tab-lb"><div class="card"><div class="card-hd"><span>Hubs against the standards</span><span class="muted" id="lb-note"></span></div><div class="scroll"><table id="lb"><thead><tr><th>#</th><th class="l">Hub</th><th>Status</th><th id="th-overall">Overall</th><th id="th-ops_score">Operations</th><th id="th-cq_score">Control &amp; quality</th><th title="measures in green / amber / red">G · A · R</th><th class="l">Red on</th><th class="l">Green on</th><th></th></tr></thead><tbody id="lb-body"></tbody></table></div></div></div>
-  <div id="tab-hm" style="display:none"><div class="card"><div class="card-hd"><span>Every hub, every measure</span><span class="muted">Click a column to sort. Under each name: the green and red cut-offs.</span></div><div class="scroll" id="hm-wrap"></div>
-    <div class="legend"><span><i class="lg" style="background:#bbf7d0"></i>Green: meets the standard</span><span><i class="lg" style="background:#fde68a"></i>Amber: between green and red</span><span><i class="lg" style="background:#fecaca"></i>Red: at or beyond the red cut-off</span><span><i class="lg" style="background:#f1f5f9"></i>No data (never counted as zero)</span></div></div></div>
+  <div id="tab-lb"><div class="card"><div class="card-hd"><span>Hubs against the standards</span><span class="muted" id="lb-note"></span></div><div class="scroll"><table id="lb"><thead><tr><th>#</th><th class="l">Hub</th><th>Status</th><th id="th-overall">Overall</th><th id="th-ops_score">Operations</th><th id="th-cq_score">Control &amp; quality</th><th title="how many of the hub's measures fall in each band"><span data-w="G"></span> · <span data-w="A"></span> · <span data-w="R"></span></th><th class="l"><span data-w="R"></span> on</th><th class="l"><span data-w="G"></span> on</th><th></th></tr></thead><tbody id="lb-body"></tbody></table></div></div></div>
+  <div id="tab-hm" style="display:none"><div class="card"><div class="card-hd"><span>Every hub, every measure</span><span class="muted">Click a column to sort. Under each name: the cut-offs (<span data-w="G"></span> | <span data-w="R"></span>).</span></div><div class="scroll" id="hm-wrap"></div>
+    <div class="legend"><span><i class="lg" style="background:#bbf7d0"></i><b data-w="G"></b>: meets the standard</span><span><i class="lg" style="background:#fde68a"></i><b data-w="A"></b>: between the two cut-offs</span><span><i class="lg" style="background:#fecaca"></i><b data-w="R"></b>: at or beyond its cut-off</span><span><i class="lg" style="background:#f1f5f9"></i>No data (never counted as zero)</span></div></div></div>
   <div class="card" id="nr-card" style="display:none"><div class="card-hd">Not rated</div><div class="card-bd" id="nr-body"></div></div>
   <details class="how"><summary>How the score works</summary>
-    <p>Every measure is judged against a <b>fixed standard</b>, never against the other hubs. A hub scores 100 on a measure when it meets the green cut-off, 0 when it reaches the red cut-off, and a straight line in between. A hub that is better than all the others but still short of the standard is not called good.</p>
+    <p>Every measure is judged against a <b>fixed standard</b>, never against the other hubs. A hub scores 100 on a measure when it reaches the <span data-w="G"></span> cut-off, 0 when it reaches the <span data-w="R"></span> cut-off, and a straight line in between. A hub that is better than all the others but still short of the standard is not called good.</p>
     <ul>
       <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; OOS repairs finished within 48 hours &middot; net OOS clearing per 100 bikes (OOS repairs finished minus new rider, exchange and recovery inflow) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
       <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee charged: the share of the fee that should have been charged (the chargeable cost, capped at ₹3,000 per job card) that was actually raised, as in the Damage Leakage dashboard, Manual JCs excluded (needs 10+ damage job cards) &middot; latest audit score.</li>
       <li><b>Status:</b> <span id="rule-good"></span></li>
-      <li><b>Core measures</b> are OOS %, aged OOS and repairs within 48 hours. A red on a core measure stops a hub from being Good.</li>
+      <li><b>Core measures</b> are OOS %, aged OOS and repairs within 48 hours. A core measure rated <b data-w="R"></b> stops a hub from being Good.</li>
       <li><b>Missing data is never counted as zero.</b> A hub is rated only if it has enough operations measures, and gets a control &amp; quality score only if it has enough of those.</li>
       <li><b>Fleet measures</b> (OOS %, aged OOS) are as of now. The others cover the dates selected above.</li>
       <li><b>Comparison set:</b> the main service hubs only. The plant, pilot, test and very small sites are left out, and partner hubs count under their parent hub.</li>
@@ -121,6 +121,10 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
 const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 var DATA=null, OPEN={}, HM_SORT={k:'overall',dir:-1};
+// The three bands are still drawn in green / amber / red, but the WORDS for them live here, in one place.
+var BAND_WORDS={G:'Meets',A:'Close',R:'Short'};
+function W(b){return BAND_WORDS[b];}
+function applyWords(){ var els=document.querySelectorAll('[data-w]'); for(var i=0;i<els.length;i++){ els[i].textContent=BAND_WORDS[els[i].getAttribute('data-w')]; } }
 function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
 function istToday(){return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10);}
 function daysAgo(n){var d=new Date(Date.now()+5.5*3600*1000);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
@@ -144,9 +148,9 @@ var METRICS=[
 function stdFor(m){ var a=(DATA&&DATA.standards)||[]; for(var i=0;i<a.length;i++){ if(a[i].metric===m.k) return a[i]; } return null; }
 // "green <= 3 | red >= 6" written short for a column header, and long for the detail row
 function stdShort(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return (low?'≤':'≥')+m.cut(s.green)+' | '+(low?'≥':'≤')+m.cut(s.red); }
-function stdLong(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return 'Green '+(low?'at or below ':'at or above ')+m.cut(s.green)+' · Red '+(low?'at or above ':'at or below ')+m.cut(s.red); }
+function stdLong(m){ var s=stdFor(m); if(!s) return ''; var low=s.direction==='low'; return W('G')+' '+(low?'at or below ':'at or above ')+m.cut(s.green)+' · '+W('R')+' '+(low?'at or above ':'at or below ')+m.cut(s.red); }
 function bandCls(b){return b==='G'?'good':(b==='A'?'watch':(b==='R'?'bad':'na'));}
-function bandWord(b){return b==='G'?'Green':(b==='A'?'Amber':(b==='R'?'Red':'n/a'));}
+function bandWord(b){return BAND_WORDS[b]||'n/a';}
 function statusCls(t){return t==='Good'?'good':(t==='Watch'?'watch':(t==='Needs attention'?'bad':'na'));}
 function cfg(k,d){ var s=DATA&&DATA.settings; return (s&&s[k]!=null)?Number(s[k]):d; }
 function scoreCls(s){ if(s==null) return 'na'; return s>=cfg('good_min',70)?'hi':(s<cfg('attention_below',40)?'lo':'mid'); }
@@ -180,9 +184,9 @@ function populateCities(){
   Object.keys(cs).sort().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
 }
 function renderMethod(){
-  document.getElementById('rule-good').innerHTML='<b>Good</b> = overall score of '+cfg('good_min',70)+' or more and no core measure in red. <b>Needs attention</b> = overall score below '+cfg('attention_below',40)+', or '+cfg('attention_core_reds',2)+' or more core measures in red. Everything else is <b>Watch</b>.';
+  document.getElementById('rule-good').innerHTML='<b>Good</b> = overall score of '+cfg('good_min',70)+' or more and no core measure rated <b>'+W('R')+'</b>. <b>Needs attention</b> = overall score below '+cfg('attention_below',40)+', or '+cfg('attention_core_reds',2)+' or more core measures rated <b>'+W('R')+'</b>. Everything else is <b>Watch</b>.';
   var rows=METRICS.map(function(m){ var s=stdFor(m); return '<tr><td class="l">'+esc(m.label)+'</td><td>'+(m.block==='ops'?'Operations':'Control &amp; quality')+'</td><td>'+(s&&s.core?'core':'')+'</td><td>'+(s&&s.direction==='low'?'lower is better':'higher is better')+'</td><td>'+(s?(s.direction==='low'?'≤ ':'≥ ')+m.cut(s.green):'')+'</td><td>'+(s?(s.direction==='low'?'≥ ':'≤ ')+m.cut(s.red):'')+'</td></tr>'; }).join('');
-  document.getElementById('std-table').innerHTML='<thead><tr><th class="l">Measure</th><th>Block</th><th>Core</th><th>Direction</th><th>Green</th><th>Red</th></tr></thead><tbody>'+rows+'</tbody>';
+  document.getElementById('std-table').innerHTML='<thead><tr><th class="l">Measure</th><th>Block</th><th>Core</th><th>Direction</th><th>'+W('G')+'</th><th>'+W('R')+'</th></tr></thead><tbody>'+rows+'</tbody>';
 }
 function showTab(t){
   document.getElementById('tab-lb').style.display=t==='lb'?'':'none'; document.getElementById('tab-hm').style.display=t==='hm'?'':'none';
@@ -216,7 +220,7 @@ function renderKpis(R){
   k.push('<div class="kpi good"><div class="kpi-val">'+cnt.Good+'</div><div class="kpi-lbl">Good</div><div class="kpi-sub">meet the standards</div></div>');
   k.push('<div class="kpi watch"><div class="kpi-val">'+cnt.Watch+'</div><div class="kpi-lbl">Watch</div><div class="kpi-sub">mixed results</div></div>');
   k.push('<div class="kpi bad"><div class="kpi-val">'+cnt['Needs attention']+'</div><div class="kpi-lbl">Needs attention</div><div class="kpi-sub">well short of the standards</div></div>');
-  k.push('<div class="kpi gap"><div class="kpi-val">'+nobody.length+'</div><div class="kpi-lbl">Measures no hub meets</div><div class="kpi-sub">'+(nobody.length?nobody.map(function(m){return esc(m.short);}).join(', ')+': a network-wide gap':'every measure has at least one green hub')+'</div></div>');
+  k.push('<div class="kpi gap"><div class="kpi-val">'+nobody.length+'</div><div class="kpi-lbl">Measures no hub meets</div><div class="kpi-sub">'+(nobody.length?nobody.map(function(m){return esc(m.short);}).join(', ')+': a network-wide gap':'every measure is met by at least one hub')+'</div></div>');
   k.push('<div class="kpi"><div class="kpi-val">'+(bikes?(100*oos/bikes).toFixed(1):'-')+'%</div><div class="kpi-lbl">Network OOS</div><div class="kpi-sub">'+nf(oos)+' of '+nf(bikes)+' bikes · '+nf(aged)+' aged over 7 days</div></div>');
   document.getElementById('kpis').innerHTML=k.join('');
 }
@@ -257,7 +261,7 @@ function detailHtml(h){
     return '<tr><td class="l">'+esc(m.label)+'<div class="citysub">'+(m.block==='ops'?'Operations':'Control & quality')+(stdFor(m)&&stdFor(m).core?' · core':'')+'</div></td><td>'+val+'</td><td class="l"><span class="muted">'+esc(stdLong(m))+'</span></td><td>'+pill+'</td><td>'+(s==null?'<span class="na">n/a</span>':s.toFixed(0))+'</td><td class="l" style="white-space:normal">'+ctx+'</td></tr>';
   }).join('');
   return '<div class="dwrap"><table class="dt"><thead><tr><th class="l">Measure</th><th>This hub</th><th class="l">Standard</th><th>Status</th><th>Score</th><th class="l">Detail</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div class="cov">'+h.greens+' green, '+h.ambers+' amber, '+h.reds+' red'+(h.core_reds?' ('+h.core_reds+' of them core measures)':'')+'. Operations score uses '+h.ops_n+' of 5 measures'+(h.cq_n!=null?' · control & quality uses '+h.cq_n+' of 4':'')+'. Missing measures are left out, never counted as zero.</div></div>';
+    '<div class="cov">'+W('G')+' '+h.greens+' · '+W('A')+' '+h.ambers+' · '+W('R')+' '+h.reds+(h.core_reds?' ('+h.core_reds+' of them core measures)':'')+'. Operations score uses '+h.ops_n+' of 5 measures'+(h.cq_n!=null?' · control & quality uses '+h.cq_n+' of 4':'')+'. Missing measures are left out, never counted as zero.</div></div>';
 }
 function missingWhy(m,h){
   if(m.k==='rating') return h.rating_n?('only '+h.rating_n+' ratings (needs 20)'):'no ratings in the period';
@@ -293,14 +297,15 @@ function renderUnrated(list){
 function exportCsv(){
   if(!DATA) return;
   var R=rankedHubs();
-  var cols=[['Rank','_rank'],['Hub','hub'],['City','city'],['Status','tier'],['Overall score','overall'],['Operations score','ops_score'],['Control & quality score','cq_score'],['Green measures','greens'],['Amber measures','ambers'],['Red measures','reds'],['Core measures in red','core_reds'],['City rank','city_rank'],['Bikes','bikes'],['OOS bikes','oos'],['Aged OOS bikes','aged']];
+  var cols=[['Rank','_rank'],['Hub','hub'],['City','city'],['Status','tier'],['Overall score','overall'],['Operations score','ops_score'],['Control & quality score','cq_score'],[W('G')+' measures','greens'],[W('A')+' measures','ambers'],[W('R')+' measures','reds'],['Core measures rated '+W('R'),'core_reds'],['City rank','city_rank'],['Bikes','bikes'],['OOS bikes','oos'],['Aged OOS bikes','aged']];
   METRICS.forEach(function(m){ cols.push([m.label,m.k]); cols.push([m.short+' status',m.b]); cols.push([m.short+' score',m.s]); });
   var q=function(v){ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
   var lines=[cols.map(function(c){return q(c[0]);}).join(',')];
-  R.all.slice().sort(function(a,b){ return (a._rank==null?999:a._rank)-(b._rank==null?999:b._rank); }).forEach(function(h){ lines.push(cols.map(function(c){return q(h[c[1]]);}).join(',')); });
+  R.all.slice().sort(function(a,b){ return (a._rank==null?999:a._rank)-(b._rank==null?999:b._rank); }).forEach(function(h){ lines.push(cols.map(function(c){return q(c[1].indexOf('b_')===0?(BAND_WORDS[h[c[1]]]||''):h[c[1]]);}).join(',')); });
   var blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hub-leaderboard_'+DATA.period.from+'_to_'+DATA.period.to+'.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
 }
+applyWords();
 document.getElementById('from').value=daysAgo(29);
 document.getElementById('to').value=istToday();
 document.getElementById('from').addEventListener('change',load);
