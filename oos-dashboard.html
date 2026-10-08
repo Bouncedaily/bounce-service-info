@@ -617,11 +617,12 @@ body { overflow:auto!important; }
 
   <!-- Inflow/Outflow trend -->
   <div class="card">
-    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it · Net reduction above 0 = more bikes leaving OOS than entering</div></div>
+    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it · Net reduction above 0 = more bikes leaving OOS than entering · Outflow = OOS repairs only (PDI releases excluded)</div></div>
     <div style="padding:10px 16px 0;display:flex;gap:8px;flex-wrap:wrap">
       <button type="button" class="flow-pill on" id="flow-pill-inflow" onclick="toggleFlowPill('inflow')">Inflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-outflow" onclick="toggleFlowPill('outflow')">Outflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-rr" onclick="toggleFlowPill('rr')">Running Repair</button>
+      <button type="button" class="flow-pill" id="flow-pill-pdi" onclick="toggleFlowPill('pdi')">PDI Releases</button>
       <button type="button" class="flow-pill on" id="flow-pill-net" onclick="toggleFlowPill('net')">Net Reduction</button>
     </div>
     <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
@@ -1853,7 +1854,7 @@ async function fetchDailyFlow() {
     var controller = new AbortController();
     var timer = setTimeout(function(){ controller.abort(); }, 15000); // wider window, a bit more time
     var [dfR, backfillR] = await Promise.all([
-      fetch(SB + '/rest/v1/daily_flow?select=data_date,city,hub_name,inflow_total,inflow_rr,outflow_total,outflow_rr&data_date=gte.' + rangeStart + '&limit=20000', { headers: HDR, signal: controller.signal }),
+      fetch(SB + '/rest/v1/daily_flow?select=data_date,city,hub_name,inflow_total,inflow_rr,outflow_total,outflow_rr,outflow_pdi&data_date=gte.' + rangeStart + '&limit=20000', { headers: HDR, signal: controller.signal }),
       rangeStart < DAILY_FLOW_OWN_START
         ? fetch(SB + '/rest/v1/rpc/get_flow_trend_backfill', { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR), body: JSON.stringify({ p_before: DAILY_FLOW_OWN_START }), signal: controller.signal })
         : Promise.resolve(null),
@@ -1902,12 +1903,16 @@ function renderFlowTrendChart() {
   var cutoffStr = cutoff.toISOString().slice(0,10);
 
   var byDateOut = {};
+  var byDatePdi = {};
   (DAILY_FLOW || []).forEach(function(r){
     if (r.data_date < cutoffStr || r.data_date > today) return;
     if (city && r.city !== city) return;
     if (hub && r.hub_name !== hub) return;
     if (!byDateOut[r.data_date]) byDateOut[r.data_date] = 0;
-    byDateOut[r.data_date] += (r.outflow_total - r.outflow_rr);
+    // OOS repairs only: PDI releases are brand-new bikes cleared for the road, they were never in the OOS pool
+    // (outflow_pdi is 0 / missing on rows that predate the column, which leaves those exactly as before)
+    byDateOut[r.data_date] += Math.max(r.outflow_total - r.outflow_rr - (r.outflow_pdi || 0), 0);
+    byDatePdi[r.data_date] = (byDatePdi[r.data_date] || 0) + (r.outflow_pdi || 0);
   });
 
   var SUB_TYPES = ['Rider Submission', 'Bike Exchange', 'Recovery'];
@@ -1933,6 +1938,7 @@ function renderFlowTrendChart() {
     labels: dates.map(function(d){ return d.slice(5); }), // MM-DD
     outflow: dates.map(function(d){ return byDateOut[d] || 0; }),
     runningRepair: dates.map(function(d){ return byDateRR[d] || 0; }),
+    pdi: dates.map(function(d){ return byDatePdi[d] || 0; }),
     overallInflow: dates.map(function(d){
       var day = byDateIn[d] || {};
       return SUB_TYPES.reduce(function(s,t){ return s + (day[t]||0); }, 0);
@@ -1951,7 +1957,7 @@ function renderFlowTrendChart() {
 }
 
 var FLOW_CHART_DATA = null;
-var FLOW_PILLS = { inflow: true, outflow: true, rr: true, net: true };
+var FLOW_PILLS = { inflow: true, outflow: true, rr: true, net: true, pdi: false };
 var SUB_TYPE_COLORS = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
 
 function toggleFlowPill(which){
@@ -1988,6 +1994,9 @@ function rebuildFlowChart(){
   }
   if (FLOW_PILLS.outflow) {
     datasets.push({ label: 'Outflow', data: d.outflow, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+  }
+  if (FLOW_PILLS.pdi) {
+    datasets.push({ label: 'PDI Releases (new bikes)', data: d.pdi, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: 2, borderDash: [2,3] });
   }
   if (FLOW_PILLS.net) {
     datasets.push({ label: 'Net Reduction', data: d.net, borderColor: '#be185d', backgroundColor: '#be185d', borderWidth: 2.5, tension: .25, fill: false, pointRadius: 3, isNet: true });
