@@ -106,7 +106,7 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
   <details class="how"><summary>How the score works</summary>
     <p>Every measure is judged against a <b>fixed standard</b>, never against the other hubs. A hub scores 100 on a measure when it reaches the <span data-w="G"></span> cut-off, 0 when it reaches the <span data-w="R"></span> cut-off, and a straight line in between. A hub that is better than all the others but still short of the standard is not called good.</p>
     <ul>
-      <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; OOS repairs finished within 48 hours &middot; net OOS clearing per 100 bikes (OOS repairs finished minus new rider, exchange and recovery inflow) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
+      <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; OOS repairs finished within 48 hours &middot; OOS clearing rate (OOS repairs finished as a % of new OOS bikes, meaning rider, exchange and recovery arrivals; 100% means the OOS pool is not growing, above 100% means it is shrinking; needs 30+ arrivals) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
       <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee charged: the share of the fee that should have been charged (the chargeable cost, capped at ₹3,000 per job card) that was actually raised, as in the Damage Leakage dashboard, Manual JCs excluded (needs 10+ damage job cards) &middot; latest audit score.</li>
       <li><b>Status:</b> <span id="rule-good"></span></li>
       <li><b>Core measures</b> are OOS %, aged OOS and repairs within 48 hours. A core measure rated <b data-w="R"></b> stops a hub from being Good.</li>
@@ -138,7 +138,7 @@ var METRICS=[
  {k:'oos_pct',s:'s_oos',b:'b_oos',label:'OOS % of fleet',short:'OOS %',block:'ops',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.oos)+' of '+nf(h.bikes)+' bikes are OOS now';}},
  {k:'aged_per_100',s:'s_aged',b:'b_aged',label:'Aged OOS (over 7 days) per 100 bikes',short:'Aged OOS',block:'ops',fmt:function(v){return v.toFixed(1);},cut:function(v){return String(v);},note:function(h){return nf(h.aged)+' bikes, '+(h.aged_pct_of_oos==null?'-':h.aged_pct_of_oos)+'% of the hub\'s OOS';}},
  {k:'pct_within_48h',s:'s_tat',b:'b_tat',label:'OOS repairs finished within 48h',short:'Repair speed',block:'ops',fmt:function(v){return v.toFixed(0)+'%';},cut:function(v){return v+'%';},note:function(h){return h.tat_n==null?'':'median '+h.tat_median_days+'d, average '+h.tat_mean_days+'d, '+h.pct_over_7d+'% took over 7 days ('+nf(h.tat_n)+' repairs)';}},
- {k:'net_per_100',s:'s_net',b:'b_net',label:'Net OOS clearing per 100 bikes',short:'Net clearing',block:'ops',fmt:function(v){return signed(v,1);},cut:function(v){return signed(Number(v),0);},note:function(h){return nf(h.outflow)+' OOS repairs finished vs '+nf(h.inflow)+' new OOS bikes (positive = pool shrinking)';}},
+ {k:'clearing_rate_pct',s:'s_net',b:'b_net',label:'OOS clearing rate',short:'Clearing rate',block:'ops',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){var net=(Number(h.outflow)||0)-(Number(h.inflow)||0); return nf(h.outflow)+' OOS repairs finished vs '+nf(h.inflow)+' new OOS bikes ('+(net>0?'+':'')+nf(net)+'). 100% = the OOS pool is flat, above 100% = shrinking';}},
  {k:'hrs_per_tech_day',s:'s_lab',b:'b_lab',label:'Labour hrs per technician per day',short:'Labour hrs',block:'ops',fmt:function(v){return v.toFixed(1);},cut:function(v){return String(v);},note:function(h){return h.techs==null?'':nf(h.techs)+' technicians with 3+ working days';}},
  {k:'msl_short_pct',s:'s_msl',b:'b_msl',label:'MSL parts short',short:'MSL short',block:'cq',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.msl_parts)+' parts tracked against the minimum stock level';}},
  {k:'rating',s:'s_rating',b:'b_rating',label:'Customer rating',short:'Rating',block:'cq',fmt:function(v){return v.toFixed(2);},cut:function(v){return String(v);},note:function(h){return nf(h.rating_n)+' ratings in the period';}},
@@ -270,6 +270,7 @@ function missingWhy(m,h){
   if(m.k==='msl_short_pct') return 'no minimum-stock list for this hub';
   if(m.k==='pct_within_48h') return h.tat_n?('only '+h.tat_n+' repairs (needs 30)'):'no OOS repairs in the period';
   if(m.k==='hrs_per_tech_day') return 'fewer than 3 technicians with 3+ working days';
+  if(m.k==='clearing_rate_pct') return h.inflow?('only '+h.inflow+' new OOS bikes (needs 30)'):'no new OOS bikes in the period';
   return 'no data';
 }
 function toggleHub(name){ OPEN[name]=!OPEN[name]; render(); }
