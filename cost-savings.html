@@ -101,6 +101,10 @@
     .pc-badge { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:8px; margin-left:6px; }
     .pc-custom { background:#fef3c7; color:#92400e; } .pc-unsaved { background:#fee2e2; color:#991b1b; }
     .pc-reset { font-size:11px; color:var(--muted); margin-left:6px; cursor:pointer; text-decoration:underline; }
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fff; }
+    .seg-btn { border:0; background:#fff; padding:6px 12px; font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; color:var(--muted); white-space:nowrap; }
+    .seg-btn.on { background:var(--red); color:#fff; }
+    .sp-tot td { border-top:2px solid var(--border2, #cbd5e1); font-weight:700; }
   </style>
 </head>
 <body>
@@ -244,8 +248,11 @@
 
   <div id="cstab-savingspct" style="display:none">
     <div class="ctl-bar" style="margin-bottom:16px;justify-content:space-between">
-      <div style="font-size:12px;color:var(--muted,#64748b)">Cost Saving % = (OEM benchmark price − actual amount paid) summed across refurb parts billed that month (excluding the motor-related mapping), ÷ total spend on all A+P category parts that month (including motor). Only refurb lines in the categories selected in Admin count as savings (now: <b id="catInline"></b>).</div>
-      <button class="btn secondary" id="savingspct-export-btn" style="display:none" onclick="exportSavingsPctCSV()">⬇ Export CSV</button>
+      <div style="font-size:12px;color:var(--muted,#64748b)">Cost Saving % = (OEM benchmark price − actual amount paid) summed across refurb parts billed that month (excluding the motor-related mapping), ÷ total spend on all A+P category parts that month (including motor). Only refurb lines in the categories selected in Admin count as savings (now: <b id="catInline"></b>). Use the toggle to show the saving as a % or as the &#8377; amount. The running month is month-to-date, so its &#8377; amount can only be compared with earlier months once it closes; the % is fair at any point.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="seg" id="savingspct-mode" role="group" aria-label="Show"><button class="seg-btn on" data-mode="pct" onclick="setSavingsPctMode('pct')">% saved</button><button class="seg-btn" data-mode="amt" onclick="setSavingsPctMode('amt')">&#8377; Amount saved</button></div>
+        <button class="btn secondary" id="savingspct-export-btn" style="display:none" onclick="exportSavingsPctCSV()">⬇ Export CSV</button>
+      </div>
     </div>
     <div id="savingspct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div></div>
   </div><!-- /cstab-savingspct -->
@@ -501,6 +508,13 @@ function refurbPctHeatColor(pct) {
   return 'background:#fef2f2;color:#b91c1c;font-weight:600';
 }
 
+var savingsPctMode = 'pct';   // 'pct' = % saved, 'amt' = the rupee amount saved
+function setSavingsPctMode(m) {
+  savingsPctMode = (m === 'amt') ? 'amt' : 'pct';
+  document.querySelectorAll('#savingspct-mode .seg-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mode') === savingsPctMode); });
+  if (window._savingsPctRows) renderSavingsPctTable(window._savingsPctRows);
+}
+function savingsMonthIsRunning(ym) { return ym === new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 7); }
 async function loadSavingsPct() {
   var box = document.getElementById('savingspct-body');
   document.getElementById('savingspct-export-btn').style.display = 'none';
@@ -521,6 +535,7 @@ async function loadSavingsPct() {
 
 function renderSavingsPctTable(rows) {
   var box = document.getElementById('savingspct-body');
+  var amt = savingsPctMode === 'amt';
   if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No data found.</div>'; return; }
   var months = [...new Set(rows.map(function(r){ return r.month; }))].sort();
   var monthLabel = function(ym) {
@@ -538,7 +553,7 @@ function renderSavingsPctTable(rows) {
   });
   var latestMonth = months[months.length - 1], prevMonth = months.length > 1 ? months[months.length - 2] : null;
   var html = '<div class="panel"><div style="overflow-x:auto"><table><thead><tr><th style="white-space:nowrap">City</th>';
-  months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
+  months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? (amt && savingsMonthIsRunning(m) ? ' (so far)' : ' (latest)') : '') + '</th>'; });
   html += '</tr></thead><tbody>';
   cities.forEach(function(city) {
     html += '<tr><td style="white-space:nowrap;font-weight:600">' + city + '</td>';
@@ -558,10 +573,23 @@ function renderSavingsPctTable(rows) {
           }
         }
       }
-      html += '<td class="num" style="' + color + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + trend + '</td>';
+      var tip = amt ? (cell ? (pct != null ? pct + '% saving rate · ' : '') + '₹' + Number(cell.refurb_savings).toLocaleString('en-IN') + ' saved / ₹' + Number(cell.total_part_cost).toLocaleString('en-IN') + ' total part cost' : 'no data') : title;
+      var shown = amt ? (cell && (pct != null || Number(cell.refurb_savings) !== 0) ? '₹' + Number(cell.refurb_savings).toLocaleString('en-IN') : '—') : (pct != null ? pct + '%' : '—');   // no spend at all that month (pct null) reads as no data, not as ₹0
+      html += '<td class="num" style="' + color + '" title="' + tip + '">' + shown + (amt ? '' : trend) + '</td>';   // the colour is always the saving %, in both views; no month-on-month arrow on amounts (the running month is part-way)
     });
     html += '</tr>';
   });
+  // All cities: the amounts add up; the % is the weighted rate (total saved / total part cost), not an average of the city %s
+  html += '<tr class="sp-tot"><td style="white-space:nowrap">All cities</td>';
+  months.forEach(function(m) {
+    var sv = 0, tc = 0, any = false;
+    rows.forEach(function(r){ if (r.month === m) { sv += Number(r.refurb_savings) || 0; tc += Number(r.total_part_cost) || 0; any = true; } });
+    var p = tc > 0 ? Math.round(sv / tc * 10000) / 100 : null;
+    var colr = p == null ? 'color:var(--muted,#94a3b8)' : p >= 15 ? 'background:#f0fdf4;color:#15803d' : p >= 5 ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c';
+    var tip = '₹' + Math.round(sv).toLocaleString('en-IN') + ' saved / ₹' + Math.round(tc).toLocaleString('en-IN') + ' total part cost' + (p != null ? ' = ' + p + '%' : '');
+    html += '<td class="num" style="' + colr + '" title="' + tip + '">' + (!any ? '—' : amt ? '₹' + Math.round(sv).toLocaleString('en-IN') : (p != null ? p + '%' : '—')) + '</td>';
+  });
+  html += '</tr>';
   html += '</tbody></table></div></div>';
   box.innerHTML = html;
 }
