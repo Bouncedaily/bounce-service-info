@@ -37,6 +37,13 @@ textarea{min-height:52px;resize:vertical}
 .opts{display:flex;gap:6px;flex-wrap:wrap}
 .opt{padding:6px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;font-weight:600}
 .opt.on{background:#334155;color:#fff;border-color:#334155}
+.htabs{display:flex;gap:20px;border-bottom:1px solid var(--border);margin:0 0 14px}
+.htab{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:4px 2px 10px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+.htab.on{color:var(--text);border-bottom-color:var(--red)}
+.ttbl th.r,.ttbl td.sc{text-align:right;white-space:nowrap}
+.ttbl td.sc{font-weight:700;cursor:pointer}
+.ttbl td.sc.none{font-weight:400;cursor:default;color:#cbd5e1}
+.ttbl .dl{font-size:10px;font-weight:700;margin-left:3px}
 .capa{border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
 .capa-hd{display:flex;justify-content:space-between;gap:8px;padding:11px 13px;cursor:pointer;background:#fafbfe;font-size:13px}
 .capa-bd{display:none;padding:6px 13px 14px}
@@ -59,7 +66,11 @@ textarea{min-height:52px;resize:vertical}
   <div id="err" class="err"></div>
   <div class="card"><div class="filters"><div style="flex:1;min-width:130px"><label>City</label><select id="f-city"></select></div><div style="flex:1;min-width:170px"><label>Hub</label><select id="f-hub"></select></div><button class="btn btn-ghost" id="f-clear" style="align-self:flex-end">Clear</button></div></div>
   <div class="kpis" id="kpis"></div>
-  <div class="card"><h3>Hub scorecards</h3><div id="scorecards" class="muted"><span class="spin"></span>Loading…</div></div>
+  <div class="card">
+    <div class="htabs" role="tablist"><button class="htab on" id="htab-score" role="tab" aria-selected="true" onclick="switchHubTab('score')">Hub audit score</button><button class="htab" id="htab-trend" role="tab" aria-selected="false" onclick="switchHubTab('trend')">Hub audit trend</button></div>
+    <div id="hpane-score"><div id="scorecards" class="muted"><span class="spin"></span>Loading…</div></div>
+    <div id="hpane-trend" style="display:none"><div id="trend" class="muted"><span class="spin"></span>Loading…</div></div>
+  </div>
   <div class="card"><h3>CAPA management</h3><div id="capa-sum" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted"><span class="spin"></span>Loading…</div></div>
   <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted"><span class="spin"></span>Loading…</div></div>
   <div class="card"><h3>Recent audits</h3><div id="recent" class="muted"><span class="spin"></span>Loading…</div></div>
@@ -114,7 +125,7 @@ async function load(){
   if(!tk){document.getElementById('err').innerHTML='Session expired — sign in again.';return;}
   try{
     HUBS=await api('hubs?select=id,name,city,hub_type,audit_cadence_days,is_active&order=city.asc,name.asc');
-    AUDITS=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at&status=eq.Submitted&order=submitted_at.desc');
+    AUDITS=await api('audits?select=id,hub_id,auditor_id,audit_date,overall_score,rating,risk_score,risk_band,status,location_verified,submitted_in_hours,flag_reviewed,submitted_at,template_version_id,audit_type&status=eq.Submitted&order=submitted_at.desc');
     CAPAS=await api('capa_items?select=id,audit_id,finding,action,status,due_date,created_at,owner_id,owner_role,checkpoint_id,origin_photos,closure_photo_url,closure_remark,owner:owner_id(name),audit:audit_id(hub_id)&order=created_at.desc');
     AUDITORS=await api('auditors?select=id,name,role,is_admin');
     const em=encodeURIComponent(sess().email||'');
@@ -137,7 +148,61 @@ async function load(){
 }
 function fillHubFilter(){const hs=HUBS.filter(h=>!FILTER.city||h.city===FILTER.city);document.getElementById('f-hub').innerHTML='<option value="">All hubs</option>'+hs.map(h=>`<option value="${h.id}"${FILTER.hub===h.id?' selected':''}>${esc(h.name)}</option>`).join('');}
 
-function renderAll(){renderKpis();renderScorecards();renderCapa();renderFlagged();renderRecent();}
+function renderAll(){renderKpis();renderScorecards();renderTrend();renderCapa();renderFlagged();renderRecent();}
+
+// ── HUB AUDIT TREND ──
+var TREND_N=6;   // how many of the latest audits each hub shows
+function switchHubTab(t){
+  var trend=t==='trend';
+  document.getElementById('hpane-score').style.display=trend?'none':'';
+  document.getElementById('hpane-trend').style.display=trend?'':'none';
+  [['score','htab-score'],['trend','htab-trend']].forEach(function(p){var on=(p[0]==='trend')===trend,b=document.getElementById(p[1]);b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');});
+}
+var RTINT={'Excellent':['#f0fdf4','#15803d'],'Good':['#fffbeb','#b45309'],'Needs Improvement':['#fff7ed','#c2410c'],'Critical':['#fef2f2','#b91c1c']};
+function ordLast(k){return k===0?'Latest':k===1?'Previous':(k+1)+(k===2?'rd':'th')+' last';}
+function hubAuditsAsc(hubId){
+  return AUDITS.filter(function(a){return a.hub_id===hubId;}).sort(function(x,y){
+    if(x.audit_date!==y.audit_date)return x.audit_date<y.audit_date?-1:1;
+    return String(x.submitted_at||'')<String(y.submitted_at||'')?-1:1;});
+}
+function trendSpark(list){   // a tiny line on a fixed 0-100 scale, so slopes compare between hubs
+  var W=86,H=26,pad=4,n=list.length;
+  var x=function(i){return n===1?W/2:pad+i*(W-2*pad)/(n-1);},y=function(v){return H-pad-(Math.max(0,Math.min(100,v))/100*(H-2*pad));};
+  var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Score trend" style="vertical-align:middle">';
+  if(n>1)s+='<polyline points="'+list.map(function(a,i){return x(i)+','+y(+a.overall_score||0);}).join(' ')+'" fill="none" stroke="#94a3b8" stroke-width="1.5"/>';
+  list.forEach(function(a,i){s+='<circle cx="'+x(i)+'" cy="'+y(+a.overall_score||0)+'" r="'+(i===n-1?3.5:2.5)+'" fill="'+ratingColor(a.rating)+'"/>';});
+  return s+'</svg>';
+}
+function renderTrend(){
+  var el=document.getElementById('trend');if(!el)return;
+  var hubs=HUBS.filter(function(h){return h.is_active!==false&&inFilter(h.id);});
+  var rows=hubs.map(function(h){var all=hubAuditsAsc(h.id);return {h:h,all:all,list:all.slice(-TREND_N)};});
+  var maxN=Math.max.apply(null,rows.map(function(r){return r.list.length;}).concat([1]));
+  var head='<th>Hub</th><th>City</th>';
+  for(var k=maxN-1;k>=0;k--)head+='<th class="r">'+ordLast(k)+'</th>';
+  head+='<th>Trend</th>';
+  var body=rows.map(function(r){
+    var h=r.h,list=r.list,all=r.all;
+    var same=list.every(function(a){return String(a.template_version_id||'')===String(list[0].template_version_id||'')&&String(a.audit_type||'')===String(list[0].audit_type||'');});
+    var name=esc(h.name)+(same?'':' <span class="pill" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;font-size:10px;padding:1px 7px;margin-left:6px" title="Checklist or audit type changed between these audits, so the scores may not be directly comparable">Checklist changed</span>');
+    if(!all.length)return '<tr><td>'+name+'</td><td>'+esc(h.city)+'</td><td colspan="'+(maxN+1)+'" class="muted">No audits yet</td></tr>';
+    var cells='';
+    for(var k=maxN-1;k>=0;k--){
+      var i=list.length-1-k;   // the latest audit is always the right-most column
+      if(i<0){cells+='<td class="sc none">—</td>';continue;}
+      var a=list[i],sc=Math.round(+a.overall_score||0),t=RTINT[a.rating]||['#f8fafc','#475569'];
+      var prev=i>0?list[i-1]:(all.length>list.length?all[all.length-list.length-1]:null),dl='';
+      if(prev){var d=sc-Math.round(+prev.overall_score||0);if(d!==0)dl=' <span class="dl" style="color:'+(d>0?'#16a34a':'#dc2626')+'">'+(d>0?'▲':'▼')+Math.abs(d)+'</span>';}
+      var tip=fmtDate(a.audit_date)+' · '+sc+' ('+(a.rating||'—')+')'+(a.risk_band?' · '+a.risk_band+' risk':'')+' · '+audName(a.auditor_id);
+      cells+='<td class="sc" style="background:'+t[0]+';color:'+t[1]+'" title="'+esc(tip)+'" onclick="openAudit(\''+a.id+'\')">'+sc+dl+'</td>';
+    }
+    return '<tr><td>'+name+'</td><td>'+esc(h.city)+'</td>'+cells+'<td>'+trendSpark(list)+'</td></tr>';
+  }).join('');
+  var legend=['Excellent','Good','Needs Improvement','Critical'].map(function(r){return '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:9px;height:9px;border-radius:50%;background:'+ratingColor(r)+';display:inline-block"></span>'+r+'</span>';}).join('');
+  var note='<div class="sub" style="margin:0 0 10px">Last '+TREND_N+' audits per hub, oldest to latest (the right-most score is the latest). The small ▲▼ is the change since the audit before it. Colour is the rating. Click a score to open that audit.&nbsp;&nbsp;'+legend+'</div>';
+  el.className='';
+  el.innerHTML=note+(rows.length?'<div style="overflow-x:auto"><table class="ttbl"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="muted">No hubs for the selected filter.</div>');
+}
 
 function latestByHub(){const l={};AUDITS.forEach(a=>{if(!l[a.hub_id])l[a.hub_id]=a;});return l;}
 
