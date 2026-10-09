@@ -234,14 +234,17 @@
   <div id="cstab-refurbpct" style="display:none">
     <div class="ctl-bar" style="margin-bottom:16px;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. Sorted best-first within each city; parts with no usage data sit at the bottom.</div>
+        <div style="font-size:12px;color:var(--muted,#64748b)">Refurb % = refurbished-variant usage ÷ total usage (refurb + non-refurb) of that part, per month. Sorted best-first within each city; parts with no usage data sit at the bottom. Use the toggle to show the &#8377; each part saved instead: (OEM benchmark price &minus; amount paid), counting the categories selected in Admin (Refurb % itself always leaves out Warranty). Refurb parts this tab does not list (for example B2B Throttle Assembly) are in the Other row, so each column adds up to the Cost Saving % tab. The running month is month-to-date.</div>
         <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted,#64748b)">
           <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0;display:inline-block"></span>≥80%</span>
           <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#fffbeb;border:1px solid #fde68a;display:inline-block"></span>40-79%</span>
           <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:#fef2f2;border:1px solid #fecaca;display:inline-block"></span>&lt;40%</span>
         </div>
       </div>
-      <button class="btn secondary" id="refurbpct-export-btn" style="display:none" onclick="exportRefurbPctCSV()">⬇ Export CSV</button>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="seg" id="refurbpct-mode" role="group" aria-label="Show"><button class="seg-btn on" data-mode="pct" onclick="setRefurbPctMode('pct')">% refurb</button><button class="seg-btn" data-mode="amt" onclick="setRefurbPctMode('amt')">&#8377; Amount saved</button></div>
+        <button class="btn secondary" id="refurbpct-export-btn" style="display:none" onclick="exportRefurbPctCSV()">⬇ Export CSV</button>
+      </div>
     </div>
     <div id="refurbpct-body"><div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="spin"></span>Loading…</div></div>
   </div><!-- /cstab-refurbpct -->
@@ -611,6 +614,21 @@ function exportSavingsPctCSV() {
   a.click();
 }
 
+var refurbPctMode = 'pct';   // 'pct' = refurb share, 'amt' = the rupee amount each part saved
+function fmtRs(v) { var n = Math.round(Number(v) || 0); return (n < 0 ? '\u2212\u20b9' : '\u20b9') + Math.abs(n).toLocaleString('en-IN'); }
+async function ensureSavingsRows(force) {   // the city totals from the Cost Saving % tab, so the Other / Total rows tie to it
+  if (window._savingsPctRows && !force) return;
+  try {
+    var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_cost_savings_pct', { method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok) window._savingsPctRows = await r.json();
+  } catch (e) {}
+}
+async function setRefurbPctMode(m) {
+  refurbPctMode = (m === 'amt') ? 'amt' : 'pct';
+  document.querySelectorAll('#refurbpct-mode .seg-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mode') === refurbPctMode); });
+  if (refurbPctMode === 'amt') await ensureSavingsRows(false);
+  if (window._refurbPctRows) renderRefurbPctTables(window._refurbPctRows);
+}
 async function loadRefurbPct() {
   var box = document.getElementById('refurbpct-body');
   document.getElementById('refurbpct-export-btn').style.display = 'none';
@@ -622,6 +640,7 @@ async function loadRefurbPct() {
     if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
     var rows = await r.json();
     window._refurbPctRows = rows;
+    if (refurbPctMode === 'amt') await ensureSavingsRows(true);
     renderRefurbPctTables(rows);
     if (rows.length) document.getElementById('refurbpct-export-btn').style.display = '';
   } catch (e) {
@@ -631,6 +650,7 @@ async function loadRefurbPct() {
 
 function renderRefurbPctTables(rows) {
   var box = document.getElementById('refurbpct-body');
+  var amt = refurbPctMode === 'amt';
   if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No refurb usage data found.</div>'; return; }
 
   var months = [...new Set(rows.map(function(r){ return r.month; }))].sort();
@@ -665,8 +685,8 @@ function renderRefurbPctTables(rows) {
     // misleading.
     parts.sort(function(a, b) {
       var pa = findCell(a, latestMonth), pb = findCell(b, latestMonth);
-      var va = pa && pa.refurb_pct != null ? pa.refurb_pct : null;
-      var vb = pb && pb.refurb_pct != null ? pb.refurb_pct : null;
+      var va = amt ? (pa && pa.total_qty > 0 && pa.saved_amount != null ? Number(pa.saved_amount) : null) : (pa && pa.refurb_pct != null ? pa.refurb_pct : null);
+      var vb = amt ? (pb && pb.total_qty > 0 && pb.saved_amount != null ? Number(pb.saved_amount) : null) : (pb && pb.refurb_pct != null ? pb.refurb_pct : null);   // amount view: biggest saver first
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -675,7 +695,7 @@ function renderRefurbPctTables(rows) {
 
     html += '<div class="panel" style="min-width:0"><h3>' + city + '</h3>';
     html += '<div style="overflow-x:auto"><table><thead><tr><th style="white-space:nowrap">Part</th>';
-    months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? ' (latest)' : '') + '</th>'; });
+    months.forEach(function(m){ html += '<th class="num" style="white-space:nowrap">' + monthLabel(m) + (m === latestMonth ? (amt && savingsMonthIsRunning(m) ? ' (so far)' : ' (latest)') : '') + '</th>'; });
     html += '</tr></thead><tbody>';
     parts.forEach(function(part) {
       html += '<tr><td style="white-space:nowrap">' + part + '</td>';
@@ -694,10 +714,30 @@ function renderRefurbPctTables(rows) {
             }
           }
         }
-        html += '<td class="num" style="' + refurbPctHeatColor(pct) + '" title="' + title + '">' + (pct != null ? pct + '%' : '—') + trend + '</td>';
+        var tip = title, shown = pct != null ? pct + '%' : '—';
+        if (amt) {   // the colour stays the refurb share; no month-on-month arrow on amounts (the running month is part-way)
+          var has = cell && cell.total_qty > 0 && cell.saved_amount != null;
+          shown = has ? fmtRs(cell.saved_amount) : (cell && cell.total_qty > 0 && cell.saved_note === 'excluded' ? '<span style="font-size:10px;font-weight:500">excluded</span>' : '—');
+          tip = !cell || !(cell.total_qty > 0) ? 'no usage' : cell.saved_amount == null ? (cell.saved_note === 'excluded' ? 'Not counted as a saving: the motor-related rim is left out of savings, as in the Cost Saving % tab' : 'No refurb variant of this part, so nothing is saved') : fmtRs(cell.saved_amount) + ' saved \u00b7 ' + cell.refurb_qty + ' refurb / ' + cell.total_qty + ' total (' + (pct != null ? pct + '%' : '\u2014') + ')';
+        }
+        html += '<td class="num" style="' + refurbPctHeatColor(pct) + '" title="' + tip + '">' + shown + (amt ? '' : trend) + '</td>';
       });
       html += '</tr>';
     });
+    if (amt) {   // Other + Total: the Total is the Cost Saving % tab's city figure, Other is whatever the listed parts do not cover
+      var sRows = window._savingsPctRows || [];
+      var otherHtml = '<tr><td style="white-space:nowrap;color:var(--muted,#64748b)" title="Refurb parts this tab does not list (for example B2B Throttle Assembly); included so the column adds up to the Cost Saving % tab">Other refurb parts</td>';
+      var totHtml = '<tr class="sp-tot"><td style="white-space:nowrap">Total saved</td>';
+      months.forEach(function(m) {
+        var sv = 0; cityRows.forEach(function(r){ if (r.month === m && r.saved_amount != null) sv += Number(r.saved_amount) || 0; });
+        var cr = sRows.find(function(r){ return r.city === city && r.month === m; });
+        if (!cr) { otherHtml += '<td class="num" style="color:var(--muted,#94a3b8)">\u2014</td>'; totHtml += '<td class="num" style="color:var(--muted,#94a3b8)">\u2014</td>'; return; }
+        var tot = Number(cr.refurb_savings) || 0, oth = tot - sv; if (Math.abs(oth) < 1) oth = 0;
+        otherHtml += '<td class="num" style="color:var(--muted,#64748b)">' + fmtRs(oth) + '</td>';
+        totHtml += '<td class="num" title="Same figure as the Cost Saving % tab">' + fmtRs(tot) + '</td>';
+      });
+      html += otherHtml + '</tr>' + totHtml + '</tr>';
+    }
     html += '</tbody></table></div></div>';
   });
   html += '</div>';
@@ -707,9 +747,9 @@ function renderRefurbPctTables(rows) {
 function exportRefurbPctCSV() {
   var rows = window._refurbPctRows || [];
   if (!rows.length) return;
-  var cols = ['City', 'Part Name', 'Part Number', 'Month', 'Refurb Qty', 'Non-Refurb Qty', 'Total Qty', 'Refurb %'];
+  var cols = ['City', 'Part Name', 'Part Number', 'Month', 'Refurb Qty', 'Non-Refurb Qty', 'Total Qty', 'Refurb %', 'Saved Amount (Rs)'];
   var csvRows = rows.map(function(r) {
-    return [r.city, r.part_name || '', r.part_number || '', r.month, r.refurb_qty, r.nonrefurb_qty, r.total_qty, r.refurb_pct != null ? r.refurb_pct : ''];
+    return [r.city, r.part_name || '', r.part_number || '', r.month, r.refurb_qty, r.nonrefurb_qty, r.total_qty, r.refurb_pct != null ? r.refurb_pct : '', r.saved_amount != null ? r.saved_amount : ''];
   });
   var csv = '\ufeff' + [cols].concat(csvRows).map(function(row) {
     return row.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
@@ -828,6 +868,7 @@ async function savePartCategories() {
     show('Saved ✓', false);
     render();
     if (window._savingsPctLoaded) loadSavingsPct();   // the percentage tab applies the same choice
+    if (window._refurbPctLoaded) loadRefurbPct();   // and so do the amounts in the Refurb % tab
   } catch (e) { show('Could not save, try again', true); }
 }
 
@@ -921,6 +962,7 @@ async function saveCategories() {
     show('Saved ✓', false);
     render();
     if (window._savingsPctLoaded) loadSavingsPct();   // the percentage tab applies the same choice
+    if (window._refurbPctLoaded) loadRefurbPct();   // and so do the amounts in the Refurb % tab
   } catch (e) { show('Could not save, try again', true); }
 }
 
