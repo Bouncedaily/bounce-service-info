@@ -180,9 +180,10 @@ function cfg(k,d){ var s=DATA&&DATA.settings; return (s&&s[k]!=null)?Number(s[k]
 function scoreCls(s){ if(s==null) return 'na'; return s>=cfg('good_min',70)?'hi':(s<cfg('attention_below',40)?'lo':'mid'); }
 function heatBg(b){return b==='G'?'#bbf7d0':(b==='A'?'#fde68a':(b==='R'?'#fecaca':'#f1f5f9'));}
 
-async function load(){
+var LAST_LOAD=0;
+async function load(silent){
   var f=document.getElementById('from').value||monthRange(istToday().slice(0,7)).from, t=document.getElementById('to').value||istToday();
-  document.getElementById('status').textContent='Loading…';
+  if(!silent) document.getElementById('status').textContent='Loading…';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_hub_leaderboard',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+sessionToken(),'Content-Type':'application/json'},body:JSON.stringify({p_start:f,p_end:t})});
     if(r.status===401||r.status===403){
@@ -196,8 +197,9 @@ async function load(){
     document.getElementById('main').style.display='';
     document.getElementById('prov').style.display=((DATA.standards||[]).some(function(s){return /placeholder/i.test(s.note||'');}))?'':'none';
     populateCities(); renderMethod(); render();
-    document.getElementById('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' · '+periodLabel(DATA.period)+' · '+DATA.period.days+' days';
+    document.getElementById('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' · '+periodLabel(DATA.period)+' · '+DATA.period.days+' days'+(DATA.period.includes_today?' · refreshes every 5 min':''); LAST_LOAD=Date.now();
   }catch(e){
+    if(silent&&DATA){ document.getElementById('status').innerHTML='<span class="err">Could not refresh</span> · still showing the last update'; return; }
     document.getElementById('status').innerHTML='<span class="err">Could not load</span>';
     document.getElementById('msg').innerHTML='<div class="card"><div class="msg err">Could not load the leaderboard ('+esc(e.message)+'). Please try again.</div></div>';
   }
@@ -338,6 +340,9 @@ buildMonthOptions();
 syncMonthSelect();
 document.getElementById('from').addEventListener('change',function(){ syncMonthSelect(); load(); });
 document.getElementById('to').addEventListener('change',function(){ syncMonthSelect(); load(); });
+function liveNow(){ return !!(DATA&&DATA.period&&DATA.period.includes_today); }
+setInterval(function(){ if(!document.hidden&&liveNow()) load(true); }, 300000);   // the sources behind it refresh every 5 minutes
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&liveNow()&&Date.now()-LAST_LOAD>300000) load(true); });
 load();
 </script>
 </body></html>
