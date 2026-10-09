@@ -87,6 +87,7 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
 <div class="psub">Judges every service hub against fixed standards, so you can see which hubs are genuinely good and which are not. Each of nine measures is rated <b data-w="G"></b> (it meets the standard), <b data-w="A"></b> (in between) or <b data-w="R"></b> (clearly short of it), shown in green, amber and red. Click a hub to see exactly where it stands on each one.</div>
 <div id="prov" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Provisional standards.</b> The cut-offs that decide <b data-w="G"></b>, <b data-w="A"></b> and <b data-w="R"></b> are placeholders until you confirm them, so treat the Good / Watch / Needs attention labels as a draft. They are listed under "How the score works" below.</div></div>
 <div class="bar">
+  <span><label>Month</label><select id="month" onchange="onMonthChange()"></select></span>
   <span><label>From</label><input type="date" id="from"></span>
   <span><label>To</label><input type="date" id="to"></span>
   <span><label>City</label><select id="city" onchange="render()"><option value="">All cities</option></select></span>
@@ -106,8 +107,8 @@ details.how p{color:var(--text2);line-height:1.6;margin:10px 0 0}
   <details class="how"><summary>How the score works</summary>
     <p>Every measure is judged against a <b>fixed standard</b>, never against the other hubs. A hub scores 100 on a measure when it reaches the <span data-w="G"></span> cut-off, 0 when it reaches the <span data-w="R"></span> cut-off, and a straight line in between. A hub that is better than all the others but still short of the standard is not called good.</p>
     <ul>
-      <li><b>Operations (70% of the overall score):</b> OOS % of fleet &middot; aged OOS bikes (over 7 days) per 100 bikes &middot; OOS repairs finished within 48 hours &middot; OOS clearing rate (OOS repairs finished as a % of new OOS bikes, meaning rider, exchange and recovery arrivals; 100% means the OOS pool is not growing, above 100% means it is shrinking; needs 30+ arrivals) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
-      <li><b>Control &amp; quality (30%):</b> MSL parts short &middot; customer rating (needs 20+ ratings) &middot; damage fee charged: the share of the fee that should have been charged (the chargeable cost, capped at ₹3,000 per job card) that was actually raised, as in the Damage Leakage dashboard, Manual JCs excluded (needs 10+ damage job cards) &middot; latest audit score.</li>
+      <li><b>Operations (70% of the overall score):</b> OOS % of fleet (the average over the period) &middot; aged OOS bikes (over 7 days) per 100 bikes (today&rsquo;s snapshot, so only when the period includes today) &middot; OOS repairs finished within 48 hours &middot; OOS clearing rate (OOS repairs finished as a % of new OOS bikes, meaning rider, exchange and recovery arrivals; 100% means the OOS pool is not growing, above 100% means it is shrinking; needs 30+ arrivals) &middot; labour hours per technician per day (logged hours, real technicians with 3+ working days, FREELANCER excluded).</li>
+      <li><b>Control &amp; quality (30%):</b> MSL parts short (today&rsquo;s stock, so only when the period includes today) &middot; customer rating (needs 20+ ratings) &middot; damage fee charged: the share of the fee that should have been charged (the chargeable cost, capped at ₹3,000 per job card) that was actually raised, as in the Damage Leakage dashboard, Manual JCs excluded (needs 10+ damage job cards) &middot; latest audit score (the latest audit on or before the end of the period).</li>
       <li><b>Status:</b> <span id="rule-good"></span></li>
       <li><b>Core measures</b> are OOS %, aged OOS and repairs within 48 hours. A core measure rated <b data-w="R"></b> stops a hub from being Good.</li>
       <li><b>Missing data is never counted as zero.</b> A hub is rated only if it has enough operations measures, and gets a control &amp; quality score only if it has enough of those.</li>
@@ -128,6 +129,29 @@ function applyWords(){ var els=document.querySelectorAll('[data-w]'); for(var i=
 function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
 function istToday(){return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10);}
 function daysAgo(n){var d=new Date(Date.now()+5.5*3600*1000);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+var FIRST_MONTH='2026-07'; // daily OOS counts (and so a fair OOS %) start on 10 Jul 2026
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function monthRange(ym){ // 'YYYY-MM' -> first and last day; the current month runs up to today
+  var y=+ym.slice(0,4), m=+ym.slice(5,7), last=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10), today=istToday();
+  return { from: ym+'-01', to: (ym===today.slice(0,7)) ? today : last };
+}
+function monthLabel(ym){ return MONTHS[+ym.slice(5,7)-1]+' '+ym.slice(0,4); }
+function fmtD(s){ var d=new Date(s+'T00:00:00Z'); return d.getUTCDate()+' '+MONTHS[d.getUTCMonth()].slice(0,3)+' '+d.getUTCFullYear(); }
+function buildMonthOptions(){
+  var sel=document.getElementById('month'), cur=istToday().slice(0,7), out=[], y=+cur.slice(0,4), m=+cur.slice(5,7);
+  while((y+'-'+('0'+m).slice(-2))>=FIRST_MONTH){ var ym=y+'-'+('0'+m).slice(-2); out.push('<option value="'+ym+'">'+monthLabel(ym)+(ym===cur?' (so far)':'')+'</option>'); m--; if(m===0){ m=12; y--; } }
+  out.push('<option value="custom">Custom dates</option>'); sel.innerHTML=out.join('');
+}
+function onMonthChange(){
+  var v=document.getElementById('month').value; if(v==='custom') return;
+  var r=monthRange(v); document.getElementById('from').value=r.from; document.getElementById('to').value=r.to; load();
+}
+function syncMonthSelect(){ // typing dates picks the matching month, otherwise 'Custom dates'
+  var f=document.getElementById('from').value, t=document.getElementById('to').value, sel=document.getElementById('month'), pick='custom';
+  for(var i=0;i<sel.options.length;i++){ var v=sel.options[i].value; if(v!=='custom'){ var r=monthRange(v); if(r.from===f&&r.to===t){ pick=v; break; } } }
+  sel.value=pick;
+}
+function periodLabel(p){ var ym=p.from.slice(0,7), r=monthRange(ym); return (p.from===r.from&&p.to===r.to) ? monthLabel(ym)+(ym===istToday().slice(0,7)?' (so far)':'') : fmtD(p.from)+' – '+fmtD(p.to); }
 function nf(n){return (n==null?0:Number(n)).toLocaleString('en-IN');}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function num(v){return (v===null||v===undefined||v==='')?null:Number(v);}
@@ -135,7 +159,7 @@ function signed(v,d){return (v>0?'+':'')+v.toFixed(d);}
 function inr(n){n=Number(n)||0;if(n>=1e7)return '₹'+(n/1e7).toFixed(2)+'Cr';if(n>=1e5)return '₹'+(n/1e5).toFixed(1)+'L';if(n>=1000)return '₹'+(n/1000).toFixed(1)+'k';return '₹'+Math.round(n);}
 // The nine measures. k = value, s = score vs the standard (0-100), b = band (G / A / R).
 var METRICS=[
- {k:'oos_pct',s:'s_oos',b:'b_oos',label:'OOS % of fleet',short:'OOS %',block:'ops',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.oos)+' of '+nf(h.bikes)+' bikes are OOS now';}},
+ {k:'oos_pct',s:'s_oos',b:'b_oos',label:'OOS % of fleet',short:'OOS %',block:'ops',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){return nf(h.oos_avg)+' bikes in OOS on average over '+nf(h.oos_days)+' day'+(h.oos_days===1?'':'s')+', against '+nf(h.bikes)+' bikes in the fleet today';}},
  {k:'aged_per_100',s:'s_aged',b:'b_aged',label:'Aged OOS (over 7 days) per 100 bikes',short:'Aged OOS',block:'ops',fmt:function(v){return v.toFixed(1);},cut:function(v){return String(v);},note:function(h){return nf(h.aged)+' bikes, '+(h.aged_pct_of_oos==null?'-':h.aged_pct_of_oos)+'% of the hub\'s OOS';}},
  {k:'pct_within_48h',s:'s_tat',b:'b_tat',label:'OOS repairs finished within 48h',short:'Repair speed',block:'ops',fmt:function(v){return v.toFixed(0)+'%';},cut:function(v){return v+'%';},note:function(h){return h.tat_n==null?'':'median '+h.tat_median_days+'d, average '+h.tat_mean_days+'d, '+h.pct_over_7d+'% took over 7 days ('+nf(h.tat_n)+' repairs)';}},
  {k:'clearing_rate_pct',s:'s_net',b:'b_net',label:'OOS clearing rate',short:'Clearing rate',block:'ops',fmt:function(v){return v.toFixed(1)+'%';},cut:function(v){return v+'%';},note:function(h){var net=(Number(h.outflow)||0)-(Number(h.inflow)||0); return nf(h.outflow)+' OOS repairs finished vs '+nf(h.inflow)+' new OOS bikes ('+(net>0?'+':'')+nf(net)+'). 100% = the OOS pool is flat, above 100% = shrinking';}},
@@ -157,7 +181,7 @@ function scoreCls(s){ if(s==null) return 'na'; return s>=cfg('good_min',70)?'hi'
 function heatBg(b){return b==='G'?'#bbf7d0':(b==='A'?'#fde68a':(b==='R'?'#fecaca':'#f1f5f9'));}
 
 async function load(){
-  var f=document.getElementById('from').value||daysAgo(29), t=document.getElementById('to').value||istToday();
+  var f=document.getElementById('from').value||monthRange(istToday().slice(0,7)).from, t=document.getElementById('to').value||istToday();
   document.getElementById('status').textContent='Loading…';
   try{
     var r=await fetch(SB+'/rest/v1/rpc/get_hub_leaderboard',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+sessionToken(),'Content-Type':'application/json'},body:JSON.stringify({p_start:f,p_end:t})});
@@ -172,7 +196,7 @@ async function load(){
     document.getElementById('main').style.display='';
     document.getElementById('prov').style.display=((DATA.standards||[]).some(function(s){return /placeholder/i.test(s.note||'');}))?'':'none';
     populateCities(); renderMethod(); render();
-    document.getElementById('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' · '+DATA.period.days+' days';
+    document.getElementById('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' · '+periodLabel(DATA.period)+' · '+DATA.period.days+' days';
   }catch(e){
     document.getElementById('status').innerHTML='<span class="err">Could not load</span>';
     document.getElementById('msg').innerHTML='<div class="card"><div class="msg err">Could not load the leaderboard ('+esc(e.message)+'). Please try again.</div></div>';
@@ -212,7 +236,7 @@ function render(){
 function renderKpis(R){
   var all=R.all, rated=R.rated;
   var cnt={Good:0,Watch:0,'Needs attention':0}; rated.forEach(function(h){ cnt[h.tier]++; });
-  var bikes=0,oos=0,aged=0; all.forEach(function(h){ bikes+=num(h.bikes)||0; oos+=num(h.oos)||0; aged+=num(h.aged)||0; });
+  var live=!(DATA&&DATA.period&&DATA.period.includes_today===false), bikes=0,oos=0,aged=0; all.forEach(function(h){ var avg=num(h.oos_avg); if(avg==null) return; bikes+=num(h.bikes)||0; oos+=avg; aged+=num(h.aged)||0; });
   // measures where not a single rated hub meets the standard: a network-wide gap rather than one hub's problem
   var nobody=METRICS.filter(function(m){ var have=rated.filter(function(h){return h[m.b];}); return have.length&&have.every(function(h){return h[m.b]!=='G';}); });
   var k=[];
@@ -221,7 +245,7 @@ function renderKpis(R){
   k.push('<div class="kpi watch"><div class="kpi-val">'+cnt.Watch+'</div><div class="kpi-lbl">Watch</div><div class="kpi-sub">mixed results</div></div>');
   k.push('<div class="kpi bad"><div class="kpi-val">'+cnt['Needs attention']+'</div><div class="kpi-lbl">Needs attention</div><div class="kpi-sub">well short of the standards</div></div>');
   k.push('<div class="kpi gap"><div class="kpi-val">'+nobody.length+'</div><div class="kpi-lbl">Measures no hub meets</div><div class="kpi-sub">'+(nobody.length?nobody.map(function(m){return esc(m.short);}).join(', ')+': a network-wide gap':'every measure is met by at least one hub')+'</div></div>');
-  k.push('<div class="kpi"><div class="kpi-val">'+(bikes?(100*oos/bikes).toFixed(1):'-')+'%</div><div class="kpi-lbl">Network OOS</div><div class="kpi-sub">'+nf(oos)+' of '+nf(bikes)+' bikes · '+nf(aged)+' aged over 7 days</div></div>');
+  k.push('<div class="kpi"><div class="kpi-val">'+(bikes?(100*oos/bikes).toFixed(1):'-')+'%</div><div class="kpi-lbl">Network OOS</div><div class="kpi-sub">'+nf(Math.round(oos))+' of '+nf(bikes)+' bikes on average'+(live?' · '+nf(aged)+' aged over 7 days now':'')+'</div></div>');
   document.getElementById('kpis').innerHTML=k.join('');
 }
 function chipsFor(h){
@@ -266,8 +290,10 @@ function detailHtml(h){
 function missingWhy(m,h){
   if(m.k==='rating') return h.rating_n?('only '+h.rating_n+' ratings (needs 20)'):'no ratings in the period';
   if(m.k==='damage_charged_pct') return h.damage_jcs?('only '+h.damage_jcs+' damage job cards (needs 10)'):'no damage job cards in the period';
-  if(m.k==='audit_score') return 'not audited yet';
-  if(m.k==='msl_short_pct') return 'no minimum-stock list for this hub';
+  if(m.k==='oos_pct') return 'no daily OOS counts for this period (they start on 10 Jul 2026)';
+  if(m.k==='aged_per_100') return 'aged OOS has no history, so it only shows for periods that include today';
+  if(m.k==='audit_score') return (DATA&&DATA.period)?('no submitted audit on or before '+fmtD(DATA.period.to)):'not audited yet';
+  if(m.k==='msl_short_pct') return (DATA&&DATA.period&&DATA.period.includes_today===false)?'stock levels have no history, so this only shows for periods that include today':'no minimum-stock list for this hub';
   if(m.k==='pct_within_48h') return h.tat_n?('only '+h.tat_n+' repairs (needs 30)'):'no OOS repairs in the period';
   if(m.k==='hrs_per_tech_day') return 'fewer than 3 technicians with 3+ working days';
   if(m.k==='clearing_rate_pct') return h.inflow?('only '+h.inflow+' new OOS bikes (needs 30)'):'no new OOS bikes in the period';
@@ -307,10 +333,11 @@ function exportCsv(){
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hub-leaderboard_'+DATA.period.from+'_to_'+DATA.period.to+'.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
 }
 applyWords();
-document.getElementById('from').value=daysAgo(29);
-document.getElementById('to').value=istToday();
-document.getElementById('from').addEventListener('change',load);
-document.getElementById('to').addEventListener('change',load);
+buildMonthOptions();
+(function(){ var r=monthRange(istToday().slice(0,7)); document.getElementById('from').value=r.from; document.getElementById('to').value=r.to; })();
+syncMonthSelect();
+document.getElementById('from').addEventListener('change',function(){ syncMonthSelect(); load(); });
+document.getElementById('to').addEventListener('change',function(){ syncMonthSelect(); load(); });
 load();
 </script>
 </body></html>
