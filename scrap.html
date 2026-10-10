@@ -1269,6 +1269,14 @@ function onRowTrackingChange(id) {
   document.getElementById(`mpw-${id}`).disabled = document.getElementById(`mptr-${id}`).value !== 'kg';
 }
 
+// Every change to the part rules goes through admin-only database functions: the rules table itself no longer accepts direct writes.
+async function mpRpc(fn, body) {
+  const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+  if (r.ok) return { ok: true, data: await r.json().catch(() => null) };
+  let msg = ''; try { const e = await r.json(); msg = e.message || e.hint || ''; } catch (x) { try { msg = await r.text(); } catch (y) {} }
+  return { ok: false, status: r.status, msg: (r.status === 401 || r.status === 403 || /only an admin/i.test(msg)) ? 'Only an admin can change the part rules.' : String(msg || ('HTTP ' + r.status)).slice(0, 200) };
+}
+
 async function addManagedPart() {
   const pattern = document.getElementById('mp-pattern').value.trim();
   const part_type = document.getElementById('mp-type').value;
@@ -1282,11 +1290,8 @@ async function addManagedPart() {
   if (!catList.length) { alert('Tick at least one job card category (A, P, F or W).'); return; }
   if (!pattern) { alert('Enter a pattern.'); return; }
   if (tracking_type === 'kg' && isNaN(weight_kg)) { alert('Tracking is set to Kg — enter a weight.'); return; }
-  const r = await fetch(`${SB}/rest/v1/managed_parts`, {
-    method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ match_pattern: pattern, part_type, category, tracking_type, weight_kg, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes, categories: jccString(catList), source: 'manual' })
-  });
-  if (!r.ok) { alert('Could not add: ' + (await r.text()).slice(0,200)); return; }
+  const r = await mpRpc('add_managed_part', { p: { match_pattern: pattern, part_type, category, tracking_type, weight_kg, city_override, priority, notes, categories: jccString(catList) } });
+  if (!r.ok) { alert('Could not add: ' + r.msg); return; }
   document.getElementById('mp-pattern').value = ''; document.getElementById('mp-notes').value = ''; setMpCatDefaults();
   MANAGED_PARTS_CACHE = [];
   await renderPartsManager();
@@ -1319,11 +1324,8 @@ async function savePartRow(id) {
   const base = { match_pattern: pattern, part_type, category, tracking_type, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes, categories };
 
   if (!weightChanged) {
-    const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
-      method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ ...base, weight_kg })
-    });
-    if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+    const r = await mpRpc('save_managed_part', { p_id: id, p: { ...base, weight_kg } });
+    if (!r.ok) { alert('Could not save: ' + r.msg); return; }
     MANAGED_PARTS_CACHE = [];
     await renderPartsManager();
     return;
@@ -1331,21 +1333,9 @@ async function savePartRow(id) {
 
   const reason = prompt(`Changing weight from ${existingRow.weight_kg}kg to ${weight_kg}kg for "${pattern}".\n\nReason for this change (kept for audit):`);
   if (reason === null) return;
-  const who = getCurrentUser().email || 'unknown';
-  const today = new Date().toISOString().slice(0,10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
-
-  const closeR = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
-    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ ...base, weight_kg: existingRow.weight_kg, effective_to: yesterday })
-  });
-  if (!closeR.ok) { alert('Could not close out the old weight: ' + (await closeR.text()).slice(0,200)); return; }
-
-  const openR = await fetch(`${SB}/rest/v1/managed_parts`, {
-    method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ ...base, weight_kg, effective_from: today, effective_to: null, changed_by: who, change_reason: reason || null, source: existingRow.source })
-  });
-  if (!openR.ok) { alert('Old weight closed out, but could not open the new one: ' + (await openR.text()).slice(0,200)); return; }
+  // the database closes the old version (yesterday) and opens the new one (today) in one step, so it can never end up half-done
+  const rr = await mpRpc('save_managed_part', { p_id: id, p: { ...base, weight_kg }, p_reason: reason || null });
+  if (!rr.ok) { alert('Could not save: ' + rr.msg); return; }
 
   MANAGED_PARTS_CACHE = [];
   await renderPartsManager();
@@ -1353,21 +1343,15 @@ async function savePartRow(id) {
 
 async function deactivatePartRow(id) {
   if (!confirm('Deactivate this pattern? It stops matching new items immediately -- past classifications already recorded are kept intact.')) return;
-  const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
-    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ active: false })
-  });
-  if (!r.ok) { alert('Could not deactivate: ' + (await r.text()).slice(0,200)); return; }
+  const r = await mpRpc('set_managed_part_active', { p_id: id, p_active: false });
+  if (!r.ok) { alert('Could not deactivate: ' + r.msg); return; }
   MANAGED_PARTS_CACHE = [];
   await renderPartsManager();
 }
 
 async function reactivatePartRow(id) {
-  const r = await fetch(`${SB}/rest/v1/managed_parts?id=eq.${id}`, {
-    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ active: true })
-  });
-  if (!r.ok) { alert('Could not reactivate: ' + (await r.text()).slice(0,200)); return; }
+  const r = await mpRpc('set_managed_part_active', { p_id: id, p_active: true });
+  if (!r.ok) { alert('Could not reactivate: ' + r.msg); return; }
   MANAGED_PARTS_CACHE = [];
   await renderPartsManager();
 }
