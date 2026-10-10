@@ -717,7 +717,7 @@ body { overflow:auto!important; }
     </div>
   </div>
 
-  <!-- Billed, vehicle still OOS (Metabase "RFD Status" = "Vehicle is in OOS") -->
+  <!-- Billed job card, vehicle still OOS: OOS bikes (bike data) whose job card number is found in JC details (billed job cards) -->
   <div class="grid-1">
     <div class="card">
       <div class="card-hd">
@@ -736,7 +736,7 @@ body { overflow:auto!important; }
         <span style="font-size:12px;color:var(--muted)">to</span>
         <input type="date" id="jbo-to" onchange="setJBODate('custom')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
       </div>
-      <div style="padding:6px 16px 0;font-size:11px;color:var(--muted)">Job cards that were billed but whose vehicle had still not moved to RFD (RFD Status = “Vehicle is in OOS”), as of the last sync. Rows show whether the job card was billed today, yesterday or earlier; click a number to see the bikes.</div>
+      <div style="padding:6px 16px 0;font-size:11px;color:var(--muted)">Vehicles that are OOS right now (bike data) whose job card is already billed: the job card number held in the bike data is matched with the billed job cards in JC details. As of the last sync (every 5 minutes). Rows show whether the job card was billed today, yesterday or earlier; click a number to see the vehicles.</div>
       <div class="tbl" id="jbo-tbl-wrap" style="margin-top:8px">
         <div class="empty"><span class="spin"></span></div>
       </div>
@@ -2995,7 +2995,7 @@ async function loadJBO() {
     const d = await r.json();
     JBO_ALL_ROWS = d.rows || [];
     const n = d.total || 0;
-    document.getElementById('jbo-count').textContent = n.toLocaleString('en-IN') + ' billed job card' + (n === 1 ? '' : 's') + ' with the vehicle still in OOS';
+    document.getElementById('jbo-count').textContent = n.toLocaleString('en-IN') + ' vehicle' + (n === 1 ? '' : 's') + ' still in OOS with a billed job card';
     renderJBOPivot(JBO_ALL_ROWS);
   } catch (e) {
     console.error('loadJBO failed', e);
@@ -3005,7 +3005,7 @@ async function loadJBO() {
 
 function renderJBOPivot(rows) {
   const wrap = document.getElementById('jbo-tbl-wrap');
-  if (!rows.length) { wrap.innerHTML = '<div class="empty">None — no billed job card in this range has its vehicle still in OOS.</div>'; return; }
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">None — no vehicle that is OOS now has its job card billed in this range.</div>'; return; }
   const hubs = [...new Set(rows.map(function (r) { return r.hub_name; }).filter(Boolean))].sort();
   let html = '<table><thead><tr><th>Billed</th>';
   hubs.forEach(function (h) { html += '<th class="num">' + jboEsc(h) + '</th>'; });
@@ -3039,14 +3039,14 @@ function openJBODrilldown(dayKey, hub) {
   DD_CURRENT_ROWS = rows;
   DD_CURRENT_TITLE = 'Billed_VehicleStillOOS_' + (hub || 'AllHubs') + '_' + (dayKey || 'AllDays');
   const row = JBO_ROWS.filter(function (x) { return x.key === dayKey; })[0];
-  document.getElementById('dd-title').textContent = (hub === null && dayKey === null) ? 'All billed job cards — vehicle still in OOS' : (hub === null ? 'All hubs' : hub) + ' — billed ' + (row ? row.label.toLowerCase() : 'any day');
-  document.getElementById('dd-sub').textContent = rows.length + ' job card' + (rows.length === 1 ? '' : 's') + ' billed, vehicle still in OOS';
+  document.getElementById('dd-title').textContent = (hub === null && dayKey === null) ? 'All vehicles still in OOS with a billed job card' : (hub === null ? 'All hubs' : hub) + ' — billed ' + (row ? row.label.toLowerCase() : 'any day');
+  document.getElementById('dd-sub').textContent = rows.length + ' vehicle' + (rows.length === 1 ? '' : 's') + ' still in OOS, job card billed';
   document.getElementById('dd-overlay').classList.add('open');
-  let html = '<thead><tr><th>JC Number</th><th>DMS JC</th><th>Reg Number</th><th>Billed (IST)</th><th class="num">Days Ago</th><th>Hub</th><th>City</th><th>Model</th><th>Submission Type</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>JC Number</th><th>DMS JC</th><th>Reg Number</th><th>Billed (IST)</th><th class="num">Days Ago</th><th>Hub</th><th>City</th><th>Model</th><th>Submission Type</th><th>Bike Status</th><th>OOS Sub Status</th></tr></thead><tbody>';
   rows.forEach(function (r) {
     const d = Number(r.days_since_billed);
     html += '<tr><td style="font-weight:600">' + jboEsc(r.job_card_number || '—') + '</td><td>' + jboEsc(r.dms_jc_no || '—') + '</td><td>' + jboEsc(r.reg_number || '—') + '</td><td>' + jboFmt(r.billed_at) + '</td>'
-      + '<td class="' + (d >= 7 ? 'num dd-age-high' : 'num') + '">' + (isNaN(d) ? '—' : d.toFixed(1)) + '</td><td>' + jboEsc(r.hub_name || '—') + '</td><td>' + jboEsc(r.city || '—') + '</td><td>' + jboEsc(r.bike_model || '—') + '</td><td>' + jboEsc(r.submission_type || '—') + '</td></tr>';
+      + '<td class="' + (d >= 7 ? 'num dd-age-high' : 'num') + '">' + (isNaN(d) ? '—' : d.toFixed(1)) + '</td><td>' + jboEsc(r.hub_name || '—') + '</td><td>' + jboEsc(r.city || '—') + '</td><td>' + jboEsc(r.bike_model || '—') + '</td><td>' + jboEsc(r.submission_type || '—') + '</td><td>' + jboEsc(r.bike_status || '—') + '</td><td>' + jboEsc(r.oos_sub_status || '—') + '</td></tr>';
   });
   html += '</tbody>';
   document.getElementById('dd-table').innerHTML = html;
@@ -3054,8 +3054,8 @@ function openJBODrilldown(dayKey, hub) {
 
 function exportJBODrilldownCSV() {
   if (!DD_CURRENT_ROWS.length) return;
-  const header = ['JC Number', 'DMS JC No', 'Reg Number', 'Billed (IST)', 'Days Since Billed', 'Hub', 'City', 'Model', 'Submission Type'];
-  const rows = DD_CURRENT_ROWS.map(function (r) { return [r.job_card_number, r.dms_jc_no, r.reg_number, jboFmt(r.billed_at), r.days_since_billed, r.hub_name, r.city, r.bike_model, r.submission_type]; });
+  const header = ['JC Number', 'DMS JC No', 'Reg Number', 'Billed (IST)', 'Days Since Billed', 'Hub', 'City', 'Model', 'Submission Type', 'Bike Status', 'OOS Sub Status'];
+  const rows = DD_CURRENT_ROWS.map(function (r) { return [r.job_card_number, r.dms_jc_no, r.reg_number, jboFmt(r.billed_at), r.days_since_billed, r.hub_name, r.city, r.bike_model, r.submission_type, r.bike_status, r.oos_sub_status]; });
   downloadCSV((DD_CURRENT_TITLE || 'billed_vehicle_still_oos') + '.csv', header, rows);
 }
 
