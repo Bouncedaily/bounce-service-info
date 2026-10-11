@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1500px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px;max-width:900px;line-height:1.5}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+input,select,textarea{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text);font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--border2);background:#f8fafc}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}.btn.primary:hover{background:#b91c1c}
+.spacer{flex:1}.muted{color:var(--muted)}.err{color:#b91c1c}
+.prov{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+.prov a{color:#92400e;font-weight:700;cursor:pointer;text-decoration:underline}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-val{font-size:24px;font-weight:800;line-height:1.15}.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}.kpi-sub{font-size:11.5px;color:var(--muted2);margin-top:2px;line-height:1.4}
+.kpi.good .kpi-val{color:#15803d}.kpi.watch .kpi-val{color:#a16207}.kpi.bad .kpi-val{color:#b91c1c}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin:0 0 16px;overflow-x:auto}
+.tab{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.card-bd{padding:14px 16px}.msg{padding:18px 16px;line-height:1.6}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);font-size:12.5px}
+th{background:#eef2f7;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;vertical-align:bottom}
+td.l,th.l{text-align:left}
+.hubname{font-weight:700;font-size:13px;cursor:pointer}.hubname:hover{color:var(--red)}
+.citysub{color:var(--muted2);font-size:11px}
+td.cell{font-weight:700;min-width:70px;cursor:pointer;padding:10px 6px;border-bottom:2px solid #fff;border-right:2px solid #fff}
+td.cell.ok{background:#dcfce7;color:#15803d}td.cell.warn{background:#fef3c7;color:#a16207}td.cell.bad{background:#fee2e2;color:#b91c1c}td.cell.na{background:#f1f5f9;color:#94a3b8}
+.legend{display:flex;flex-wrap:wrap;gap:16px;padding:10px 16px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
+.pill.complete{background:#dcfce7;color:#15803d}.pill.short{background:#fef3c7;color:#a16207}.pill.none{background:#fee2e2;color:#b91c1c}.pill.na{background:#f1f5f9;color:var(--muted)}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;background:#e0e7ff;color:#3730a3;margin-left:6px}
+tr.famrow td{background:#f8fafc;font-weight:700;text-align:left;font-size:12px;color:var(--text2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#fee2e2;color:#b91c1c;margin:2px 4px 2px 0}
+.arow{display:grid;grid-template-columns:minmax(170px,1fr) auto auto auto;gap:12px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);border-left:4px solid transparent}
+.arow.ok{border-left-color:#16a34a}.arow.warn{border-left-color:#d97706}.arow.bad{border-left-color:#dc2626}.arow.todo{border-left-color:#cbd5e1}.arow.nor{border-left-color:#94a3b8}.arow.miss{background:#fff1f2}
+.arow .nm{font-weight:600}.arow .need{font-size:11px;color:var(--muted);font-weight:400;margin-left:6px}
+.cap{display:block;font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;text-align:center}
+.stp{display:inline-flex;align-items:center;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.stp button{width:36px;height:36px;border:0;background:#f8fafc;font-size:18px;cursor:pointer;color:var(--text2);font-family:inherit}.stp button:hover{background:#eef2f7}
+.stp input{width:56px;height:36px;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:15px;font-weight:700;border-radius:0;padding:0;-moz-appearance:textfield}
+.stp input::-webkit-outer-spin-button,.stp input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.nrow{grid-column:1/-1;display:none}.nrow input{width:100%}.nrow.open{display:block}
+.iconbtn{background:none;border:0;color:var(--muted);cursor:pointer;font-size:17px;padding:4px}
+.famhd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#f8fafc;border-bottom:1px solid var(--border);font-weight:700}
+.famhd .acts{display:flex;gap:6px;flex-wrap:wrap}
+#audfoot{position:sticky;bottom:0;z-index:5}
+.foot{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;box-shadow:0 -2px 10px rgba(0,0,0,.06);margin-bottom:18px}
+.foot .grow{flex:1;min-width:180px}.foot input[type=text]{width:100%}
+.note{font-size:12px;color:var(--muted);padding:8px 14px;background:#f8fafc;border-bottom:1px solid var(--border)}
+.note a{color:var(--red);cursor:pointer;font-weight:600}
+.okbox{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:16px;line-height:1.6}
+.rqin{width:76px;text-align:center}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
+@media(max-width:700px){.wrap{padding:12px}.arow{grid-template-columns:1fr auto auto}.arow .nm{grid-column:1/-1}.kpi-val{font-size:20px}}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Tools Tracker</h1>
+<div class="psub">Which hubs have the tools they need, and which are short. Every hub is counted against a required list, and every tool is critical, so any shortfall matters. Counts come from the hub audits recorded in the Audit tab.</div>
+<div id="msg"></div>
+<div id="main" style="display:none">
+<div class="tabs" id="tabs">
+  <button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="hub">Hub detail</button><button class="tab" data-tab="audit">Audit</button>
+  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req">Required counts</button>
+</div>
+
+<div id="tab-overview">
+  <div class="bar"><span><label>City</label><select id="city"><option value="">All cities</option></select></span>
+    <span><label>Order by</label><select id="order"><option value="hub">Hub</option><option value="short">Most short first</option><option value="stale">Longest since audit</option></select></span>
+    <span class="spacer"></span><span id="status" class="muted"></span><button class="btn" id="exp-ov"><i class="ti ti-download"></i> Export CSV</button></div>
+  <div id="reqbanner" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Required counts are not set yet.</b> Until they are, the grid cannot show what is short. An admin sets them in the <a data-go="req">Required counts</a> tab.</div></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card"><div class="card-hd"><span>Every hub, every tool family</span><span class="muted">Each cell shows how many tools are short. Click a cell or a hub to see the tools.</span></div>
+    <div class="scroll"><table id="grid"></table></div>
+    <div class="legend"><span><i style="background:#bbf7d0"></i>Nothing short</span><span><i style="background:#fde68a"></i>Short, but at least one of every tool is there</span><span><i style="background:#fecaca"></i>At least one tool has none at all</span><span><i style="background:#e2e8f0"></i>Not audited yet, or no required count</span></div></div>
+</div>
+
+<div id="tab-hub" style="display:none">
+  <div class="bar"><span><label>Hub</label><select id="hubsel"></select></span><label style="margin:0"><input type="checkbox" id="gaps"> Show only gaps</label><span class="spacer"></span><button class="btn" id="hub-audit"><i class="ti ti-clipboard-check"></i> Audit this hub</button></div>
+  <div id="hubbody"><div class="card"><div class="msg muted">Choose a hub, or click one in the Overview.</div></div></div>
+</div>
+
+<div id="tab-audit" style="display:none">
+  <div class="bar"><span><label>Hub</label><select id="audhub"></select></span><button class="btn primary" id="aud-start">Start audit</button><span class="spacer"></span><span class="muted" id="aud-hint">Count every tool in the hub. Counts are saved only when you submit.</span></div>
+  <div id="audbody"></div><div id="audfoot"></div>
+</div>
+
+<div id="tab-short" style="display:none">
+  <div class="bar"><span><label>City</label><select id="shcity"><option value="">All cities</option></select></span><span class="spacer"></span><span id="shstatus" class="muted"></span><button class="btn" id="exp-sh"><i class="ti ti-download"></i> Export CSV</button></div>
+  <div id="shbody"></div>
+</div>
+
+<div id="tab-hist" style="display:none">
+  <div class="bar"><span><label>Hub</label><select id="histhub"></select></span><span class="spacer"></span><span id="histatus" class="muted"></span></div>
+  <div id="histbody"></div>
+</div>
+
+<div id="tab-req" style="display:none">
+  <div class="bar"><span><label>Applies to</label><select id="rqscope"></select></span><span class="muted" id="rqhint"></span><span class="spacer"></span><span id="rqstatus" class="muted"></span><button class="btn" id="rq-reset">Discard changes</button><button class="btn primary" id="rq-save">Save counts</button></div>
+  <div id="rqbody"></div>
+</div>
+</div></div>
+<div id="toast"></div>
+<script>
+var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var OV=null, ALLHUBS=[], FORM=null, VAL={}, AUDHUB='', DRAFT_AT=null, RQ=null, RQSCOPE='standard', RQSTD={}, DONE=null;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
+async function rpc(fn,args){
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+sessionToken(),'Content-Type':'application/json'},body:JSON.stringify(args||{})});
+    if(r.ok) return {ok:true,data:await r.json()};
+    var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
+    return {ok:false,status:r.status,denied:(r.status===401||r.status===403),msg:m||('HTTP '+r.status)};
+  }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
+}
+function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},3200); }
+function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
+function agoText(d){ if(d==null) return 'Never'; if(d===0) return 'Today'; if(d===1) return 'Yesterday'; return d+' days ago'; }
+function num(v){ return v==null?'':v; }
+function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n'); }
+function download(name,rows){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500); window.__lastCsv={name:name,rows:rows}; }
+function denied(el,what){ el.innerHTML='<div class="card"><div class="msg"><b>'+what+'</b></div></div>'; }
+function showTab(t){
+  ['overview','hub','audit','short','hist','req'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
+  if(t==='short') loadShort(); if(t==='hist') loadHist(); if(t==='req') loadReq();
+}
+function fillHubSelects(){
+  var opts=ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' ('+esc(h.city)+')</option>';}).join('');
+  var cur={hubsel:$('hubsel').value,audhub:$('audhub').value,histhub:$('histhub').value,rqscope:$('rqscope').value};
+  $('hubsel').innerHTML='<option value="">Choose a hub</option>'+opts; $('audhub').innerHTML='<option value="">Choose a hub</option>'+opts; $('histhub').innerHTML='<option value="">All hubs</option>'+opts;
+  $('rqscope').innerHTML='<option value="standard">All hubs: the standard kit</option>'+ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' only</option>';}).join('');
+  Object.keys(cur).forEach(function(k){ if(cur[k]) $(k).value=cur[k]; });
+}
+function fillCities(){
+  var cs={}; ALLHUBS.forEach(function(h){ if(h.city) cs[h.city]=1; });
+  ['city','shcity'].forEach(function(id){ var sel=$(id); if(sel.options.length>1) return; Object.keys(cs).sort().forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }); });
+}
+
+/* ---------- Overview ---------- */
+async function load(){
+  $('status').textContent='Loading…';
+  var r=await rpc('get_tools_overview',{p_city:$('city').value||null});
+  if(!r.ok){
+    $('main').style.display=r.denied&&!OV?'none':'';
+    if(r.denied){ $('main').style.display='none'; $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the Tools Tracker.</b><br>Ask an admin to switch it on for you.</div></div>'; return; }
+    $('status').innerHTML='<span class="err">Could not load</span>'; if(!OV){ $('msg').innerHTML='<div class="card"><div class="msg err">Could not load the tracker ('+esc(r.msg)+'). Please try again.</div></div>'; } return;
+  }
+  OV=r.data; $('msg').innerHTML=''; $('main').style.display='';
+  if(!ALLHUBS.length||!$('city').value){ ALLHUBS=OV.hubs.map(function(h){return {hub_name:h.hub_name,city:h.city};}); fillCities(); fillHubSelects(); }
+  renderOverview();
+  $('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+function renderOverview(){
+  var d=OV, k=d.kpis, cells={}; d.cells.forEach(function(c){ cells[c.hub_name+'|'+c.family]=c; });
+  $('reqbanner').style.display=(k.requirements_set===0)?'':'none';
+  var hubsShort=d.hubs.filter(function(h){return (h.short_units||0)>0;}).length, notAud=k.hubs-k.audited;
+  $('kpis').innerHTML=
+    '<div class="kpi '+(k.hubs>0&&k.hubs_fully_equipped===k.hubs?'good':(k.audited===0?'':'watch'))+'"><div class="kpi-val">'+k.hubs_fully_equipped+' of '+k.hubs+'</div><div class="kpi-lbl">Hubs fully equipped</div><div class="kpi-sub">Audited, with nothing short</div></div>'+
+    '<div class="kpi '+(k.short_units>0?'bad':(k.audited>0&&k.requirements_set>0?'good':''))+'"><div class="kpi-val">'+k.short_units+'</div><div class="kpi-lbl">Tools short</div><div class="kpi-sub">'+(k.short_units>0?'across '+hubsShort+' hub'+(hubsShort===1?'':'s'):'in the hubs audited')+'</div></div>'+
+    '<div class="kpi '+(notAud>0?'watch':'good')+'"><div class="kpi-val">'+notAud+'</div><div class="kpi-lbl">Not audited yet</div><div class="kpi-sub">No count on record</div></div>'+
+    '<div class="kpi '+(k.requirements_set<k.tools_total?'watch':'good')+'"><div class="kpi-val">'+k.requirements_set+' of '+k.tools_total+'</div><div class="kpi-lbl">Required counts set</div><div class="kpi-sub">'+(k.requirements_set<k.tools_total?'Tools with no required count are left out':'Every tool has a required count')+'</div></div>';
+  var hubs=d.hubs.slice(), by=$('order').value;
+  if(by==='short') hubs.sort(function(a,b){ return (b.short_units==null?-1:b.short_units)-(a.short_units==null?-1:a.short_units)||a.hub_name.localeCompare(b.hub_name); });
+  if(by==='stale') hubs.sort(function(a,b){ return (b.days_since==null?99999:b.days_since)-(a.days_since==null?99999:a.days_since)||a.hub_name.localeCompare(b.hub_name); });
+  var h='<thead><tr><th class="l">Hub</th>'+d.families.map(function(f){return '<th>'+esc(f)+'</th>';}).join('')+'<th>Short in total</th><th>Last audit</th></tr></thead><tbody>';
+  hubs.forEach(function(hb){
+    h+='<tr><td class="l"><div class="hubname" data-hub="'+esc(hb.hub_name)+'">'+esc(hb.hub_name)+'</div><div class="citysub">'+esc(hb.city)+'</div></td>';
+    d.families.forEach(function(f){
+      var c=cells[hb.hub_name+'|'+f], at='data-hub="'+esc(hb.hub_name)+'" data-fam="'+esc(f)+'"', body, cls, tip;
+      if(!c||!c.audited){ cls='na'; body='–'; tip='Not audited yet'; }
+      else if(!c.tools_with_requirement){ cls='na'; body='n/a'; tip='No required count set for these tools'; }
+      else if(!c.short_units){ cls='ok'; body='<i class="ti ti-check"></i>'; tip='Nothing short'; }
+      else { cls=c.none_types>0?'bad':'warn'; body='\u2212'+c.short_units; tip=c.short_units+' short across '+c.short_types+' tool'+(c.short_types===1?'':'s')+(c.none_types>0?', '+c.none_types+' with none at all':''); }
+      h+='<td class="cell '+cls+'" '+at+' title="'+esc(hb.hub_name+' · '+f+': '+tip)+'">'+body+'</td>';
+    });
+    var tot=hb.short_units==null?'<span class="muted">–</span>':(hb.short_units>0?'<b style="color:#b91c1c">'+hb.short_units+'</b>':'<b style="color:#15803d">0</b>');
+    h+='<td>'+tot+'</td><td class="muted">'+esc(agoText(hb.days_since))+'</td></tr>';
+  });
+  $('grid').innerHTML=h+'</tbody>';
+}
+function exportOverview(){
+  if(!OV) return; var cells={}; OV.cells.forEach(function(c){ cells[c.hub_name+'|'+c.family]=c; });
+  var rows=[['Hub','City'].concat(OV.families.map(function(f){return f+' (short)';})).concat(['Short in total','Last audit'])];
+  OV.hubs.forEach(function(hb){ rows.push([hb.hub_name,hb.city].concat(OV.families.map(function(f){ var c=cells[hb.hub_name+'|'+f]; return (c&&c.audited&&c.tools_with_requirement)?c.short_units:''; })).concat([num(hb.short_units),hb.last_audit_at?fmtWhen(hb.last_audit_at):'Never'])); });
+  download('Tools_tracker_overview.csv',rows);
+}
+
+/* ---------- Hub detail ---------- */
+function openHub(hub){ if(!hub) return; $('hubsel').value=hub; showTab('hub'); loadHub(); }
+async function loadHub(){
+  var hub=$('hubsel').value; if(!hub){ $('hubbody').innerHTML='<div class="card"><div class="msg muted">Choose a hub, or click one in the Overview.</div></div>'; return; }
+  $('hubbody').innerHTML='<div class="card"><div class="msg muted">Loading…</div></div>';
+  var r=await rpc('get_tools_hub_detail',{p_hub:hub});
+  if(!r.ok){ $('hubbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load this hub ('+esc(r.msg)+').')+'</div></div>'; return; }
+  renderHub(r.data);
+}
+function pill(s){ var m={complete:['complete','Complete'],short:['short','Short'],none:['none','None'],no_requirement:['na','No required count'],not_audited:['na','Not audited']}[s]||['na',s]; return '<span class="pill '+m[0]+'">'+m[1]+'</span>'; }
+function renderHub(d){
+  var gaps=$('gaps').checked, la=d.last_audit, fam={}, order=[];
+  d.tools.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
+  var short=0; d.tools.forEach(function(t){ short+=(t.shortfall||0); });
+  var h='<div class="card"><div class="card-hd"><span>'+esc(d.hub.hub_name)+' <span class="citysub">'+esc(d.hub.city)+'</span></span><span class="muted">'+(la?'Last audit '+esc(fmtWhen(la.at))+' by '+esc(la.by)+(la.note?' · '+esc(la.note):''):'Never audited')+'</span></div>';
+  h+='<div class="scroll"><table><thead><tr><th class="l">Tool</th><th>Required</th><th>Working</th><th>Damaged</th><th>Short</th><th>Status</th></tr></thead><tbody>';
+  var shown=0;
+  order.forEach(function(f){
+    var rows=fam[f].filter(function(t){ return !gaps||t.status==='short'||t.status==='none'||(t.damaged||0)>0; });
+    if(!rows.length) return;
+    var fs=0; fam[f].forEach(function(t){ fs+=(t.shortfall||0); });
+    h+='<tr class="famrow"><td colspan="6">'+esc(f)+(la&&fs>0?' · '+fs+' short':'')+'</td></tr>';
+    rows.forEach(function(t){ shown++;
+      h+='<tr><td class="l">'+esc(t.name)+(t.note?' <i class="ti ti-info-circle muted" title="'+esc(t.note)+'"></i>':'')+'</td><td>'+(t.required==null?'<span class="muted">–</span>':t.required)+(t.required_source==='hub'?'<span class="tag">this hub</span>':'')+'</td><td>'+(t.working==null?'<span class="muted">–</span>':t.working)+'</td><td>'+(t.damaged?'<b style="color:#b91c1c">'+t.damaged+'</b>':(t.damaged==null?'<span class="muted">–</span>':0))+'</td><td>'+(t.shortfall==null?'<span class="muted">–</span>':(t.shortfall>0?'<b style="color:#b91c1c">'+t.shortfall+'</b>':0))+'</td><td>'+pill(t.status)+'</td></tr>';
+    });
+  });
+  if(!shown) h+='<tr><td colspan="6" class="muted" style="padding:18px">'+(gaps?'No gaps in this hub.':'No tools.')+'</td></tr>';
+  $('hubbody').innerHTML=h+'</tbody></table></div></div>';
+}
+
+/* ---------- Audit ---------- */
+function draftKey(h){ return 'tools_draft_'+h; }
+function saveDraft(){ clearTimeout(saveDraft._t); saveDraft._t=setTimeout(function(){ try{ localStorage.setItem(draftKey(AUDHUB),JSON.stringify({t:Date.now(),val:VAL})); }catch(e){} },300); }
+function clearDraft(h){ try{ localStorage.removeItem(draftKey(h)); }catch(e){} }
+function startFromHub(){ var h=$('hubsel').value; if(!h){ toast('Choose a hub first'); return; } $('audhub').value=h; showTab('audit'); startAudit(); }
+async function startAudit(force){
+  var hub=$('audhub').value; if(!hub){ toast('Choose a hub first'); return; }
+  $('audfoot').innerHTML=''; $('audbody').innerHTML='<div class="card"><div class="msg muted">Loading…</div></div>';
+  var r=await rpc('get_tools_audit_form',{p_hub:hub});
+  if(!r.ok){ $('audbody').innerHTML='<div class="card"><div class="msg">'+(r.denied?'<b>You can view the tracker, but you can\'t submit audits.</b><br>Ask an admin to give you audit access.':'<span class="err">Could not open the audit ('+esc(r.msg)+').</span>')+'</div></div>'; return; }
+  FORM=r.data; AUDHUB=hub; DRAFT_AT=null; DONE=null; VAL={};
+  var hasPrev=!!FORM.last_audit;
+  FORM.tools.forEach(function(t){ VAL[t.tool_id]={w:(hasPrev&&t.prev_working!=null)?t.prev_working:null,d:(hasPrev&&t.prev_damaged!=null)?t.prev_damaged:0,n:'',open:false}; });
+  if(!force){ try{ var dr=JSON.parse(localStorage.getItem(draftKey(hub))||'null'); if(dr&&dr.val&&FORM.tools.every(function(t){return dr.val[t.tool_id];})){ VAL=dr.val; DRAFT_AT=dr.t; } }catch(e){} }
+  renderAudit();
+}
+function rowState(t,v){ if(v.w==null) return 'todo'; if(t.required==null) return 'nor'; if(v.w>=t.required) return 'ok'; if(v.w===0) return 'bad'; return 'warn'; }
+function auditStats(){ var counted=0, short=0, shortTypes=0; FORM.tools.forEach(function(t){ var v=VAL[t.tool_id]; if(v.w!=null){ counted++; if(t.required!=null&&v.w<t.required){ short+=t.required-v.w; shortTypes++; } } }); return {counted:counted,total:FORM.tools.length,short:short,shortTypes:shortTypes}; }
+function stepper(id,k,val){ return '<span class="stp"><button type="button" data-act="dec" data-k="'+k+'" aria-label="Fewer">\u2212</button><input type="number" inputmode="numeric" min="0" max="9999" data-k="'+k+'" value="'+(val==null?'':val)+'"><button type="button" data-act="inc" data-k="'+k+'" aria-label="More">+</button></span>'; }
+function rowHtml(t){
+  var v=VAL[t.tool_id];
+  return '<div class="arow '+rowState(t,v)+'" data-t="'+t.tool_id+'"><div class="nm">'+esc(t.name)+'<span class="need">'+(t.required==null?'no required count':'needs '+t.required)+'</span></div>'+
+    '<div><span class="cap">Working</span>'+stepper(t.tool_id,'w',v.w)+'</div><div><span class="cap">Damaged</span>'+stepper(t.tool_id,'d',v.d)+'</div>'+
+    '<button type="button" class="iconbtn" data-act="note" title="Add a note" aria-label="Add a note"><i class="ti ti-message-plus"></i></button><div class="nrow'+((v.open||v.n)?' open':'')+'"><input type="text" data-k="n" placeholder="Note (optional)" maxlength="200" value="'+esc(v.n)+'"></div></div>';
+}
+function famProgress(f){ var c=0,n=0; FORM.tools.forEach(function(t){ if(t.family===f){ n++; if(VAL[t.tool_id].w!=null) c++; } }); return c+' of '+n+' counted'; }
+function renderAudit(){
+  var fam={}, order=[], hasPrev=!!FORM.last_audit;
+  FORM.tools.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
+  var h='<div class="card"><div class="card-hd"><span>Audit: '+esc(FORM.hub.hub_name)+' <span class="citysub">'+esc(FORM.hub.city)+'</span></span><span class="muted">'+(hasPrev?'Counts start from the last audit ('+esc(fmtWhen(FORM.last_audit.at))+' by '+esc(FORM.last_audit.by)+'). Change what is different.':'First audit for this hub. Count every tool.')+'</span></div>';
+  if(DRAFT_AT) h+='<div class="note">Restored your unsaved count from '+esc(fmtWhen(new Date(DRAFT_AT).toISOString()))+'. <a data-act="discard">Discard it and start again</a></div>';
+  order.forEach(function(f){
+    h+='<div data-fam="'+esc(f)+'"><div class="famhd"><span>'+esc(f)+' <span class="muted famprog" style="font-weight:400">'+famProgress(f)+'</span></span><span class="acts"><button type="button" class="btn" data-act="famreq" data-fam="'+esc(f)+'">All as required</button>'+(hasPrev?'<button type="button" class="btn" data-act="famprev" data-fam="'+esc(f)+'">Same as last audit</button>':'')+'</span></div>'+fam[f].map(rowHtml).join('')+'</div>';
+  });
+  $('audbody').innerHTML=h+'</div>';
+  $('audfoot').innerHTML='<div class="foot"><div><b id="fcount"></b><div class="muted" id="fshort"></div></div><span><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit type</label><select id="audtype"><option value="baseline"'+(hasPrev?'':' selected')+'>Baseline count</option><option value="periodic"'+(hasPrev?' selected':'')+'>Regular check</option></select></span><div class="grow"><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit note (optional)</label><input type="text" id="audnote" maxlength="300" placeholder="Anything the next person should know"></div><button class="btn primary" id="aud-submit"><i class="ti ti-send"></i> Submit audit</button></div>';
+  refreshFoot();
+}
+function refreshFoot(){ var s=auditStats(); $('fcount').textContent=s.counted+' of '+s.total+' tools counted'; $('fshort').innerHTML=s.counted<s.total?'':(s.short>0?'<span class="err">'+s.short+' short across '+s.shortTypes+' tool'+(s.shortTypes===1?'':'s')+'</span>':'<span style="color:#15803d">Nothing short</span>'); }
+function refreshRow(id){ var t=FORM.tools.filter(function(x){return x.tool_id===id;})[0], v=VAL[id], el=document.querySelector('.arow[data-t="'+id+'"]'); if(!el) return; el.className='arow '+rowState(t,v); var w=el.querySelector('input[data-k="w"]'), d=el.querySelector('input[data-k="d"]'); if(document.activeElement!==w) w.value=v.w==null?'':v.w; if(document.activeElement!==d) d.value=v.d==null?'':v.d; var fm=el.closest('[data-fam]'); if(fm) fm.querySelector('.famprog').textContent=famProgress(t.family); refreshFoot(); saveDraft(); }
+function setVal(id,k,val){ var v=VAL[id]; if(k==='n'){ v.n=val; saveDraft(); return; } if(val===''||val==null||isNaN(val)) val=null; else val=Math.max(0,Math.min(9999,Math.round(val))); v[k]=(k==='d'&&val==null)?0:val; refreshRow(id); }
+function famFill(f,mode){ FORM.tools.forEach(function(t){ if(t.family!==f) return; var v=VAL[t.tool_id]; if(mode==='req'){ if(t.required!=null){ v.w=t.required; v.d=0; } } else { if(t.prev_working!=null){ v.w=t.prev_working; v.d=t.prev_damaged||0; } } refreshRow(t.tool_id); }); }
+async function submitAudit(){
+  var s=auditStats();
+  if(s.counted<s.total){
+    var first=null; FORM.tools.forEach(function(t){ var el=document.querySelector('.arow[data-t="'+t.tool_id+'"]'); if(el){ var miss=VAL[t.tool_id].w==null; el.classList.toggle('miss',miss); if(miss&&!first) first=el; } });
+    toast((s.total-s.counted)+' tool'+(s.total-s.counted===1?'':'s')+' still need a count'); if(first) first.scrollIntoView({block:'center',behavior:'smooth'}); return;
+  }
+  var type=$('audtype').value, note=$('audnote').value.trim();
+  if(!confirm('Submit the '+(type==='baseline'?'baseline count':'check')+' for '+FORM.hub.hub_name+'?\n\n'+(s.short>0?s.short+' short across '+s.shortTypes+' tool'+(s.shortTypes===1?'':'s')+'.':'Nothing short.'))) return;
+  var btn=$('aud-submit'); btn.disabled=true;
+  var lines=FORM.tools.map(function(t){ var v=VAL[t.tool_id]; return {tool_id:t.tool_id,working:v.w,damaged:v.d||0,note:v.n||null}; });
+  var r=await rpc('submit_tools_audit',{p_hub:AUDHUB,p_lines:lines,p_note:note||null,p_type:type});
+  btn.disabled=false;
+  if(!r.ok){ toast(r.denied?'You can\'t submit audits.':'Could not save: '+r.msg); return; }
+  clearDraft(AUDHUB); DONE=r.data; var hub=AUDHUB; FORM=null; $('audfoot').innerHTML='';
+  $('audbody').innerHTML='<div class="okbox"><b>Audit saved for '+esc(hub)+'.</b><br>'+(r.data.short_units>0?r.data.short_units+' short across '+r.data.short_types+' tool'+(r.data.short_types===1?'':'s')+(r.data.none_types>0?', '+r.data.none_types+' with none at all.':'.'):'Nothing short.')+'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="viewhub" data-hub="'+esc(hub)+'">View this hub</button><button class="btn" data-act="another">Audit another hub</button></div></div>';
+  load();
+}
+
+/* ---------- Shortages and history ---------- */
+async function loadShort(){
+  $('shstatus').textContent='Loading…'; var r=await rpc('get_tools_shortages',{p_city:$('shcity').value||null});
+  if(!r.ok){ $('shstatus').textContent=''; $('shbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load the shortages ('+esc(r.msg)+').')+'</div></div>'; return; }
+  window.__SH=r.data; var tot=0; r.data.forEach(function(x){ tot+=Number(x.short_units); });
+  $('shstatus').textContent=r.data.length?(tot+' short across '+r.data.length+' tool'+(r.data.length===1?'':'s')):'';
+  if(!r.data.length){ $('shbody').innerHTML='<div class="card"><div class="msg">Nothing is short in the hubs audited so far.</div></div>'; return; }
+  var h='<div class="card"><div class="card-hd"><span>What to send</span><span class="muted">Short tools added up across hubs, biggest gap first.</span></div><div class="scroll"><table><thead><tr><th class="l">Tool</th><th class="l">Family</th><th>Short in total</th><th>Hubs</th><th class="l">Where</th></tr></thead><tbody>';
+  r.data.forEach(function(x){ h+='<tr><td class="l"><b>'+esc(x.name)+'</b></td><td class="l muted">'+esc(x.family)+'</td><td><b style="color:#b91c1c">'+x.short_units+'</b></td><td>'+x.hubs_short+'</td><td class="l">'+x.hubs.map(function(p){return '<span class="chip">'+esc(p.hub_name)+' '+p.short+'</span>';}).join('')+'</td></tr>'; });
+  $('shbody').innerHTML=h+'</tbody></table></div></div>';
+}
+function exportShort(){ var d=window.__SH||[]; var rows=[['Tool code','Tool','Family','Short in total','Hubs short','Hubs (short)']]; d.forEach(function(x){ rows.push([x.code,x.name,x.family,x.short_units,x.hubs_short,x.hubs.map(function(p){return p.hub_name+' '+p.short;}).join('; ')]); }); download('Tools_shortages.csv',rows); }
+async function loadHist(){
+  $('histatus').textContent='Loading…'; var r=await rpc('get_tools_audit_history',{p_hub:$('histhub').value||null,p_limit:60});
+  if(!r.ok){ $('histatus').textContent=''; $('histbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load the history ('+esc(r.msg)+').')+'</div></div>'; return; }
+  $('histatus').textContent=r.data.length+' audit'+(r.data.length===1?'':'s');
+  if(!r.data.length){ $('histbody').innerHTML='<div class="card"><div class="msg">No audits recorded yet.</div></div>'; return; }
+  var h='<div class="card"><div class="scroll"><table><thead><tr><th class="l">When</th><th class="l">Hub</th><th class="l">Audited by</th><th>Type</th><th>Short</th><th>Tools short</th><th>Damaged</th><th class="l">Note</th></tr></thead><tbody>';
+  r.data.forEach(function(a){ h+='<tr class="hrow" data-aid="'+a.id+'" style="cursor:pointer"><td class="l">'+esc(fmtWhen(a.audited_at))+'</td><td class="l"><b>'+esc(a.hub_name)+'</b> <span class="citysub">'+esc(a.city||'')+'</span></td><td class="l">'+esc(a.audited_by)+'</td><td>'+(a.audit_type==='baseline'?'Baseline':'Check')+'</td><td>'+(a.tools_with_requirement?(a.short_units>0?'<b style="color:#b91c1c">'+a.short_units+'</b>':'<b style="color:#15803d">0</b>'):'<span class="muted">–</span>')+'</td><td>'+a.short_types+'</td><td>'+a.damaged_units+'</td><td class="l muted">'+esc(a.note||'')+'</td></tr><tr class="hdet" id="hdet-'+a.id+'" style="display:none"><td colspan="8" class="l" style="background:#f8fafc"></td></tr>'; });
+  $('histbody').innerHTML=h+'</tbody></table></div></div>';
+}
+async function toggleAudit(id,all){
+  var row=$('hdet-'+id); if(!row) return; var cell=row.firstChild;
+  if(row.style.display!=='none'&&all==null){ row.style.display='none'; return; }
+  row.style.display=''; cell.innerHTML='<span class="muted">Loading…</span>';
+  var r=await rpc('get_tools_audit',{p_audit_id:id});
+  if(!r.ok){ cell.innerHTML='<span class="err">Could not load this audit ('+esc(r.msg)+')</span>'; return; }
+  var lines=r.data.lines.filter(function(l){ return all||l.shortfall>0||l.damaged>0; });
+  var h='<div style="margin-bottom:6px" class="muted">'+(all?'All '+r.data.lines.length+' tools':lines.length+' tool'+(lines.length===1?'':'s')+' with a gap or damage')+' · <a style="color:var(--red);cursor:pointer;font-weight:600" data-aid-all="'+id+'" data-all="'+(all?0:1)+'">'+(all?'Show gaps only':'Show all tools')+'</a></div>';
+  if(!lines.length) h+='<div>No gaps and nothing damaged.</div>'; else { h+='<table><thead><tr><th class="l">Tool</th><th>Required</th><th>Working</th><th>Damaged</th><th>Short</th><th class="l">Note</th></tr></thead><tbody>'; lines.forEach(function(l){ h+='<tr><td class="l">'+esc(l.name)+'</td><td>'+num(l.required)+'</td><td>'+l.working+'</td><td>'+l.damaged+'</td><td>'+(l.shortfall>0?'<b style="color:#b91c1c">'+l.shortfall+'</b>':num(l.shortfall))+'</td><td class="l muted">'+esc(l.note||'')+'</td></tr>'; }); h+='</tbody></table>'; }
+  cell.innerHTML=h;
+}
+
+/* ---------- Required counts (admin) ---------- */
+async function loadReq(){
+  RQSCOPE=$('rqscope').value||'standard'; $('rqbody').innerHTML='<div class="card"><div class="msg muted">Loading…</div></div>'; $('rqstatus').textContent='';
+  var r=await rpc('get_tools_requirements',{p_scope:RQSCOPE});
+  if(!r.ok){ $('rqbody').innerHTML='<div class="card"><div class="msg">'+(r.denied?'<b>Only an admin can change the required counts.</b>':'<span class="err">Could not load the required counts ('+esc(r.msg)+').</span>')+'</div></div>'; return; }
+  RQ=r.data; RQSTD={}; RQ.forEach(function(x){ RQSTD[x.tool_id]=x.standard; });
+  $('rqhint').textContent=RQSCOPE==='standard'?'The kit every hub must have. Leave blank until decided.':'Only fill a tool in if this hub needs a different count. Blank means the standard kit applies.';
+  renderReq();
+}
+function renderReq(){
+  var fam={}, order=[]; RQ.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
+  var h='<div class="card"><div class="scroll"><table><thead><tr><th class="l">Tool</th><th>'+(RQSCOPE==='standard'?'Required per hub':'Required here')+'</th>'+(RQSCOPE==='standard'?'':'<th>Standard kit</th>')+'<th class="l">To confirm</th></tr></thead><tbody>';
+  order.forEach(function(f){
+    h+='<tr class="famrow"><td colspan="'+(RQSCOPE==='standard'?3:4)+'"><span>'+esc(f)+'</span> <span style="float:right;font-weight:400">Set the whole family: <input class="rqin" type="number" min="0" max="999" data-famset="'+esc(f)+'" placeholder="–"></span></td></tr>';
+    fam[f].forEach(function(t){ h+='<tr><td class="l">'+esc(t.name)+'</td><td><input class="rqin" type="number" min="0" max="999" data-rq="'+t.tool_id+'" data-orig="'+(t.value==null?'':t.value)+'" value="'+(t.value==null?'':t.value)+'" placeholder="'+(RQSCOPE==='standard'?'':(t.standard==null?'–':t.standard))+'"></td>'+(RQSCOPE==='standard'?'':'<td class="muted">'+(t.standard==null?'not set':t.standard)+'</td>')+'<td class="l muted">'+esc(t.note||'')+'</td></tr>'; });
+  });
+  $('rqbody').innerHTML=h+'</tbody></table></div></div>'; updateReqStatus();
+}
+function rqInputs(){ return Array.prototype.slice.call(document.querySelectorAll('input[data-rq]')); }
+function updateReqStatus(){ var ins=rqInputs(), set=ins.filter(function(i){return i.value!=='';}).length, ch=ins.filter(function(i){return i.value!==i.getAttribute('data-orig');}).length; $('rqstatus').textContent=(RQSCOPE==='standard'?set+' of '+ins.length+' set':set+' only for this hub')+(ch?' · '+ch+' unsaved change'+(ch===1?'':'s'):''); }
+async function saveReq(){
+  var ins=rqInputs(), bad=ins.filter(function(i){ return i.value!==''&&!/^[0-9]{1,3}$/.test(i.value); });
+  if(bad.length){ bad[0].focus(); toast('Counts must be whole numbers from 0 to 999'); return; }
+  var vals=ins.map(function(i){ return {tool_id:Number(i.getAttribute('data-rq')),value:i.value}; });
+  $('rq-save').disabled=true; var r=await rpc('set_tools_requirements',{p_scope:RQSCOPE,p_values:vals}); $('rq-save').disabled=false;
+  if(!r.ok){ toast(r.denied?'Only an admin can change the required counts.':'Could not save: '+r.msg); return; }
+  toast('Saved '+r.data.updated+' counts'); await loadReq(); load();
+}
+
+/* ---------- wiring ---------- */
+document.addEventListener('click',function(e){
+  var t=e.target, a;
+  if((a=t.closest('#tabs .tab'))){ showTab(a.getAttribute('data-tab')); return; }
+  if((a=t.closest('[data-go]'))){ showTab(a.getAttribute('data-go')); return; }
+  if((a=t.closest('td.cell'))||(a=t.closest('.hubname'))){ openHub(a.getAttribute('data-hub')); return; }
+  if((a=t.closest('[data-aid-all]'))){ toggleAudit(Number(a.getAttribute('data-aid-all')),a.getAttribute('data-all')==='1'); return; }
+  if((a=t.closest('tr.hrow'))){ toggleAudit(Number(a.getAttribute('data-aid'))); return; }
+  if((a=t.closest('#audbody [data-act]'))){
+    var act=a.getAttribute('data-act'), row=a.closest('.arow');
+    if(act==='inc'||act==='dec'){ var id=Number(row.getAttribute('data-t')), k=a.getAttribute('data-k'), cur=VAL[id][k]; setVal(id,k,act==='inc'?(cur==null?0:cur)+1:Math.max((cur==null?1:cur)-1,0)); }
+    else if(act==='note'){ var nr=row.querySelector('.nrow'); nr.classList.toggle('open'); VAL[Number(row.getAttribute('data-t'))].open=nr.classList.contains('open'); if(nr.classList.contains('open')) nr.querySelector('input').focus(); }
+    else if(act==='famreq') famFill(a.getAttribute('data-fam'),'req');
+    else if(act==='famprev') famFill(a.getAttribute('data-fam'),'prev');
+    else if(act==='discard'){ clearDraft(AUDHUB); startAudit(true); }
+    else if(act==='viewhub') openHub(a.getAttribute('data-hub'));
+    else if(act==='another'){ $('audbody').innerHTML=''; $('audhub').value=''; }
+  }
+});
+document.addEventListener('input',function(e){
+  var i=e.target;
+  if(i.matches('#audbody input[data-k]')){ var id=Number(i.closest('.arow').getAttribute('data-t')), k=i.getAttribute('data-k'); setVal(id,k,k==='n'?i.value:(i.value===''?null:Number(i.value))); if(k!=='n'&&i.value!==''&&String(VAL[id][k])!==i.value) i.value=VAL[id][k]; }
+  else if(i.matches('input[data-rq]')) updateReqStatus();
+  else if(i.matches('input[data-famset]')){ var f=i.getAttribute('data-famset'), v=i.value; RQ.forEach(function(t){ if(t.family===f){ var el=document.querySelector('input[data-rq="'+t.tool_id+'"]'); if(el) el.value=v; } }); updateReqStatus(); }
+});
+$('city').addEventListener('change',load); $('order').addEventListener('change',function(){ if(OV) renderOverview(); });
+$('hubsel').addEventListener('change',loadHub); $('gaps').addEventListener('change',loadHub); $('hub-audit').addEventListener('click',startFromHub);
+$('aud-start').addEventListener('click',function(){ startAudit(); }); $('histhub').addEventListener('change',loadHist); $('shcity').addEventListener('change',loadShort);
+$('rqscope').addEventListener('change',loadReq); $('rq-reset').addEventListener('click',loadReq); $('rq-save').addEventListener('click',saveReq);
+$('exp-ov').addEventListener('click',exportOverview); $('exp-sh').addEventListener('click',exportShort);
+document.addEventListener('click',function(e){ if(e.target.closest('#aud-submit')) submitAudit(); });
+load();
+</script></body></html>
