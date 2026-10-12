@@ -69,23 +69,23 @@ tr.famrow td{background:#f8fafc;font-weight:700;text-align:left;font-size:12px;c
 <body>
 <div class="wrap">
 <h1>Tools Tracker</h1>
-<div class="psub">Which hubs have the tools they need, and which are short. Every hub is counted against a required list, and every tool is critical, so any shortfall matters. Counts come from the hub audits recorded in the Audit tab.</div>
+<div class="psub">Which hubs have the tools they need, and which are short. Every hub is counted against the tools first supplied to it, and every tool is critical, so any shortfall matters. Counts come from the hub audits recorded in the Audit tab.</div>
 <div id="msg"></div>
 <div id="main" style="display:none">
 <div class="tabs" id="tabs">
   <button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="hub">Hub detail</button><button class="tab" data-tab="audit">Audit</button>
-  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req">Required counts</button>
+  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req">Supplied counts</button>
 </div>
 
 <div id="tab-overview">
   <div class="bar"><span><label>City</label><select id="city"><option value="">All cities</option></select></span>
     <span><label>Order by</label><select id="order"><option value="hub">Hub</option><option value="short">Most short first</option><option value="stale">Longest since audit</option></select></span>
     <span class="spacer"></span><span id="status" class="muted"></span><button class="btn" id="exp-ov"><i class="ti ti-download"></i> Export CSV</button></div>
-  <div id="reqbanner" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Required counts are not set yet.</b> Until they are, the grid cannot show what is short. An admin sets them in the <a data-go="req">Required counts</a> tab.</div></div>
+  <div id="reqbanner" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Supplied counts are not set yet.</b> Until they are, the grid cannot show what is short. An admin sets them in the <a data-go="req">Supplied counts</a> tab.</div></div>
   <div class="kpis" id="kpis"></div>
   <div class="card"><div class="card-hd"><span>Every hub, every tool family</span><span class="muted">Each cell shows how many tools are short. Click a cell or a hub to see the tools.</span></div>
     <div class="scroll"><table id="grid"></table></div>
-    <div class="legend"><span><i style="background:#bbf7d0"></i>Nothing short</span><span><i style="background:#fde68a"></i>Short, but at least one of every tool is there</span><span><i style="background:#fecaca"></i>At least one tool has none at all</span><span><i style="background:#e2e8f0"></i>Not audited yet, or no required count</span></div></div>
+    <div class="legend"><span><i style="background:#bbf7d0"></i>Nothing short</span><span><i style="background:#fde68a"></i>Short, but at least one of every tool is there</span><span><i style="background:#fecaca"></i>At least one tool has none at all</span><span><i style="background:#e2e8f0"></i>Not audited yet, or nothing supplied</span></div></div>
 </div>
 
 <div id="tab-hub" style="display:none">
@@ -145,7 +145,7 @@ function fillHubSelects(){
   var opts=ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' ('+esc(h.city)+')</option>';}).join('');
   var cur={hubsel:$('hubsel').value,audhub:$('audhub').value,histhub:$('histhub').value,rqscope:$('rqscope').value};
   $('hubsel').innerHTML='<option value="">Choose a hub</option>'+opts; $('audhub').innerHTML='<option value="">Choose a hub</option>'+opts; $('histhub').innerHTML='<option value="">All hubs</option>'+opts;
-  $('rqscope').innerHTML='<option value="standard">All hubs: the standard kit</option>'+ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' only</option>';}).join('');
+  $('rqscope').innerHTML=ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' ('+esc(h.city)+')</option>';}).join('');
   Object.keys(cur).forEach(function(k){ if(cur[k]) $(k).value=cur[k]; });
 }
 function fillCities(){
@@ -175,7 +175,7 @@ function renderOverview(){
     '<div class="kpi '+(k.hubs>0&&k.hubs_fully_equipped===k.hubs?'good':(k.audited===0?'':'watch'))+'"><div class="kpi-val">'+k.hubs_fully_equipped+' of '+k.hubs+'</div><div class="kpi-lbl">Hubs fully equipped</div><div class="kpi-sub">Audited, with nothing short</div></div>'+
     '<div class="kpi '+(k.short_units>0?'bad':(k.audited>0&&k.requirements_set>0?'good':''))+'"><div class="kpi-val">'+k.short_units+'</div><div class="kpi-lbl">Tools short</div><div class="kpi-sub">'+(k.short_units>0?'across '+hubsShort+' hub'+(hubsShort===1?'':'s'):'in the hubs audited')+'</div></div>'+
     '<div class="kpi '+(notAud>0?'watch':'good')+'"><div class="kpi-val">'+notAud+'</div><div class="kpi-lbl">Not audited yet</div><div class="kpi-sub">No count on record</div></div>'+
-    '<div class="kpi '+(k.requirements_set<k.tools_total?'watch':'good')+'"><div class="kpi-val">'+k.requirements_set+' of '+k.tools_total+'</div><div class="kpi-lbl">Required counts set</div><div class="kpi-sub">'+(k.requirements_set<k.tools_total?'Tools with no required count are left out':'Every tool has a required count')+'</div></div>';
+    '<div class="kpi '+(k.requirements_set<k.tools_total?'watch':'good')+'"><div class="kpi-val">'+k.requirements_set+' of '+k.tools_total+'</div><div class="kpi-lbl">Supplied counts set</div><div class="kpi-sub">'+(k.requirements_set<k.tools_total?'Tools never supplied are left out':'Every tool has a supplied count')+'</div></div>';
   var hubs=d.hubs.slice(), by=$('order').value;
   if(by==='short') hubs.sort(function(a,b){ return (b.short_units==null?-1:b.short_units)-(a.short_units==null?-1:a.short_units)||a.hub_name.localeCompare(b.hub_name); });
   if(by==='stale') hubs.sort(function(a,b){ return (b.days_since==null?99999:b.days_since)-(a.days_since==null?99999:a.days_since)||a.hub_name.localeCompare(b.hub_name); });
@@ -185,7 +185,7 @@ function renderOverview(){
     d.families.forEach(function(f){
       var c=cells[hb.hub_name+'|'+f], at='data-hub="'+esc(hb.hub_name)+'" data-fam="'+esc(f)+'"', body, cls, tip;
       if(!c||!c.audited){ cls='na'; body='–'; tip='Not audited yet'; }
-      else if(!c.tools_with_requirement){ cls='na'; body='n/a'; tip='No required count set for these tools'; }
+      else if(!c.tools_with_requirement){ cls='na'; body='n/a'; tip='None of these tools were supplied to this hub'; }
       else if(!c.short_units){ cls='ok'; body='<i class="ti ti-check"></i>'; tip='Nothing short'; }
       else { cls=c.none_types>0?'bad':'warn'; body='\u2212'+c.short_units; tip=c.short_units+' short across '+c.short_types+' tool'+(c.short_types===1?'':'s')+(c.none_types>0?', '+c.none_types+' with none at all':''); }
       h+='<td class="cell '+cls+'" '+at+' title="'+esc(hb.hub_name+' · '+f+': '+tip)+'">'+body+'</td>';
@@ -211,13 +211,13 @@ async function loadHub(){
   if(!r.ok){ $('hubbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load this hub ('+esc(r.msg)+').')+'</div></div>'; return; }
   renderHub(r.data);
 }
-function pill(s){ var m={complete:['complete','Complete'],short:['short','Short'],none:['none','None'],no_requirement:['na','No required count'],not_audited:['na','Not audited']}[s]||['na',s]; return '<span class="pill '+m[0]+'">'+m[1]+'</span>'; }
+function pill(s){ var m={complete:['complete','Complete'],short:['short','Short'],none:['none','None'],no_requirement:['na','Not supplied'],not_audited:['na','Not audited']}[s]||['na',s]; return '<span class="pill '+m[0]+'">'+m[1]+'</span>'; }
 function renderHub(d){
   var gaps=$('gaps').checked, la=d.last_audit, fam={}, order=[];
   d.tools.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
   var short=0; d.tools.forEach(function(t){ short+=(t.shortfall||0); });
   var h='<div class="card"><div class="card-hd"><span>'+esc(d.hub.hub_name)+' <span class="citysub">'+esc(d.hub.city)+'</span></span><span class="muted">'+(la?'Last audit '+esc(fmtWhen(la.at))+' by '+esc(la.by)+(la.note?' · '+esc(la.note):''):'Never audited')+'</span></div>';
-  h+='<div class="scroll"><table><thead><tr><th class="l">Tool</th><th>Required</th><th>Working</th><th>Damaged</th><th>Short</th><th>Status</th></tr></thead><tbody>';
+  h+='<div class="scroll"><table><thead><tr><th class="l">Tool</th><th>Supplied</th><th>Working</th><th>Damaged</th><th>Short</th><th>Status</th></tr></thead><tbody>';
   var shown=0;
   order.forEach(function(f){
     var rows=fam[f].filter(function(t){ return !gaps||t.status==='short'||t.status==='none'||(t.damaged||0)>0; });
@@ -225,7 +225,7 @@ function renderHub(d){
     var fs=0; fam[f].forEach(function(t){ fs+=(t.shortfall||0); });
     h+='<tr class="famrow"><td colspan="6">'+esc(f)+(la&&fs>0?' · '+fs+' short':'')+'</td></tr>';
     rows.forEach(function(t){ shown++;
-      h+='<tr><td class="l">'+esc(t.name)+(t.note?' <i class="ti ti-info-circle muted" title="'+esc(t.note)+'"></i>':'')+'</td><td>'+(t.required==null?'<span class="muted">–</span>':t.required)+(t.required_source==='hub'?'<span class="tag">this hub</span>':'')+'</td><td>'+(t.working==null?'<span class="muted">–</span>':t.working)+'</td><td>'+(t.damaged?'<b style="color:#b91c1c">'+t.damaged+'</b>':(t.damaged==null?'<span class="muted">–</span>':0))+'</td><td>'+(t.shortfall==null?'<span class="muted">–</span>':(t.shortfall>0?'<b style="color:#b91c1c">'+t.shortfall+'</b>':0))+'</td><td>'+pill(t.status)+'</td></tr>';
+      h+='<tr><td class="l">'+esc(t.name)+(t.note?' <i class="ti ti-info-circle muted" title="'+esc(t.note)+'"></i>':'')+'</td><td>'+(t.required==null?'<span class="muted">–</span>':t.required)+'</td><td>'+(t.working==null?'<span class="muted">–</span>':t.working)+'</td><td>'+(t.damaged?'<b style="color:#b91c1c">'+t.damaged+'</b>':(t.damaged==null?'<span class="muted">–</span>':0))+'</td><td>'+(t.shortfall==null?'<span class="muted">–</span>':(t.shortfall>0?'<b style="color:#b91c1c">'+t.shortfall+'</b>':0))+'</td><td>'+pill(t.status)+'</td></tr>';
     });
   });
   if(!shown) h+='<tr><td colspan="6" class="muted" style="padding:18px">'+(gaps?'No gaps in this hub.':'No tools.')+'</td></tr>';
@@ -253,7 +253,7 @@ function auditStats(){ var counted=0, short=0, shortTypes=0; FORM.tools.forEach(
 function stepper(id,k,val){ return '<span class="stp"><button type="button" data-act="dec" data-k="'+k+'" aria-label="Fewer">\u2212</button><input type="number" inputmode="numeric" min="0" max="9999" data-k="'+k+'" value="'+(val==null?'':val)+'"><button type="button" data-act="inc" data-k="'+k+'" aria-label="More">+</button></span>'; }
 function rowHtml(t){
   var v=VAL[t.tool_id];
-  return '<div class="arow '+rowState(t,v)+'" data-t="'+t.tool_id+'"><div class="nm">'+esc(t.name)+'<span class="need">'+(t.required==null?'no required count':'needs '+t.required)+'</span></div>'+
+  return '<div class="arow '+rowState(t,v)+'" data-t="'+t.tool_id+'"><div class="nm">'+esc(t.name)+'<span class="need">'+(t.required==null?'not supplied':'supplied '+t.required)+'</span></div>'+
     '<div><span class="cap">Working</span>'+stepper(t.tool_id,'w',v.w)+'</div><div><span class="cap">Damaged</span>'+stepper(t.tool_id,'d',v.d)+'</div>'+
     '<button type="button" class="iconbtn" data-act="note" title="Add a note" aria-label="Add a note"><i class="ti ti-message-plus"></i></button><div class="nrow'+((v.open||v.n)?' open':'')+'"><input type="text" data-k="n" placeholder="Note (optional)" maxlength="200" value="'+esc(v.n)+'"></div></div>';
 }
@@ -264,7 +264,7 @@ function renderAudit(){
   var h='<div class="card"><div class="card-hd"><span>Audit: '+esc(FORM.hub.hub_name)+' <span class="citysub">'+esc(FORM.hub.city)+'</span></span><span class="muted">'+(hasPrev?'Counts start from the last audit ('+esc(fmtWhen(FORM.last_audit.at))+' by '+esc(FORM.last_audit.by)+'). Change what is different.':'First audit for this hub. Count every tool.')+'</span></div>';
   if(DRAFT_AT) h+='<div class="note">Restored your unsaved count from '+esc(fmtWhen(new Date(DRAFT_AT).toISOString()))+'. <a data-act="discard">Discard it and start again</a></div>';
   order.forEach(function(f){
-    h+='<div data-fam="'+esc(f)+'"><div class="famhd"><span>'+esc(f)+' <span class="muted famprog" style="font-weight:400">'+famProgress(f)+'</span></span><span class="acts"><button type="button" class="btn" data-act="famreq" data-fam="'+esc(f)+'">All as required</button>'+(hasPrev?'<button type="button" class="btn" data-act="famprev" data-fam="'+esc(f)+'">Same as last audit</button>':'')+'</span></div>'+fam[f].map(rowHtml).join('')+'</div>';
+    h+='<div data-fam="'+esc(f)+'"><div class="famhd"><span>'+esc(f)+' <span class="muted famprog" style="font-weight:400">'+famProgress(f)+'</span></span><span class="acts"><button type="button" class="btn" data-act="famreq" data-fam="'+esc(f)+'">All as supplied</button>'+(hasPrev?'<button type="button" class="btn" data-act="famprev" data-fam="'+esc(f)+'">Same as last audit</button>':'')+'</span></div>'+fam[f].map(rowHtml).join('')+'</div>';
   });
   $('audbody').innerHTML=h+'</div>';
   $('audfoot').innerHTML='<div class="foot"><div><b id="fcount"></b><div class="muted" id="fshort"></div></div><span><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit type</label><select id="audtype"><option value="baseline"'+(hasPrev?'':' selected')+'>Baseline count</option><option value="periodic"'+(hasPrev?' selected':'')+'>Regular check</option></select></span><div class="grow"><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit note (optional)</label><input type="text" id="audnote" maxlength="300" placeholder="Anything the next person should know"></div><button class="btn primary" id="aud-submit"><i class="ti ti-send"></i> Submit audit</button></div>';
@@ -321,36 +321,36 @@ async function toggleAudit(id,all){
   if(!r.ok){ cell.innerHTML='<span class="err">Could not load this audit ('+esc(r.msg)+')</span>'; return; }
   var lines=r.data.lines.filter(function(l){ return all||l.shortfall>0||l.damaged>0; });
   var h='<div style="margin-bottom:6px" class="muted">'+(all?'All '+r.data.lines.length+' tools':lines.length+' tool'+(lines.length===1?'':'s')+' with a gap or damage')+' · <a style="color:var(--red);cursor:pointer;font-weight:600" data-aid-all="'+id+'" data-all="'+(all?0:1)+'">'+(all?'Show gaps only':'Show all tools')+'</a></div>';
-  if(!lines.length) h+='<div>No gaps and nothing damaged.</div>'; else { h+='<table><thead><tr><th class="l">Tool</th><th>Required</th><th>Working</th><th>Damaged</th><th>Short</th><th class="l">Note</th></tr></thead><tbody>'; lines.forEach(function(l){ h+='<tr><td class="l">'+esc(l.name)+'</td><td>'+num(l.required)+'</td><td>'+l.working+'</td><td>'+l.damaged+'</td><td>'+(l.shortfall>0?'<b style="color:#b91c1c">'+l.shortfall+'</b>':num(l.shortfall))+'</td><td class="l muted">'+esc(l.note||'')+'</td></tr>'; }); h+='</tbody></table>'; }
+  if(!lines.length) h+='<div>No gaps and nothing damaged.</div>'; else { h+='<table><thead><tr><th class="l">Tool</th><th>Supplied</th><th>Working</th><th>Damaged</th><th>Short</th><th class="l">Note</th></tr></thead><tbody>'; lines.forEach(function(l){ h+='<tr><td class="l">'+esc(l.name)+'</td><td>'+num(l.required)+'</td><td>'+l.working+'</td><td>'+l.damaged+'</td><td>'+(l.shortfall>0?'<b style="color:#b91c1c">'+l.shortfall+'</b>':num(l.shortfall))+'</td><td class="l muted">'+esc(l.note||'')+'</td></tr>'; }); h+='</tbody></table>'; }
   cell.innerHTML=h;
 }
 
-/* ---------- Required counts (admin) ---------- */
+/* ---------- Supplied counts per hub (admin) ---------- */
 async function loadReq(){
   RQSCOPE=$('rqscope').value||'standard'; $('rqbody').innerHTML='<div class="card"><div class="msg muted">Loading…</div></div>'; $('rqstatus').textContent='';
   var r=await rpc('get_tools_requirements',{p_scope:RQSCOPE});
-  if(!r.ok){ $('rqbody').innerHTML='<div class="card"><div class="msg">'+(r.denied?'<b>Only an admin can change the required counts.</b>':'<span class="err">Could not load the required counts ('+esc(r.msg)+').</span>')+'</div></div>'; return; }
+  if(!r.ok){ $('rqbody').innerHTML='<div class="card"><div class="msg">'+(r.denied?'<b>Only an admin can change the supplied counts.</b>':'<span class="err">Could not load the supplied counts ('+esc(r.msg)+').</span>')+'</div></div>'; return; }
   RQ=r.data; RQSTD={}; RQ.forEach(function(x){ RQSTD[x.tool_id]=x.standard; });
-  $('rqhint').textContent=RQSCOPE==='standard'?'The kit every hub must have. Leave blank until decided.':'Only fill a tool in if this hub needs a different count. Blank means the standard kit applies.';
+  $('rqhint').textContent='Quantity first supplied to this hub. Shortage = supplied − working. Blank means the tool was not supplied.';
   renderReq();
 }
 function renderReq(){
   var fam={}, order=[]; RQ.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
-  var h='<div class="card"><div class="scroll"><table><thead><tr><th class="l">Tool</th><th>'+(RQSCOPE==='standard'?'Required per hub':'Required here')+'</th>'+(RQSCOPE==='standard'?'':'<th>Standard kit</th>')+'<th class="l">To confirm</th></tr></thead><tbody>';
+  var h='<div class="card"><div class="scroll"><table><thead><tr><th class="l">Tool</th><th>Supplied to hub</th><th class="l">To confirm</th></tr></thead><tbody>';
   order.forEach(function(f){
-    h+='<tr class="famrow"><td colspan="'+(RQSCOPE==='standard'?3:4)+'"><span>'+esc(f)+'</span> <span style="float:right;font-weight:400">Set the whole family: <input class="rqin" type="number" min="0" max="999" data-famset="'+esc(f)+'" placeholder="–"></span></td></tr>';
-    fam[f].forEach(function(t){ h+='<tr><td class="l">'+esc(t.name)+'</td><td><input class="rqin" type="number" min="0" max="999" data-rq="'+t.tool_id+'" data-orig="'+(t.value==null?'':t.value)+'" value="'+(t.value==null?'':t.value)+'" placeholder="'+(RQSCOPE==='standard'?'':(t.standard==null?'–':t.standard))+'"></td>'+(RQSCOPE==='standard'?'':'<td class="muted">'+(t.standard==null?'not set':t.standard)+'</td>')+'<td class="l muted">'+esc(t.note||'')+'</td></tr>'; });
+    h+='<tr class="famrow"><td colspan="3"><span>'+esc(f)+'</span> <span style="float:right;font-weight:400">Set the whole family: <input class="rqin" type="number" min="0" max="999" data-famset="'+esc(f)+'" placeholder="–"></span></td></tr>';
+    fam[f].forEach(function(t){ h+='<tr><td class="l">'+esc(t.name)+'</td><td><input class="rqin" type="number" min="0" max="999" data-rq="'+t.tool_id+'" data-orig="'+(t.value==null?'':t.value)+'" value="'+(t.value==null?'':t.value)+'" placeholder="–"></td><td class="l muted">'+esc(t.note||'')+'</td></tr>'; });
   });
   $('rqbody').innerHTML=h+'</tbody></table></div></div>'; updateReqStatus();
 }
 function rqInputs(){ return Array.prototype.slice.call(document.querySelectorAll('input[data-rq]')); }
-function updateReqStatus(){ var ins=rqInputs(), set=ins.filter(function(i){return i.value!=='';}).length, ch=ins.filter(function(i){return i.value!==i.getAttribute('data-orig');}).length; $('rqstatus').textContent=(RQSCOPE==='standard'?set+' of '+ins.length+' set':set+' only for this hub')+(ch?' · '+ch+' unsaved change'+(ch===1?'':'s'):''); }
+function updateReqStatus(){ var ins=rqInputs(), set=ins.filter(function(i){return i.value!=='';}).length, ch=ins.filter(function(i){return i.value!==i.getAttribute('data-orig');}).length; $('rqstatus').textContent=set+' of '+ins.length+' tools supplied'+(ch?' · '+ch+' unsaved change'+(ch===1?'':'s'):''); }
 async function saveReq(){
   var ins=rqInputs(), bad=ins.filter(function(i){ return i.value!==''&&!/^[0-9]{1,3}$/.test(i.value); });
   if(bad.length){ bad[0].focus(); toast('Counts must be whole numbers from 0 to 999'); return; }
   var vals=ins.map(function(i){ return {tool_id:Number(i.getAttribute('data-rq')),value:i.value}; });
   $('rq-save').disabled=true; var r=await rpc('set_tools_requirements',{p_scope:RQSCOPE,p_values:vals}); $('rq-save').disabled=false;
-  if(!r.ok){ toast(r.denied?'Only an admin can change the required counts.':'Could not save: '+r.msg); return; }
+  if(!r.ok){ toast(r.denied?'Only an admin can change the supplied counts.':'Could not save: '+r.msg); return; }
   toast('Saved '+r.data.updated+' counts'); await loadReq(); load();
 }
 
