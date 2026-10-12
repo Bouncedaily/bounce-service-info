@@ -174,13 +174,38 @@ var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var OV=null, ALLHUBS=[], FORM=null, VAL={}, AUDHUB='', DRAFT_AT=null, RQ=null, RQSCOPE='standard', RQSTD={}, DONE=null, IS_ADMIN=false;
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
+/* Session: login tokens last about an hour. Refresh before expiry (same approach as the OOS dashboard) and
+   retry once on 401, so an expired token is not mistaken for "no access". */
+function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:localStorage}; }
+function tokenExpMs(jwt){ try{ var p=JSON.parse(atob(jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+var _refreshing=null;
+async function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async function(){
+    var o=readSess(), s=o.s; if(!s.refresh_token) return null;
+    try{
+      var r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token});
+      o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token;
+    }catch(e){ return null; }
+  })();
+  try{ return await _refreshing; } finally { _refreshing=null; }
+}
+async function validToken(){
+  var s=readSess().s; if(!s.access_token) return ANON;
+  var exp=tokenExpMs(s.access_token); if(exp&&exp>Date.now()+30000) return s.access_token;
+  return (await refreshSession())||s.access_token;
+}
 async function rpc(fn,args){
   try{
-    var r=await fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+sessionToken(),'Content-Type':'application/json'},body:JSON.stringify(args||{})});
+    var call=function(tok){ return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args||{})}); };
+    var r=await call(await validToken());
+    if(r.status===401){ var nt=await refreshSession(); if(nt) r=await call(nt); }
     if(r.ok) return {ok:true,data:await r.json()};
     var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
-    return {ok:false,status:r.status,denied:(r.status===401||r.status===403),msg:m||('HTTP '+r.status)};
+    if(r.status===401) return {ok:false,status:401,expired:true,denied:false,msg:'Your session has expired'};
+    return {ok:false,status:r.status,denied:(r.status===403),msg:m||('HTTP '+r.status)};
   }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
 }
 function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},3200); }
@@ -222,6 +247,7 @@ async function load(){
   var r=await rpc('get_tools_overview',{p_city:$('city').value||null});
   if(!r.ok){
     $('main').style.display=r.denied&&!OV?'none':'';
+    if(r.expired){ $('main').style.display='none'; $('msg').innerHTML='<div class="card"><div class="msg"><b>Your session has expired.</b><br>Please sign out and sign in again.</div></div>'; return; }
     if(r.denied){ $('main').style.display='none'; $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the Tools Tracker.</b><br>Ask an admin to switch it on for you.</div></div>'; return; }
     $('status').innerHTML='<span class="err">Could not load</span>'; if(!OV){ $('msg').innerHTML='<div class="card"><div class="msg err">Could not load the tracker ('+esc(r.msg)+'). Please try again.</div></div>'; } return;
   }
