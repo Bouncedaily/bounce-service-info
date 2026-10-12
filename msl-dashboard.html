@@ -529,7 +529,7 @@ body { overflow:auto!important; }
         <button class="toggle-btn active" id="shortOnly" onclick="toggleShort()">
           <i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Short only
         </button>
-        <div class="synced-lbl" id="syncedLbl">Syncs from the sheet every 5 minutes</div>
+        <div class="synced-lbl" id="syncedLbl" title="Auto-sync from the Google Sheet at 10:05 AM, 2:30 PM and 6 PM">Auto-sync: 10:05 AM, 2:30 PM, 6 PM</div>
         <button class="toggle-btn" id="mslSyncBtn" style="display:none" onclick="mslSyncNow()" title="Pull the latest MSL data from the Google Sheet now"><i class="ti ti-refresh" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i><span id="mslSyncTxt">Sync now</span></button>
       </div>
 
@@ -1248,7 +1248,7 @@ async function load() {
   const syncedAt = allData.find(r => r.synced_at);
   if (syncedAt) {
     const d = new Date(syncedAt.synced_at);
-    document.getElementById('syncedLbl').textContent = 'Synced: ' + d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    document.getElementById('syncedLbl').textContent = 'Synced: ' + d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' · auto at 10:05, 2:30, 6 PM';
   }
   render();
 }
