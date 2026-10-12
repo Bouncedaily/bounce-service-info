@@ -65,6 +65,19 @@ tr.famrow td{background:#f8fafc;font-weight:700;text-align:left;font-size:12px;c
 .rqin{width:76px;text-align:center}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
 @media(max-width:700px){.wrap{padding:12px}.arow{grid-template-columns:1fr auto auto}.arow .nm{grid-column:1/-1}.kpi-val{font-size:20px}}
+.mx-wrap{overflow:auto;max-height:72vh}
+#grid.mx-table{border-collapse:separate;border-spacing:0}
+#grid.mx-table thead th{position:sticky;top:0;z-index:2;text-transform:none;letter-spacing:0;min-width:64px;vertical-align:bottom}
+#grid.mx-table thead th .hubname{font-size:11.5px}
+#grid.mx-table .mx-tool{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;min-width:230px;max-width:300px;white-space:normal;font-size:12.5px;border-right:1px solid var(--border)}
+#grid.mx-table thead th.mx-tool{z-index:3;background:#eef2f7;text-transform:uppercase;letter-spacing:.03em}
+#grid.mx-table tr.mx-fam td{background:#f8fafc;font-weight:700;text-align:left;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px}
+#grid.mx-table td.cell.mx{min-width:52px;padding:7px 4px}
+#grid.mx-table td.mx-empty{background:#fff}
+#grid.mx-table td.mx-tot{font-weight:700}
+#grid.mx-table tfoot td{background:#f8fafc;font-weight:600;border-top:1px solid var(--border)}
+#grid.mx-table tfoot td.mx-tool{font-weight:700}
+input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6px;text-align:left;font-size:13px;font-weight:400;padding:6px 10px}
 </style></head>
 <body>
 <div class="wrap">
@@ -80,12 +93,14 @@ tr.famrow td{background:#f8fafc;font-weight:700;text-align:left;font-size:12px;c
 <div id="tab-overview">
   <div class="bar"><span><label>City</label><select id="city"><option value="">All cities</option></select></span>
     <span><label>Order by</label><select id="order"><option value="hub">Hub</option><option value="short">Most short first</option><option value="stale">Longest since audit</option></select></span>
+    <span><label>Show</label><select id="ovmetric"><option value="sup">Supplied qty</option><option value="pres">Present (working)</option><option value="short">Short</option></select></span>
+    <span><label>Tool</label><input type="text" id="ovq" class="ovq" placeholder="Search a tool"></span>
     <span class="spacer"></span><span id="status" class="muted"></span><button class="btn" id="exp-ov"><i class="ti ti-download"></i> Export CSV</button></div>
   <div id="reqbanner" class="prov" style="display:none"><i class="ti ti-alert-triangle" style="font-size:16px"></i><div><b>Supplied counts are not set yet.</b> Until they are, the grid cannot show what is short. An admin sets them in the <a data-go="req">Supplied counts</a> tab.</div></div>
   <div class="kpis" id="kpis"></div>
-  <div class="card"><div class="card-hd"><span>Every hub, every tool family</span><span class="muted">Each cell shows how many tools are short. Click a cell or a hub to see the tools.</span></div>
-    <div class="scroll"><table id="grid"></table></div>
-    <div class="legend"><span><i style="background:#bbf7d0"></i>Nothing short</span><span><i style="background:#fde68a"></i>Short, but at least one of every tool is there</span><span><i style="background:#fecaca"></i>At least one tool has none at all</span><span><i style="background:#e2e8f0"></i>Not audited yet, or nothing supplied</span></div></div>
+  <div class="card"><div class="card-hd"><span>Every tool, every hub</span><span class="muted" id="ovhint">Rows are tools, columns are hubs. Click a cell or a hub to open that hub.</span></div>
+    <div class="scroll mx-wrap"><table id="grid" class="mx-table"></table></div>
+    <div class="legend"><span><i style="background:#bbf7d0"></i>All present</span><span><i style="background:#fde68a"></i>Short, some present</span><span><i style="background:#fecaca"></i>None present</span><span><i style="background:#e2e8f0"></i>Supplied, not audited yet</span><span><i style="background:#fff;border:1px solid #e2e8f0"></i>Not supplied to this hub</span></div></div>
 </div>
 
 <div id="tab-hub" style="display:none">
@@ -176,30 +191,49 @@ function renderOverview(){
     '<div class="kpi '+(k.short_units>0?'bad':(k.audited>0&&k.requirements_set>0?'good':''))+'"><div class="kpi-val">'+k.short_units+'</div><div class="kpi-lbl">Tools short</div><div class="kpi-sub">'+(k.short_units>0?'across '+hubsShort+' hub'+(hubsShort===1?'':'s'):'in the hubs audited')+'</div></div>'+
     '<div class="kpi '+(notAud>0?'watch':'good')+'"><div class="kpi-val">'+notAud+'</div><div class="kpi-lbl">Not audited yet</div><div class="kpi-sub">No count on record</div></div>'+
     '<div class="kpi '+(k.requirements_set<k.tools_total?'watch':'good')+'"><div class="kpi-val">'+k.requirements_set+' of '+k.tools_total+'</div><div class="kpi-lbl">Supplied counts set</div><div class="kpi-sub">'+(k.requirements_set<k.tools_total?'Tools never supplied are left out':'Every tool has a supplied count')+'</div></div>';
-  var hubs=d.hubs.slice(), by=$('order').value;
+  if(!$('ovmetric').getAttribute('data-touched')) $('ovmetric').value=k.audited>0?'short':'sup';
+  var X=ovMatrix(), hubs=X.hubs, metric=$('ovmetric').value;
+  $('ovhint').textContent={sup:'Each cell is the qty first supplied to the hub.',pres:'Each cell is the working qty counted in the last audit.',short:'Each cell is how many are short (supplied \u2212 working) in the last audit.'}[metric]+' Click a cell or a hub to open that hub.';
+  var h='<thead><tr><th class="l mx-tool">Tool</th>'+hubs.map(function(hb){ return '<th><div class="hubname" data-hub="'+esc(hb.hub_name)+'">'+esc(hb.hub_name)+'</div><div class="citysub">'+esc(hb.city)+'</div></th>'; }).join('')+'<th>Total</th></tr></thead><tbody>';
+  var fam=null, ncol=hubs.length+2;
+  if(!X.tools.length) h+='<tr><td class="l" colspan="'+ncol+'"><span class="muted">No tools match.</span></td></tr>';
+  X.tools.forEach(function(t){
+    if(t[2]!==fam){ fam=t[2]; h+='<tr class="mx-fam"><td class="l" colspan="'+ncol+'">'+esc(fam)+'</td></tr>'; }
+    var tot=0, any=false;
+    h+='<tr><td class="l mx-tool">'+esc(t[1])+'</td>';
+    hubs.forEach(function(hb){
+      var c=X.cell(hb,t);
+      if(!c){ h+='<td class="mx-empty"></td>'; return; }
+      var cls=!c.a?'na':(c.w>=c.s?'ok':(c.w===0?'bad':'warn')), v=ovVal(c,metric), body;
+      if(metric==='short') body=!c.a?'\u2013':(c.sh>0?'\u2212'+c.sh:'<i class="ti ti-check"></i>');
+      else body=(v==null?'\u2013':v);
+      if(v!=null){ tot+=v; any=true; }
+      var tip=hb.hub_name+' \u00b7 '+t[1]+': supplied '+c.s+(c.a?', working '+c.w+', damaged '+c.dm+', short '+c.sh:' \u2014 not audited yet');
+      h+='<td class="cell mx '+cls+'" data-hub="'+esc(hb.hub_name)+'" title="'+esc(tip)+'">'+body+'</td>';
+    });
+    h+='<td class="mx-tot">'+(any?tot:'<span class="muted">\u2013</span>')+'</td></tr>';
+  });
+  h+='</tbody><tfoot><tr><td class="l mx-tool">Supplied in total</td>'+hubs.map(function(hb){ return '<td>'+(hb.required_units||'<span class="muted">0</span>')+'</td>'; }).join('')+'<td>'+hubs.reduce(function(a,hb){return a+(hb.required_units||0);},0)+'</td></tr>'+
+     '<tr><td class="l mx-tool">Short in total</td>'+hubs.map(function(hb){ return '<td>'+(hb.short_units==null?'<span class="muted">\u2013</span>':(hb.short_units>0?'<b style="color:#b91c1c">'+hb.short_units+'</b>':'<b style="color:#15803d">0</b>'))+'</td>'; }).join('')+'<td>'+hubs.reduce(function(a,hb){return a+(hb.short_units||0);},0)+'</td></tr>'+
+     '<tr><td class="l mx-tool">Last audit</td>'+hubs.map(function(hb){ return '<td class="muted">'+esc(agoText(hb.days_since))+'</td>'; }).join('')+'<td></td></tr></tfoot>';
+  $('grid').innerHTML=h;
+}
+function ovMatrix(){
+  var d=OV, by=$('order').value, q=($('ovq').value||'').trim().toLowerCase(), hubs=d.hubs.slice(), M={};
   if(by==='short') hubs.sort(function(a,b){ return (b.short_units==null?-1:b.short_units)-(a.short_units==null?-1:a.short_units)||a.hub_name.localeCompare(b.hub_name); });
   if(by==='stale') hubs.sort(function(a,b){ return (b.days_since==null?99999:b.days_since)-(a.days_since==null?99999:a.days_since)||a.hub_name.localeCompare(b.hub_name); });
-  var h='<thead><tr><th class="l">Hub</th>'+d.families.map(function(f){return '<th>'+esc(f)+'</th>';}).join('')+'<th>Short in total</th><th>Last audit</th></tr></thead><tbody>';
-  hubs.forEach(function(hb){
-    h+='<tr><td class="l"><div class="hubname" data-hub="'+esc(hb.hub_name)+'">'+esc(hb.hub_name)+'</div><div class="citysub">'+esc(hb.city)+'</div></td>';
-    d.families.forEach(function(f){
-      var c=cells[hb.hub_name+'|'+f], at='data-hub="'+esc(hb.hub_name)+'" data-fam="'+esc(f)+'"', body, cls, tip;
-      if(!c||!c.audited){ cls='na'; body='–'; tip='Not audited yet'; }
-      else if(!c.tools_with_requirement){ cls='na'; body='n/a'; tip='None of these tools were supplied to this hub'; }
-      else if(!c.short_units){ cls='ok'; body='<i class="ti ti-check"></i>'; tip='Nothing short'; }
-      else { cls=c.none_types>0?'bad':'warn'; body='\u2212'+c.short_units; tip=c.short_units+' short across '+c.short_types+' tool'+(c.short_types===1?'':'s')+(c.none_types>0?', '+c.none_types+' with none at all':''); }
-      h+='<td class="cell '+cls+'" '+at+' title="'+esc(hb.hub_name+' · '+f+': '+tip)+'">'+body+'</td>';
-    });
-    var tot=hb.short_units==null?'<span class="muted">–</span>':(hb.short_units>0?'<b style="color:#b91c1c">'+hb.short_units+'</b>':'<b style="color:#15803d">0</b>');
-    h+='<td>'+tot+'</td><td class="muted">'+esc(agoText(hb.days_since))+'</td></tr>';
-  });
-  $('grid').innerHTML=h+'</tbody>';
+  (d.matrix||[]).forEach(function(r){ M[r[0]+'|'+r[1]]={s:r[2],w:r[3],dm:r[4]}; });
+  function cell(hb,t){ var c=M[hb.hub_name+'|'+t[0]]; if(!c||c.s==null) return null; var w=hb.audited?(c.w||0):null; return {s:c.s,a:!!hb.audited,w:w,dm:hb.audited?(c.dm||0):null,sh:hb.audited?Math.max(c.s-w,0):null}; }
+  var tools=(d.tools||[]).filter(function(t){ if(q&&String(t[1]).toLowerCase().indexOf(q)<0) return false; return hubs.some(function(hb){ return cell(hb,t); }); });
+  return {hubs:hubs,tools:tools,cell:cell};
 }
+function ovVal(c,metric){ if(metric==='sup') return c.s; if(!c.a) return null; return metric==='pres'?c.w:c.sh; }
 function exportOverview(){
-  if(!OV) return; var cells={}; OV.cells.forEach(function(c){ cells[c.hub_name+'|'+c.family]=c; });
-  var rows=[['Hub','City'].concat(OV.families.map(function(f){return f+' (short)';})).concat(['Short in total','Last audit'])];
-  OV.hubs.forEach(function(hb){ rows.push([hb.hub_name,hb.city].concat(OV.families.map(function(f){ var c=cells[hb.hub_name+'|'+f]; return (c&&c.audited&&c.tools_with_requirement)?c.short_units:''; })).concat([num(hb.short_units),hb.last_audit_at?fmtWhen(hb.last_audit_at):'Never'])); });
-  download('Tools_tracker_overview.csv',rows);
+  if(!OV) return; var X=ovMatrix(), metric=$('ovmetric').value, lbl={sup:'Supplied qty',pres:'Present (working)',short:'Short'}[metric];
+  var rows=[['Family','Tool'].concat(X.hubs.map(function(hb){return hb.hub_name;})).concat(['Total ('+lbl+')'])];
+  X.tools.forEach(function(t){ var tot=0; rows.push([t[2],t[1]].concat(X.hubs.map(function(hb){ var c=X.cell(hb,t); if(!c) return ''; var v=ovVal(c,metric); if(v!=null) tot+=v; return v==null?'not audited':v; })).concat([tot])); });
+  rows.push(['','Last audit'].concat(X.hubs.map(function(hb){ return hb.last_audit_at?fmtWhen(hb.last_audit_at):'Never'; })).concat(['']));
+  download('Tools_tracker_overview_'+metric+'.csv',rows);
 }
 
 /* ---------- Hub detail ---------- */
@@ -380,6 +414,8 @@ document.addEventListener('input',function(e){
   else if(i.matches('input[data-famset]')){ var f=i.getAttribute('data-famset'), v=i.value; RQ.forEach(function(t){ if(t.family===f){ var el=document.querySelector('input[data-rq="'+t.tool_id+'"]'); if(el) el.value=v; } }); updateReqStatus(); }
 });
 $('city').addEventListener('change',load); $('order').addEventListener('change',function(){ if(OV) renderOverview(); });
+$('ovmetric').addEventListener('change',function(){ this.setAttribute('data-touched','1'); if(OV) renderOverview(); });
+$('ovq').addEventListener('input',function(){ if(OV) renderOverview(); });
 $('hubsel').addEventListener('change',loadHub); $('gaps').addEventListener('change',loadHub); $('hub-audit').addEventListener('click',startFromHub);
 $('aud-start').addEventListener('click',function(){ startAudit(); }); $('histhub').addEventListener('change',loadHist); $('shcity').addEventListener('change',loadShort);
 $('rqscope').addEventListener('change',loadReq); $('rq-reset').addEventListener('click',loadReq); $('rq-save').addEventListener('click',saveReq);
