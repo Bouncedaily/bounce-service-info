@@ -78,6 +78,50 @@ tr.famrow td{background:#f8fafc;font-weight:700;text-align:left;font-size:12px;c
 #grid.mx-table tfoot td{background:#f8fafc;font-weight:600;border-top:1px solid var(--border)}
 #grid.mx-table tfoot td.mx-tool{font-weight:700}
 input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6px;text-align:left;font-size:13px;font-weight:400;padding:6px 10px}
+.au-card{overflow:visible}
+.au-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:14px 16px 10px}
+.au-hub{font-size:17px;font-weight:800}
+.au-sub{font-size:12px;margin-top:2px}
+.au-filter{display:inline-flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.au-filter button{border:0;background:#fff;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;font-family:inherit}
+.au-filter button+button{border-left:1px solid var(--border2)}
+.au-filter button.on{background:var(--red);color:#fff}
+.au-sum{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:0 16px 10px}
+.au-s{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.au-s b{display:block;font-size:18px;font-weight:800;line-height:1.2}
+.au-s span{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.au-s-ok b{color:#15803d}.au-s-bad b{color:#b91c1c}.au-s-warn b{color:#a16207}
+.au-bar{height:4px;background:#eef2f7;margin:0 16px 12px;border-radius:2px;overflow:hidden}
+.au-bar i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.au-head{display:grid;grid-template-columns:minmax(200px,1.6fr) 80px 150px 110px minmax(240px,1.6fr);gap:12px;padding:8px 14px 8px 18px;background:#eef2f7;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+#audbody .arow.au-row{display:grid;grid-template-columns:minmax(200px,1.6fr) 80px 150px 110px minmax(240px,1.6fr);gap:12px;align-items:center;padding:8px 14px}
+#audbody .au-name{font-weight:600;font-size:13px;grid-column:auto}
+#audbody .au-prev{display:block;font-size:11px;color:var(--muted2);font-weight:400;margin-top:1px}
+#audbody .au-cap{display:none}
+#audbody .au-sup b{font-size:15px}
+#audbody .au-c{text-align:center}
+#audbody .au-rem{text-align:left}
+.au-remin{display:flex;align-items:center;gap:8px}
+.au-dmg{display:inline-flex;align-items:center;gap:6px;flex:none}
+.au-dl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+#audbody .stp.sm button{width:28px;height:30px;font-size:15px}
+#audbody .stp.sm input{width:40px;height:30px;font-size:13px}
+#audbody input.au-note{width:auto;flex:1;min-width:0;height:32px;border:1px solid var(--border);border-radius:6px;text-align:left;font-size:12.5px;font-weight:400;padding:4px 8px}
+.au-pill{display:inline-flex;align-items:center;gap:3px;min-width:44px;justify-content:center;padding:4px 10px;border-radius:999px;font-weight:800;font-size:13px}
+.au-ok{background:#dcfce7;color:#15803d}.au-warn{background:#fef3c7;color:#a16207}.au-bad{background:#fee2e2;color:#b91c1c}.au-wait{background:#f1f5f9;color:#94a3b8}
+.au-extra{display:block;font-size:10.5px;color:#1d4ed8;margin-top:2px}
+#audbody.f-todo .arow:not(.todo){display:none}
+#audbody.f-miss .arow:not(.warn):not(.bad){display:none}
+.au-empty{padding:18px 16px}
+@media (max-width:860px){
+  .au-head{display:none}
+  .au-sum{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #audbody .arow.au-row{grid-template-columns:1fr 1fr 1fr;gap:8px 10px;padding:10px 12px}
+  #audbody .au-name{grid-column:1/-1}
+  #audbody .au-rem{grid-column:1/-1}
+  #audbody .au-cap{display:block;font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+  #audbody .au-rem .au-cap{display:none}
+}
 </style></head>
 <body>
 <div class="wrap">
@@ -87,7 +131,7 @@ input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6
 <div id="main" style="display:none">
 <div class="tabs" id="tabs">
   <button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="hub">Hub detail</button><button class="tab" data-tab="audit">Audit</button>
-  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req">Supplied counts</button>
+  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req" id="tab-btn-req" style="display:none">Supplied counts</button>
 </div>
 
 <div id="tab-overview">
@@ -109,7 +153,7 @@ input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6
 </div>
 
 <div id="tab-audit" style="display:none">
-  <div class="bar"><span><label>Hub</label><select id="audhub"></select></span><button class="btn primary" id="aud-start">Start audit</button><span class="spacer"></span><span class="muted" id="aud-hint">Count every tool in the hub. Counts are saved only when you submit.</span></div>
+  <div class="bar"><span><label>Hub</label><select id="audhub"></select></span><button class="btn primary" id="aud-start">Start audit</button><span class="spacer"></span><span class="muted" id="aud-hint">Count only working tools as available. Damaged ones go in Remarks. Nothing is saved until you submit.</span></div>
   <div id="audbody"></div><div id="audfoot"></div>
 </div>
 
@@ -132,7 +176,7 @@ input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6
 <script>
 var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-var OV=null, ALLHUBS=[], FORM=null, VAL={}, AUDHUB='', DRAFT_AT=null, RQ=null, RQSCOPE='standard', RQSTD={}, DONE=null;
+var OV=null, ALLHUBS=[], FORM=null, VAL={}, AUDHUB='', DRAFT_AT=null, RQ=null, RQSCOPE='standard', RQSTD={}, DONE=null, IS_ADMIN=false;
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function sessionToken(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.access_token||ANON; }catch(e){ return ANON; } }
@@ -152,6 +196,7 @@ function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(functi
 function download(name,rows){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500); window.__lastCsv={name:name,rows:rows}; }
 function denied(el,what){ el.innerHTML='<div class="card"><div class="msg"><b>'+what+'</b></div></div>'; }
 function showTab(t){
+  if(t==='req'&&!IS_ADMIN) t='overview';
   ['overview','hub','audit','short','hist','req'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
   if(t==='short') loadShort(); if(t==='hist') loadHist(); if(t==='req') loadReq();
@@ -168,6 +213,13 @@ function fillCities(){
   ['city','shcity'].forEach(function(id){ var sel=$(id); if(sel.options.length>1) return; Object.keys(cs).sort().forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }); });
 }
 
+/* ---------- Admin check: only admins see the Supplied counts tab (the database enforces this too) ---------- */
+async function checkAdmin(){
+  if(checkAdmin.done) return; checkAdmin.done=true;
+  var r=await rpc('is_calling_user_admin',{}); IS_ADMIN=!!(r.ok&&r.data===true);
+  $('tab-btn-req').style.display=IS_ADMIN?'':'none';
+  var a=document.querySelector('#reqbanner a[data-go="req"]'); if(a&&!IS_ADMIN){ var sp=document.createElement('span'); sp.textContent='Supplied counts'; a.parentNode.replaceChild(sp,a); }
+}
 /* ---------- Overview ---------- */
 async function load(){
   $('status').textContent='Loading…';
@@ -177,7 +229,7 @@ async function load(){
     if(r.denied){ $('main').style.display='none'; $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the Tools Tracker.</b><br>Ask an admin to switch it on for you.</div></div>'; return; }
     $('status').innerHTML='<span class="err">Could not load</span>'; if(!OV){ $('msg').innerHTML='<div class="card"><div class="msg err">Could not load the tracker ('+esc(r.msg)+'). Please try again.</div></div>'; } return;
   }
-  OV=r.data; $('msg').innerHTML=''; $('main').style.display='';
+  OV=r.data; $('msg').innerHTML=''; $('main').style.display=''; checkAdmin();
   if(!ALLHUBS.length||!$('city').value){ ALLHUBS=OV.hubs.map(function(h){return {hub_name:h.hub_name,city:h.city};}); fillCities(); fillHubSelects(); }
   renderOverview();
   $('status').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -282,32 +334,66 @@ async function startAudit(force){
   if(!force){ try{ var dr=JSON.parse(localStorage.getItem(draftKey(hub))||'null'); if(dr&&dr.val&&FORM.tools.every(function(t){return dr.val[t.tool_id];})){ VAL=dr.val; DRAFT_AT=dr.t; } }catch(e){} }
   renderAudit();
 }
+function auSummary(st){
+  var el=$('au-sum'); if(!el) return; var sup=0,av=0,mi=0,dm=0;
+  FORM.tools.forEach(function(t){ var v=VAL[t.tool_id]; sup+=t.required||0; if(v.w!=null){ av+=v.w; mi+=auMiss(t,v)||0; } dm+=v.d||0; });
+  function box(cls,val,lbl){ return '<div class="au-s '+cls+'"><b>'+val+'</b><span>'+lbl+'</span></div>'; }
+  el.innerHTML=box('',st.counted+' / '+st.total,'Tools counted')+box('',sup,'Supplied')+box('au-s-ok',av,'Available (working)')+box(mi?'au-s-bad':'',mi,'Missing')+box(dm?'au-s-warn':'',dm,'Damaged');
+  var p=$('au-prog'); if(p) p.style.width=(st.total?Math.round(st.counted*100/st.total):0)+'%';
+}
 function rowState(t,v){ if(v.w==null) return 'todo'; if(t.required==null) return 'nor'; if(v.w>=t.required) return 'ok'; if(v.w===0) return 'bad'; return 'warn'; }
 function auditStats(){ var counted=0, short=0, shortTypes=0; FORM.tools.forEach(function(t){ var v=VAL[t.tool_id]; if(v.w!=null){ counted++; if(t.required!=null&&v.w<t.required){ short+=t.required-v.w; shortTypes++; } } }); return {counted:counted,total:FORM.tools.length,short:short,shortTypes:shortTypes}; }
 function stepper(id,k,val){ return '<span class="stp"><button type="button" data-act="dec" data-k="'+k+'" aria-label="Fewer">\u2212</button><input type="number" inputmode="numeric" min="0" max="9999" data-k="'+k+'" value="'+(val==null?'':val)+'"><button type="button" data-act="inc" data-k="'+k+'" aria-label="More">+</button></span>'; }
+function auMiss(t,v){ return (v.w==null||t.required==null)?null:Math.max(t.required-v.w,0); }
+function auMissHtml(t,v){
+  var m=auMiss(t,v); if(m==null) return '<span class="au-pill au-wait">\u2013</span>';
+  if(m===0) return '<span class="au-pill au-ok"><i class="ti ti-check"></i> 0</span>'+(v.w>t.required?'<span class="au-extra">+'+(v.w-t.required)+' extra</span>':'');
+  return '<span class="au-pill '+(v.w===0?'au-bad':'au-warn')+'">'+m+'</span>';
+}
 function rowHtml(t){
   var v=VAL[t.tool_id];
-  return '<div class="arow '+rowState(t,v)+'" data-t="'+t.tool_id+'"><div class="nm">'+esc(t.name)+'<span class="need">'+(t.required==null?'not supplied':'supplied '+t.required)+'</span></div>'+
-    '<div><span class="cap">Working</span>'+stepper(t.tool_id,'w',v.w)+'</div><div><span class="cap">Damaged</span>'+stepper(t.tool_id,'d',v.d)+'</div>'+
-    '<button type="button" class="iconbtn" data-act="note" title="Add a note" aria-label="Add a note"><i class="ti ti-message-plus"></i></button><div class="nrow'+((v.open||v.n)?' open':'')+'"><input type="text" data-k="n" placeholder="Note (optional)" maxlength="200" value="'+esc(v.n)+'"></div></div>';
+  return '<div class="arow au-row '+rowState(t,v)+'" data-t="'+t.tool_id+'">'+
+    '<div class="au-name">'+esc(t.name)+(t.prev_working!=null?'<span class="au-prev">last audit: '+t.prev_working+' working'+(t.prev_damaged?', '+t.prev_damaged+' damaged':'')+'</span>':'')+'</div>'+
+    '<div class="au-c au-sup"><span class="au-cap">Supplied</span><b>'+(t.required==null?'\u2013':t.required)+'</b></div>'+
+    '<div class="au-c"><span class="au-cap">Available (working)</span>'+stepper(t.tool_id,'w',v.w)+'</div>'+
+    '<div class="au-c au-mcell"><span class="au-cap">Missing</span><span class="au-m">'+auMissHtml(t,v)+'</span></div>'+
+    '<div class="au-c au-rem"><span class="au-cap">Remarks</span><div class="au-remin"><span class="au-dmg" title="Damaged count"><span class="au-dl">Damaged</span>'+stepper(t.tool_id,'d',v.d).replace('class="stp"','class="stp sm"')+'</span>'+
+      '<input type="text" class="au-note" data-k="n" placeholder="Remark (optional)" maxlength="200" value="'+esc(v.n||'')+'"></div></div>'+
+  '</div>';
 }
 function famProgress(f){ var c=0,n=0; FORM.tools.forEach(function(t){ if(t.family===f){ n++; if(VAL[t.tool_id].w!=null) c++; } }); return c+' of '+n+' counted'; }
 function renderAudit(){
   var fam={}, order=[], hasPrev=!!FORM.last_audit;
   FORM.tools.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
-  var h='<div class="card"><div class="card-hd"><span>Audit: '+esc(FORM.hub.hub_name)+' <span class="citysub">'+esc(FORM.hub.city)+'</span></span><span class="muted">'+(hasPrev?'Counts start from the last audit ('+esc(fmtWhen(FORM.last_audit.at))+' by '+esc(FORM.last_audit.by)+'). Change what is different.':'First audit for this hub. Count every tool.')+'</span></div>';
+  var h='<div class="card au-card"><div class="au-top"><div><div class="au-hub">'+esc(FORM.hub.hub_name)+' <span class="citysub">'+esc(FORM.hub.city)+'</span></div>'+
+    '<div class="muted au-sub">'+(hasPrev?'Counts start from the last audit ('+esc(fmtWhen(FORM.last_audit.at))+' by '+esc(FORM.last_audit.by)+'). Change only what is different.':'First audit for this hub: count every tool.')+'</div></div>'+
+    '<div class="au-filter" role="group" aria-label="Show"><button type="button" data-act="flt" data-f="all" class="on">All</button><button type="button" data-act="flt" data-f="todo">Not counted</button><button type="button" data-act="flt" data-f="miss">Missing</button></div></div>'+
+    '<div class="au-sum" id="au-sum"></div><div class="au-bar"><i id="au-prog"></i></div>';
   if(DRAFT_AT) h+='<div class="note">Restored your unsaved count from '+esc(fmtWhen(new Date(DRAFT_AT).toISOString()))+'. <a data-act="discard">Discard it and start again</a></div>';
+  h+='<div class="au-head"><span>Tool</span><span>Supplied</span><span>Available (working)</span><span>Missing</span><span>Remarks (damaged, note)</span></div>';
   order.forEach(function(f){
-    h+='<div data-fam="'+esc(f)+'"><div class="famhd"><span>'+esc(f)+' <span class="muted famprog" style="font-weight:400">'+famProgress(f)+'</span></span><span class="acts"><button type="button" class="btn" data-act="famreq" data-fam="'+esc(f)+'">All as supplied</button>'+(hasPrev?'<button type="button" class="btn" data-act="famprev" data-fam="'+esc(f)+'">Same as last audit</button>':'')+'</span></div>'+fam[f].map(rowHtml).join('')+'</div>';
+    h+='<div class="au-fam" data-fam="'+esc(f)+'"><div class="famhd"><span>'+esc(f)+' <span class="muted famprog" style="font-weight:400">'+famProgress(f)+'</span></span><span class="acts"><button type="button" class="btn" data-act="famreq" data-fam="'+esc(f)+'" title="Fills only the tools not counted yet"><i class="ti ti-checks"></i> Rest as supplied</button>'+(hasPrev?'<button type="button" class="btn" data-act="famprev" data-fam="'+esc(f)+'"><i class="ti ti-history"></i> Same as last audit</button>':'')+'</span></div>'+fam[f].map(rowHtml).join('')+'</div>';
   });
-  $('audbody').innerHTML=h+'</div>';
+  $('audbody').className=''; $('audbody').innerHTML=h+'<div class="au-empty muted" id="au-empty" style="display:none">Nothing to show for this filter.</div></div>';
   $('audfoot').innerHTML='<div class="foot"><div><b id="fcount"></b><div class="muted" id="fshort"></div></div><span><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit type</label><select id="audtype"><option value="baseline"'+(hasPrev?'':' selected')+'>Baseline count</option><option value="periodic"'+(hasPrev?' selected':'')+'>Regular check</option></select></span><div class="grow"><label class="muted" style="font-size:10px;text-transform:uppercase;display:block">Audit note (optional)</label><input type="text" id="audnote" maxlength="300" placeholder="Anything the next person should know"></div><button class="btn primary" id="aud-submit"><i class="ti ti-send"></i> Submit audit</button></div>';
   refreshFoot();
 }
-function refreshFoot(){ var s=auditStats(); $('fcount').textContent=s.counted+' of '+s.total+' tools counted'; $('fshort').innerHTML=s.counted<s.total?'':(s.short>0?'<span class="err">'+s.short+' short across '+s.shortTypes+' tool'+(s.shortTypes===1?'':'s')+'</span>':'<span style="color:#15803d">Nothing short</span>'); }
-function refreshRow(id){ var t=FORM.tools.filter(function(x){return x.tool_id===id;})[0], v=VAL[id], el=document.querySelector('.arow[data-t="'+id+'"]'); if(!el) return; el.className='arow '+rowState(t,v); var w=el.querySelector('input[data-k="w"]'), d=el.querySelector('input[data-k="d"]'); if(document.activeElement!==w) w.value=v.w==null?'':v.w; if(document.activeElement!==d) d.value=v.d==null?'':v.d; var fm=el.closest('[data-fam]'); if(fm) fm.querySelector('.famprog').textContent=famProgress(t.family); refreshFoot(); saveDraft(); }
+function auSetFilter(f){
+  $('audbody').className=f==='all'?'':'f-'+f;
+  Array.prototype.forEach.call(document.querySelectorAll('.au-filter button'),function(b){ b.classList.toggle('on',b.getAttribute('data-f')===f); });
+  auApplyFilter();
+}
+function auApplyFilter(){
+  var vis=0;
+  Array.prototype.forEach.call(document.querySelectorAll('#audbody .au-fam'),function(fm){
+    fm.style.display=''; var n=0; Array.prototype.forEach.call(fm.querySelectorAll('.arow'),function(r){ if(r.offsetParent!==null) n++; }); if(!n) fm.style.display='none'; vis+=n;
+  });
+  var e=$('au-empty'); if(e) e.style.display=vis?'none':'';
+}
+function refreshFoot(){ var s=auditStats(); auSummary(s); $('fcount').textContent=s.counted+' of '+s.total+' tools counted'; $('fshort').innerHTML=s.counted<s.total?'':(s.short>0?'<span class="err">'+s.short+' short across '+s.shortTypes+' tool'+(s.shortTypes===1?'':'s')+'</span>':'<span style="color:#15803d">Nothing short</span>'); }
+function refreshRow(id){ var t=FORM.tools.filter(function(x){return x.tool_id===id;})[0], v=VAL[id], el=document.querySelector('.arow[data-t="'+id+'"]'); if(!el) return; el.className='arow au-row '+rowState(t,v); var w=el.querySelector('input[data-k="w"]'), d=el.querySelector('input[data-k="d"]'); if(document.activeElement!==w) w.value=v.w==null?'':v.w; if(document.activeElement!==d) d.value=v.d==null?'':v.d; var mc=el.querySelector('.au-m'); if(mc) mc.innerHTML=auMissHtml(t,v); if($('audbody').className) auApplyFilter(); var fm=el.closest('[data-fam]'); if(fm) fm.querySelector('.famprog').textContent=famProgress(t.family); refreshFoot(); saveDraft(); }
 function setVal(id,k,val){ var v=VAL[id]; if(k==='n'){ v.n=val; saveDraft(); return; } if(val===''||val==null||isNaN(val)) val=null; else val=Math.max(0,Math.min(9999,Math.round(val))); v[k]=(k==='d'&&val==null)?0:val; refreshRow(id); }
-function famFill(f,mode){ FORM.tools.forEach(function(t){ if(t.family!==f) return; var v=VAL[t.tool_id]; if(mode==='req'){ if(t.required!=null){ v.w=t.required; v.d=0; } } else { if(t.prev_working!=null){ v.w=t.prev_working; v.d=t.prev_damaged||0; } } refreshRow(t.tool_id); }); }
+function famFill(f,mode){ FORM.tools.forEach(function(t){ if(t.family!==f) return; var v=VAL[t.tool_id]; if(mode==='req'){ if(t.required!=null&&v.w==null){ v.w=t.required; v.d=0; } } else { if(t.prev_working!=null){ v.w=t.prev_working; v.d=t.prev_damaged||0; } } refreshRow(t.tool_id); }); }
 async function submitAudit(){
   var s=auditStats();
   if(s.counted<s.total){
@@ -400,6 +486,7 @@ document.addEventListener('click',function(e){
     var act=a.getAttribute('data-act'), row=a.closest('.arow');
     if(act==='inc'||act==='dec'){ var id=Number(row.getAttribute('data-t')), k=a.getAttribute('data-k'), cur=VAL[id][k]; setVal(id,k,act==='inc'?(cur==null?0:cur)+1:Math.max((cur==null?1:cur)-1,0)); }
     else if(act==='note'){ var nr=row.querySelector('.nrow'); nr.classList.toggle('open'); VAL[Number(row.getAttribute('data-t'))].open=nr.classList.contains('open'); if(nr.classList.contains('open')) nr.querySelector('input').focus(); }
+    else if(act==='flt') auSetFilter(a.getAttribute('data-f'));
     else if(act==='famreq') famFill(a.getAttribute('data-fam'),'req');
     else if(act==='famprev') famFill(a.getAttribute('data-fam'),'prev');
     else if(act==='discard'){ clearDraft(AUDHUB); startAudit(true); }
