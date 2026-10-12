@@ -131,7 +131,7 @@ input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6
 <div id="main" style="display:none">
 <div class="tabs" id="tabs">
   <button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="hub">Hub detail</button><button class="tab" data-tab="audit">Audit</button>
-  <button class="tab" data-tab="short">Shortages</button><button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req" id="tab-btn-req" style="display:none">Supplied counts</button>
+  <button class="tab" data-tab="hist">History</button><button class="tab" data-tab="req" id="tab-btn-req" style="display:none">Supplied counts</button>
 </div>
 
 <div id="tab-overview">
@@ -148,18 +148,13 @@ input.ovq{width:190px;height:auto;border:1px solid var(--border);border-radius:6
 </div>
 
 <div id="tab-hub" style="display:none">
-  <div class="bar"><span><label>Hub</label><select id="hubsel"></select></span><label style="margin:0"><input type="checkbox" id="gaps"> Show only gaps</label><span class="spacer"></span><button class="btn" id="hub-audit"><i class="ti ti-clipboard-check"></i> Audit this hub</button></div>
-  <div id="hubbody"><div class="card"><div class="msg muted">Choose a hub, or click one in the Overview.</div></div></div>
+  <div class="bar"><span><label>Hub</label><select id="hubsel"></select></span><span id="shcity-wrap"><label>City</label><select id="shcity"><option value="">All cities</option></select></span><label style="margin:0" id="gaps-wrap"><input type="checkbox" id="gaps"> Show only gaps</label><span class="spacer"></span><span id="shstatus" class="muted"></span><button class="btn" id="hub-audit"><i class="ti ti-clipboard-check"></i> Audit this hub</button><button class="btn" id="exp-sh"><i class="ti ti-download"></i> Export CSV</button></div>
+  <div id="hubbody"></div>
 </div>
 
 <div id="tab-audit" style="display:none">
   <div class="bar"><span><label>Hub</label><select id="audhub"></select></span><button class="btn primary" id="aud-start">Start audit</button><span class="spacer"></span><span class="muted" id="aud-hint">Count only working tools as available. Damaged ones go in Remarks. Nothing is saved until you submit.</span></div>
   <div id="audbody"></div><div id="audfoot"></div>
-</div>
-
-<div id="tab-short" style="display:none">
-  <div class="bar"><span><label>City</label><select id="shcity"><option value="">All cities</option></select></span><span class="spacer"></span><span id="shstatus" class="muted"></span><button class="btn" id="exp-sh"><i class="ti ti-download"></i> Export CSV</button></div>
-  <div id="shbody"></div>
 </div>
 
 <div id="tab-hist" style="display:none">
@@ -197,14 +192,15 @@ function download(name,rows){ var a=document.createElement('a'); a.href=URL.crea
 function denied(el,what){ el.innerHTML='<div class="card"><div class="msg"><b>'+what+'</b></div></div>'; }
 function showTab(t){
   if(t==='req'&&!IS_ADMIN) t='overview';
-  ['overview','hub','audit','short','hist','req'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
+  if(t==='short') t='hub';
+  ['overview','hub','audit','hist','req'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
-  if(t==='short') loadShort(); if(t==='hist') loadHist(); if(t==='req') loadReq();
+  if(t==='hub') loadHub(); if(t==='hist') loadHist(); if(t==='req') loadReq();
 }
 function fillHubSelects(){
   var opts=ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' ('+esc(h.city)+')</option>';}).join('');
   var cur={hubsel:$('hubsel').value,audhub:$('audhub').value,histhub:$('histhub').value,rqscope:$('rqscope').value};
-  $('hubsel').innerHTML='<option value="">Choose a hub</option>'+opts; $('audhub').innerHTML='<option value="">Choose a hub</option>'+opts; $('histhub').innerHTML='<option value="">All hubs</option>'+opts;
+  $('hubsel').innerHTML='<option value="">All hubs (shortages)</option>'+opts; $('audhub').innerHTML='<option value="">Choose a hub</option>'+opts; $('histhub').innerHTML='<option value="">All hubs</option>'+opts;
   $('rqscope').innerHTML=ALLHUBS.map(function(h){return '<option value="'+esc(h.hub_name)+'">'+esc(h.hub_name)+' ('+esc(h.city)+')</option>';}).join('');
   Object.keys(cur).forEach(function(k){ if(cur[k]) $(k).value=cur[k]; });
 }
@@ -289,9 +285,11 @@ function exportOverview(){
 }
 
 /* ---------- Hub detail ---------- */
-function openHub(hub){ if(!hub) return; $('hubsel').value=hub; showTab('hub'); loadHub(); }
+function openHub(hub){ if(!hub) return; $('hubsel').value=hub; showTab('hub'); }
 async function loadHub(){
-  var hub=$('hubsel').value; if(!hub){ $('hubbody').innerHTML='<div class="card"><div class="msg muted">Choose a hub, or click one in the Overview.</div></div>'; return; }
+  var hub=$('hubsel').value;
+  $('shcity-wrap').style.display=hub?'none':''; $('gaps-wrap').style.display=hub?'':'none'; $('hub-audit').style.display=hub?'':'none'; $('shstatus').textContent='';
+  if(!hub){ loadShort(); return; }
   $('hubbody').innerHTML='<div class="card"><div class="msg muted">Loading…</div></div>';
   var r=await rpc('get_tools_hub_detail',{p_hub:hub});
   if(!r.ok){ $('hubbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load this hub ('+esc(r.msg)+').')+'</div></div>'; return; }
@@ -299,7 +297,7 @@ async function loadHub(){
 }
 function pill(s){ var m={complete:['complete','Complete'],short:['short','Short'],none:['none','None'],no_requirement:['na','Not supplied'],not_audited:['na','Not audited']}[s]||['na',s]; return '<span class="pill '+m[0]+'">'+m[1]+'</span>'; }
 function renderHub(d){
-  var gaps=$('gaps').checked, la=d.last_audit, fam={}, order=[];
+  window.__HUB=d; var gaps=$('gaps').checked, la=d.last_audit, fam={}, order=[];
   d.tools.forEach(function(t){ if(!fam[t.family]){ fam[t.family]=[]; order.push(t.family);} fam[t.family].push(t); });
   var short=0; d.tools.forEach(function(t){ short+=(t.shortfall||0); });
   var h='<div class="card"><div class="card-hd"><span>'+esc(d.hub.hub_name)+' <span class="citysub">'+esc(d.hub.city)+'</span></span><span class="muted">'+(la?'Last audit '+esc(fmtWhen(la.at))+' by '+esc(la.by)+(la.note?' · '+esc(la.note):''):'Never audited')+'</span></div>';
@@ -415,13 +413,21 @@ async function submitAudit(){
 /* ---------- Shortages and history ---------- */
 async function loadShort(){
   $('shstatus').textContent='Loading…'; var r=await rpc('get_tools_shortages',{p_city:$('shcity').value||null});
-  if(!r.ok){ $('shstatus').textContent=''; $('shbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load the shortages ('+esc(r.msg)+').')+'</div></div>'; return; }
+  if(!r.ok){ $('shstatus').textContent=''; $('hubbody').innerHTML='<div class="card"><div class="msg err">'+(r.denied?'You don\'t have access to the Tools Tracker.':'Could not load the shortages ('+esc(r.msg)+').')+'</div></div>'; return; }
+  if($('hubsel').value) return;
   window.__SH=r.data; var tot=0; r.data.forEach(function(x){ tot+=Number(x.short_units); });
   $('shstatus').textContent=r.data.length?(tot+' short across '+r.data.length+' tool'+(r.data.length===1?'':'s')):'';
-  if(!r.data.length){ $('shbody').innerHTML='<div class="card"><div class="msg">Nothing is short in the hubs audited so far.</div></div>'; return; }
-  var h='<div class="card"><div class="card-hd"><span>What to send</span><span class="muted">Short tools added up across hubs, biggest gap first.</span></div><div class="scroll"><table><thead><tr><th class="l">Tool</th><th class="l">Family</th><th>Short in total</th><th>Hubs</th><th class="l">Where</th></tr></thead><tbody>';
-  r.data.forEach(function(x){ h+='<tr><td class="l"><b>'+esc(x.name)+'</b></td><td class="l muted">'+esc(x.family)+'</td><td><b style="color:#b91c1c">'+x.short_units+'</b></td><td>'+x.hubs_short+'</td><td class="l">'+x.hubs.map(function(p){return '<span class="chip">'+esc(p.hub_name)+' '+p.short+'</span>';}).join('')+'</td></tr>'; });
-  $('shbody').innerHTML=h+'</tbody></table></div></div>';
+  if(!r.data.length){ $('hubbody').innerHTML='<div class="card"><div class="msg">Nothing is short in the hubs audited so far.<br><span class="muted">Pick a hub above to see all its tools.</span></div></div>'; return; }
+  var h='<div class="card"><div class="card-hd"><span>What to send</span><span class="muted">Short tools added up across hubs, biggest gap first. Click a hub to open it.</span></div><div class="scroll"><table><thead><tr><th class="l">Tool</th><th class="l">Family</th><th>Short in total</th><th>Hubs</th><th class="l">Where</th></tr></thead><tbody>';
+  r.data.forEach(function(x){ h+='<tr><td class="l"><b>'+esc(x.name)+'</b></td><td class="l muted">'+esc(x.family)+'</td><td><b style="color:#b91c1c">'+x.short_units+'</b></td><td>'+x.hubs_short+'</td><td class="l">'+x.hubs.map(function(p){return '<span class="chip" data-hub="'+esc(p.hub_name)+'" style="cursor:pointer" title="Open '+esc(p.hub_name)+'">'+esc(p.hub_name)+' '+p.short+'</span>';}).join('')+'</td></tr>'; });
+  $('hubbody').innerHTML=h+'</tbody></table></div></div>';
+}
+function exportHubTab(){
+  if(!$('hubsel').value) return exportShort();
+  var d=window.__HUB; if(!d) return;
+  var rows=[['Hub','Family','Tool','Supplied','Working','Damaged','Short','Status']];
+  d.tools.forEach(function(t){ rows.push([d.hub.hub_name,t.family,t.name,num(t.required),num(t.working),num(t.damaged),num(t.shortfall),t.status]); });
+  download('Tools_'+d.hub.hub_name.replace(/[^A-Za-z0-9]+/g,'_')+'.csv',rows);
 }
 function exportShort(){ var d=window.__SH||[]; var rows=[['Tool code','Tool','Family','Short in total','Hubs short','Hubs (short)']]; d.forEach(function(x){ rows.push([x.code,x.name,x.family,x.short_units,x.hubs_short,x.hubs.map(function(p){return p.hub_name+' '+p.short;}).join('; ')]); }); download('Tools_shortages.csv',rows); }
 async function loadHist(){
@@ -479,7 +485,7 @@ document.addEventListener('click',function(e){
   var t=e.target, a;
   if((a=t.closest('#tabs .tab'))){ showTab(a.getAttribute('data-tab')); return; }
   if((a=t.closest('[data-go]'))){ showTab(a.getAttribute('data-go')); return; }
-  if((a=t.closest('td.cell'))||(a=t.closest('.hubname'))){ openHub(a.getAttribute('data-hub')); return; }
+  if((a=t.closest('td.cell'))||(a=t.closest('.hubname'))||(a=t.closest('.chip[data-hub]'))){ openHub(a.getAttribute('data-hub')); return; }
   if((a=t.closest('[data-aid-all]'))){ toggleAudit(Number(a.getAttribute('data-aid-all')),a.getAttribute('data-all')==='1'); return; }
   if((a=t.closest('tr.hrow'))){ toggleAudit(Number(a.getAttribute('data-aid'))); return; }
   if((a=t.closest('#audbody [data-act]'))){
@@ -506,7 +512,7 @@ $('ovq').addEventListener('input',function(){ if(OV) renderOverview(); });
 $('hubsel').addEventListener('change',loadHub); $('gaps').addEventListener('change',loadHub); $('hub-audit').addEventListener('click',startFromHub);
 $('aud-start').addEventListener('click',function(){ startAudit(); }); $('histhub').addEventListener('change',loadHist); $('shcity').addEventListener('change',loadShort);
 $('rqscope').addEventListener('change',loadReq); $('rq-reset').addEventListener('click',loadReq); $('rq-save').addEventListener('click',saveReq);
-$('exp-ov').addEventListener('click',exportOverview); $('exp-sh').addEventListener('click',exportShort);
+$('exp-ov').addEventListener('click',exportOverview); $('exp-sh').addEventListener('click',exportHubTab);
 document.addEventListener('click',function(e){ if(e.target.closest('#aud-submit')) submitAudit(); });
 load();
 </script></body></html>
