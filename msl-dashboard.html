@@ -529,7 +529,8 @@ body { overflow:auto!important; }
         <button class="toggle-btn active" id="shortOnly" onclick="toggleShort()">
           <i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Short only
         </button>
-        <div class="synced-lbl" id="syncedLbl">Synced daily at 9 AM</div>
+        <div class="synced-lbl" id="syncedLbl">Syncs from the sheet every 5 minutes</div>
+        <button class="toggle-btn" id="mslSyncBtn" style="display:none" onclick="mslSyncNow()" title="Pull the latest MSL data from the Google Sheet now"><i class="ti ti-refresh" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i><span id="mslSyncTxt">Sync now</span></button>
       </div>
 
       <!-- KPI ROW -->
@@ -1526,6 +1527,45 @@ try{ if(localStorage.getItem('msl_tab')==='parts') setTimeout(function(){ mslTab
   setSidebarOpen(shouldBeOpen);
 })();
 // ─────────────────────────────────────────────────────────
+</script>
+<script>
+/* ---- "Sync now": only for the people listed in the database function _msl_sync_caller(). ----
+   The button is shown only when the server says so; the server checks again when it is pressed.
+   The scheduled 5-minute sync (cron sync-hub-msl-5min) keeps running as before. */
+(function(){
+  function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:localStorage}; }
+  function expMs(t){ try{ var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+  async function refresh(){
+    var o=readSess(), s=o.s; if(!s.refresh_token) return null;
+    try{ var r=await fetch(INFO_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:INFO_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token}); o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token; }catch(e){ return null; }
+  }
+  async function token(){ var s=readSess().s; if(!s.access_token) return null; var e=expMs(s.access_token); if(e&&e>Date.now()+30000) return s.access_token; return (await refresh())||s.access_token; }
+  async function rpc(fn){
+    var t=await token(); if(!t) return {ok:false,status:401};
+    var call=function(tk){ return fetch(INFO_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+tk,'Content-Type':'application/json'},body:'{}'}); };
+    var r=await call(t); if(r.status===401){ var nt=await refresh(); if(nt) r=await call(nt); }
+    var body=null; try{ body=await r.json(); }catch(e){}
+    return {ok:r.ok,status:r.status,data:body,msg:(body&&body.message)||('HTTP '+r.status)};
+  }
+  async function latestSynced(){ try{ var r=await fetch(INFO_URL+'/rest/v1/hub_msl?select=synced_at&order=synced_at.desc&limit=1',{headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY}}); var d=await r.json(); return d&&d[0]?d[0].synced_at:null; }catch(e){ return null; } }
+  function setBtn(txt,busy){ var b=document.getElementById('mslSyncBtn'), t=document.getElementById('mslSyncTxt'); if(!b) return; t.textContent=txt; b.disabled=!!busy; b.style.opacity=busy?'.7':''; b.style.cursor=busy?'wait':''; }
+  window.mslSyncNow=async function(){
+    setBtn('Starting…',true);
+    var r=await rpc('trigger_msl_sync');
+    if(!r.ok){ setBtn(r.status===403?'Not allowed':(r.status===401?'Sign in again':(r.msg.indexOf('less than a minute')>=0?'Just synced, wait a minute':'Could not start')),false); setTimeout(function(){ setBtn('Sync now',false); },4000); return; }
+    var prev=r.data&&r.data.previous_synced_at, started=Date.now();
+    setBtn('Syncing…',true);
+    (async function poll(){
+      var cur=await latestSynced();
+      if(cur&&(!prev||new Date(cur)>new Date(prev))){ try{ await load(); }catch(e){} setBtn('Synced',false); setTimeout(function(){ setBtn('Sync now',false); },3000); return; }
+      if(Date.now()-started>150000){ setBtn('Still running, check back',false); setTimeout(function(){ setBtn('Sync now',false); },5000); return; }
+      setTimeout(poll,5000);
+    })();
+  };
+  (async function init(){ var r=await rpc('get_msl_sync_access'); if(r.ok&&r.data&&r.data.allowed===true){ var b=document.getElementById('mslSyncBtn'); if(b) b.style.display=''; } })();
+})();
 </script>
 </body>
 </html>
