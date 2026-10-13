@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="auth-guard.js?v=1791887427"></script>
+<script src="auth-guard.js?v=1791888113"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -696,6 +696,8 @@ document.addEventListener('click', e => {
 const LP = { hub: null, type: 'Scrap', date: null, vendor: '', from: null, fromManual: null, fromLocked: false, lastTo: null,
   lines: {}, expected: {}, showAll: false, query: '', busy: false, done: null, problems: [], sig: '' };
 
+// Job cards on the pickup day belong to the NEXT pickup: a pickup covers up to the day before it.
+function lpTo() { return addDays(LP.date, -1); }
 function hubCity(h) { const x = S.hubs.find(y => y.hub_name === h); return x ? x.city : (S.restrictedCity || null); }
 function catInfo(c) { return S.cats.find(x => x.category === c) || { category: c, unit: 'kg' }; }
 function vendorRate(cat) {
@@ -754,13 +756,13 @@ async function refreshFormContext() {
     LP.from = LP.fromManual || addDays(BASELINE, 1);
   }
   LP.expected = {};
-  if (LP.from > LP.date) return;
+  if (LP.from > lpTo()) return;
   const scopedHub = isCityWide(hub) ? null : hub;
   if (type === 'Scrap') {
-    const g = await rpc('get_scrap_generated_in_period', { p_from: LP.from, p_to: LP.date, p_city: city, p_hub: scopedHub });
+    const g = await rpc('get_scrap_generated_in_period', { p_from: LP.from, p_to: lpTo(), p_city: city, p_hub: scopedHub });
     (g || []).forEach(c => { LP.expected[c.category] = Number(c.estimated); });
   } else {
-    const p = await rpc('get_movement_pipeline', { p_type: type, p_from: LP.from, p_to: LP.date, p_city: city, p_hub: scopedHub });
+    const p = await rpc('get_movement_pipeline', { p_type: type, p_from: LP.from, p_to: lpTo(), p_city: city, p_hub: scopedHub });
     (p || []).forEach(r => { LP.expected[r.part_name] = Math.max((Number(r.consumed) || 0) - (Number(r.actual_in_hub) || 0), 0); });
   }
 }
@@ -777,15 +779,15 @@ async function renderLogForm() {
   if (!LP.hub) hubSel.insertAdjacentHTML('afterbegin', '<option value="" selected>Choose a hub</option>');
   const vendors = S.vendors.filter(v => v.approved);
   const isScrap = LP.type === 'Scrap';
-  const bad = LP.hub && LP.from > LP.date;
+  const bad = LP.hub && LP.from > lpTo();
   let periodHtml = '';
   if (LP.hub) {
     if (LP.fromLocked) {
-      periodHtml = `<div class="expect">Covers <b>${dshort(LP.from)} – ${dshort(LP.date)}</b>, since the last ${esc(LP.type.toLowerCase())} pickup here (up to ${dshort(LP.lastTo)}).</div>`;
+      periodHtml = `<div class="expect">Covers job cards <b>${dshort(LP.from)} – ${dshort(lpTo())}</b> (up to the day before pickup), since the last ${esc(LP.type.toLowerCase())} pickup here (up to ${dshort(LP.lastTo)}).</div>`;
     } else {
-      periodHtml = `<label class="field">Counting from<input type="date" id="lp-from" value="${LP.from}" max="${LP.date}"><span class="hint">${LP.lastTo ? `The last pickup covered up to ${dshort(LP.lastTo)}.` : `No earlier ${esc(LP.type.toLowerCase())} pickup is logged for this hub. It starts from 1 Sep, the day after the clean-out, unless you change it.`}</span></label>`;
+      periodHtml = `<label class="field">Counting from<input type="date" id="lp-from" value="${LP.from}" max="${lpTo()}"><span class="hint">${LP.lastTo ? `The last pickup covered up to ${dshort(LP.lastTo)}.` : `No earlier ${esc(LP.type.toLowerCase())} pickup is logged for this hub. It starts from 1 Sep, the day after the clean-out, unless you change it.`}</span></label>`;
     }
-    if (bad) periodHtml += `<div class="err small">The last pickup already covers up to ${dshort(LP.lastTo)}. Pick a later pickup date, or ask Nithish to correct the earlier pickup.</div>`;
+    if (bad) periodHtml += `<div class="err small">${LP.lastTo >= LP.date ? `The last pickup already covers up to ${dshort(LP.lastTo)}. Pick a later pickup date, or ask Nithish to correct the earlier pickup.` : `A ${esc(LP.type.toLowerCase())} pickup was already logged here up to ${dshort(LP.lastTo)}, so there are no new job cards before ${dshort(LP.date)}. Job cards from ${dshort(LP.date)} onward go into the next pickup.`}</div>`;
   }
   const keys = lineKeys();
   box.innerHTML = `<div class="lp-form">
@@ -895,7 +897,7 @@ function wireLogForm() {
         box.hidden = !open; bt.setAttribute('aria-expanded', open);
         if (open && !box.dataset.done) {
           box.innerHTML = breakupSkel();
-          fetchBreakup(l.dataset.key, LP.from, LP.date, hubCity(LP.hub), isCityWide(LP.hub) ? null : LP.hub).then(rows => { box.innerHTML = breakupTable(rows, true); box.dataset.done = '1'; });
+          fetchBreakup(l.dataset.key, LP.from, lpTo(), hubCity(LP.hub), isCityWide(LP.hub) ? null : LP.hub).then(rows => { box.innerHTML = breakupTable(rows, true); box.dataset.done = '1'; });
         }
         return;
       }
@@ -1015,7 +1017,7 @@ async function submitPickup() {
   LP.busy = true; btn.disabled = true; btn.textContent = 'Checking…';
   try {
     const labels = new Set(f.map(x => x.k));
-    const overlaps = await findOverlaps(LP.hub, LP.type, LP.from, LP.date, labels);
+    const overlaps = await findOverlaps(LP.hub, LP.type, LP.from, lpTo(), labels);
     if (overlaps == null) { showProblems(['Could not check earlier pickups. Check your connection and submit again.']); return; }
     if (overlaps.length) { showProblems(['These lines are already covered by an earlier pickup for the same dates, so they would be counted twice:', ...overlaps.map(esc), 'Change the pickup date, or ask Nithish to fix the earlier pickup.']); return; }
     btn.textContent = 'Uploading photos…';
@@ -1039,7 +1041,7 @@ async function submitPickup() {
         actual_qty_nos: unit === 'kg' ? null : q, actual_weight_kg: unit === 'kg' ? q : null,
         system_calculated: e != null ? e : null,
         variance_reason: v ? st.reason : null, variance_remark: v && st.note.trim() ? st.note.trim() : null,
-        batch_id: batchId, period_from: LP.from, period_to: LP.date, photo_url: st.url,
+        batch_id: batchId, period_from: LP.from, period_to: lpTo(), photo_url: st.url,
         status: 'Created', created_by: S.me || 'unknown'
       };
     });
@@ -1050,7 +1052,7 @@ async function submitPickup() {
       return;
     }
     const vendorName = isScrap ? ((S.vendors.find(v => String(v.id) === String(LP.vendor)) || {}).vendor_name || null) : null;
-    LP.done = { type: LP.type, hub: LP.hub, city, date: LP.date, periodFrom: LP.from, periodTo: LP.date, vendorName, batchId, lines: r.data || [] };
+    LP.done = { type: LP.type, hub: LP.hub, city, date: LP.date, periodFrom: LP.from, periodTo: lpTo(), vendorName, batchId, lines: r.data || [] };
     for (const { st } of f) if (st.preview) URL.revokeObjectURL(st.preview);
     LP.lines = {}; LP.problems = []; LP.sig = '';
     S.cache = {}; const keep = S.loaded.log; S.loaded = { log: keep };
