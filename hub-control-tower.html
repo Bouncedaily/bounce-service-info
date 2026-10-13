@@ -252,8 +252,8 @@
 <script>
 const INFO_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const INFO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-const SF_URL   = 'https://jpypnrrjiagscqrucslw.supabase.co';
-const SF_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweXBucnJqaWFnc2NxcnVjc2x3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDU2NDAsImV4cCI6MjA5NDkyMTY0MH0.fesCaEsgS7r4Z6mV5S1-z54etaGNPpYlISdjjcnLfzM';
+const SF_URL   = INFO_URL;   // Service flow tables now live in Info Dashboard (sf_ tables)
+const SF_KEY   = INFO_KEY;
 
 
 
@@ -353,7 +353,7 @@ async function fetchAll(city) {
         'select=status&' + hubFilter).catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'jc_details',
         'select=draft_jc_id&' + hubFilter + '&end_time=gte.' + today + 'T00:00:00&end_time=lte.' + today + 'T23:59:59').catch(() => []),
-      sbGet(SF_URL, SF_KEY, 'attendance',
+      sbGet(SF_URL, SF_KEY, 'sf_attendance_status',
         'select=status&' + hubFilter + '&date=eq.' + today + '&status=in.(present,checked_in,half_day)').catch(() => []),
       sbGet(INFO_URL, INFO_KEY, 'inflow_today',
         'select=submission_type,hub_name&' + hubFilter).catch(() => []),
