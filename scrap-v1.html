@@ -1,0 +1,3135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bounce Back — Bounce Service Info</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="bounce-theme.css?v=1780722254"/>
+  <script src="auth-guard.js?v=1780722254"></script>
+  <style>
+    body { overflow-y: auto; height: auto; }
+    .wrap { padding: 24px; margin: 0 auto; }
+    .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
+    .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
+
+    .ctl-bar {
+      display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+    }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .fg select, .fg input {
+      padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+    }
+    .fg select:focus, .fg input:focus { border-color: var(--red); }
+    .synced-lbl { font-size: 11px; color: var(--muted); margin-left: auto; align-self: center; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-bottom: 20px; }
+    .kpi-group-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; padding-left:2px; }
+    .kpi-group-label.kpi-group-alltime::before { content:'●'; color:#b45309; margin-right:5px; }
+    .kpi-group-label.kpi-group-range::before { content:'●'; color:#1e40af; margin-right:5px; }
+    .kpi-row-alltime .kpi { border-top:3px solid #fbbf24; }
+    .kpi-row-range .kpi { border-top:3px solid #60a5fa; }
+    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+    .info-dot { display:inline-block; cursor:help; color:var(--muted); font-size:11px; margin-left:2px; }
+    .scrap-tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+    .scrap-tab { background:none; border:none; padding:10px 18px; font-size:13px; font-weight:700; letter-spacing:.03em; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+    .scrap-tab.active { color:var(--red); border-bottom-color:var(--red); }
+    .scrap-subtabs { display:flex; gap:6px; margin-bottom:12px; }
+    .scrap-subtab { background:var(--surface-1,#f8fafc); border:1px solid var(--border); border-radius:999px; padding:6px 16px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; }
+    .scrap-subtab.active { background:var(--red); border-color:var(--red); color:#fff; }
+    .recon-flow { display:flex; align-items:center; justify-content:center; gap:18px; padding:16px 0; flex-wrap:wrap; }
+    .recon-step { text-align:center; min-width:130px; }
+    .recon-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px; }
+    .recon-val { font-size:22px; font-weight:700; }
+    .recon-arrow { font-size:20px; color:var(--muted); }
+    .recon-variance .recon-val { color:#b45309; }
+    .recon-pct { font-size:12px; color:var(--muted); margin-top:2px; }
+    .funnel-kpis { display:flex; gap:12px; margin-bottom:10px; }
+    .funnel-kpi { flex:1; border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+    .fk-label { font-size:11px; color:var(--muted); text-transform:uppercase; }
+    .fk-val { font-size:18px; font-weight:700; margin-top:2px; }
+    .funnel-flow { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:12px 0 18px; flex-wrap:wrap; }
+    .funnel-node { text-align:center; flex:1; min-width:80px; }
+    .funnel-node .fn-val { font-size:17px; font-weight:700; }
+    .funnel-node .fn-label { font-size:10px; color:var(--muted); margin-top:2px; }
+    .funnel-sep { color:var(--muted); font-size:16px; }
+    .scope-legend { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-size:12px; color:var(--muted); margin-bottom:16px; line-height:1.8; }
+    .scope-legend b { color:var(--text); }
+    .scope-chip { display:inline-block; padding:1px 8px; border-radius:5px; font-size:11px; font-weight:700; margin:0 2px; }
+    .scope-chip.scope-alltime { background:#fef3c7; color:#92400e; }
+    .scope-chip.scope-range { background:#dbeafe; color:#1e40af; }
+    .scope-chip.scope-discrepancy { background:#f3e8ff; color:#6b21a8; }
+    @keyframes skeleton-shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
+    .skel-bar { display:inline-block; height:12px; border-radius:4px; background:linear-gradient(90deg, #eef1f6 25%, #e2e8f0 37%, #eef1f6 63%); background-size:400px 100%; animation:skeleton-shimmer 1.4s ease-in-out infinite; vertical-align:middle; }
+    .empty-state { padding:24px 12px; text-align:center; color:var(--muted); }
+    .empty-state .es-icon { font-size:22px; opacity:.4; margin-bottom:6px; }
+    .empty-state .es-hint { font-size:11px; margin-top:4px; }
+    .photo-btn { background:var(--surface-1,#f8fafc); border:1px solid var(--border); border-radius:6px; padding:6px 10px; cursor:pointer; color:var(--muted); font-size:14px; }
+    .photo-btn:hover { color:var(--red); border-color:var(--red); }
+    .row-photo-thumb { display:inline-block; vertical-align:middle; margin-left:6px; }
+    .row-photo-preview { width:28px; height:28px; object-fit:cover; border-radius:5px; border:1px solid var(--border); }
+    .tx-filters { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .tx-filters input, .tx-filters select { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; background:var(--card); color:var(--text); }
+    .tx-filters input { flex:1; min-width:160px; }
+    .kpi .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display:flex; align-items:center; gap:5px; }
+    .kpi .kv { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .kpi .ks { font-size: 11px; color: var(--muted); }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .panel h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; color: var(--text); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space:nowrap; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    .sort-arrow { margin-left: 3px; font-size: 9px; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pending-flag { color: var(--red); font-weight: 700; }
+    .empty { text-align:center; color:var(--muted); padding: 16px; }
+
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; background: var(--red); color: #fff; }
+    .btn:hover { opacity: .9; }
+    .btn.secondary { background: var(--border2); color: var(--text); }
+
+    .sale-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+    .sale-form .fg input, .sale-form .fg select { width: 140px; }
+    .status-pill { padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .status-Created { background: #e0e7ff; color: #3730a3; }
+    .status-Cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+    .status-Sold { background: #fef3c7; color: #92400e; }
+    .status-PaymentPending { background: #fed7aa; color: #9a3412; }
+    .status-PaymentReceived { background: #d1fae5; color: #065f46; }
+    .status-Closed { background: #e5e7eb; color: #374151; }
+
+    .aging-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; width:100%; min-width:120px; }
+    .cat-toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+    .cat-toggle i { font-size: 13px; color: var(--muted); transition: transform .15s; }
+    .cat-toggle i.open { transform: rotate(90deg); }
+
+    .action-menu { position: relative; display: inline-block; }
+    .action-menu summary { list-style: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; color: var(--muted); border: 1px solid var(--border2); background: var(--card); }
+    .action-menu summary::-webkit-details-marker { display: none; }
+    .action-menu summary:hover { background: var(--surface-1, #f8fafc); color: var(--text); }
+    .action-menu[open] summary { background: var(--surface-1, #f8fafc); }
+    .action-menu-items { position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 170px; z-index: 30; padding: 4px; display: flex; flex-direction: column; }
+    .action-menu-items button, .action-menu-items a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); cursor: pointer; text-decoration: none; white-space: nowrap; }
+    .action-menu-items button:hover, .action-menu-items a:hover { background: var(--surface-1, #f8fafc); }
+    .action-menu-items button.danger { color: #dc2626; }
+    .action-menu-items button.danger:hover { background: #fef2f2; }
+    tr.batch-sub-row td { border-top: none; background: var(--bg); }
+
+    #s-rows-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #s-rows-table th { text-align: right; padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    #s-rows-table th:first-child, #s-rows-table th:nth-child(2) { text-align: left; }
+    #s-rows-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: middle; }
+    #s-rows-table td:first-child, #s-rows-table td:nth-child(2) { text-align: left; }
+    #s-rows-table tr:last-child td { border-bottom: none; }
+    #s-rows-table input[type=number] { width: 90px; text-align: right; padding: 5px 7px; font-size: 12px; border: 1px solid var(--border2); border-radius: 6px; background: var(--card); color: var(--text); font-family: inherit; }
+    #s-rows-table input[type=file] { width: 130px; font-size: 10px; }
+    #s-rows-table .row-syscalc { color: var(--muted); font-size: 11px; }
+    input.variance-flag, textarea.variance-flag { border-color: #dc2626 !important; color: #dc2626 !important; background: #fef2f2 !important; }
+    input.variance-flag::placeholder, textarea.variance-flag::placeholder { color: #f87171; }
+
+    /* Refurb funnel (merged from Parts Tracker) — scoped to .pt-panel to avoid clashing with existing table/input styling elsewhere on this page */
+    .pt-panel table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    .pt-panel th { text-align: right; padding: 10px 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: normal; word-break: break-word; line-height: 1.3; vertical-align: bottom; }
+    .pt-panel th:first-child { text-align: left; width: 15%; }
+    .pt-panel td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); text-align: right; }
+    .pt-panel td:first-child { text-align: left; color: var(--text); }
+    .pt-panel tr:last-child td { border-bottom: none; }
+    .pt-panel td input { width: 64px; text-align: right; padding: 4px 6px; font-size: 12px; border: 1px solid var(--border2); border-radius: 6px; background: var(--card); color: var(--text); font-family: inherit; outline: none; }
+    .pt-panel td input:focus { border-color: var(--red); }
+    .pt-panel td input.flag { border-color: var(--red); }
+    .pt-panel .flag-icon { color: var(--red); margin-right: 4px; }
+    .pt-panel .flag-cell { color: var(--red); font-weight: 600; }
+    .pt-panel .muted-cell { color: var(--muted); }
+    .pt-panel .edit-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+    .pt-panel .edit-badge.on { color: var(--green); }
+    .pt-panel .part-cell { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .pt-panel .part-cell:hover { color: var(--red); }
+    .pt-panel .part-cell i { font-size: 13px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+    .pt-panel tr.expanded .part-cell i { transform: rotate(90deg); }
+    .pt-panel .drill-row td { padding: 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .pt-panel .drill-wrap { padding: 10px 10px 12px 34px; }
+    .pt-panel .drill-hint { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .pt-panel .drill-table { width: 100%; font-size: 11px; }
+    .pt-panel .drill-table th { padding: 5px 8px; font-size: 9px; }
+    .pt-panel .drill-table th:first-child { width: 40%; }
+    .pt-panel .drill-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+    .pt-panel .drill-table tr:last-child td { border-bottom: none; }
+    .pt-panel .drill-table input { width: 56px; }
+    .pt-panel .save-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+    .aging-seg1 { background:#16a34a; } .aging-seg2 { background:#d97706; } .aging-seg3 { background:#ea580c; } .aging-seg4 { background:#dc2626; }
+    .warn-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #9a3412; display: flex; align-items: flex-start; gap: 8px; }
+    tr.cat-row { cursor: pointer; }
+    tr.cat-row:hover { background: var(--surface-1, #f8fafc); }
+    .ov { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; padding: 36px 20px; overflow-y: auto; }
+    .ov.on { display: flex; }
+    .dpanel { background: #fff; border-radius: 12px; max-width: 700px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); overflow: hidden; }
+    .dhd { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .dhd h3 { margin: 0; font-size: 14px; font-weight: 700; }
+    .dsub { font-size: 11px; color: var(--muted); }
+    .dclose { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--muted); }
+    .jcc-boxes { display: inline-flex; gap: 5px; white-space: nowrap; }
+    .jcc-chip, .fg .jcc-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; text-transform: none; letter-spacing: 0; color: var(--text); }
+    .jcc-chip input, .fg .jcc-chip input { padding: 0; margin: 0; width: auto; border: 0; background: none; accent-color: var(--red); }
+  </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><i class="ti ti-recycle"></i> Bounce Back</div>
+  <div class="page-sub">Scrap is auto-generated from Wear &amp; Tear part replacements — no manual counting. Log a vendor sale when a pickup happens.</div>
+
+  <div class="ctl-bar">
+    <div class="fg"><label>From</label><input type="date" id="f-from"></div>
+    <div class="fg"><label>To</label><input type="date" id="f-to"></div>
+    <div class="fg"><label>City</label>
+      <select id="f-city" onchange="onFilterChange()">
+        <option value="">All Cities</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="NCR">NCR</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Mumbai">Mumbai</option>
+      </select>
+    </div>
+    <div class="fg"><label>Hub</label><select id="f-hub" onchange="onFilterChange()"><option value="">All Hubs</option></select></div>
+    <button class="btn" onclick="loadAll()">Apply</button>
+    <div class="synced-lbl" id="syncedLbl"></div>
+  </div>
+
+  <div id="loadFailWarn" class="warn-box" style="display:none;background:#fef2f2;border-color:#fca5a5;color:#991b1b;"></div>
+
+  <div class="scrap-tabs" role="tablist">
+    <button class="scrap-tab active" id="tabBtn-scrap" onclick="switchScrapTab('scrap')">THE RECOVERY ZONE (SCRAP)</button>
+    <button class="scrap-tab" id="tabBtn-parts" onclick="switchScrapTab('parts')">THE COMEBACK LANE (REFURB &amp; TYRE)</button>
+    <button class="scrap-tab" id="tabBtn-logmovement" onclick="switchScrapTab('logmovement')">LOG A MOVEMENT</button>
+    <button class="scrap-tab" id="tabBtn-mgmt" onclick="switchScrapTab('mgmt')">THE SCOREBOARD</button>
+    <button class="scrap-tab" id="tabBtn-financeapproval" onclick="switchScrapTab('financeapproval')">FINANCE APPROVAL <span id="aqCountTab" class="pending-flag" style="font-size:11px;margin-left:2px"></span></button>
+  </div>
+
+  <div id="tabPane-scrap">
+  <div id="hub-trigger-banner" style="display:none;margin-bottom:14px;padding:12px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <i class="ti ti-truck" style="color:#b91c1c"></i>
+      <b style="color:#991b1b;font-size:13px">Hubs needing a scrap pickup scheduled</b>
+      <button class="btn secondary" style="padding:3px 8px;font-size:10px;margin-left:auto" onclick="openHubTriggerManager()"><i class="ti ti-settings"></i> Manage Thresholds</button>
+    </div>
+    <div id="hub-trigger-list" style="font-size:12px"></div>
+  </div>
+
+  <div style="font-size:12px;font-style:italic;color:var(--muted);margin:-6px 0 14px">From worn to worth it.</div>
+
+  <div class="panel">
+    <h3>Hub-Level Detail <span style="font-weight:400;font-size:11px;color:var(--muted)">(only hubs/categories with at least one logged transaction — System Consumed and Available are scoped to that last transaction's own Period, not all-time)</span></h3>
+    <input type="text" id="hubCatSearch" placeholder="Search hub or category…" oninput="renderHubCategoryDetail()" style="margin-bottom:10px;padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;width:280px">
+    <div style="overflow-x:auto;max-height:500px;overflow-y:auto">
+    <table>
+      <thead><tr>
+        <th class="sortable" onclick="sortHubCatBy('hub_name')">Hub<span id="sort-hub_name" class="sort-arrow"></span></th>
+        <th class="sortable" onclick="sortHubCatBy('city')">City<span id="sort-city" class="sort-arrow"></span></th>
+        <th class="sortable" onclick="sortHubCatBy('category')">Category<span id="sort-category" class="sort-arrow"></span></th>
+        <th class="sortable" onclick="sortHubCatBy('last_transaction')">Last Transaction<span id="sort-last_transaction" class="sort-arrow"></span></th>
+        <th class="num sortable" onclick="sortHubCatBy('system_consumed_kg')">System Consumed, Last Period (kg)<span id="sort-system_consumed_kg" class="sort-arrow"></span></th>
+        <th class="num sortable" onclick="sortHubCatBy('actual_collected_kg')">Actual Collected (kg)<span id="sort-actual_collected_kg" class="sort-arrow"></span></th>
+        <th class="num sortable" onclick="sortHubCatBy('last_amount')">Last Amount (₹)<span id="sort-last_amount" class="sort-arrow"></span></th>
+        <th class="sortable" onclick="sortHubCatBy('last_vendor')">Last Vendor<span id="sort-last_vendor" class="sort-arrow"></span></th>
+        <th>Photo</th>
+      </tr></thead>
+      <tbody id="hubCatBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+  </div><!-- /tabPane-scrap -->
+
+  <div id="tabPane-parts" style="display:none">
+  <div class="scrap-subtabs">
+    <button class="scrap-subtab active" id="subTabBtn-Refurb" onclick="switchPartsSubTab('Refurb')">Refurb</button>
+    <button class="scrap-subtab" id="subTabBtn-Tyre" onclick="switchPartsSubTab('Tyre')">Tyre</button>
+  </div>
+
+  <div id="subPane-Refurb">
+  <div class="panel" style="padding:16px">
+    <h3><i class="ti ti-recycle"></i> Refurb — Consumed / Actual in Hub / RPDC / Vendor / Refurbed / Rejected</h3>
+    <div style="font-size:12px;font-style:italic;color:var(--muted);margin:-4px 0 12px">Nothing wasted. Everything bounces back.</div>
+    <div class="funnel-kpis">
+      <div class="funnel-kpi"><div class="fk-label">Recovery %</div><div class="fk-val" id="funnelRecovery-Refurb">—</div></div>
+      <div class="funnel-kpi"><div class="fk-label">Rejection %</div><div class="fk-val" id="funnelRejection-Refurb">—</div></div>
+    </div>
+    <div class="funnel-flow" id="funnelFlow-Refurb"></div>
+    <div class="pt-panel" data-pipeline-type="Refurb">
+      <div class="edit-badge" id="pt-editBadge-Refurb"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Part</th><th>System Consumed</th><th>Actual available in Hub</th>
+            <th>Sent to RPDC</th><th>Sent to vendor</th><th>Refurbed</th><th>Rejected</th>
+            <th>Refurbed part Received at RPDC</th><th>Rejected part Received at RPDC</th><th>Document</th><th>Refurb %</th>
+          </tr></thead>
+          <tbody id="pt-rowsBody-Refurb"></tbody>
+        </table>
+      </div>
+      <div class="save-row" id="pt-saveRow-Refurb" style="display:none;">
+        <button class="btn" onclick="ptSaveAll('Refurb')">Save</button>
+        <span class="save-msg" id="pt-saveMsg-Refurb">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+  </div><!-- /subPane-Refurb -->
+
+  <div id="subPane-Tyre" style="display:none">
+  <div class="panel" style="padding:16px">
+    <h3><i class="ti ti-circle-dot"></i> Tyre — Consumed / Actual in Hub / RPDC / Vendor / CN Approved / CN Rejected</h3>
+    <div style="font-size:12px;font-style:italic;color:var(--muted);margin:-4px 0 12px">From worn to worth it.</div>
+    <div class="funnel-kpis">
+      <div class="funnel-kpi"><div class="fk-label">Recovery %</div><div class="fk-val" id="funnelRecovery-Tyre">—</div></div>
+      <div class="funnel-kpi"><div class="fk-label">Rejection %</div><div class="fk-val" id="funnelRejection-Tyre">—</div></div>
+    </div>
+    <div class="funnel-flow" id="funnelFlow-Tyre"></div>
+    <div class="pt-panel" data-pipeline-type="Tyre">
+      <div class="edit-badge" id="pt-editBadge-Tyre"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Part</th><th>System Consumed</th><th>Actual available in Hub</th>
+            <th>Sent to RPDC</th><th>Sent to vendor</th><th>CN Approved</th><th>CN Rejected</th>
+            <th>CN Approved part Received at RPDC</th><th>CN Rejected part Received at RPDC</th><th>CN Document</th><th>CN Approved %</th>
+          </tr></thead>
+          <tbody id="pt-rowsBody-Tyre"></tbody>
+        </table>
+      </div>
+      <div class="save-row" id="pt-saveRow-Tyre" style="display:none;">
+        <button class="btn" onclick="ptSaveAll('Tyre')">Save</button>
+        <span class="save-msg" id="pt-saveMsg-Tyre">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+  </div><!-- /subPane-Tyre -->
+  </div><!-- /tabPane-parts -->
+
+  <div id="tabPane-mgmt" style="display:none">
+    <div class="scope-legend">
+      <b>How to read this tab:</b> Built for City Heads to track <b>trajectory</b>, not a single snapshot — is discipline improving or slipping week over week? Backlog % is deliberately left out of this view for now: incomplete weight-reference data for some categories (see Manage Part Weights) distorts it badly when aggregated across many hubs. Revenue and Discrepancy Rate below are unaffected by that issue.
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px">
+        <label style="font-size:12px;color:var(--muted);font-weight:600">CITY</label>
+        <select id="mgmt-city" onchange="onMgmtCityChange()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"></select>
+        <label style="font-size:12px;color:var(--muted);font-weight:600">HUB</label>
+        <select id="mgmt-hub" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px"><option value="">All Hubs</option></select>
+        <label style="font-size:12px;color:var(--muted);font-weight:600">PERIOD</label>
+        <select id="mgmt-period" onchange="loadMgmtTab()" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px">
+          <option value="this_month" selected>This month</option>
+          <option value="last_month">Last month</option>
+          <option value="all_months">All months</option>
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <div class="panel" style="margin-bottom:12px">
+          <h3 style="font-size:13px;margin:0 0 4px"><span><i class="ti ti-recycle"></i> Scrap</span></h3>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Aluminium, Iron, Plastic only (kg) — other categories not yet included</div>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Scrap"></div>
+        </div>
+        <div class="panel" style="margin-bottom:12px">
+          <h3 style="font-size:13px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center">
+            <span><i class="ti ti-recycle"></i> Refurb</span>
+            <span style="display:flex;gap:10px;font-weight:400">
+              <span style="font-size:11px;color:var(--muted)">Recovery <b id="mgmtFunnelRecovery-Refurb" style="color:var(--text)">—</b></span>
+              <span style="font-size:11px;color:var(--muted)">Rejection <b id="mgmtFunnelRejection-Refurb" style="color:var(--text)">—</b></span>
+            </span>
+          </h3>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Refurb"></div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <h3 style="font-size:13px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center">
+            <span><i class="ti ti-circle-dot"></i> Tyre</span>
+            <span style="display:flex;gap:10px;font-weight:400">
+              <span style="font-size:11px;color:var(--muted)">Recovery <b id="mgmtFunnelRecovery-Tyre" style="color:var(--text)">—</b></span>
+              <span style="font-size:11px;color:var(--muted)">Rejection <b id="mgmtFunnelRejection-Tyre" style="color:var(--text)">—</b></span>
+            </span>
+          </h3>
+          <div class="funnel-flow" id="mgmtFunnelFlow-Tyre"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <h3 style="font-size:13px;margin:0 0 8px">Scrap Revenue — Weekly <span style="font-weight:400;font-size:11px;color:var(--muted)">(Scrap sales only — excludes Refurb/Tyre)</span></h3>
+          <canvas id="mgmt-chart-revenue" height="110"></canvas>
+        </div>
+        <div>
+          <h3 style="font-size:13px;margin:0 0 8px">Discrepancy Rate — Weekly</h3>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Solid line: any movement meaningfully off System Calculated. Dashed: same, but with no Remark explaining it — this is the one to actually worry about.</div>
+          <canvas id="mgmt-chart-discrepancy" height="110"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3 style="font-size:14px;margin:0 0 4px">Hub Leaderboard</h3>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Ranked by unexplained-discrepancy rate (lowest first), then revenue. "Streak" is consecutive recent weeks with a movement logged and no unexplained gap.</div>
+      <div id="mgmt-movers" style="display:none;margin-bottom:12px;flex-wrap:wrap;gap:8px"></div>
+      <div class="tbl" id="mgmt-leaderboard-wrap"><div class="empty"><span class="spin"></span></div></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>Recent Transactions <span style="font-weight:400;font-size:11px;color:var(--muted)" id="txSubtitle">(last 10, regardless of the date range above)</span></h3>
+      <div class="tx-filters">
+        <input type="text" id="txSearch" placeholder="Search hub, vendor, category…" oninput="onTxFilterChange()">
+        <select id="txStatus" onchange="onTxFilterChange()"><option value="">All statuses</option><option value="Created">Created</option><option value="Cancelled">Cancelled</option></select>
+        <select id="txVendor" onchange="onTxFilterChange()"><option value="">All vendors</option></select>
+        <select id="txCategory" onchange="onTxFilterChange()"><option value="">All categories</option></select>
+        <button class="btn secondary" style="padding:6px 12px;font-size:12px" onclick="clearTxFilters()">Clear</button>
+      </div>
+      <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+      <table>
+        <thead><tr><th>Date</th><th>Hub</th><th>Type</th><th>Category/Part</th><th>Vendor</th><th class="num">System Calculated</th><th class="num">Qty/Wt</th><th class="num">Rate</th><th class="num">Value (₹)</th><th>Period From</th><th>Period To</th><th>Remarks</th><th>Status</th><th>Finance Approval</th><th>Actions</th></tr></thead>
+        <tbody id="salesBody"><tr><td colspan="15" class="empty">Loading…</td></tr></tbody>
+      </table>
+      </div>
+    </div>
+  </div><!-- /tabPane-mgmt -->
+
+  <div id="tabPane-logmovement" style="display:none">
+  <div class="panel">
+
+    <h3>Create Scrap / Refurb Movement
+      <span class="table-tools"><button class="btn secondary" id="btn-manage-vendors" style="padding:4px 10px;font-size:11px" onclick="openVendorManager()"><i class="ti ti-users-group"></i> Manage Vendors</button> <button class="btn secondary" id="btn-manage-parts" style="padding:4px 10px;font-size:11px;display:none" onclick="openPartsManager()"><i class="ti ti-list-details"></i> Manage Parts</button></span>
+    </h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">City/Hub/Period default to the filter bar above, but can be changed if this pickup is for a different hub or period than what you're currently viewing. Fill in the categories or parts that were actually part of this pickup — rows left blank are skipped. Photo is required for every filled-in row.</div>
+    <div class="sale-form">
+      <div class="fg"><label>Type</label>
+        <select id="s-type" onchange="onTypeChange();suggestNextPeriod();"><option value="Scrap">Scrap</option><option value="Tyre">Tyre</option><option value="Refurb">Refurb</option></select>
+      </div>
+      <div class="fg"><label>City</label>
+        <select id="s-city" onchange="onMovementCityChange()"><option value="">All Cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select>
+      </div>
+      <div class="fg"><label>Hub</label><select id="s-hub" onchange="renderMovementRows();suggestNextPeriod();"><option value="">— select —</option></select></div>
+      <div class="fg"><label>Period From <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-from-display" onchange="renderMovementRows()"></div>
+      <div class="fg"><label>Period To <span class="info-dot" title="The window this scrap was consumed/generated in the system — not when it was physically picked up.">ⓘ</span></label><input type="date" id="s-period-to-display" onchange="renderMovementRows()"></div>
+      <div class="fg"><label>Pickup Date <span class="info-dot" title="The actual date this scrap was physically collected from the hub — usually later than the Period above.">ⓘ</span></label><input type="date" id="s-date"></div>
+      <div class="fg"><label>Vendor</label>
+        <select id="s-vendor" onchange="onVendorChangeBulk()"><option value="">— select or add via Manage Vendors —</option></select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="s-rows-table">
+        <thead id="s-rows-thead"></thead>
+        <tbody id="s-rows-tbody"><tr><td class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="s-grand-total" style="display:none;font-size:14px;font-weight:700;margin-top:10px;padding:8px 12px;background:#fef2f2;border-radius:8px">Grand Total: ₹0</div>
+    <button class="btn" id="btn-create-batch" style="margin-top:12px" onclick="createBatch()"><i class="ti ti-file-download"></i> Save &amp; Download PDF</button>
+      <span class="save-msg" id="saveMsg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
+  </div>
+  </div><!-- /tabPane-logmovement -->
+
+  <div id="tabPane-financeapproval" style="display:none">
+  <div class="panel" id="approvalQueuePanel">
+    <h3><i class="ti ti-alert-circle"></i> Pending Approval <span id="aqCount" class="pending-flag" style="font-size:12px;margin-left:4px"></span></h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Finance reviews each movement here, attaches the GST invoice if applicable, and approves. This does not affect Scrap/Refurb/Tyre reconciliation — it only records that Finance has acknowledged the transaction.</div>
+    <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+    <table>
+      <thead><tr><th>Movement</th><th>Hub</th><th>Vendor</th><th class="num">Amount (₹)</th><th class="num">Discrepancy %</th><th class="num">Age</th><th></th></tr></thead>
+      <tbody id="aqBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+  </div><!-- /tabPane-financeapproval -->
+</div>
+
+<div class="ov" id="hubcat-photo-ov" onclick="if(event.target===this)closeHubCatPhoto()">
+  <div style="max-width:90vw;max-height:90vh;position:relative">
+    <button class="dclose" onclick="closeHubCatPhoto()" style="position:absolute;top:-36px;right:0;background:#fff">✕</button>
+    <img id="hubcat-photo-img" src="" style="max-width:90vw;max-height:90vh;border-radius:10px;display:block">
+  </div>
+</div>
+
+<div class="ov" id="edit-mv-ov" onclick="if(event.target===this)closeEditMovement()">
+  <div class="dpanel" style="max-width:480px">
+    <div class="dhd">
+      <div><h3>Edit Movement</h3><div class="dsub" id="edit-mv-sub"></div></div>
+      <button class="dclose" onclick="closeEditMovement()">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div class="fg"><label id="edit-mv-qty-label">Actual Qty (nos)</label><input type="number" id="edit-mv-qty" step="1" style="width:100%" oninput="checkEditVariance()"></div>
+      <div class="fg" id="edit-mv-weight-wrap"><label>Actual Weight (kg)</label><input type="number" id="edit-mv-weight" step="0.01" style="width:100%" oninput="checkEditVariance()"></div>
+      <div class="fg" id="edit-mv-rate-wrap"><label>Rate (₹/unit)</label><input type="number" id="edit-mv-rate" step="0.01" style="width:100%"></div>
+      <div class="fg"><label>Remarks (required if Actual is more than 10% below System Calculated)</label><textarea id="edit-mv-remark" rows="2" oninput="this.classList.toggle('variance-flag', false)" style="width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px"></textarea></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" onclick="saveEditedMovement()">Save Changes</button>
+        <span class="save-msg" id="edit-mv-msg" style="color:#16a34a;font-size:11px;display:none">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="vendor-ov" onclick="if(event.target===this)closeVendorManager()">
+  <div class="dpanel" style="max-width:840px">
+    <div class="dhd">
+      <div><h3>Manage Vendors</h3><div class="dsub">Add vendors and set their rate card (₹ per category)</div></div>
+      <button class="dclose" onclick="closeVendorManager()">✕</button>
+    </div>
+    <div style="max-height:70vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <div class="fg"><label>Vendor Name</label><input type="text" id="v-name" style="width:160px"></div>
+        <div class="fg"><label>Contact Number</label><input type="text" id="v-contact" style="width:130px"></div>
+        <div class="fg"><label>GST Number</label><input type="text" id="v-gst" style="width:150px"></div>
+        <button class="btn" onclick="addVendorFull()">Add Vendor</button>
+      </div>
+      <div id="vendor-list-body"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="parts-ov" onclick="if(event.target===this)closePartsManager()">
+  <div class="dpanel" style="max-width:1420px">
+    <div class="dhd">
+      <div><h3>Manage Parts</h3><div class="dsub">Single source of truth for part classification — pattern, type, category, tracking, weight — used by Scrap, Refurb and Tyre alike. “Job card categories counted” says which job card lines count for a rule: A = Wear &amp; Tear · P = Rider payable · F = Free · W = Warranty. Scrap rules start on A, P, F (warranty parts are not scrapped unless you tick W); Refurb and Tyre rules count all four.</div></div>
+      <button class="dclose" onclick="closePartsManager()">✕</button>
+    </div>
+    <div style="max-height:78vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <div class="fg"><label>Pattern (use % for wildcard)</label><input type="text" id="mp-pattern" placeholder="e.g. %front%cover%" style="width:200px"></div>
+        <div class="fg"><label>Type</label>
+          <select id="mp-type" style="width:100px" onchange="onMpTypeChange()"><option value="Scrap">Scrap</option><option value="Refurb">Refurb</option><option value="Tyre">Tyre</option></select>
+        </div>
+        <div class="fg" id="mp-category-wrap"><label>Category</label><select id="mp-category" style="width:150px"></select></div>
+        <div class="fg"><label>Tracking</label>
+          <select id="mp-tracking" style="width:90px" onchange="onMpTrackingChange()"><option value="qty">Qty</option><option value="kg">Kg</option></select>
+        </div>
+        <div class="fg" id="mp-weight-wrap" style="display:none"><label>Weight (kg)</label><input type="number" step="0.001" id="mp-weight" style="width:90px"></div>
+        <div class="fg"><label>City override</label><select id="mp-city" style="width:110px"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
+        <div class="fg"><label>Priority</label><input type="number" id="mp-priority" value="0" style="width:70px"></div>
+        <div class="fg"><label title="Which job card categories count for this rule. A = Wear &amp; Tear · P = Rider payable · F = Free · W = Warranty">Job card categories counted</label><span class="jcc-boxes" title="Which job card categories count for this rule. A = Wear &amp; Tear · P = Rider payable · F = Free · W = Warranty"><label class="jcc-chip"><input type="checkbox" id="mp-cat-A" checked> A</label><label class="jcc-chip"><input type="checkbox" id="mp-cat-P" checked> P</label><label class="jcc-chip"><input type="checkbox" id="mp-cat-F" checked> F</label><label class="jcc-chip"><input type="checkbox" id="mp-cat-W"> W</label></span></div>
+        <div class="fg"><label>Notes</label><input type="text" id="mp-notes" style="width:160px"></div>
+        <button class="btn" onclick="addManagedPart()">Add</button>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <input type="text" id="mp-search" placeholder="Search pattern or notes…" style="width:220px" oninput="renderPartsManager()">
+        <select id="mp-filter-type" onchange="renderPartsManager()" style="width:110px"><option value="">All types</option><option value="Scrap">Scrap</option><option value="Refurb">Refurb</option><option value="Tyre">Tyre</option></select>
+        <select id="mp-filter-category" onchange="renderPartsManager()" style="width:150px"><option value="">All categories</option></select>
+        <select id="mp-filter-tracking" onchange="renderPartsManager()" style="width:100px"><option value="">Qty or Kg</option><option value="qty">Qty</option><option value="kg">Kg</option></select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="mp-show-inactive" onchange="renderPartsManager()"> Show inactive</label>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto" id="mp-count"></span>
+      </div>
+
+      <div id="parts-list-body" style="overflow-x:auto"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="partbd-ov" onclick="if(event.target===this)closePartBreakdown()">
+  <div class="dpanel" style="max-width:700px">
+    <div class="dhd">
+      <div><h3 id="partbd-title">Part-wise Weight Breakdown</h3><div class="dsub" id="partbd-scope"></div></div>
+      <button class="dclose" onclick="closePartBreakdown()">✕</button>
+    </div>
+    <div style="max-height:70vh;overflow-y:auto;padding:16px" id="partbd-body">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="hubtrigger-ov" onclick="if(event.target===this)closeHubTriggerManager()">
+  <div class="dpanel" style="max-width:700px">
+    <div class="dhd">
+      <div><h3>Manage Scrap Pickup Thresholds</h3><div class="dsub">When a hub's outstanding Aluminium+Iron+Plastic backlog reaches this weight, it's flagged as needing a pickup scheduled</div></div>
+      <button class="dclose" onclick="closeHubTriggerManager()">✕</button>
+    </div>
+    <div style="max-height:75vh;overflow-y:auto;padding:16px">
+      <div id="hubtrigger-list-body"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function heatColor(pct) {
+  if (pct == null) return '';
+  const abs = Math.abs(pct);
+  if (abs < 10) return 'background:#f0fdf4;color:#15803d';
+  if (abs < 30) return 'background:#fffbeb;color:#b45309';
+  return 'background:#fef2f2;color:#b91c1c';
+}
+function skeletonRows(cols, rows) {
+  rows = rows || 3;
+  const widths = [70, 45, 55, 40, 60, 35, 50, 65, 40, 55, 45];
+  let out = '';
+  for (let r = 0; r < rows; r++) {
+    out += '<tr>' + Array.from({length: cols}).map((_, i) =>
+      `<td><span class="skel-bar" style="width:${widths[(i+r) % widths.length]}px"></span></td>`
+    ).join('') + '</tr>';
+  }
+  return out;
+}
+function emptyState(icon, message, hint) {
+  return `<div class="es-icon">${icon}</div><div>${message}</div>${hint ? `<div class="es-hint">${hint}</div>` : ''}`;
+}
+const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR = { apikey: ANON, Authorization: 'Bearer ' + ANON }; // fallback only, used before auth-guard resolves
+let _authReadyPromise = null;
+function waitForAuthReady(timeoutMs) {
+  if (window.authGetValidToken) return Promise.resolve();
+  if (_authReadyPromise) return _authReadyPromise;
+  _authReadyPromise = new Promise(resolve => {
+    if (window.authGetValidToken) { resolve(); return; }
+    const to = setTimeout(resolve, timeoutMs || 4000); // safety net if auth-guard.js ever fails to fire
+    window.addEventListener('auth-ready', () => { clearTimeout(to); resolve(); }, { once: true });
+  });
+  return _authReadyPromise;
+}
+async function authHDR(extra) {
+  await waitForAuthReady();
+  let tok = ANON;
+  try { if (window.authGetValidToken) { const t = await window.authGetValidToken(); if (t) tok = t; } } catch (e) {}
+  return Object.assign({ apikey: ANON, Authorization: 'Bearer ' + tok }, extra || {});
+}
+
+let CATEGORIES = [];
+
+// NOTE (2026-08-25): window.authGetEmail was referenced throughout this file
+// (and the original Parts Tracker source it was merged from) but never
+// actually defined anywhere -- there was no bridge injecting it into this
+// iframe. It always silently evaluated to '' / 'unknown', meaning edit
+// permission checks and created_by/updated_by audit fields never worked
+// correctly. The real session lives in the parent SPA's localStorage under
+// 'sb_session' ({ email, role, permissions, ... }); since this dashboard
+// runs via an unsandboxed <iframe srcdoc>, it shares the parent's origin and
+// can read that same localStorage directly -- no bridge needed at all.
+function getCurrentUser() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (!sess.access_token || (sess.expires_at && sess.expires_at < Date.now())) return { email: '', role: '' };
+    return { email: sess.email || '', role: sess.role || '' };
+  } catch (e) { return { email: '', role: '' }; }
+}
+const SCRAP_POWER_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
+function isScrapPowerUser() {
+  return SCRAP_POWER_EMAILS.includes((getCurrentUser().email || '').toLowerCase());
+}
+function isScrapWeightAdmin() {
+  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
+}
+function isScrapApprover() {
+  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
+}
+let REFURB_PARTS = [];
+let VENDORS = [];
+let _hadFailure = false;
+
+function fmtC(n) { return (n == null || isNaN(n)) ? '—' : '₹' + Math.round(n).toLocaleString('en-IN'); }
+function fmtN(n) { return (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('en-IN'); }
+// Vendor name is genuinely free-typed by any user adding a vendor, then
+// gets inserted into <option> tags via innerHTML in a couple of places --
+// unlike hub/category/part names (fixed admin-managed lists), this one
+// needs real HTML-escaping, not just a quote-replace for an attribute.
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function todayIST() { return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10); }
+
+async function sbGet(path, attempt) {
+  attempt = attempt || 0;
+  try {
+    const r = await fetch(`${SB}/rest/v1/${path}`, { headers: await authHDR() });
+    if (!r.ok) { console.error('sbGet failed', path, r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
+    return r.json();
+  } catch (e) { console.error('sbGet network error', path, e); if (attempt < 2) { await new Promise(res=>setTimeout(res,800)); return sbGet(path, attempt+1); } _hadFailure = true; return []; }
+}
+async function rpc(name, body, attempt) {
+  attempt = attempt || 0;
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/${name}`, { method:'POST', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify(body) });
+    if (!r.ok) { console.error(name,'failed',r.status); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
+    return r.json();
+  } catch (e) { console.error(name,'network error',e); if (attempt < 2) { await new Promise(res=>setTimeout(res,1500)); return rpc(name, body, attempt+1); } _hadFailure = true; return null; }
+}
+
+let ALL_HUBS = [];
+
+async function loadHubs() {
+  const hubs = await rpc('get_distinct_hubs', {});
+  ALL_HUBS = hubs || [];
+  const sel = document.getElementById('f-hub');
+  ALL_HUBS.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sel.appendChild(o); });
+  const sHub = document.getElementById('s-hub');
+  ALL_HUBS.forEach(h => { const o=document.createElement('option'); o.value=h; o.textContent=h; sHub.appendChild(o); });
+}
+
+async function loadCategories() {
+  CATEGORIES = await sbGet('scrap_categories?select=*&order=category.asc');
+}
+
+async function loadRefurbParts() {
+  REFURB_PARTS = await sbGet('refurb_parts?select=*&order=part_name.asc');
+}
+
+function onTypeChange() {
+  renderMovementRows();
+}
+
+// Builds one row per category (Scrap) or part (Refurb). "System Calculated"
+// (Pending) is fetched fresh via get_scrap_generated_in_period /
+// get_movement_pipeline, scoped to this specific movement's own
+// City/Hub/Period -- not the page's top-level filter, since they can
+// legitimately differ (e.g. logging for a hub you're not currently viewing).
+// Temporary restriction: only these categories are actionable in Create
+// Movement for now. Update this
+// list when more categories are ready to go live for data entry.
+const MOVEMENT_ENABLED_CATEGORIES = ['Aluminium', 'Iron', 'Plastic', 'Wires'];
+
+async function renderMovementRows() {
+  // City/Hub/Period default to the top filter but are independently editable
+  // from then on -- only seed them here if they're genuinely empty (first
+  // render), never overwrite something the person already typed. This lets
+  // someone viewing an aggregate "All Hubs" view still log a movement for
+  // one specific hub without losing their broader view up top.
+  const sCity = document.getElementById('s-city');
+  const sHub = document.getElementById('s-hub');
+  const pf = document.getElementById('s-period-from-display');
+  const pt = document.getElementById('s-period-to-display');
+  if (sCity.dataset.seeded !== '1') {
+    sCity.value = document.getElementById('f-city').value;
+    sCity.dataset.seeded = '1';
+    onMovementCityChange(true);
+  }
+  if (sHub.dataset.seeded !== '1' && sHub.options.length > 1) {
+    sHub.value = document.getElementById('f-hub').value;
+    sHub.dataset.seeded = '1';
+  }
+  if (!pt.value) pt.value = document.getElementById('f-to').value;
+  await suggestNextPeriod(); // sets/locks Period From based on this hub+type's history
+
+  const type = document.getElementById('s-type').value;
+  const thead = document.getElementById('s-rows-thead');
+  const tbody = document.getElementById('s-rows-tbody');
+  const grandTotalEl = document.getElementById('s-grand-total');
+  const scopedFrom = pf.value, scopedTo = pt.value, scopedCity = sCity.value || null;
+  // "All Bangalore Hubs" / "All NCR Hubs" are UI-only placeholders for
+  // logging a city-wide reconciliation entry -- they never appear as a real
+  // hub_name in scrap_disposition/scrap_sales/rmc_jc_lines, so passing them
+  // straight through as p_hub matched nothing and always showed 0/blank.
+  // Treat them as no hub filter, letting scopedCity do the aggregation.
+  const rawHub = sHub.value || null;
+  const scopedHub = (rawHub && rawHub.startsWith('All ') && rawHub.endsWith(' Hubs')) ? null : rawHub;
+
+  tbody.innerHTML = '<tr><td class="empty"><span class="spin"></span></td></tr>';
+
+  // Fetch System Calculated scoped to THIS movement's own City/Hub/Period --
+  // not the page's top-level view, since they can now legitimately differ
+  // (e.g. viewing "All Hubs" up top while logging a movement for one hub).
+  let pendingByCategory = {}, pendingByPart = {};
+  if (type === 'Scrap') {
+    const genRows = scopedFrom && scopedTo ? await rpc('get_scrap_generated_in_period', { p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
+    (genRows || []).forEach(c => { pendingByCategory[c.category] = c.estimated; });
+  } else {
+    const rows = scopedFrom && scopedTo ? await rpc('get_movement_pipeline', { p_type: type, p_from: scopedFrom, p_to: scopedTo, p_city: scopedCity, p_hub: scopedHub }) : null;
+    (rows || []).forEach(r => { pendingByPart[r.part_name] = Math.max((r.consumed || 0) - (r.actual_in_hub || 0), 0); });
+  }
+
+  if (type === 'Scrap') {
+    grandTotalEl.style.display = '';
+    thead.innerHTML = '<tr><th>Category</th><th class="num">Estimated</th><th class="num">Actual</th><th class="num">Discrepancy</th><th>Status</th><th class="num">Rate (₹/unit)</th><th class="num">Total (₹)</th><th>Remark</th><th>Evidence</th></tr>';
+    // Brake Shoes is NCR-specific -- the auto-categorization only ever
+    // routes disposition data there for NCR (everywhere else stays
+    // Aluminium), so it only makes sense to show as an enterable row when
+    // NCR is the city actually being logged for.
+    const enabledForThisCity = scopedCity === 'NCR' ? [...MOVEMENT_ENABLED_CATEGORIES, 'Brake Shoes'] : MOVEMENT_ENABLED_CATEGORIES;
+    const visibleCategories = CATEGORIES.filter(c => enabledForThisCity.includes(c.category));
+    tbody.innerHTML = visibleCategories.length ? visibleCategories.map((c, ci) => {
+      const pending = pendingByCategory[c.category];
+      const pendingText = pending == null ? '—'
+        : pending < 0 ? `${fmtN(pending)} ${c.unit} <span class="info-dot" title="Negative because of incomplete weight-reference data for this category (see Manage Part Weights) — the real amount outstanding is understated, not actually negative.">⚠</span>`
+        : `${fmtN(pending)} ${c.unit}`;
+      return `<tr data-category="${c.category.replace(/"/g,'&quot;')}" data-unit="${c.unit}" data-rate="${c.reference_rate || ''}" data-syscalc-raw="${pending != null ? pending : ''}">
+        <td>${c.unit==='kg' ? `<a href="#" onclick="openPartBreakdown('${c.category.replace(/'/g,"\\'")}','${(scopedCity||'').replace(/'/g,"\\'")}','${(scopedHub||'').replace(/'/g,"\\'")}','${scopedFrom}','${scopedTo}');return false;" style="color:var(--red);text-decoration:none;font-weight:600" title="See part-wise weight breakdown">${c.category}</a>` : c.category} <span style="color:var(--muted);font-size:10px">(${c.unit})</span></td>
+        <td class="num row-syscalc">${pendingText}</td>
+        <td>
+          <input type="number" class="row-weight" step="0.01" placeholder="0" style="${c.unit!=='kg'?'display:none':''}" oninput="checkRowVariance(this.closest('tr'))">
+          <input type="number" class="row-qty" step="1" placeholder="0" style="${c.unit==='kg'?'display:none':''}" oninput="checkRowVariance(this.closest('tr'))">
+        </td>
+        <td class="num row-variance-cell muted-cell">—</td>
+        <td class="row-status-cell"><span class="muted-cell">—</span></td>
+        <td><input type="number" class="row-rate" step="0.01" value="${c.reference_rate || ''}" oninput="recalcRowTotal(this.closest('tr'))"></td>
+        <td><input type="number" class="row-total" step="0.01" readonly style="background:var(--surface-1,#f8fafc)"></td>
+        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:140px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
+        <td>
+          <button type="button" class="photo-btn" onclick="document.getElementById('row-photo-${ci}').click()"><i class="ti ti-camera"></i></button>
+          <input type="file" id="row-photo-${ci}" class="row-photo" accept="image/*" capture="environment" style="display:none" onchange="onRowPhotoChosen(this)">
+          <span class="row-photo-thumb"></span>
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td class="empty">No categories found.</td></tr>';
+  } else {
+    // Refurb and Tyre share the same simple shape (no pricing) -- just a
+    // different filtered slice of refurb_parts (part_type) and a different
+    // matching movement_type when saved.
+    grandTotalEl.style.display = 'none';
+    thead.innerHTML = '<tr><th>Part</th><th class="num">System Calculated</th><th class="num">Actual Qty (nos)</th><th>Remarks (if variance)</th><th>Photo</th></tr>';
+    const visibleParts = REFURB_PARTS.filter(p => (p.part_type || 'Refurb') === type);
+    tbody.innerHTML = visibleParts.length ? visibleParts.map((p, pi) => {
+      const pending = pendingByPart[p.part_name];
+      const pendingText = pending != null ? `${fmtN(pending)} nos` : '—';
+      return `<tr data-part="${p.part_name.replace(/"/g,'&quot;')}" data-syscalc-raw="${pending != null ? pending : ''}">
+        <td>${p.part_name}</td>
+        <td class="num row-syscalc">${pendingText}</td>
+        <td><input type="number" class="row-qty" step="1" oninput="checkRowVariance(this.closest('tr'))"></td>
+        <td><input type="text" class="row-remark" placeholder="e.g. missing, broken" style="width:150px" oninput="this.classList.toggle(&quot;variance-flag&quot;, false)"></td>
+        <td>
+          <button type="button" class="photo-btn" onclick="document.getElementById('row-photo-part-${pi}').click()"><i class="ti ti-camera"></i></button>
+          <input type="file" id="row-photo-part-${pi}" class="row-photo" accept="image/*" capture="environment" style="display:none" onchange="onRowPhotoChosen(this)">
+          <span class="row-photo-thumb"></span>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td class="empty">No ${type.toLowerCase()} parts found.</td></tr>`;
+  }
+  onVendorChangeBulk();
+  updateGrandTotal();
+}
+
+function onMovementCityChange(skipRender) {
+  const sCity = document.getElementById('s-city');
+  const sHub = document.getElementById('s-hub');
+  const city = sCity.value;
+  const currentHub = sHub.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  sHub.innerHTML = '<option value="">— select —</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) sHub.value = currentHub;
+  if (!skipRender) renderMovementRows();
+}
+
+function updateGrandTotal() {
+  const type = document.getElementById('s-type').value;
+  const grandTotalEl = document.getElementById('s-grand-total');
+  if (type !== 'Scrap') { grandTotalEl.style.display = 'none'; return; }
+  let total = 0;
+  document.querySelectorAll('#s-rows-tbody .row-total').forEach(el => { total += parseFloat(el.value) || 0; });
+  grandTotalEl.style.display = '';
+  grandTotalEl.textContent = `Grand Total: ${fmtC(total)}`;
+}
+
+function recalcRowTotal(tr) {
+  const unit = tr.dataset.unit;
+  const qty = unit === 'kg' ? parseFloat(tr.querySelector('.row-weight').value) || 0 : parseFloat(tr.querySelector('.row-qty').value) || 0;
+  const rate = parseFloat(tr.querySelector('.row-rate').value) || 0;
+  tr.querySelector('.row-total').value = qty && rate ? (qty * rate).toFixed(2) : '';
+  updateGrandTotal();
+}
+
+// A shortfall past 10% below System Calculated (i.e. actual < 90% of expected)
+// gets flagged live as the person types -- the input turns red, and the
+// Remark field is marked required, so it's obvious at a glance which rows
+// need an explanation before Save will accept them. Small variances under
+// that threshold don't need a remark at all.
+const VARIANCE_THRESHOLD = 0.9;
+
+function checkRowVariance(tr) {
+  const isRefurb = !tr.dataset.category;
+  const unit = tr.dataset.unit;
+  const drivingInput = isRefurb ? tr.querySelector('.row-qty') : (unit === 'kg' ? tr.querySelector('.row-weight') : tr.querySelector('.row-qty'));
+  const systemCalc = tr.dataset.syscalcRaw !== '' ? parseFloat(tr.dataset.syscalcRaw) : null;
+  const val = parseFloat(drivingInput.value);
+  const remarkInput = tr.querySelector('.row-remark');
+
+  const isShort = systemCalc != null && !isNaN(val) && val > 0 && val < systemCalc * VARIANCE_THRESHOLD;
+  drivingInput.classList.toggle('variance-flag', isShort);
+  if (remarkInput) {
+    remarkInput.classList.toggle('variance-flag', isShort && !remarkInput.value.trim());
+    remarkInput.placeholder = isShort ? 'Required — explain the shortfall' : 'e.g. missing, broken';
+  }
+
+  // Live Variance/Status feedback (Scrap rows only -- Refurb/Tyre rows don't
+  // render these cells at all, so just skip quietly there).
+  const varCell = tr.querySelector('.row-variance-cell');
+  const statusCell = tr.querySelector('.row-status-cell');
+  if (varCell && statusCell) {
+    if (systemCalc != null && !isNaN(val) && val >= 0) {
+      const variance = systemCalc - val;
+      varCell.textContent = fmtN(variance) + ' ' + unit;
+      varCell.classList.toggle('muted-cell', false);
+      statusCell.innerHTML = isShort
+        ? '<span class="pending-flag">⚠ Requires remark</span>'
+        : '<span style="color:#16a34a">✓ Within range</span>';
+    } else {
+      varCell.textContent = '—';
+      varCell.classList.add('muted-cell');
+      statusCell.innerHTML = '<span class="muted-cell">—</span>';
+    }
+  }
+
+  if (!isRefurb) recalcRowTotal(tr);
+}
+function onRowPhotoChosen(input) {
+  const tr = input.closest('tr');
+  const thumb = tr.querySelector('.row-photo-thumb');
+  const file = input.files[0];
+  if (!file || !thumb) return;
+  const reader = new FileReader();
+  reader.onload = () => { thumb.innerHTML = `<img src="${reader.result}" class="row-photo-preview">`; };
+  reader.readAsDataURL(file);
+}
+
+async function onVendorChangeBulk() {
+  const type = document.getElementById('s-type').value;
+  if (type !== 'Scrap') return;
+  const vendorId = document.getElementById('s-vendor').value;
+  const tbody = document.getElementById('s-rows-tbody');
+  if (!vendorId) return;
+  const rates = await sbGet(`vendor_category_rates?vendor_id=eq.${vendorId}&select=category,rate`);
+  const rateByCategory = {};
+  (rates || []).forEach(r => { rateByCategory[r.category] = r.rate; });
+  tbody.querySelectorAll('tr[data-category]').forEach(tr => {
+    const cat = tr.dataset.category;
+    if (rateByCategory[cat] != null) {
+      tr.querySelector('.row-rate').value = rateByCategory[cat];
+      recalcRowTotal(tr);
+    }
+  });
+}
+
+async function loadVendors() {
+  VENDORS = await sbGet('scrap_vendors?select=*&approved=eq.true&order=vendor_name.asc');
+  const sel = document.getElementById('s-vendor');
+  sel.innerHTML = '<option value="">— select or add via Manage Vendors —</option>' + VENDORS.map(v => `<option value="${v.id}">${esc(v.vendor_name)}</option>`).join('');
+}
+
+async function openVendorManager() {
+  document.getElementById('vendor-ov').classList.add('on');
+  await renderVendorManager();
+}
+function closeVendorManager() { document.getElementById('vendor-ov').classList.remove('on'); }
+
+async function renderVendorManager() {
+  const allVendors = await sbGet('scrap_vendors?select=*&order=vendor_name.asc');
+  const rates = await sbGet('vendor_category_rates?select=*');
+  const ratesByVendor = {};
+  (rates||[]).forEach(r => { (ratesByVendor[r.vendor_id] ||= {})[r.category] = r.rate; });
+  const body = document.getElementById('vendor-list-body');
+  const canApprove = isScrapPowerUser();
+  const pending = allVendors.filter(v => !v.approved);
+  const approved = allVendors.filter(v => v.approved);
+  const vendorCard = (v) => `
+    <div style="border:1px solid ${v.approved ? 'var(--border)' : '#fca5a5'};border-radius:10px;padding:12px;margin-bottom:12px;${v.approved ? '' : 'background:#fef2f2'}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <div class="fg"><label>Name</label><input type="text" value="${(v.vendor_name||'').replace(/"/g,'&quot;')}" id="vn-${v.id}" style="width:150px"></div>
+        <div class="fg"><label>Contact</label><input type="text" value="${(v.contact||'').replace(/"/g,'&quot;')}" id="vc-${v.id}" style="width:120px"></div>
+        <div class="fg"><label>GST</label><input type="text" value="${(v.gstin||'').replace(/"/g,'&quot;')}" id="vg-${v.id}" style="width:140px"></div>
+        <button class="btn secondary" style="padding:5px 10px;font-size:11px" onclick="saveVendorInfo(${v.id})">Save Info</button>
+        ${v.approved
+          ? '<span style="align-self:center;font-size:11px;font-weight:600;color:#15803d;background:#dcfce7;padding:3px 8px;border-radius:6px">✓ Approved</span>'
+          : (canApprove ? `<button class="btn" style="padding:5px 10px;font-size:11px;background:#16a34a" onclick="approveVendor(${v.id})">Approve Vendor</button>` : '<span style="align-self:center;font-size:11px;font-weight:600;color:#b45309;background:#fef3c7;padding:3px 8px;border-radius:6px">Pending Approval</span>')
+        }
+      </div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Rate card (₹ per unit)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${CATEGORIES.map(c => `
+          <div class="fg"><label style="font-size:9px">${c.category}</label>
+            <input type="number" step="0.01" value="${(ratesByVendor[v.id]&&ratesByVendor[v.id][c.category])||''}" id="vr-${v.id}-${c.category.replace(/[^a-z0-9]/gi,'_')}" style="width:75px" placeholder="₹/${c.unit}">
+          </div>`).join('')}
+        <button class="btn secondary" style="padding:5px 10px;font-size:11px;align-self:flex-end" onclick="saveVendorRates(${v.id})">Save Rates</button>
+      </div>
+    </div>
+  `;
+  let html = '';
+  if (pending.length) {
+    html += `<div style="font-size:12px;font-weight:600;color:#b91c1c;margin-bottom:8px">⚠ Pending Approval (${pending.length}) — not selectable for movements until approved</div>`;
+    html += pending.map(vendorCard).join('');
+    html += '<div style="border-top:1px solid var(--border);margin:16px 0"></div>';
+  }
+  body.innerHTML = html + (approved.length ? approved.map(vendorCard).join('') : (pending.length ? '' : '<div class="empty">No vendors yet — add one above.</div>'));
+}
+
+async function approveVendor(id) {
+  if (!isScrapPowerUser()) return;
+  const who = getCurrentUser().email || 'unknown';
+  await fetch(`${SB}/rest/v1/scrap_vendors?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ approved: true, approved_by: who, approved_at: new Date().toISOString() }) });
+  await renderVendorManager();
+  await loadVendors();
+}
+
+async function addVendorFull() {
+  const name = document.getElementById('v-name').value.trim();
+  if (!name) return;
+  const contact = document.getElementById('v-contact').value.trim();
+  const gst = document.getElementById('v-gst').value.trim();
+  // Not auto-approved: a new vendor is a real business-control point (who
+  // you're paying and where scrap actually goes), not just a form entry --
+  // it now needs an explicit Approve action before it's selectable for a
+  // movement (see the approved=eq.true filter on the vendor dropdown).
+  await fetch(`${SB}/rest/v1/scrap_vendors`, { method:'POST', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null, approved: false }) });
+  document.getElementById('v-name').value=''; document.getElementById('v-contact').value=''; document.getElementById('v-gst').value='';
+  await renderVendorManager();
+  await loadVendors();
+}
+
+async function saveVendorInfo(id) {
+  const name = document.getElementById(`vn-${id}`).value.trim();
+  const contact = document.getElementById(`vc-${id}`).value.trim();
+  const gst = document.getElementById(`vg-${id}`).value.trim();
+  await fetch(`${SB}/rest/v1/scrap_vendors?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ vendor_name: name, contact: contact||null, gstin: gst||null }) });
+  await loadVendors();
+}
+
+async function saveVendorRates(id) {
+  const rows = CATEGORIES.map(c => {
+    const el = document.getElementById(`vr-${id}-${c.category.replace(/[^a-z0-9]/gi,'_')}`);
+    const val = el ? parseFloat(el.value) : NaN;
+    return isNaN(val) ? null : { vendor_id: id, category: c.category, rate: val };
+  }).filter(Boolean);
+  if (!rows.length) { alert('Enter at least one rate before saving.'); return; }
+  const r = await fetch(`${SB}/rest/v1/vendor_category_rates?on_conflict=vendor_id,category`, { method:'POST', headers: await authHDR({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}), body: JSON.stringify(rows) });
+  if (!r.ok) { alert('Could not save rates: ' + (await r.text()).slice(0,200)); return; }
+  alert('Rate card saved.');
+}
+
+async function openPartsManager() {
+  if (!isScrapWeightAdmin()) return;
+  document.getElementById('parts-ov').classList.add('on');
+  document.getElementById('mp-type').value = 'Scrap';
+  onMpTypeChange();
+  await renderPartsManager();
+}
+function closePartsManager() { document.getElementById('parts-ov').classList.remove('on'); }
+
+async function openPartBreakdown(category, city, hub, from, to) {
+  document.getElementById('partbd-ov').classList.add('on');
+  document.getElementById('partbd-title').textContent = category + ' — Part-wise Weight Breakdown';
+  document.getElementById('partbd-scope').textContent =
+    (city ? city : 'All Cities') + (hub ? ' / ' + hub : '') + ' · ' + from + ' to ' + to;
+  const body = document.getElementById('partbd-body');
+  body.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  try {
+    const rows = await rpc('get_scrap_category_part_breakdown', {
+      p_category: category, p_from: from, p_to: to,
+      p_city: city || null, p_hub: hub || null,
+    });
+    if (!rows || !rows.length) { body.innerHTML = '<div class="empty">No parts found for this scope.</div>'; return; }
+    const grandTotal = rows.reduce((s, r) => s + (r.total_kg || 0), 0);
+    body.innerHTML = `
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px">Part Name</th>
+          <th class="num" style="padding:6px 8px">Qty</th>
+          <th class="num" style="padding:6px 8px">Weight/Unit</th>
+          <th class="num" style="padding:6px 8px">Total (kg)</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map(r => `<tr style="border-top:1px solid var(--border)${!r.is_weighted?';background:#fffbeb':''}">
+          <td style="padding:6px 8px">${esc(r.part_name)}${!r.is_weighted ? ' <span class="info-dot" title="No weight on file yet — not counted in the Estimated total">⚠ no weight</span>' : ''}</td>
+          <td class="num" style="padding:6px 8px">${r.qty}</td>
+          <td class="num" style="padding:6px 8px">${r.weight_per_unit_kg != null ? r.weight_per_unit_kg + ' kg' : '—'}</td>
+          <td class="num" style="padding:6px 8px;font-weight:600">${r.is_weighted ? r.total_kg.toFixed(2) : '—'}</td>
+        </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
+          <td style="padding:6px 8px" colspan="3">Total (weighted parts only)</td>
+          <td class="num" style="padding:6px 8px">${grandTotal.toFixed(2)} kg</td>
+        </tr></tfoot>
+      </table>`;
+  } catch (e) {
+    body.innerHTML = '<div class="empty" style="color:#dc2626">⚠ Could not load — try again.</div>';
+  }
+}
+function closePartBreakdown() { document.getElementById('partbd-ov').classList.remove('on'); }
+
+let SCRAP_CATEGORIES_CACHE = [];
+// ── Job card categories counted (A wear and tear, P rider payable, F free, W warranty) ──
+const JCC = ['A', 'P', 'F', 'W'];
+const JCC_TITLE = 'Which job card categories count for this rule. A = Wear &amp; Tear · P = Rider payable · F = Free · W = Warranty';
+function jccDefault(type) { return type === 'Scrap' ? ['A', 'P', 'F'] : ['A', 'P', 'F', 'W']; }   // what each type counted before this setting existed
+function jccString(list) { return JCC.filter(c => list.indexOf(c) >= 0).sort().join(','); }   // 'A,F,P': sorted, the way the database keeps it
+function jccFromBoxes(prefix) { return JCC.filter(c => document.getElementById(prefix + c).checked); }
+function jccSetBoxes(prefix, list) { JCC.forEach(c => { document.getElementById(prefix + c).checked = list.indexOf(c) >= 0; }); }
+function jccChips(prefix, list) { return '<span class="jcc-boxes">' + JCC.map(c => '<label class="jcc-chip" title="' + JCC_TITLE + '"><input type="checkbox" id="' + prefix + c + '"' + (list.indexOf(c) >= 0 ? ' checked' : '') + '> ' + c + '</label>').join('') + '</span>'; }
+let ROW_TYPE_SEEN = {};   // row id -> the type it was last switched to (so switching back and forth keeps following the defaults)
+function rowCats(p) { return p.categories ? p.categories.split(',') : jccDefault(p.part_type); }
+function setMpCatDefaults() { jccSetBoxes('mp-cat-', jccDefault(document.getElementById('mp-type').value)); }
+function onMpTypeChange() {
+  const isScrap = document.getElementById('mp-type').value === 'Scrap';
+  document.getElementById('mp-category-wrap').style.display = isScrap ? '' : 'none';
+  setMpCatDefaults();
+}
+function onMpTrackingChange() {
+  document.getElementById('mp-weight-wrap').style.display = document.getElementById('mp-tracking').value === 'kg' ? '' : 'none';
+}
+
+let HUB_CAT_DETAIL = [];
+let HUB_CAT_SORT = { col: 'system_consumed_kg', dir: 'desc' };
+async function loadHubCategoryDetail(city, hub, from, to) {
+  try {
+    HUB_CAT_DETAIL = await rpc('get_hub_category_scrap_detail', { p_city: city, p_hub: hub, p_from: from, p_to: to }) || [];
+    renderHubCategoryDetail();
+  } catch (e) {
+    console.error('loadHubCategoryDetail failed', e);
+    document.getElementById('hubCatBody').innerHTML = '<tr><td colspan="9" class="empty" style="color:var(--red)">Failed to load — try Apply again.</td></tr>';
+  }
+}
+function sortHubCatBy(col) {
+  if (HUB_CAT_SORT.col === col) {
+    HUB_CAT_SORT.dir = HUB_CAT_SORT.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    HUB_CAT_SORT = { col, dir: 'asc' };
+  }
+  renderHubCategoryDetail();
+}
+function renderHubCategoryDetail() {
+  const search = (document.getElementById('hubCatSearch').value || '').trim().toLowerCase();
+  let rows = HUB_CAT_DETAIL.filter(r =>
+    !search || r.hub_name.toLowerCase().includes(search) || r.category.toLowerCase().includes(search)
+  );
+
+  const { col, dir } = HUB_CAT_SORT;
+  const mult = dir === 'asc' ? 1 : -1;
+  rows = [...rows].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;  // nulls always sort last, regardless of direction
+    if (bv == null) return -1;
+    if (typeof av === 'string') return av.localeCompare(bv) * mult;
+    return (av - bv) * mult;
+  });
+
+  document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+  const activeArrow = document.getElementById('sort-' + col);
+  if (activeArrow) activeArrow.textContent = dir === 'asc' ? '▲' : '▼';
+
+  const tbody = document.getElementById('hubCatBody');
+  tbody.innerHTML = rows.length ? rows.map(r => `<tr>
+    <td>${r.hub_name}</td>
+    <td style="color:var(--muted)">${r.city}</td>
+    <td>${r.category}</td>
+    <td>${fmtDateShort(r.last_transaction)}</td>
+    <td class="num">${fmtN(r.system_consumed_kg)}</td>
+    <td class="num">${fmtN(r.actual_collected_kg)}</td>
+    <td class="num">${r.last_amount != null ? fmtC(r.last_amount) : '—'}</td>
+    <td>${r.last_vendor || '—'}</td>
+    <td>${r.last_photo_url ? `<img src="${r.last_photo_url}" onclick="openHubCatPhoto('${r.last_photo_url}')" style="width:36px;height:36px;object-fit:cover;border-radius:6px;vertical-align:middle;cursor:pointer">` : '<span style="color:var(--muted)">—</span>'}</td>
+  </tr>`).join('') : `<tr><td colspan="9">${emptyState('📦', 'No matching hub/category data.', 'Try a different search term.')}</td></tr>`;
+}
+function openHubCatPhoto(url) {
+  document.getElementById('hubcat-photo-img').src = url;
+  document.getElementById('hubcat-photo-ov').classList.add('on');
+}
+function closeHubCatPhoto() { document.getElementById('hubcat-photo-ov').classList.remove('on'); }
+function fmtDateShort(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+
+async function loadHubTriggerBanner() {
+  try {
+    const city = document.getElementById('f-city') ? (document.getElementById('f-city').value || null) : null;
+    const hub = document.getElementById('f-hub') ? (document.getElementById('f-hub').value || null) : null;
+    const rows = await rpc('get_hub_scrap_trigger_status', { p_city: city, p_hub: hub }) || [];
+    const over = rows.filter(r => r.over_threshold);
+    const banner = document.getElementById('hub-trigger-banner');
+    const list = document.getElementById('hub-trigger-list');
+    if (!over.length) { banner.style.display = 'none'; return; }
+    banner.style.display = '';
+    list.innerHTML = over.map(r =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #fecaca">
+        <span><b>${r.hub_name}</b> (${r.city}, ${r.hub_type})</span>
+        <span>${fmtN(r.outstanding_kg)} kg outstanding <span style="color:var(--muted)">/ ${fmtN(r.threshold_kg)} kg threshold</span></span>
+      </div>`
+    ).join('');
+  } catch (e) { console.error('loadHubTriggerBanner failed', e); }
+}
+
+async function openHubTriggerManager() {
+  document.getElementById('hubtrigger-ov').classList.add('on');
+  await renderHubTriggerManager();
+}
+function closeHubTriggerManager() { document.getElementById('hubtrigger-ov').classList.remove('on'); }
+
+async function renderHubTriggerManager() {
+  const body = document.getElementById('hubtrigger-list-body');
+  const canEdit = isScrapPowerUser();
+  const [rows, status] = await Promise.all([
+    sbGet('hub_scrap_triggers?select=*&order=city.asc,hub_name.asc'),
+    rpc('get_hub_scrap_trigger_status', {})
+  ]);
+  const statusByHub = {};
+  (status || []).forEach(s => { statusByHub[s.hub_name] = s; });
+
+  body.innerHTML = `<table style="width:100%;font-size:12px;border-collapse:collapse">
+    <thead><tr style="background:var(--surface-1,#f8fafc)">
+      <th style="text-align:left;padding:6px 10px">City</th><th style="text-align:left;padding:6px 10px">Hub</th>
+      <th style="text-align:left;padding:6px 10px">Type</th><th class="num" style="padding:6px 10px">Threshold (kg)</th>
+      <th class="num" style="padding:6px 10px">Currently Outstanding</th><th style="padding:6px 10px"></th>
+    </tr></thead><tbody>
+    ${(rows || []).map(r => {
+      const s = statusByHub[r.hub_name];
+      const overStyle = s && s.over_threshold ? 'color:#b91c1c;font-weight:600' : '';
+      return `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px 10px">${r.city}</td>
+        <td style="padding:6px 10px">${r.hub_name}</td>
+        <td style="padding:6px 10px;color:var(--muted)">${r.hub_type}</td>
+        <td style="padding:6px 10px" class="num">${canEdit ? `<input type="number" step="1" value="${r.threshold_kg}" id="ht-${r.id}" style="width:80px">` : fmtN(r.threshold_kg)}</td>
+        <td class="num" style="padding:6px 10px;${overStyle}">${s ? fmtN(s.outstanding_kg) + ' kg' : '—'}</td>
+        <td style="padding:6px 10px">${canEdit ? `<button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="saveHubTrigger(${r.id})">Save</button>` : ''}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+async function saveHubTrigger(id) {
+  const val = parseFloat(document.getElementById(`ht-${id}`).value);
+  if (isNaN(val) || val <= 0) { alert('Enter a valid threshold (kg).'); return; }
+  const who = getCurrentUser().email || 'unknown';
+  const r = await fetch(`${SB}/rest/v1/hub_scrap_triggers?id=eq.${id}`, {
+    method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ threshold_kg: val, updated_by: who, updated_at: new Date().toISOString() })
+  });
+  if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+  await renderHubTriggerManager();
+  await loadHubTriggerBanner();
+}
+
+let MANAGED_PARTS_CACHE = [];
+
+async function renderPartsManager() {
+  const listBox = document.getElementById('parts-list-body');
+  if (!SCRAP_CATEGORIES_CACHE.length) {
+    SCRAP_CATEGORIES_CACHE = await sbGet('scrap_categories?select=category&order=category.asc') || [];
+    const catOpts = SCRAP_CATEGORIES_CACHE.map(c => `<option>${c.category}</option>`).join('');
+    document.getElementById('mp-category').innerHTML = catOpts;
+    document.getElementById('mp-filter-category').innerHTML = '<option value="">All categories</option>' + catOpts;
+  }
+  if (!MANAGED_PARTS_CACHE.length) {
+    listBox.innerHTML = '<div class="empty">Loading…</div>';
+    MANAGED_PARTS_CACHE = await sbGet('managed_parts?select=*&order=part_type.asc,category.asc,priority.desc') || [];
+  }
+
+  const search = (document.getElementById('mp-search').value || '').trim().toLowerCase();
+  const fType = document.getElementById('mp-filter-type').value;
+  const fCat = document.getElementById('mp-filter-category').value;
+  const fTrack = document.getElementById('mp-filter-tracking').value;
+  const showInactive = document.getElementById('mp-show-inactive').checked;
+
+  const rows = MANAGED_PARTS_CACHE.filter(p =>
+    (showInactive || p.active) &&
+    (!fType || p.part_type === fType) &&
+    (!fCat || p.category === fCat) &&
+    (!fTrack || p.tracking_type === fTrack) &&
+    (!search || (p.match_pattern||'').toLowerCase().includes(search) || (p.notes||'').toLowerCase().includes(search))
+  );
+  document.getElementById('mp-count').textContent = `${rows.length} of ${MANAGED_PARTS_CACHE.length} rows`;
+
+  const catOptsFor = (sel) => SCRAP_CATEGORIES_CACHE.map(c => `<option ${c.category===sel?'selected':''}>${c.category}</option>`).join('');
+  const typeOptsFor = (sel) => ['Scrap','Refurb','Tyre'].map(t => `<option value="${t}" ${t===sel?'selected':''}>${t}</option>`).join('');
+  const cityOptsFor = (sel) => ['', 'Bangalore','NCR','Hyderabad'].map(c => `<option value="${c}" ${c===(sel||'')?'selected':''}>${c||'All cities'}</option>`).join('');
+
+  ROW_TYPE_SEEN = {};
+  listBox.innerHTML = rows.length ? `
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="background:var(--surface-1,#f8fafc)">
+        <th style="text-align:left;padding:6px 8px">Pattern</th><th style="text-align:left;padding:6px 8px">Type</th>
+        <th style="text-align:left;padding:6px 8px">Category</th><th style="text-align:left;padding:6px 8px">Tracking</th>
+        <th class="num" style="padding:6px 8px">Weight (kg)</th><th style="text-align:left;padding:6px 8px">City</th>
+        <th class="num" style="padding:6px 8px">Priority</th><th style="text-align:left;padding:6px 8px" title="Which job card categories count for this rule. A = Wear &amp; Tear · P = Rider payable · F = Free · W = Warranty">Job card categories counted</th><th style="text-align:left;padding:6px 8px">Notes</th>
+        <th style="padding:6px 8px"></th>
+      </tr></thead>
+      <tbody>
+      ${rows.map(p => `
+        <tr style="border-top:1px solid var(--border);${p.active?'':'opacity:.5'}">
+          <td style="padding:6px 8px"><input type="text" value="${(p.match_pattern||'').replace(/"/g,'&quot;')}" id="mpp-${p.id}" style="width:170px"></td>
+          <td style="padding:6px 8px"><select id="mpt-${p.id}" onchange="onRowTypeChange(${p.id})" style="width:80px">${typeOptsFor(p.part_type)}</select></td>
+          <td style="padding:6px 8px" id="mpc-wrap-${p.id}" ${p.part_type!=='Scrap'?'style="display:none"':''}><select id="mpc-${p.id}" style="width:130px">${catOptsFor(p.category)}</select></td>
+          <td style="padding:6px 8px"><select id="mptr-${p.id}" onchange="onRowTrackingChange(${p.id})" style="width:70px"><option value="qty" ${p.tracking_type==='qty'?'selected':''}>Qty</option><option value="kg" ${p.tracking_type==='kg'?'selected':''}>Kg</option></select></td>
+          <td style="padding:6px 8px" class="num"><input type="number" step="0.001" value="${p.weight_kg ?? ''}" id="mpw-${p.id}" style="width:80px" ${p.tracking_type!=='kg'?'disabled':''}></td>
+          <td style="padding:6px 8px"><select id="mpcity-${p.id}" style="width:100px">${cityOptsFor(p.city_override)}</select></td>
+          <td style="padding:6px 8px" class="num"><input type="number" value="${p.priority ?? 0}" id="mppri-${p.id}" style="width:55px"></td>
+          <td style="padding:6px 8px">${jccChips('mpk-' + p.id + '-', rowCats(p))}</td>
+          <td style="padding:6px 8px"><input type="text" value="${(p.notes||'').replace(/"/g,'&quot;')}" id="mpn-${p.id}" style="width:150px"></td>
+          <td style="padding:6px 8px;white-space:nowrap">
+            <button class="btn secondary" style="padding:2px 8px;font-size:10px" onclick="savePartRow(${p.id})">Save</button>
+            ${p.active
+              ? `<button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#dc2626" onclick="deactivatePartRow(${p.id})">Deactivate</button>`
+              : `<button class="btn secondary" style="padding:2px 8px;font-size:10px;color:#16a34a" onclick="reactivatePartRow(${p.id})">Reactivate</button>`}
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div class="empty">No matching rows — add one above, or clear filters.</div>';
+}
+
+function onRowTypeChange(id) {
+  const t = document.getElementById(`mpt-${id}`).value, isScrap = t === 'Scrap';
+  document.getElementById(`mpc-wrap-${id}`).style.display = isScrap ? '' : 'none';
+  // ticks nobody touched follow the type: if they still equal the old type's default they switch to the new type's default
+  const row = (MANAGED_PARTS_CACHE || []).find(p => p.id === id);
+  const prev = ROW_TYPE_SEEN[id] || (row && row.part_type);   // the type this row was on before this change
+  if (prev && jccString(jccFromBoxes('mpk-' + id + '-')) === jccString(jccDefault(prev))) jccSetBoxes('mpk-' + id + '-', jccDefault(t));
+  ROW_TYPE_SEEN[id] = t;
+}
+function onRowTrackingChange(id) {
+  document.getElementById(`mpw-${id}`).disabled = document.getElementById(`mptr-${id}`).value !== 'kg';
+}
+
+// Every change to the part rules goes through admin-only database functions: the rules table itself no longer accepts direct writes.
+async function mpRpc(fn, body) {
+  const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+  if (r.ok) return { ok: true, data: await r.json().catch(() => null) };
+  let msg = ''; try { const e = await r.json(); msg = e.message || e.hint || ''; } catch (x) { try { msg = await r.text(); } catch (y) {} }
+  return { ok: false, status: r.status, msg: (r.status === 401 || r.status === 403 || /only an admin/i.test(msg)) ? 'Only an admin can change the part rules.' : String(msg || ('HTTP ' + r.status)).slice(0, 200) };
+}
+
+async function addManagedPart() {
+  const pattern = document.getElementById('mp-pattern').value.trim();
+  const part_type = document.getElementById('mp-type').value;
+  const category = part_type === 'Scrap' ? document.getElementById('mp-category').value : null;
+  const tracking_type = document.getElementById('mp-tracking').value;
+  const weight_kg = tracking_type === 'kg' ? parseFloat(document.getElementById('mp-weight').value) : null;
+  const city_override = document.getElementById('mp-city').value || null;
+  const priority = parseInt(document.getElementById('mp-priority').value, 10) || 0;
+  const notes = document.getElementById('mp-notes').value.trim() || null;
+  const catList = jccFromBoxes('mp-cat-');
+  if (!catList.length) { alert('Tick at least one job card category (A, P, F or W).'); return; }
+  if (!pattern) { alert('Enter a pattern.'); return; }
+  if (tracking_type === 'kg' && isNaN(weight_kg)) { alert('Tracking is set to Kg — enter a weight.'); return; }
+  const r = await mpRpc('add_managed_part', { p: { match_pattern: pattern, part_type, category, tracking_type, weight_kg, city_override, priority, notes, categories: jccString(catList) } });
+  if (!r.ok) { alert('Could not add: ' + r.msg); return; }
+  document.getElementById('mp-pattern').value = ''; document.getElementById('mp-notes').value = ''; setMpCatDefaults();
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
+}
+
+async function savePartRow(id) {
+  const existingRow = (MANAGED_PARTS_CACHE || []).find(p => p.id === id);
+  const pattern = document.getElementById(`mpp-${id}`).value.trim();
+  const part_type = document.getElementById(`mpt-${id}`).value;
+  const category = part_type === 'Scrap' ? document.getElementById(`mpc-${id}`).value : null;
+  const tracking_type = document.getElementById(`mptr-${id}`).value;
+  const weightInput = document.getElementById(`mpw-${id}`).value;
+  const weight_kg = tracking_type === 'kg' && weightInput !== '' ? parseFloat(weightInput) : null;
+  const city_override = document.getElementById(`mpcity-${id}`).value || null;
+  const priority = parseInt(document.getElementById(`mppri-${id}`).value, 10) || 0;
+  const notes = document.getElementById(`mpn-${id}`).value.trim() || null;
+  const catList = jccFromBoxes('mpk-' + id + '-');
+  if (!catList.length) { alert('Tick at least one job card category (A, P, F or W).'); return; }
+  const categories = jccString(catList);
+  if (!pattern) { alert('Pattern is required.'); return; }
+  if (tracking_type === 'kg' && (weight_kg == null || isNaN(weight_kg))) { alert('Tracking is set to Kg — enter a weight.'); return; }
+  if (existingRow && existingRow.categories && existingRow.categories !== categories) {
+    const msg = part_type === 'Scrap'
+      ? `This changes which job cards generate scrap for "${pattern}": ${existingRow.categories} -> ${categories}.\n\nThe scrap list is rebuilt every 3 hours. At the next rebuild, lines of newly ticked categories are added (including past ones) and lines of unticked categories are removed.\n\nSave?`
+      : `This changes which job card lines count as consumed for "${pattern}": ${existingRow.categories} -> ${categories}. It applies straight away.\n\nSave?`;
+    if (!confirm(msg)) return;
+  }
+
+  const weightChanged = existingRow && tracking_type === 'kg' && existingRow.weight_kg != null && Number(existingRow.weight_kg) !== weight_kg;
+  const base = { match_pattern: pattern, part_type, category, tracking_type, unit: tracking_type==='kg'?'kg':'nos', city_override, priority, notes, categories };
+
+  if (!weightChanged) {
+    const r = await mpRpc('save_managed_part', { p_id: id, p: { ...base, weight_kg } });
+    if (!r.ok) { alert('Could not save: ' + r.msg); return; }
+    MANAGED_PARTS_CACHE = [];
+    await renderPartsManager();
+    return;
+  }
+
+  const reason = prompt(`Changing weight from ${existingRow.weight_kg}kg to ${weight_kg}kg for "${pattern}".\n\nReason for this change (kept for audit):`);
+  if (reason === null) return;
+  // the database closes the old version (yesterday) and opens the new one (today) in one step, so it can never end up half-done
+  const rr = await mpRpc('save_managed_part', { p_id: id, p: { ...base, weight_kg }, p_reason: reason || null });
+  if (!rr.ok) { alert('Could not save: ' + rr.msg); return; }
+
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
+}
+
+async function deactivatePartRow(id) {
+  if (!confirm('Deactivate this pattern? It stops matching new items immediately -- past classifications already recorded are kept intact.')) return;
+  const r = await mpRpc('set_managed_part_active', { p_id: id, p_active: false });
+  if (!r.ok) { alert('Could not deactivate: ' + r.msg); return; }
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
+}
+
+async function reactivatePartRow(id) {
+  const r = await mpRpc('set_managed_part_active', { p_id: id, p_active: true });
+  if (!r.ok) { alert('Could not reactivate: ' + r.msg); return; }
+  MANAGED_PARTS_CACHE = [];
+  await renderPartsManager();
+}
+
+async function downloadMovementPDF(row) {
+  if (!window.jspdf) { console.error('jsPDF not loaded'); return; }
+  let photoData = row._photoDataUrl || null;
+  if (!photoData && row.photo_url) {
+    try {
+      const resp = await fetch(row.photo_url);
+      const blob = await resp.blob();
+      photoData = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+    } catch(e) { console.error('could not fetch photo for pdf', e); }
+  }
+
+  const doc = new window.jspdf.jsPDF();
+  const isScrap = row.movement_type === 'Scrap';
+  const movementId = 'MOV-' + String(row.id || 0).padStart(6,'0');
+
+  doc.setFillColor(220, 38, 38);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'bold'); doc.setFontSize(18); doc.text('Bounce Daily', 14, 15);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(isScrap ? 'SCRAP SALE RECEIPT' : (row.movement_type.toUpperCase() + ' MOVEMENT RECEIPT'), 14, 23);
+
+  doc.setTextColor(120); doc.setFontSize(9);
+  doc.text(`${movementId}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 38);
+  doc.setTextColor(0);
+
+  let y = 48;
+  const boxTop = y - 6;
+  const line = (lbl, val) => {
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.text(lbl+':', 18, y);
+    doc.setFont(undefined,'normal'); doc.text(String(val===null||val===undefined||val===''?'-':val), 82, y);
+    y += 9;
+  };
+  line('Type', row.movement_type);
+  line('City', row.city);
+  line('Hub', row.hub_name);
+  line('Pickup Date', row.pickup_date);
+  line('Period Covered', (row.period_from||'-') + '  to  ' + (row.period_to||'-'));
+  line(isScrap ? 'Category' : 'Part', row.category || row.part_name);
+  line('Vendor', row.vendor_name || '-');
+  line('System Calculated', row.system_calculated != null ? row.system_calculated : '-');
+  line('Actual Qty (nos)', row.actual_qty_nos != null ? row.actual_qty_nos : '-');
+  if (isScrap) {
+    line('Actual Weight (kg)', row.actual_weight_kg != null ? row.actual_weight_kg : '-');
+    line('Rate (Rs. per unit)', row.rate);
+  }
+  doc.setDrawColor(220); doc.setLineWidth(0.3);
+  doc.rect(14, boxTop, 182, y - boxTop + 2);
+  y += 6;
+
+  if (isScrap) {
+    doc.setFillColor(254, 242, 242);
+    doc.rect(14, y-7, 182, 15, 'F');
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(180,30,30);
+    doc.text('Total Amount:', 18, y+2);
+    doc.text('Rs. ' + Number(row.total_value).toLocaleString('en-IN'), 82, y+2);
+    doc.setTextColor(0);
+    y += 20;
+  }
+
+  doc.setFont(undefined,'normal'); doc.setFontSize(10);
+  const ackText = row.ho_ack_status === 'Acknowledged'
+    ? `Approved by ${row.ho_ack_by||'-'} on ${row.ho_ack_at ? new Date(row.ho_ack_at).toLocaleDateString('en-IN') : '-'}`
+    : 'Pending Finance Approval';
+  line('Finance Approval', ackText);
+
+  if (photoData) {
+    doc.addPage();
+    let py = 20;
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.text('Photo Evidence', 18, py); py += 8;
+    doc.setDrawColor(220); doc.line(14, py-4, 196, py-4); py += 4;
+    try {
+      const imgProps = doc.getImageProperties(photoData);
+      const maxW = 170, maxH = 200;
+      let w = imgProps.width, h = imgProps.height;
+      const scale = Math.min(maxW/w, maxH/h, 1);
+      w *= scale; h *= scale;
+      doc.addImage(photoData, imgProps.fileType || 'JPEG', 18, py, w, h);
+      y = py + h + 20;
+    } catch(e) { console.error('embed image failed', e); y = py + 20; }
+  } else {
+    y += 10;
+  }
+
+  y = Math.min(Math.max(y, 255), 275);
+  doc.setDrawColor(180);
+  doc.line(18, y, 85, y); doc.setFontSize(8); doc.text('Hub In-charge Signature', 18, y+5);
+  doc.line(125, y, 192, y); doc.text('Finance Approval', 125, y+5);
+
+  doc.save(`${row.movement_type}_${(row.category||row.part_name||'item').replace(/[^a-z0-9]+/gi,'_')}_${row.pickup_date}.pdf`);
+}
+
+function onFilterChange() {
+  // Narrows the Hub dropdown to the selected city's hubs, same pattern
+  // already used for Create Movement's own city/hub pair (s-city/s-hub).
+  const citySel = document.getElementById('f-city');
+  const hubSel = document.getElementById('f-hub');
+  const city = citySel.value;
+  const currentHub = hubSel.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) hubSel.value = currentHub;
+}
+
+async function loadApprovalQueue(city, hub) {
+  const items = await rpc('get_scrap_approval_queue', { p_city: city, p_hub: hub }) || [];
+  const groups = [];
+  const groupByKey = {};
+  items.forEach(it => {
+    const key = it.batch_id || `single-${it.id}`;
+    if (!groupByKey[key]) {
+      const g = { key, batch_id: it.batch_id, hub_name: it.hub_name, vendor_name: it.vendor_name, items: [] };
+      groupByKey[key] = g;
+      groups.push(g);
+    }
+    groupByKey[key].items.push(it);
+  });
+  // Oldest first -- the whole point of a queue is surfacing what's waited longest.
+  groups.sort((a, b) => Math.max(...b.items.map(i => i.age_days)) - Math.max(...a.items.map(i => i.age_days)));
+
+  document.getElementById('aqCount').textContent = groups.length ? groups.length : '';
+  const tabBadge = document.getElementById('aqCountTab');
+  if (tabBadge) tabBadge.textContent = groups.length ? groups.length : '';
+  const tbody = document.getElementById('aqBody');
+  tbody.innerHTML = groups.length ? groups.map(g => {
+    const ids = g.items.map(i => i.id);
+    const amount = g.items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    const variances = g.items.map(i => i.variance_pct).filter(v => v != null);
+    const maxVar = variances.length ? Math.max(...variances) : null;
+    const age = Math.max(...g.items.map(i => i.age_days));
+    const label = g.batch_id || ('#' + g.items[0].id);
+    const varCell = maxVar != null
+      ? `<span class="${maxVar > 20 ? 'pending-flag' : ''}">${maxVar}%</span>`
+      : '<span class="muted-cell">—</span>';
+    const hasUnexplainedHighVariance = g.items.some(i => (i.variance_pct != null && i.variance_pct > 20) && !i.variance_remark);
+    const approveArg = JSON.stringify({ ids, maxVar, hasUnexplainedHighVariance });
+    return `<tr>
+      <td>${label}${g.items.length > 1 ? ` <span style="color:var(--muted);font-size:10px">(${g.items.length} categories)</span>` : ''}</td>
+      <td>${g.hub_name || '—'}</td>
+      <td>${g.vendor_name || '—'}</td>
+      <td class="num">${fmtC(amount)}</td>
+      <td class="num">${varCell}</td>
+      <td class="num">${age}d</td>
+      <td>${isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${approveArg})'>Approve</button>` : ''}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7">${emptyState('✅', 'Nothing pending approval.', 'Everything is caught up.')}</td></tr>`;
+}
+
+function switchScrapTab(name) {
+  ['scrap','parts','logmovement','mgmt','financeapproval'].forEach(t => {
+    const pane = document.getElementById('tabPane-' + t);
+    const btn = document.getElementById('tabBtn-' + t);
+    if (pane) pane.style.display = (t === name) ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === name);
+  });
+  if (name === 'mgmt') loadMgmtTab();
+}
+function switchPartsSubTab(type) {
+  ['Refurb','Tyre'].forEach(t => {
+    const pane = document.getElementById('subPane-' + t);
+    const btn = document.getElementById('subTabBtn-' + t);
+    if (pane) pane.style.display = (t === type) ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === type);
+  });
+}
+
+let MGMT_REVENUE_CHART = null, MGMT_DISCREPANCY_CHART = null, MGMT_INITIALIZED = false;
+
+function mgmtSeedCity() {
+  const sel = document.getElementById('mgmt-city');
+  if (sel.options.length) return;
+  ['','Bangalore','NCR','Hyderabad','Mumbai'].forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c || 'All Cities';
+    sel.appendChild(o);
+  });
+  sel.value = document.getElementById('f-city').value || '';
+}
+function onMgmtCityChange() {
+  const city = document.getElementById('mgmt-city').value;
+  const hubSel = document.getElementById('mgmt-hub');
+  const currentHub = hubSel.value;
+  const cityHubs = city ? ((ptMergedHubsByCity && ptMergedHubsByCity[city]) || []) : ALL_HUBS;
+  hubSel.innerHTML = '<option value="">All Hubs</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+  if (cityHubs.includes(currentHub)) hubSel.value = currentHub;
+  loadMgmtTab();
+}
+
+function ymd(d) { return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`; }
+async function loadMgmtTab() {
+  mgmtSeedCity();
+  const city = document.getElementById('mgmt-city').value || null;
+  const hub = document.getElementById('mgmt-hub').value || null;
+  const period = document.getElementById('mgmt-period').value || 'this_month';
+  const now = new Date(Date.now() + 5.5 * 3600 * 1000); // IST, matching todayIST()
+  let from, to, prevFrom = null, prevTo = null;
+  if (period === 'this_month') {
+    from = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-01`;
+    to = todayIST();
+    // Comparable previous period: same day-of-month cutoff, one month back --
+    // matching the convention Top Parts Contribution already uses for "This
+    // month vs last month" (month-to-date vs month-to-the-same-date), not a
+    // full-month comparison which would be apples-to-oranges against a
+    // still-in-progress month.
+    const pm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    prevFrom = `${pm.getUTCFullYear()}-${String(pm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const pmLastDay = new Date(Date.UTC(pm.getUTCFullYear(), pm.getUTCMonth() + 1, 0)).getUTCDate();
+    const cutoffDay = Math.min(now.getUTCDate(), pmLastDay);
+    prevTo = `${pm.getUTCFullYear()}-${String(pm.getUTCMonth()+1).padStart(2,'0')}-${String(cutoffDay).padStart(2,'0')}`;
+  } else if (period === 'last_month') {
+    const lm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    from = `${lm.getUTCFullYear()}-${String(lm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)); // day 0 of this month = last day of prev month
+    to = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth()+1).padStart(2,'0')}-${String(lastDay.getUTCDate()).padStart(2,'0')}`;
+    // Previous is the full month before that -- last_month is always complete,
+    // so a full-month vs full-month comparison is fair here.
+    const ppm = new Date(Date.UTC(lm.getUTCFullYear(), lm.getUTCMonth() - 1, 1));
+    prevFrom = `${ppm.getUTCFullYear()}-${String(ppm.getUTCMonth()+1).padStart(2,'0')}-01`;
+    const ppmLastDay = new Date(Date.UTC(ppm.getUTCFullYear(), ppm.getUTCMonth() + 1, 0));
+    prevTo = ymd(ppmLastDay);
+  } else { // all_months -- fixed start covering every logged movement (earliest on record: 2026-03-05)
+    from = '2026-01-01';
+    to = todayIST();
+    // No clean "previous" for an open-ended all-time range -- comparison is skipped.
+  }
+  const lbWrap = document.getElementById('mgmt-leaderboard-wrap');
+  if (!MGMT_INITIALIZED) { MGMT_INITIALIZED = true; }
+  else { lbWrap.innerHTML = '<div class="empty"><span class="spin"></span></div>'; }
+
+  try {
+    const [trend, leaderboard, prevLeaderboard] = await Promise.all([
+      rpc('get_scrap_health_trend', { p_city: city, p_hub: hub, p_from: from, p_to: to }),
+      rpc('get_scrap_hub_leaderboard', { p_city: city, p_hub: hub, p_from: from, p_to: to }),
+      prevFrom ? rpc('get_scrap_hub_leaderboard', { p_city: city, p_hub: hub, p_from: prevFrom, p_to: prevTo }) : Promise.resolve(null),
+      renderMgmtFunnels(city, hub, from, to, prevFrom, prevTo)
+    ]);
+    mgmtRenderCharts(trend.weeks || []);
+    mgmtRenderLeaderboard(leaderboard || [], prevLeaderboard);
+  } catch (e) {
+    console.error('loadMgmtTab failed', e);
+    lbWrap.innerHTML = '<div class="empty" style="color:var(--red)">Error loading — try refreshing.</div>';
+  }
+}
+
+function mgmtWeekLabel(w) {
+  const d = new Date(w.week_start + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+// Draws each point's value directly above it, matching the labeled-line
+// style used elsewhere on this site (HO Approval's Daily TAT Trend) --
+// values readable at a glance without hovering. fmt formats the raw value
+// for display; alternate offsets each dataset's labels up/down slightly so
+// two overlapping lines' numbers don't collide.
+function mgmtLabelPlugin(fmt) {
+  return {
+    id: 'mgmtValueLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      chart.data.datasets.forEach((ds, dsIndex) => {
+        const meta = chart.getDatasetMeta(dsIndex);
+        if (meta.hidden) return;
+        ctx.save();
+        ctx.font = '600 10px sans-serif';
+        ctx.fillStyle = ds.borderColor;
+        ctx.textAlign = 'center';
+        const yOffset = dsIndex % 2 === 0 ? -8 : 14;
+        meta.data.forEach((point, i) => {
+          const v = ds.data[i];
+          if (v == null) return;
+          ctx.fillText(fmt(v), point.x, point.y + yOffset);
+        });
+        ctx.restore();
+      });
+    }
+  };
+}
+function mgmtRenderCharts(weeks) {
+  const labels = weeks.map(mgmtWeekLabel);
+
+  const revCtx = document.getElementById('mgmt-chart-revenue');
+  if (MGMT_REVENUE_CHART) MGMT_REVENUE_CHART.destroy();
+  MGMT_REVENUE_CHART = new Chart(revCtx, {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Scrap Revenue (₹)', data: weeks.map(w => w.revenue),
+      borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)', fill: true, tension: 0.25, pointRadius: 3
+    }] },
+    plugins: [mgmtLabelPlugin(v => '₹' + (Number(v) >= 1000 ? Math.round(v/1000) + 'k' : Number(v).toLocaleString('en-IN')))],
+    options: { responsive: true, layout: { padding: { top: 16 } }, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + Number(v).toLocaleString('en-IN') } } } }
+  });
+
+  const discCtx = document.getElementById('mgmt-chart-discrepancy');
+  if (MGMT_DISCREPANCY_CHART) MGMT_DISCREPANCY_CHART.destroy();
+  MGMT_DISCREPANCY_CHART = new Chart(discCtx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Any discrepancy', data: weeks.map(w => w.discrepancy_rate_pct),
+        borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0.25, pointRadius: 3 },
+      { label: 'Unexplained (no remark)', data: weeks.map(w => w.unexplained_rate_pct),
+        borderColor: '#dc2626', backgroundColor: 'transparent', borderDash: [6,4], tension: 0.25, pointRadius: 3 }
+    ] },
+    plugins: [mgmtLabelPlugin(v => v + '%')],
+    options: { responsive: true, layout: { padding: { top: 20, bottom: 10 } }, plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 11 } } } },
+      scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }
+  });
+}
+
+// Inline bar behind an unexplained-rate cell, same visual language as the
+// Parts Dashboard MSL heatmap's severity coloring -- green under 10%, amber
+// 10-30%, red above that, width proportional to the rate itself (capped at
+// 100%) so the worst hubs are visually obvious without reading the number.
+function mgmtRateBar(pct) {
+  const color = pct <= 10 ? 'var(--green)' : pct <= 30 ? '#f59e0b' : 'var(--red)';
+  const width = Math.min(100, pct);
+  return `<div style="position:relative;background:var(--bg);border-radius:4px;height:18px;min-width:70px">
+    <div style="position:absolute;inset:0;width:${width}%;background:${color};opacity:.18;border-radius:4px"></div>
+    <div style="position:relative;text-align:right;padding-right:6px;line-height:18px;font-size:12px;font-weight:${pct>0?'700':'400'};color:${pct>0?color:'var(--muted)'}">${pct}%</div>
+  </div>`;
+}
+function mgmtRenderMovers(rows, prevRows) {
+  const box = document.getElementById('mgmt-movers');
+  if (!prevRows || !prevRows.length) { box.style.display = 'none'; return; }
+  const prevByHub = Object.fromEntries(prevRows.map(r => [r.hub_name, r]));
+  const diffs = rows.map(r => {
+    const p = prevByHub[r.hub_name];
+    if (!p) return null;
+    return {
+      hub: r.hub_name,
+      revenueDiff: Number(r.revenue) - Number(p.revenue),
+      unexplainedDiff: Math.round((r.unexplained_rate_pct - p.unexplained_rate_pct) * 10) / 10
+    };
+  }).filter(Boolean);
+  if (!diffs.length) { box.style.display = 'none'; return; }
+  const pill = (label, color, text) => `<span style="background:${color}1a;color:${color};border-radius:14px;padding:4px 12px;font-size:11px;font-weight:600;white-space:nowrap">${label} <b>${text}</b></span>`;
+  const pills = [];
+  const revUp = diffs.slice().sort((a,b) => b.revenueDiff - a.revenueDiff)[0];
+  const revDown = diffs.slice().sort((a,b) => a.revenueDiff - b.revenueDiff)[0];
+  const worseningHub = diffs.slice().sort((a,b) => b.unexplainedDiff - a.unexplainedDiff)[0];
+  const improvingHub = diffs.slice().sort((a,b) => a.unexplainedDiff - b.unexplainedDiff)[0];
+  if (revUp && revUp.revenueDiff > 0) pills.push(pill('▲ ' + revUp.hub + ' revenue', 'var(--green)', '+₹' + Math.round(revUp.revenueDiff).toLocaleString('en-IN')));
+  if (revDown && revDown.revenueDiff < 0) pills.push(pill('▼ ' + revDown.hub + ' revenue', 'var(--red)', '-₹' + Math.abs(Math.round(revDown.revenueDiff)).toLocaleString('en-IN')));
+  if (worseningHub && worseningHub.unexplainedDiff > 0) pills.push(pill('▲ ' + worseningHub.hub + ' unexplained', 'var(--red)', '+' + worseningHub.unexplainedDiff + 'pp'));
+  if (improvingHub && improvingHub.unexplainedDiff < 0) pills.push(pill('▼ ' + improvingHub.hub + ' unexplained', 'var(--green)', improvingHub.unexplainedDiff + 'pp'));
+  if (!pills.length) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = pills.join('');
+}
+function mgmtRenderLeaderboard(rows, prevRows) {
+  const wrap = document.getElementById('mgmt-leaderboard-wrap');
+  mgmtRenderMovers(rows, prevRows);
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">No scrap movements logged in this window for the selected city.</div>'; return; }
+  let html = '<table><thead><tr><th>Hub</th><th class="num">Revenue</th><th class="num">Sold (kg)</th><th class="num">Movements</th><th class="num">Discrepancy Rate</th><th class="num">Unexplained</th><th class="num">Streak</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${r.hub_name}</td>
+      <td class="num">₹${Number(r.revenue).toLocaleString('en-IN')}</td>
+      <td class="num">${r.sold_kg}</td>
+      <td class="num">${r.movement_count}</td>
+      <td class="num">${mgmtRateBar(r.discrepancy_rate_pct)}</td>
+      <td class="num">${mgmtRateBar(r.unexplained_rate_pct)}</td>
+      <td class="num">${r.streak_weeks} wk${r.streak_weeks === 1 ? '' : 's'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function loadAll() {
+  _hadFailure = false;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value || null;
+  const hub = document.getElementById('f-hub').value || null;
+  document.getElementById('syncedLbl').textContent = 'Loading…';
+  document.getElementById('aqBody').innerHTML = skeletonRows(7, 2);
+  document.getElementById('salesBody').innerHTML = skeletonRows(15, 4);
+
+  await Promise.all([
+    loadApprovalQueue(city, hub),
+    ptLoadAndRender(from, to, city, hub),
+    loadHubCategoryDetail(city, hub, from, to),
+    loadSales(from, to, city, hub),
+    loadHubTriggerBanner()
+  ]);
+  renderMovementRows();
+
+  document.getElementById('syncedLbl').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const failBox = document.getElementById('loadFailWarn');
+  if (_hadFailure) {
+    failBox.style.display = 'flex';
+    failBox.innerHTML = `<i class="ti ti-alert-triangle" style="margin-top:2px"></i><div><b>Some data failed to load</b> — try clicking Apply again.</div>`;
+  } else {
+    failBox.style.display = 'none';
+  }
+}
+
+
+
+let LAST_SALES_ROWS = [];
+async function loadSales(from, to, city, hub) {
+  let q = `scrap_sales?select=*,scrap_vendors(vendor_name)&order=created_at.desc&limit=300`;
+  if (city) q += `&city=eq.${encodeURIComponent(city)}`;
+  if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
+  LAST_SALES_ROWS = await sbGet(q);
+  populateTxFilterOptions();
+  applyTxFilters();
+}
+
+function populateTxFilterOptions() {
+  const vSel = document.getElementById('txVendor');
+  if (vSel && vSel.options.length <= 1) {
+    vSel.innerHTML = '<option value="">All vendors</option>' + VENDORS.map(v => `<option value="${v.id}">${esc(v.vendor_name)}</option>`).join('');
+  }
+  const cSel = document.getElementById('txCategory');
+  if (cSel && cSel.options.length <= 1) {
+    cSel.innerHTML = '<option value="">All categories</option>' + CATEGORIES.map(c => `<option value="${c.category}">${c.category}</option>`).join('');
+  }
+}
+function onTxFilterChange() { applyTxFilters(); }
+function clearTxFilters() {
+  document.getElementById('txSearch').value = '';
+  document.getElementById('txStatus').value = '';
+  document.getElementById('txVendor').value = '';
+  document.getElementById('txCategory').value = '';
+  applyTxFilters();
+}
+
+function applyTxFilters() {
+  const search = (document.getElementById('txSearch').value || '').trim().toLowerCase();
+  const status = document.getElementById('txStatus').value;
+  const vendorId = document.getElementById('txVendor').value;
+  const category = document.getElementById('txCategory').value;
+  const isFiltering = !!(search || status || vendorId || category);
+
+  let rows = LAST_SALES_ROWS;
+  if (search) {
+    rows = rows.filter(r => [r.hub_name, (r.scrap_vendors||{}).vendor_name, r.category, r.part_name]
+      .filter(Boolean).some(v => v.toLowerCase().includes(search)));
+  }
+  if (status) rows = rows.filter(r => r.status === status);
+  if (vendorId) rows = rows.filter(r => String(r.vendor_id) === String(vendorId));
+  if (category) rows = rows.filter(r => r.category === category);
+
+  document.getElementById('txSubtitle').textContent = isFiltering
+    ? `(${rows.length} match${rows.length===1?'':'es'} — searching last 300 logged, not the date range above)`
+    : '(last 10, regardless of the date range above)';
+
+  renderSalesRows(rows, isFiltering ? 50 : 10);
+}
+
+function renderSalesRows(rows, capGroups) {
+  // One Create Movement submission (multiple categories/parts) collapses into
+  // a single row here, with an expand arrow to see/edit/delete each category
+  // individually. Rows with no batch_id (legacy, or a genuinely single-item
+  // movement) just render as their own one-row group with no expand arrow.
+  const groups = [];
+  const groupByKey = {};
+  rows.forEach(r => {
+    const key = r.batch_id || `single-${r.id}`;
+    if (!groupByKey[key]) {
+      const g = { key, batch_id: r.batch_id, rows: [] };
+      groupByKey[key] = g;
+      groups.push(g);
+    }
+    groupByKey[key].rows.push(r);
+  });
+  // rows arrived ordered by created_at desc, so groups are already in
+  // most-recent-first order -- keep only as many as this view calls for.
+  const visibleGroups = groups.slice(0, capGroups);
+
+  const tbody = document.getElementById('salesBody');
+  tbody.innerHTML = visibleGroups.length ? visibleGroups.map((g, gi) => {
+    const first = g.rows[0];
+    const multi = g.rows.length > 1;
+    const groupId = `grp-${gi}`;
+    const totalValue = g.rows.reduce((s, r) => s + (Number(r.total_value) || 0), 0);
+    const labels = g.rows.map(r => r.category || r.part_name).filter(Boolean);
+    const labelText = multi ? (labels.length <= 3 ? labels.join(', ') : `${labels.length} items`) : (labels[0] || '—');
+    const allApproved = g.rows.every(r => r.ho_ack_status === 'Acknowledged');
+    const statuses = [...new Set(g.rows.map(r => r.status))];
+    const statusText = statuses.length === 1 ? statuses[0] : 'Mixed';
+    const gstUrl = first.gst_invoice_url;
+    const idsJson = JSON.stringify(g.rows.map(r => r.id));
+    const rowsMaxVar = g.rows.reduce((max, r) => {
+      if (r.system_calculated == null || !r.system_calculated) return max;
+      const v = Math.abs((r.qty_or_weight - r.system_calculated) / r.system_calculated * 100);
+      return v > max ? v : max;
+    }, 0);
+    const rowsHasUnexplainedHighVariance = g.rows.some(r => {
+      if (r.system_calculated == null || !r.system_calculated) return false;
+      const v = Math.abs((r.qty_or_weight - r.system_calculated) / r.system_calculated * 100);
+      return v > 20 && !r.variance_remark;
+    });
+    const approveArg = JSON.stringify({ ids: g.rows.map(r => r.id), maxVar: Math.round(rowsMaxVar), hasUnexplainedHighVariance: rowsHasUnexplainedHighVariance });
+
+    const mainRow = `
+      <tr title="${g.batch_id ? 'Movement ' + g.batch_id : ''}"><td>${first.pickup_date}</td><td>${first.hub_name}</td>
+        <td><span class="status-pill" style="background:${first.movement_type==='Refurb'?'#e0e7ff':first.movement_type==='Tyre'?'#dcfce7':'#fef3c7'};color:${first.movement_type==='Refurb'?'#3730a3':first.movement_type==='Tyre'?'#166534':'#92400e'}">${first.movement_type||'Scrap'}</span></td>
+        <td>${multi ? `<span class="cat-toggle" onclick="toggleMovementGroup('${groupId}')"><i class="ti ti-chevron-right" id="${groupId}-icon"></i> ${labelText}</span>` : labelText}</td>
+        <td>${(first.scrap_vendors && first.scrap_vendors.vendor_name) || '—'}</td>
+        <td class="num">${multi ? '—' : fmtN(first.system_calculated)}</td>
+        <td class="num">${multi ? '—' : fmtN(first.qty_or_weight)}</td>
+        <td class="num">${multi ? '—' : fmtC(first.rate)}</td>
+        <td class="num">${fmtC(totalValue)}</td>
+        <td>${first.period_from || '—'}</td>
+        <td>${first.period_to || '—'}</td>
+        <td style="max-width:160px;white-space:normal">${multi ? '—' : (first.variance_remark || '—')}</td>
+        <td><span class="status-pill status-${statusText.replace(/\s/g,'')}">${statusText}</span></td>
+        <td>${statusText === 'Cancelled' ? '—' : (allApproved
+            ? `<span class="status-pill status-PaymentReceived">Approved</span>`
+            : (isScrapApprover() ? `<button class="btn secondary" style="padding:3px 8px;font-size:10px" onclick='approveMovementGroup(${approveArg})'>Approve${multi?' All':''}</button>` : `<span class="status-pill">Pending</span>`))}</td>
+        <td style="white-space:nowrap">
+          <details class="action-menu">
+            <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
+            <div class="action-menu-items">
+              <button onclick='redownloadPDF(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-download"></i> Download PDF</button>
+              ${gstUrl
+                ? `<a href="${gstUrl}" target="_blank"><i class="ti ti-file-invoice"></i> View GST Invoice</a>`
+                : `<button onclick="document.getElementById('gst-up-${groupId}').click()"><i class="ti ti-file-upload"></i> Upload GST Invoice</button>
+                   <input type="file" id="gst-up-${groupId}" accept="image/*,.pdf" style="display:none" onchange='uploadGstForGroup(this, ${idsJson})'>`}
+              ${(!multi && isScrapPowerUser()) ? `<button onclick='openEditMovement(${JSON.stringify(first).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
+              ${(isScrapPowerUser() && statusText !== 'Cancelled') ? `<button class="danger" onclick='cancelMovementGroup(${idsJson})'><i class="ti ti-ban"></i> Cancel</button>` : ''}
+            </div>
+          </details>
+        </td></tr>`;
+
+    if (!multi) return mainRow;
+
+    const subRows = g.rows.map(r => `
+      <tr class="batch-sub-row" data-group="${groupId}" style="display:none">
+        <td></td><td></td><td></td>
+        <td style="padding-left:26px;color:var(--muted)">${r.category || r.part_name}</td>
+        <td></td>
+        <td class="num" style="color:var(--muted)">${fmtN(r.system_calculated)}</td>
+        <td class="num">${fmtN(r.qty_or_weight)}</td>
+        <td class="num">${fmtC(r.rate)}</td>
+        <td class="num">${fmtC(r.total_value)}</td>
+        <td></td>
+        <td></td>
+        <td style="max-width:160px;white-space:normal;color:var(--muted)">${r.variance_remark || '—'}</td>
+        <td><span class="status-pill status-${r.status.replace(/\s/g,'')}">${r.status}</span></td>
+        <td>${r.status === 'Cancelled' ? '—' : (r.ho_ack_status === 'Acknowledged' ? `<span class="status-pill status-PaymentReceived">Approved</span>` : (isScrapApprover() ? `<button class="btn secondary" style="padding:2px 6px;font-size:9px" onclick="acknowledgeMovement(${r.id})">Approve</button>` : `<span class="status-pill">Pending</span>`))}</td>
+        <td style="white-space:nowrap">
+          <details class="action-menu">
+            <summary title="More actions"><i class="ti ti-dots-vertical"></i></summary>
+            <div class="action-menu-items">
+              ${isScrapPowerUser() ? `<button onclick='openEditMovement(${JSON.stringify(r).replace(/'/g,"&apos;")})'><i class="ti ti-edit"></i> Edit</button>` : ''}
+              ${(isScrapPowerUser() && r.status !== 'Cancelled') ? `<button class="danger" onclick="cancelMovement(${r.id})"><i class="ti ti-ban"></i> Cancel</button>` : ''}
+            </div>
+          </details>
+        </td>
+      </tr>`).join('');
+
+    return mainRow + subRows;
+  }).join('') : `<tr><td colspan="11">${emptyState('🧾', 'No movements logged for this range/filter yet.', 'Use Create Scrap/Refurb Movement above to log the first one.')}</td></tr>`;
+}
+
+document.addEventListener('toggle', (e) => {
+  if (!e.target.matches('.action-menu')) return;
+  if (!e.target.open) return;
+  document.querySelectorAll('.action-menu[open]').forEach(el => { if (el !== e.target) el.open = false; });
+}, true);
+
+function toggleMovementGroup(groupId) {
+  const icon = document.getElementById(groupId + '-icon');
+  const isOpen = icon.classList.toggle('open');
+  document.querySelectorAll(`tr.batch-sub-row[data-group="${groupId}"]`).forEach(tr => {
+    tr.style.display = isOpen ? '' : 'none';
+  });
+}
+
+async function uploadGstForGroup(input, ids) {
+  const file = input.files[0];
+  if (!file) return;
+  const url = await uploadScrapPhoto(file);
+  if (!url) { alert('Upload failed — try again.'); return; }
+  // A single PATCH matching all ids is one atomic SQL UPDATE -- either every
+  // row in the batch gets the invoice or none do, unlike firing one request
+  // per row in parallel, where a mid-batch failure leaves some rows updated
+  // and others not with no way to tell from the UI that it happened.
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=in.(${ids.join(',')})`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ gst_invoice_url: url }) });
+  if (!r.ok) { alert('Could not attach invoice to the batch: ' + (await r.text()).slice(0,200)); return; }
+  loadAll();
+}
+
+async function approveMovementGroup(arg) {
+  // arg is either a plain array of ids (legacy/modal call sites not yet
+  // carrying variance context) or {ids, maxVar, hasUnexplainedHighVariance}
+  // from the queue row, which knows whether this batch has a >20% variance
+  // with no explaining remark -- previously approval enforced nothing at
+  // all, so a flagged discrepancy could be signed off with one click same
+  // as a clean one.
+  const ids = Array.isArray(arg) ? arg : arg.ids;
+  const hasUnexplainedHighVariance = Array.isArray(arg) ? false : arg.hasUnexplainedHighVariance;
+  const maxVar = Array.isArray(arg) ? null : arg.maxVar;
+  if (hasUnexplainedHighVariance) {
+    const remark = prompt(`This movement has a ${maxVar}% variance vs system-calculated quantity with no explanation on file.\n\nEnter a remark to proceed with approval (required):`);
+    if (!remark || !remark.trim()) { alert('Approval cancelled — a remark is required to approve a movement with unexplained high variance.'); return; }
+    const rWho = getCurrentUser().email || 'unknown';
+    const rSave = await fetch(`${SB}/rest/v1/scrap_sales?id=in.(${ids.join(',')})&variance_remark=is.null`, {
+      method: 'PATCH', headers: await authHDR({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ variance_remark: remark.trim() })
+    });
+    if (!rSave.ok) { alert('Could not save remark — approval cancelled:\n' + (await rSave.text()).slice(0,200)); return; }
+  }
+  const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
+  if (!who) return;
+  const now = new Date().toISOString();
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=in.(${ids.join(',')})`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: now }) });
+  if (!r.ok) { alert('Approval failed — nothing in this batch was approved:\n' + (await r.text()).slice(0,200)); return; }
+  loadAll();
+}
+
+async function cancelMovementGroup(ids) {
+  const msg = ids.length > 1
+    ? `Cancel this entire movement (${ids.length} categories)?`
+    : 'Cancel this movement?';
+  if (!confirm(msg)) return;
+  const reason = prompt('Reason for cancelling (required):');
+  if (!reason || !reason.trim()) { alert('A reason is required to cancel a movement.'); return; }
+  const who = getCurrentUser().email || 'unknown';
+  const now = new Date().toISOString();
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=in.(${ids.join(',')})`, {
+    method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}),
+    body: JSON.stringify({ status:'Cancelled', cancellation_reason: reason.trim(), cancelled_by: who, cancelled_at: now })
+  });
+  if (!r.ok) { alert('Cancellation failed — nothing in this batch was cancelled:\n' + (await r.text()).slice(0,200)); return; }
+  loadAll();
+}
+
+// Re-downloading from Recent Movements must reproduce the SAME receipt the
+// person got at Save time -- for a batched movement (multiple categories in
+// one submission) that means refetching every sibling row and rebuilding the
+// full combined PDF, not just this one row in isolation.
+async function redownloadPDF(row) {
+  if (!row.batch_id) { downloadMovementPDF(row); return; }
+  const siblings = await sbGet(`scrap_sales?select=*,scrap_vendors(vendor_name)&batch_id=eq.${encodeURIComponent(row.batch_id)}&order=id.asc`);
+  if (!siblings || !siblings.length) { downloadMovementPDF(row); return; }
+  const first = siblings[0];
+  await downloadBatchReceiptPDF({
+    type: first.movement_type, hub: first.hub_name, city: first.city, date: first.pickup_date,
+    periodFrom: first.period_from, periodTo: first.period_to,
+    vendorName: (first.scrap_vendors && first.scrap_vendors.vendor_name) || null,
+    batchId: first.batch_id,
+    lines: siblings
+  });
+}
+
+async function acknowledgeMovement(id) {
+  const who = getCurrentUser().email || prompt('Enter your name/email for this approval:');
+  if (!who) return;
+  await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify({ ho_ack_status:'Acknowledged', ho_ack_by: who, ho_ack_at: new Date().toISOString() }) });
+  loadAll();
+}
+
+let EDIT_MV_ROW = null;
+
+function checkEditVariance() {
+  if (!EDIT_MV_ROW) return;
+  const isScrap = EDIT_MV_ROW.movement_type === 'Scrap';
+  const unit = isScrap ? (CATEGORIES.find(c => c.category === EDIT_MV_ROW.category)?.unit || 'nos') : 'nos';
+  const input = unit === 'kg' ? document.getElementById('edit-mv-weight') : document.getElementById('edit-mv-qty');
+  const systemCalc = EDIT_MV_ROW.system_calculated;
+  const val = parseFloat(input.value);
+  const isShort = systemCalc != null && !isNaN(val) && val > 0 && val < systemCalc * VARIANCE_THRESHOLD;
+  input.classList.toggle('variance-flag', isShort);
+  const remarkEl = document.getElementById('edit-mv-remark');
+  remarkEl.classList.toggle('variance-flag', isShort && !remarkEl.value.trim());
+}
+
+function openEditMovement(row) {
+  EDIT_MV_ROW = row;
+  const isScrap = row.movement_type === 'Scrap';
+  const wasApproved = row.ho_ack_status === 'Acknowledged';
+  document.getElementById('edit-mv-sub').textContent = `${row.movement_type} — ${row.category || row.part_name} — ${row.hub_name} — ${row.pickup_date}`
+    + (wasApproved ? ' — ⚠ Already Approved: saving will reopen this for approval again' : '');
+  document.getElementById('edit-mv-qty-label').textContent = 'Actual Qty (nos)';
+  document.getElementById('edit-mv-qty').value = row.actual_qty_nos ?? '';
+  document.getElementById('edit-mv-weight').value = row.actual_weight_kg ?? '';
+  document.getElementById('edit-mv-rate').value = row.rate ?? '';
+  document.getElementById('edit-mv-remark').value = row.variance_remark ?? '';
+  ['edit-mv-weight-wrap','edit-mv-rate-wrap'].forEach(id => {
+    document.getElementById(id).style.display = isScrap ? '' : 'none';
+  });
+  document.getElementById('edit-mv-ov').classList.add('on');
+  checkEditVariance();
+}
+
+function closeEditMovement() {
+  document.getElementById('edit-mv-ov').classList.remove('on');
+  EDIT_MV_ROW = null;
+}
+
+async function saveEditedMovement() {
+  if (!EDIT_MV_ROW) return;
+  const row = EDIT_MV_ROW;
+  const isScrap = row.movement_type === 'Scrap';
+  const unit = isScrap ? (row.category && CATEGORIES.find(c => c.category === row.category)?.unit) : 'nos';
+  const actualQty = parseFloat(document.getElementById('edit-mv-qty').value);
+  const actualWeight = isScrap ? parseFloat(document.getElementById('edit-mv-weight').value) : NaN;
+  const drivingQty = unit === 'kg' ? actualWeight : actualQty;
+  const remark = document.getElementById('edit-mv-remark').value.trim();
+
+  if (isNaN(drivingQty) || drivingQty <= 0) { alert('Enter a valid Actual Qty/Weight.'); return; }
+
+  let rate = row.rate;
+  if (isScrap) {
+    rate = parseFloat(document.getElementById('edit-mv-rate').value);
+    if (isNaN(rate)) { alert('Rate is required.'); return; }
+  }
+
+  const systemCalc = row.system_calculated;
+  if (systemCalc != null && systemCalc > 0 && drivingQty > systemCalc && !remark) {
+    alert(`Cannot save — ${fmtN(drivingQty)} exceeds what was actually pending (${fmtN(systemCalc)}) when this movement was created.\n\nIf this is a genuine correction (e.g. actual stock found that the system's estimate missed), add a Remark explaining it and save again.`);
+    return;
+  }
+  if (systemCalc != null && drivingQty < systemCalc * VARIANCE_THRESHOLD && !remark) {
+    alert(`Actual (${fmtN(drivingQty)}) is more than 10% below System Calculated (${fmtN(systemCalc)}). Please add a Remark explaining the shortfall before saving.`);
+    return;
+  }
+
+  const body = {
+    qty_or_weight: drivingQty,
+    actual_qty_nos: isNaN(actualQty) ? null : actualQty,
+    actual_weight_kg: isNaN(actualWeight) ? null : actualWeight,
+    variance_remark: remark || null
+  };
+  if (isScrap) { body.rate = rate; }
+  // A movement's numbers can change after Finance already acknowledged it
+  // (e.g. Qty 100 -> 150 post-approval) -- that must never sit under the
+  // OLD approval as if nothing changed. Editing an approved movement always
+  // reopens it for a fresh approval, same as if it had never been approved.
+  if (row.ho_ack_status === 'Acknowledged') {
+    body.ho_ack_status = null;
+    body.ho_ack_by = null;
+    body.ho_ack_at = null;
+  }
+
+  const wasReopened = row.ho_ack_status === 'Acknowledged';
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${row.id}`, { method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}), body: JSON.stringify(body) });
+  if (!r.ok) { alert('Could not save: ' + (await r.text()).slice(0,200)); return; }
+
+  const msg = document.getElementById('edit-mv-msg');
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 1500);
+  closeEditMovement();
+  if (wasReopened) alert('Saved. This movement was previously approved -- since the numbers changed, it has been moved back to Pending Approval and needs to be approved again.');
+  loadAll();
+}
+
+async function cancelMovement(id) {
+  if (!confirm('Cancel this movement?')) return;
+  const reason = prompt('Reason for cancelling (required):');
+  if (!reason || !reason.trim()) { alert('A reason is required to cancel a movement.'); return; }
+  const who = getCurrentUser().email || 'unknown';
+  const r = await fetch(`${SB}/rest/v1/scrap_sales?id=eq.${id}`, {
+    method:'PATCH', headers: await authHDR({'Content-Type':'application/json'}),
+    body: JSON.stringify({ status:'Cancelled', cancellation_reason: reason.trim(), cancelled_by: who, cancelled_at: new Date().toISOString() })
+  });
+  if (!r.ok) { alert('Could not cancel: ' + (await r.text()).slice(0,200)); return; }
+  loadAll();
+}
+
+async function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// Resizes/recompresses a phone camera photo before upload -- modern phone
+// cameras routinely produce 5-15MB files, and capture="environment" on the
+// row-photo inputs confirms these ARE phone camera captures, not desktop
+// file picks. A large file over a hub location's often-weaker cellular
+// signal can genuinely time out even across several retries -- this
+// shrinks the file itself rather than retrying the same slow upload of
+// the same large file. Caps the longest side at 1600px and re-encodes as
+// JPEG at 0.75 quality, which is still more than enough detail for
+// evidence/audit purposes. Falls back to the original file untouched if
+// anything about compression fails, so a compression bug never blocks a
+// genuinely working upload.
+async function compressPhotoForUpload(file) {
+  if (!file || !file.type || !file.type.startsWith('image/') || file.type === 'image/svg+xml') return file;
+  // Wrapped in a hard timeout -- createImageBitmap/canvas encoding can be
+  // slow or behave unpredictably on some devices/photo formats (e.g. HEIC
+  // on some phones), and this step should never itself be the reason an
+  // upload stalls or fails. If compression doesn't finish in 4s, abandon
+  // it and upload the original file as-is rather than risk blocking the
+  // whole save.
+  try {
+    return await Promise.race([
+      (async () => {
+        const bitmap = await createImageBitmap(file);
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+        const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.75));
+        if (!blob || blob.size >= file.size) return file; // compression didn't actually help, keep original
+        return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      })(),
+      new Promise(resolve => setTimeout(() => resolve(file), 4000))
+    ]);
+  } catch (e) {
+    console.error('photo compression failed, using original file', e);
+    return file;
+  }
+}
+
+async function uploadScrapPhoto(file) {
+  file = await compressPhotoForUpload(file);
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  // Retries up to 2 extra times on a genuine network-level failure (the
+  // fetch itself throwing -- "Failed to fetch"/NetworkError -- or timing
+  // out). Confirmed via storage health checks that the backend itself is
+  // reliable; this class of failure is a transient client-side blip that a
+  // short retry usually resolves without the person needing to notice or
+  // manually retake the photo. Explicit 20s-per-attempt timeout added
+  // since the fetch previously had none at all -- a hanging request would
+  // never have triggered a retry, it would just wait indefinitely.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, {
+        method: 'POST', headers: await authHDR({ 'Content-Type': file.type || 'image/jpeg' }), body: file, signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      if (!r.ok) { console.error('photo upload failed', await r.text()); return null; }
+      return `${SB}/storage/v1/object/public/scrap-photos/${path}`;
+    } catch (e) {
+      clearTimeout(timer);
+      const isRetriable = e.name === 'AbortError' || /Failed to fetch|NetworkError|Load failed/i.test(e.message || '');
+      if (isRetriable && attempt < 2) {
+        await new Promise(res => setTimeout(res, 800 * (attempt + 1)));
+        continue;
+      }
+      console.error('photo upload failed', e);
+      return null;
+    }
+  }
+}
+
+async function findOverlappingPeriods(hub, type, newFrom, newTo) {
+  // Returns ALL overlapping batches for this hub+type, each tagged with the
+  // category/part it actually covers -- callers scope this down to just the
+  // part(s) being entered right now. An overlap on Part A elsewhere in this
+  // hub+type is irrelevant to someone entering Part B for the first time in
+  // this period; only a genuine same-part overlap should ever block.
+  const isScrap = type === 'Scrap';
+  const field = isScrap ? 'category' : 'part_name';
+  try {
+    const rows = await sbGet(`scrap_sales?select=id,batch_id,period_from,period_to,${field}&hub_name=eq.${encodeURIComponent(hub)}&movement_type=eq.${encodeURIComponent(type)}&status=neq.Cancelled&period_from=not.is.null&period_to=not.is.null`);
+    const seen = new Set();
+    const conflicts = [];
+    for (const r of rows) {
+      const key = (r.batch_id || r.id) + '|' + r[field];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (newFrom <= r.period_to && newTo >= r.period_from) {
+        conflicts.push({ label: r[field], period_from: r.period_from, period_to: r.period_to, batch: r.batch_id || r.id });
+      }
+    }
+    return conflicts;
+  } catch (e) { console.error('overlap check failed', e); return []; }
+}
+
+async function suggestNextPeriod() {
+  const hub = document.getElementById('s-hub').value;
+  const type = document.getElementById('s-type').value;
+  const fromInput = document.getElementById('s-period-from-display');
+  if (!hub || !type || !fromInput) return;
+  // Whole-city pseudo-hub entries ("All Bangalore Hubs" etc.) don't have a
+  // single well-defined "last period" -- leave those editable rather than
+  // locking to a potentially misleading date.
+  const isWholeCityHub = hub.startsWith('All ') && hub.endsWith(' Hubs');
+  if (isWholeCityHub) {
+    fromInput.readOnly = false;
+    fromInput.title = '';
+    fromInput.style.background = '';
+    return;
+  }
+  try {
+    const rows = await sbGet(`scrap_sales?select=period_to&hub_name=eq.${encodeURIComponent(hub)}&movement_type=eq.${encodeURIComponent(type)}&status=neq.Cancelled&period_to=not.is.null&order=period_to.desc&limit=1`);
+    if (rows && rows.length && rows[0].period_to) {
+      // Hard lock: this hub+type has a prior period on record, so the next
+      // one must start the day after it ended -- no gaps, no overlaps, and
+      // not something the person can freely retype.
+      // Built with pure UTC date construction (Date.UTC), not by parsing
+      // the string as local time and later reading it back via toISOString
+      // -- that round-trip silently shifted the result back to the SAME day
+      // instead of +1 for anyone in a timezone ahead of UTC (e.g. IST),
+      // which then made the very next save look like it overlapped the
+      // batch this lock was supposed to avoid overlapping.
+      const [py, pm, pd] = rows[0].period_to.split('-').map(Number);
+      const next = new Date(Date.UTC(py, pm - 1, pd + 1));
+      fromInput.value = next.toISOString().slice(0, 10);
+      fromInput.readOnly = true;
+      fromInput.style.background = 'var(--surface-1,#f1f5f9)';
+      fromInput.title = `Locked: the day after the last logged period for ${hub} (${type}) ended (${rows[0].period_to}). Edit the earlier movement instead if that period was wrong.`;
+    } else {
+      // No prior movement for this hub+type -- nothing to lock to yet, so
+      // this one genuine first entry needs a manually-chosen start date.
+      fromInput.readOnly = false;
+      fromInput.style.background = '';
+      fromInput.title = 'No prior movement found for this hub — pick the starting date for this new tracking sequence.';
+    }
+  } catch (e) { console.error('suggestNextPeriod failed', e); }
+}
+
+let CREATE_BATCH_IN_PROGRESS = false;
+async function createBatch() {
+  if (CREATE_BATCH_IN_PROGRESS) return; // guards against a double-click firing two saves
+  CREATE_BATCH_IN_PROGRESS = true;
+  const btn = document.getElementById('btn-create-batch');
+  const originalLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Saving…'; }
+  try {
+    await createBatchInner();
+  } finally {
+    // finally guarantees this runs on every exit path -- validation
+    // failures, thrown errors, and the success path alike -- so the button
+    // can never get stuck disabled from an exception we didn't anticipate.
+    CREATE_BATCH_IN_PROGRESS = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+  }
+}
+async function createBatchInner() {
+  const type = document.getElementById('s-type').value;
+  const isScrap = type === 'Scrap';
+  const hub = document.getElementById('s-hub').value;
+  const city = document.getElementById('s-city').value;
+  const periodFrom = document.getElementById('s-period-from-display').value || null;
+  const periodTo = document.getElementById('s-period-to-display').value || null;
+  const date = document.getElementById('s-date').value;
+  const vendorId = document.getElementById('s-vendor').value || null;
+
+  if (!city || !hub || !date) { alert('City, Hub, and Pickup Date are all required.'); return; }
+
+  const rows = [...document.querySelectorAll('#s-rows-tbody tr[data-category], #s-rows-tbody tr[data-part]')];
+  const filled = [];
+  const missingRate = [];
+  const missingRemark = [];
+  const missingPhoto = [];
+  const overClaim = [];
+  for (const tr of rows) {
+    const category = isScrap ? tr.dataset.category : null;
+    const partName = !isScrap ? tr.dataset.part : null;
+    const label = category || partName;
+    const unit = isScrap ? tr.dataset.unit : 'nos';
+    const actualQty = parseFloat(tr.querySelector('.row-qty').value);
+    const actualWeight = isScrap ? parseFloat(tr.querySelector('.row-weight').value) : NaN;
+    const drivingQty = unit === 'kg' ? actualWeight : actualQty;
+    if (isNaN(drivingQty) || drivingQty <= 0) continue; // blank row, skip
+    const systemCalc = tr.dataset.syscalcRaw !== '' ? parseFloat(tr.dataset.syscalcRaw) : null;
+    const remark = tr.querySelector('.row-remark').value.trim();
+    // Claiming more than System Calculated shows as still pending is a real
+    // red flag -- it usually means this material was already accounted for
+    // by an earlier movement covering the same period, and this would
+    // double-count it. But unlike a shortfall, this can occasionally be a
+    // genuine correction (e.g. actual physical stock found in the hub that
+    // the system's own estimate never captured) -- so it's blocked only
+    // when unexplained; a remark lets it through, same as a shortfall does.
+    if (systemCalc != null && systemCalc > 0 && drivingQty > systemCalc && !remark) {
+      overClaim.push(`${label} (${fmtN(systemCalc)} still pending, ${fmtN(drivingQty)} entered)`);
+      continue;
+    }
+    let rate = null, total = null;
+    if (isScrap) {
+      rate = parseFloat(tr.querySelector('.row-rate').value);
+      if (isNaN(rate)) { missingRate.push(category); continue; }
+      total = drivingQty * rate;
+    }
+    // A shortfall of more than 10% against what the system expected must be
+    // explained -- otherwise it silently keeps inflating Pending forever,
+    // looking like material that's still sitting out there waiting to be
+    // collected. Smaller variances (rounding, minor scale differences) don't
+    // need one.
+    if (systemCalc != null && drivingQty < systemCalc * VARIANCE_THRESHOLD && !remark) {
+      missingRemark.push(`${label} (${fmtN(systemCalc)} expected, ${fmtN(drivingQty)} entered)`);
+      continue;
+    }
+    const photoFile = tr.querySelector('.row-photo').files[0];
+    if (!photoFile) { missingPhoto.push(label); continue; }
+    // If this exact file (by name+size+lastModified) already uploaded
+    // successfully on an earlier Save click for this same row, reuse that
+    // URL instead of re-uploading -- this is what lets a retry after a
+    // partial failure skip everything that already succeeded. Kept on the
+    // <tr> itself (not in a module-level map) since the row element is the
+    // one stable thing that survives between Save attempts on this form.
+    const fingerprint = `${photoFile.name}_${photoFile.size}_${photoFile.lastModified}`;
+    const cachedUrl = (tr.dataset.uploadedPhotoFingerprint === fingerprint) ? tr.dataset.uploadedPhotoUrl : null;
+    filled.push({ category, partName, unit, actualQty: isNaN(actualQty) ? null : actualQty, actualWeight: isNaN(actualWeight) ? null : actualWeight, drivingQty, rate, total, systemCalc, remark: remark || null, photoFile, tr, fingerprint, cachedUrl });
+  }
+
+  if (periodFrom && periodTo && filled.length) {
+    const allConflicts = await findOverlappingPeriods(hub, type, periodFrom, periodTo);
+    const filledLabels = new Set(filled.map(f => f.category || f.partName));
+    const relevant = allConflicts.filter(c => filledLabels.has(c.label));
+    if (relevant.length) {
+      const lines = relevant.map(c => `${c.label}: ${c.period_from} to ${c.period_to} — batch ${c.batch}`);
+      alert(`This period (${periodFrom} to ${periodTo}) overlaps an existing movement for these specific part(s)/categor(y/ies) at ${hub} (${type}):\n\n${lines.join('\n')}\n\nAdjust the Period dates before saving, or these would be double-counted. Other parts in this batch without a conflict are unaffected -- only remove or fix the ones listed above.`);
+      return;
+    }
+  }
+
+  if (overClaim.length) { alert('Remark required — this claims more than what is actually still pending for:\n\n' + overClaim.join('\n') + '\n\nAdd a Remark explaining why (e.g. actual stock found in hub, missed in an earlier count) for the row(s) above and save again. If this material was genuinely already logged in an earlier movement instead, edit that movement rather than creating a new one.'); return; }
+  if (missingRate.length) { alert('Rate is required for: ' + missingRate.join(', ')); return; }
+  if (missingRemark.length) { alert('Actual is less than System Calculated for:\n\n' + missingRemark.join('\n') + '\n\nPlease add a Remark explaining the shortfall (missing, broken, etc.) before saving.'); return; }
+  if (missingPhoto.length) { alert('Photo is required for:\n\n' + missingPhoto.join('\n')); return; }
+  if (!filled.length) { alert('Enter an actual quantity/weight for at least one row.'); return; }
+
+  const vendorName = vendorId ? ((VENDORS.find(v=>String(v.id)===String(vendorId))||{}).vendor_name) : null;
+
+  // Upload each row's own photo first (kept separate per row per requirement).
+  // Rows whose exact file already uploaded successfully on an earlier Save
+  // click (cachedUrl, matched by file fingerprint on the <tr>) are skipped
+  // entirely -- so clicking Save again after a partial failure only
+  // re-uploads what actually failed.
+  const photoFailed = [];
+  for (const f of filled) {
+    f.photoDataUrl = await fileToDataURL(f.photoFile);
+    if (f.cachedUrl) { f.photoUrl = f.cachedUrl; continue; }
+    f.photoUrl = await uploadScrapPhoto(f.photoFile);
+    if (f.photoUrl) {
+      f.tr.dataset.uploadedPhotoUrl = f.photoUrl;
+      f.tr.dataset.uploadedPhotoFingerprint = f.fingerprint;
+    } else {
+      photoFailed.push(f.category || f.partName);
+    }
+  }
+  // Photo is a required control, not a nice-to-have -- if the upload itself
+  // failed (network blip, storage issue), the movement must NOT be saved
+  // with a null photo_url. That would silently create an unevidenced
+  // financial record while the UI still claims evidence was required.
+  //
+  // Successful uploads from THIS SAME attempt (and any earlier attempt) are
+  // deliberately NOT deleted or discarded here -- they stay cached on their
+  // row (see above) so clicking Save again only needs to retry the photo(s)
+  // that actually failed, rather than losing already-good uploads and
+  // forcing a full redo of a potentially large batch.
+  if (photoFailed.length) {
+    alert('Could not upload photo for:\n\n' + photoFailed.join('\n') + '\n\nThose specific row(s) were NOT saved -- nothing is recorded without evidence. Every other row in this batch already has its photo uploaded and will not need to be retaken. Please check your connection and click Save again to retry just the failed photo(s), or retake them first if they look wrong.');
+    return;
+  }
+
+  const batchId = 'BATCH-' + Date.now().toString().slice(-6);
+  const bodyArr = filled.map(f => ({
+    movement_type: type, hub_name: hub, city: city || null, category: f.category, part_name: f.partName,
+    vendor_id: vendorId ? parseInt(vendorId) : null,
+    pickup_date: date, qty_or_weight: f.drivingQty, rate: f.rate,
+    actual_qty_nos: f.actualQty, actual_weight_kg: f.actualWeight, system_calculated: f.systemCalc,
+    variance_remark: f.remark, batch_id: batchId,
+    period_from: periodFrom, period_to: periodTo, photo_url: f.photoUrl,
+    status: 'Created',
+    created_by: getCurrentUser().email || 'unknown'
+  }));
+
+  const r = await fetch(`${SB}/rest/v1/scrap_sales`, { method:'POST', headers: await authHDR({'Content-Type':'application/json','Prefer':'return=representation'}), body: JSON.stringify(bodyArr) });
+  if (!r.ok) {
+    // Every photo uploaded fine, but the movement itself failed to save --
+    // clean those up too, same reasoning as the upload-failure path above.
+    // Also clears the retry-cache on each row -- otherwise a Save retry
+    // would see the cached fingerprint match and reuse a photo_url that
+    // was just deleted from storage, silently saving a broken link.
+    for (const f of filled) {
+      if (f.photoUrl) {
+        try {
+          const path = f.photoUrl.split('/scrap-photos/')[1];
+          if (path) await fetch(`${SB}/storage/v1/object/scrap-photos/${path}`, { method: 'DELETE', headers: await authHDR() });
+        } catch (e) { console.error('orphan photo cleanup failed', e); }
+        delete f.tr.dataset.uploadedPhotoUrl;
+        delete f.tr.dataset.uploadedPhotoFingerprint;
+      }
+    }
+    alert('Could not save: ' + (await r.text()).slice(0,200));
+    return;
+  }
+  const saved = await r.json();
+
+  const msg = document.getElementById('saveMsg'); msg.style.display='inline'; setTimeout(()=>msg.style.display='none', 2000);
+
+  await downloadBatchReceiptPDF({
+    type, hub, city, date, periodFrom, periodTo, vendorName, batchId,
+    lines: saved.map((s, i) => ({ ...s, _photoDataUrl: filled[i].photoDataUrl }))
+  });
+
+  document.querySelectorAll('#s-rows-tbody input').forEach(el => { if (el.type === 'file') el.value = ''; else if (!el.readOnly) el.value = ''; });
+  // Clear the retry-cache attached to each row now that the batch is
+  // actually saved -- otherwise a stale uploadedPhotoUrl could get reused
+  // for a completely different photo the person selects for their next
+  // movement, since the file input is cleared here but the <tr> elements
+  // themselves are not rebuilt.
+  document.querySelectorAll('#s-rows-tbody tr').forEach(tr => { delete tr.dataset.uploadedPhotoUrl; delete tr.dataset.uploadedPhotoFingerprint; });
+  updateGrandTotal();
+  loadAll();
+}
+
+async function downloadBatchReceiptPDF(batch) {
+  if (!window.jspdf) { console.error('jsPDF not loaded'); return; }
+  const doc = new window.jspdf.jsPDF();
+  const isScrap = batch.type === 'Scrap';
+
+  doc.setFillColor(220, 38, 38);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'bold'); doc.setFontSize(18); doc.text('Bounce Daily', 14, 15);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(isScrap ? 'SCRAP MOVEMENT RECEIPT' : (batch.type.toUpperCase() + ' MOVEMENT RECEIPT'), 14, 23);
+  doc.setTextColor(120); doc.setFontSize(9);
+  const batchId = batch.batchId || 'BATCH-' + Date.now().toString().slice(-6);
+  doc.text(`${batchId}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 38);
+  doc.setTextColor(0);
+
+  let y = 48;
+  const line = (lbl, val) => {
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.text(lbl+':', 18, y);
+    doc.setFont(undefined,'normal'); doc.text(String(val===null||val===undefined||val===''?'-':val), 70, y);
+    y += 8;
+  };
+  line('Type', batch.type);
+  line('City', batch.city || '-');
+  line('Hub', batch.hub);
+  line('Pickup Date', batch.date);
+  line('Period Covered', (batch.periodFrom||'-') + '  to  ' + (batch.periodTo||'-'));
+  line('Vendor', batch.vendorName || '-');
+  y += 4;
+
+  doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.text('Line Items', 14, y); y += 3;
+  doc.setDrawColor(200); doc.line(14, y, 196, y); y += 7;
+  doc.setFontSize(9);
+  const col1 = 14, col2 = isScrap ? 95 : 150, col3 = 125, col4 = 150, col5 = 172;
+  doc.setFont(undefined,'bold');
+  doc.text(isScrap ? 'Category' : 'Part', col1, y);
+  doc.text('Qty/Wt', col2, y);
+  if (isScrap) { doc.text('Rate', col3, y); doc.text('Total', col5, y); }
+  y += 6;
+  doc.setFont(undefined,'normal');
+  let grandTotal = 0;
+  batch.lines.forEach(ln => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    const name = ln.category || ln.part_name;
+    const qtyWt = ln.actual_weight_kg != null ? `${ln.actual_weight_kg} kg` : `${ln.actual_qty_nos} nos`;
+    doc.text(String(name).slice(0, isScrap ? 38 : 60), col1, y);
+    doc.text(qtyWt, col2, y);
+    if (isScrap) {
+      doc.text(String(ln.rate), col3, y);
+      doc.text(Number(ln.total_value).toLocaleString('en-IN'), col5, y);
+      grandTotal += Number(ln.total_value) || 0;
+    }
+    y += 6;
+    if (ln.variance_remark) {
+      doc.setFontSize(8); doc.setTextColor(150,60,20);
+      doc.text(`↳ Discrepancy (Sys. Calc. ${ln.system_calculated ?? '-'}): ${ln.variance_remark}`, col1 + 4, y);
+      doc.setTextColor(0); doc.setFontSize(9);
+      y += 6;
+    }
+  });
+  doc.setDrawColor(200); doc.line(14, y, 196, y); y += 8;
+
+  if (isScrap) {
+    doc.setFillColor(254, 242, 242);
+    doc.rect(14, y-7, 182, 15, 'F');
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(180,30,30);
+    doc.text('Grand Total:', 18, y+2);
+    doc.text('Rs. ' + grandTotal.toLocaleString('en-IN'), 82, y+2);
+    doc.setTextColor(0);
+    y += 22;
+  } else {
+    y += 6;
+  }
+
+  // Photos, one per line item that has one, each on its own page
+  for (const ln of batch.lines) {
+    let photoData = ln._photoDataUrl || null;
+    if (!photoData && ln.photo_url) {
+      try {
+        const resp = await fetch(ln.photo_url);
+        const blob = await resp.blob();
+        photoData = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+      } catch(e) { console.error('could not fetch photo for pdf', e); }
+    }
+    if (!photoData) continue;
+    doc.addPage();
+    let py = 20;
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.text(`Photo Evidence — ${ln.category || ln.part_name}`, 18, py); py += 8;
+    doc.setDrawColor(220); doc.line(14, py-4, 196, py-4); py += 4;
+    try {
+      const imgProps = doc.getImageProperties(photoData);
+      const maxW = 170, maxH = 220;
+      let w = imgProps.width, h = imgProps.height;
+      const scale = Math.min(maxW/w, maxH/h, 1);
+      w *= scale; h *= scale;
+      doc.addImage(photoData, imgProps.fileType || 'JPEG', 18, py, w, h);
+    } catch(e) { console.error('embed image failed', e); }
+  }
+
+  if (batch.lines.length) {
+    doc.addPage();
+    let sy = 30;
+    doc.setDrawColor(180);
+    doc.line(18, sy, 85, sy); doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.text('Hub In-charge Signature', 18, sy+5);
+    doc.line(125, sy, 192, sy); doc.text('Finance Approval', 125, sy+5);
+  }
+
+  doc.save(`${batch.type}_${batch.hub.replace(/[^a-z0-9]+/gi,'_')}_${batch.date}.pdf`);
+}
+
+
+
+
+function reportHeight() { window.parent.postMessage({ type: 'resize-iframe', height: document.body.scrollHeight }, '*'); }
+
+
+// ===== Merged from Parts Tracker (Refurb reverse-logistics funnel) =====
+const PT_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const PT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+
+function ptAuthHeaders() {
+  return { 'apikey': PT_KEY, 'Authorization': 'Bearer ' + PT_KEY };
+}
+let _ptSbGetHadFailure = false;
+async function ptSbGet(path, _attempt) {
+  _attempt = _attempt || 0;
+  try {
+    const r = await fetch(`${PT_URL}/rest/v1/${path}`, { headers: ptAuthHeaders() });
+    if (!r.ok) {
+      console.error('ptSbGet failed', path, r.status, await r.text());
+      if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return ptSbGet(path, _attempt + 1); }
+      _ptSbGetHadFailure = true;
+      return [];
+    }
+    return r.json();
+  } catch (e) {
+    console.error('ptSbGet network error', path, e);
+    if (_attempt < 2) { await new Promise(res => setTimeout(res, 800)); return ptSbGet(path, _attempt + 1); }
+    _ptSbGetHadFailure = true;
+    return [];
+  }
+}
+async function ptRpc(name, body) {
+  try {
+    const r = await fetch(`${PT_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { console.error(name, 'failed', r.status, await r.text()); _ptSbGetHadFailure = true; return null; }
+    return r.json();
+  } catch (e) {
+    console.error(name, 'network error', e); _ptSbGetHadFailure = true; return null;
+  }
+}
+async function ptSbUpsert(table, body, onConflict) {
+  const r = await fetch(`${PT_URL}/rest/v1/${table}${onConflict ? '?on_conflict=' + onConflict : ''}`, {
+    method: 'POST',
+    headers: { ...ptAuthHeaders(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// Emails allowed to edit the manual entry fields — everyone else sees read-only text.
+// Edit access is now managed via Admin Panel > Allowed Users > "Can Edit
+// Scrap Dashboard" (allowed_users.permissions.scrap_edit) -- see
+// ptApplyEditPermission() below. No hardcoded email list anymore.
+
+// Not real service hubs for this tracker (auto/office/coworking-space
+// entries in bike_fleet with no bearing on 2-wheeler refurb parts) --
+// excluded from every city's hub list entirely.
+const PT_EXCLUDED_HUBS = ['3 Wheeler Auto - E City Hub', 'Indiqube Alpha', 'Majestic Railway Station', 'Spaceware Hub'];
+
+let ptHubsByCity = {};       // city -> [hub_name, ...] sorted, RAW names as they exist in bike_fleet
+let ptMergedHubsByCity = {}; // city -> [hub_name, ...] sorted, after folding partner sub-hubs into their parent
+let ptCanEdit = false;
+let ptFunnelRows = [];       // last-loaded rows from get_refurb_funnel
+let ptHubBreakdown = {};     // per-part, per-hub breakdown for the drill-down: { part: { hub: {consumed, sent} } }
+let ptExpandedParts = new Set(); // which part rows currently have their drill-down expanded (survives re-render)
+
+async function ptInit() {
+  _ptSbGetHadFailure = false;
+  await ptApplyEditPermission();
+  const mv = document.getElementById('btn-manage-vendors'); if (mv) mv.style.display = isScrapPowerUser() ? '' : 'none';
+  const mw = document.getElementById('btn-manage-parts'); if (mw) mw.style.display = isScrapWeightAdmin() ? '' : 'none';
+
+  const fleet = await ptSbGet('bike_fleet?select=city,hub_name&hub_name=not.is.null&limit=20000');
+  ptHubsByCity = {};
+  (Array.isArray(fleet) ? fleet : []).forEach(r => {
+    if (PT_EXCLUDED_HUBS.includes(r.hub_name)) return;
+    const city = r.city || 'Other';
+    if (!ptHubsByCity[city]) ptHubsByCity[city] = new Set();
+    ptHubsByCity[city].add(r.hub_name);
+  });
+  Object.keys(ptHubsByCity).forEach(c => ptHubsByCity[c] = [...ptHubsByCity[c]].sort());
+
+  // RPDC processing points never appear in bike_fleet (no vehicles are
+  // physically stationed there), so they'd never surface in this per-city
+  // list otherwise -- added explicitly so they're selectable once a specific
+  // City is chosen in Create Movement, matching the get_distinct_hubs() fix
+  // for the "All Cities" case. "All <City> Hubs" is also added here for
+  // reconciliation entries that apply city-wide rather than to one hub.
+  const EXTRA_HUBS_BY_CITY = {
+    'Bangalore': ['RPDC Bangalore', 'All Bangalore Hubs'],
+    'NCR': ['RPDC NCR', 'All NCR Hubs']
+  };
+  Object.keys(EXTRA_HUBS_BY_CITY).forEach(city => {
+    if (!ptHubsByCity[city]) ptHubsByCity[city] = [];
+    EXTRA_HUBS_BY_CITY[city].forEach(h => {
+      if (!ptHubsByCity[city].includes(h)) ptHubsByCity[city].push(h);
+    });
+  });
+
+  // Partner-operated sub-hubs are named "<Partner> hub - <ParentHub>" (e.g.
+  // "Flipkart hub - Banaswadi", "Famcare hub - Hoodi") but physically report
+  // under the parent hub -- fold them together in the city's hub list rather
+  // than listing dozens of near-duplicate rows. Generic pattern match (not a
+  // hardcoded partner list) so any future partner hub named this way gets
+  // merged automatically too. Feeds ptMergedHubsByCity, used by the
+  // city_head hub-filtering in applyHubRestriction().
+  ptMergedHubsByCity = {};
+  Object.keys(ptHubsByCity).forEach(city => {
+    const rawHubs = ptHubsByCity[city];
+    const merged = new Set();
+    rawHubs.forEach(h => {
+      const m = h.match(/^.+ hub - (.+)$/i);
+      const parent = (m && rawHubs.includes(m[1])) ? m[1] : h;
+      merged.add(parent);
+    });
+    ptMergedHubsByCity[city] = [...merged].sort();
+  });
+}
+
+async function ptApplyEditPermission() {
+  ptCanEdit = isScrapPowerUser();
+  ['Scrap','Refurb','Tyre'].forEach(type => {
+    const badge = document.getElementById('pt-editBadge-' + type);
+    if (!badge) return;
+    if (ptCanEdit) {
+      badge.className = 'edit-badge';
+      badge.innerHTML = '';
+      document.getElementById('pt-saveRow-' + type).style.display = 'flex';
+    } else {
+      badge.className = 'edit-badge';
+      badge.innerHTML = '<i class="ti ti-lock"></i> Read-only view';
+    }
+  });
+}
+
+let PIPELINE_ROWS = { Scrap: [], Refurb: [], Tyre: [] };
+
+async function ptLoadAndRender(from, to, city, hub) {
+  const [scrapRows, refurbRows, tyreRows] = await Promise.all([
+    ptRpc('get_movement_pipeline', { p_type: 'Scrap', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    ptRpc('get_movement_pipeline', { p_type: 'Refurb', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    ptRpc('get_movement_pipeline', { p_type: 'Tyre', p_from: from, p_to: to, p_city: city, p_hub: hub, p_bound_hub_actual: true })
+  ]);
+  PIPELINE_ROWS.Scrap = scrapRows || [];
+  PIPELINE_ROWS.Refurb = refurbRows || [];
+  PIPELINE_ROWS.Tyre = tyreRows || [];
+  ['Scrap','Refurb','Tyre'].forEach(type => ptRenderType(type));
+  ['Refurb','Tyre'].forEach(type => renderFunnelSummary(type));
+}
+
+function renderFunnelSummary(type) {
+  const rows = PIPELINE_ROWS[type] || [];
+  const sum = (key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+  const consumed = sum('consumed'), atHub = sum('actual_in_hub'), rpdc = sum('sent_to_rpdc'),
+        vendor = sum('sent_to_vendor'), outcome = sum('outcome'), rejected = sum('rejected');
+  const recoveryPct = consumed > 0 ? Math.round((outcome / consumed) * 1000) / 10 : null;
+  const rejectionPct = consumed > 0 ? Math.round((rejected / consumed) * 1000) / 10 : null;
+  const recEl = document.getElementById('funnelRecovery-' + type);
+  const rejEl = document.getElementById('funnelRejection-' + type);
+  if (recEl) recEl.textContent = recoveryPct != null ? recoveryPct + '%' : '—';
+  if (rejEl) rejEl.textContent = rejectionPct != null ? rejectionPct + '%' : '—';
+  const flowEl = document.getElementById('funnelFlow-' + type);
+  if (!flowEl) return;
+  const outcomeLabel = type === 'Tyre' ? 'CN Approved' : 'Refurbished';
+  const rejectedLabel = type === 'Tyre' ? 'CN Rejected' : 'Rejected';
+  const nodes = [
+    ['Consumed', consumed], ['At Hub', atHub], ['RPDC', rpdc],
+    ['Vendor', vendor], [outcomeLabel, outcome], [rejectedLabel, rejected]
+  ];
+  flowEl.innerHTML = nodes.map(([label, val], i) =>
+    `<div class="funnel-node"><div class="fn-val">${fmtN(val)}</div><div class="fn-label">${label}</div></div>` +
+    (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+  ).join('');
+}
+
+// Scoreboard tab's management-level funnels: one per category (Scrap,
+// Refurb, Tyre), summed across every part/category within each type,
+// scoped to the tab's own City + Weeks filter rather than the Log a
+// Movement pipeline's per-part filter -- reuses get_movement_pipeline
+// (already the source of truth for every other pipeline number on this
+// page) rather than a new RPC, since this is the same data at a coarser
+// aggregation.
+// Neutral volume-change arrow (grey) -- Consumed/At Hub/RPDC/Vendor are
+// flow-stage counts with no inherent "up is good" direction, so this is
+// informational context only, not a health signal.
+function mgmtVolArrow(curr, prev) {
+  if (prev == null || prev === 0) return '';
+  const diff = curr - prev, pct = Math.round((diff / prev) * 100);
+  if (diff === 0) return '<span style="font-size:10px;color:var(--muted)"> (flat)</span>';
+  const arrow = diff > 0 ? '▲' : '▼';
+  return `<span style="font-size:10px;color:var(--muted)"> ${arrow}${Math.abs(pct)}%</span>`;
+}
+// Directional arrow (colored) -- for metrics where the direction genuinely
+// means better/worse, e.g. Recovery% (up=good) or Rejection%/Discrepancy%
+// (up=bad). goodDirection: 'up' or 'down'.
+function mgmtDirArrow(curr, prev, goodDirection) {
+  if (prev == null || curr == null) return '';
+  const diff = Math.round((curr - prev) * 10) / 10;
+  if (diff === 0) return '<span style="font-size:10px;color:var(--muted)"> (flat)</span>';
+  const isGood = goodDirection === 'up' ? diff > 0 : diff < 0;
+  const color = isGood ? 'var(--green)' : 'var(--red)';
+  const arrow = diff > 0 ? '▲' : '▼';
+  return `<span style="font-size:10px;font-weight:700;color:${color}"> ${arrow}${Math.abs(diff)}pp</span>`;
+}
+async function renderMgmtFunnels(city, hub, from, to, prevFrom, prevTo) {
+  // p_bound_hub_actual:true here (unlike Log a Movement's own use of this
+  // same RPC) -- this view exists to summarize ONE period at a glance, so
+  // "At Hub" must be scoped to that same period too. Without it, "At Hub"
+  // silently falls back to whatever the most recent snapshot happens to be
+  // (even from a completely different, older period), which sat next to a
+  // strictly-this-period Consumed number and looked like a data error.
+  const fetchSet = (f, t) => Promise.all([
+    rpc('get_movement_pipeline', { p_type: 'Scrap', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Refurb', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true }),
+    rpc('get_movement_pipeline', { p_type: 'Tyre', p_from: f, p_to: t, p_city: city, p_hub: hub, p_bound_hub_actual: true })
+  ]);
+  const [[scrapRows, refurbRows, tyreRows], prevSet] = await Promise.all([
+    fetchSet(from, to),
+    prevFrom ? fetchSet(prevFrom, prevTo) : Promise.resolve([null, null, null])
+  ]);
+  const [prevScrapRows, prevRefurbRows, prevTyreRows] = prevSet;
+  const sumRows = (rows, key) => (rows || []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
+  // Restricted to Aluminium/Iron/Plastic for now (per explicit request) --
+  // all three share the same unit (kg), so a single funnel row is
+  // meaningful here, unlike summing across every Scrap category (which
+  // mixed kg and piece-counts into one number, e.g. an earlier version
+  // showed 5,959 kg of Plastic + 968 pieces of Lighting as one "11,885").
+  const SCRAP_FUNNEL_CATEGORIES = ['Aluminium', 'Iron', 'Plastic'];
+  const scrapFilteredRows = (scrapRows || []).filter(r => SCRAP_FUNNEL_CATEGORIES.includes(r.part_name));
+  const prevScrapFilteredRows = (prevScrapRows || []).filter(r => SCRAP_FUNNEL_CATEGORIES.includes(r.part_name));
+  const scrapNodes = [
+    ['Consumed', sumRows(scrapFilteredRows, 'consumed'), sumRows(prevScrapFilteredRows, 'consumed')],
+    ['At Hub', sumRows(scrapFilteredRows, 'actual_in_hub'), sumRows(prevScrapFilteredRows, 'actual_in_hub')],
+    ['RPDC', sumRows(scrapFilteredRows, 'sent_to_rpdc'), sumRows(prevScrapFilteredRows, 'sent_to_rpdc')],
+    ['Vendor', sumRows(scrapFilteredRows, 'sent_to_vendor'), sumRows(prevScrapFilteredRows, 'sent_to_vendor')]
+  ];
+  const scrapEl = document.getElementById('mgmtFunnelFlow-Scrap');
+  if (scrapEl) scrapEl.innerHTML = scrapNodes.map(([label, val, prevVal], i) =>
+    `<div class="funnel-node"><div class="fn-val">${fmtN(val)} <span style="font-size:10px;font-weight:400;color:var(--muted)">kg</span>${prevFrom ? mgmtVolArrow(val, prevVal) : ''}</div><div class="fn-label">${label}</div></div>` +
+    (i < scrapNodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+  ).join('');
+
+  [['Refurb', refurbRows, prevRefurbRows], ['Tyre', tyreRows, prevTyreRows]].forEach(([type, rows, prevRows]) => {
+    const consumed = sumRows(rows, 'consumed'), atHub = sumRows(rows, 'actual_in_hub'), rpdc = sumRows(rows, 'sent_to_rpdc'),
+          vendor = sumRows(rows, 'sent_to_vendor'), outcome = sumRows(rows, 'outcome'), rejected = sumRows(rows, 'rejected');
+    const pConsumed = sumRows(prevRows, 'consumed'), pAtHub = sumRows(prevRows, 'actual_in_hub'), pRpdc = sumRows(prevRows, 'sent_to_rpdc'),
+          pVendor = sumRows(prevRows, 'sent_to_vendor'), pOutcome = sumRows(prevRows, 'outcome'), pRejected = sumRows(prevRows, 'rejected');
+    const recoveryPct = consumed > 0 ? Math.round((outcome / consumed) * 1000) / 10 : null;
+    const rejectionPct = consumed > 0 ? Math.round((rejected / consumed) * 1000) / 10 : null;
+    const prevRecoveryPct = prevFrom && pConsumed > 0 ? Math.round((pOutcome / pConsumed) * 1000) / 10 : null;
+    const prevRejectionPct = prevFrom && pConsumed > 0 ? Math.round((pRejected / pConsumed) * 1000) / 10 : null;
+    const recEl = document.getElementById('mgmtFunnelRecovery-' + type);
+    const rejEl = document.getElementById('mgmtFunnelRejection-' + type);
+    if (recEl) recEl.innerHTML = (recoveryPct != null ? recoveryPct + '%' : '—') + mgmtDirArrow(recoveryPct, prevRecoveryPct, 'up');
+    if (rejEl) rejEl.innerHTML = (rejectionPct != null ? rejectionPct + '%' : '—') + mgmtDirArrow(rejectionPct, prevRejectionPct, 'down');
+    const outcomeLabel = type === 'Tyre' ? 'CN Approved' : 'Refurbished';
+    const rejectedLabel = type === 'Tyre' ? 'CN Rejected' : 'Rejected';
+    const nodes = [
+      ['Consumed', consumed, pConsumed], ['At Hub', atHub, pAtHub], ['RPDC', rpdc, pRpdc],
+      ['Vendor', vendor, pVendor], [outcomeLabel, outcome, pOutcome], [rejectedLabel, rejected, pRejected]
+    ];
+    const flowEl = document.getElementById('mgmtFunnelFlow-' + type);
+    if (flowEl) flowEl.innerHTML = nodes.map(([label, val, prevVal], i) =>
+      `<div class="funnel-node"><div class="fn-val">${fmtN(val)}${prevFrom ? mgmtVolArrow(val, prevVal) : ''}</div><div class="fn-label">${label}</div></div>` +
+      (i < nodes.length - 1 ? '<div class="funnel-sep">→</div>' : '')
+    ).join('');
+  });
+}
+
+function ptRenderType(type) {
+  const tbody = document.getElementById('pt-rowsBody-' + type);
+  if (!tbody) return;
+  const rows = PIPELINE_ROWS[type] || [];
+  const colCount = type === 'Scrap' ? 9 : 11;
+  if (!rows.length) { tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty">No ${type.toLowerCase()} data for this range/filter.</td></tr>`; return; }
+
+  const inp = (cls, val) => ptCanEdit ? `<input type="number" class="${cls}" value="${val ?? ''}" style="width:70px">` : `<span class="num ${val == null ? 'muted-cell' : ''}">${val ?? '—'}</span>`;
+  const cnDocCell = (row) => {
+    const viewLink = row.cn_document_url
+      ? `<a href="${row.cn_document_url}" target="_blank" rel="noopener" style="font-size:11px;display:block;margin-bottom:3px">📄 View</a>`
+      : '';
+    return ptCanEdit
+      ? `<td>${viewLink}<input type="file" class="f-cn-doc" accept="image/*,application/pdf" style="font-size:11px;max-width:130px"></td>`
+      : `<td>${viewLink || '<span class="muted-cell">—</span>'}</td>`;
+  };
+
+  tbody.innerHTML = rows.map(row => {
+    const pct = row.pct != null ? row.pct + '%' : '—';
+    if (type === 'Scrap') {
+      return `<tr data-part="${ptEscapeAttr(row.part_name)}">
+        <td>${row.part_name}</td>
+        <td class="num">${row.consumed} ${row.unit}</td>
+        <td class="num ${row.actual_in_hub == null ? 'muted-cell' : ''}">${row.actual_in_hub ?? '—'}</td>
+        <td>${inp('f-rpdc', row.sent_to_rpdc)}</td>
+        <td>${inp('f-vendor', row.sent_to_vendor)}</td>
+        <td>${inp('f-outcome', row.outcome)}</td>
+        <td>${inp('f-rejected', row.rejected)}</td>
+        <td>${inp('f-recv-rejected', row.received_rpdc_rejected)}</td>
+        <td class="num">${pct}</td>
+      </tr>`;
+    }
+    return `<tr data-part="${ptEscapeAttr(row.part_name)}" data-cn-doc-existing="${ptEscapeAttr(row.cn_document_url || '')}" data-actual-in-hub="${row.actual_in_hub ?? ''}">
+      <td>${row.part_name}</td>
+      <td class="num">${row.consumed} ${row.unit}</td>
+      <td class="num ${row.actual_in_hub == null ? 'muted-cell' : ''}">${row.actual_in_hub ?? '—'}</td>
+      <td>${inp('f-rpdc', row.sent_to_rpdc)}</td>
+      <td>${inp('f-vendor', row.sent_to_vendor)}</td>
+      <td>${inp('f-outcome', row.outcome)}</td>
+      <td>${inp('f-rejected', row.rejected)}</td>
+      <td>${inp('f-recv-outcome', row.received_rpdc_outcome)}</td>
+      <td>${inp('f-recv-rejected', row.received_rpdc_rejected)}</td>
+      ${cnDocCell(row)}
+      <td class="num">${pct}</td>
+    </tr>`;
+  }).join('');
+}
+
+function ptEscapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+async function ptSaveAll(type) {
+  if (!ptCanEdit) return;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const city = document.getElementById('f-city').value;
+  if (!city) { alert('Select a specific City above (not "All Cities") before saving — these are city-level figures.'); return; }
+  const email = getCurrentUser().email || 'unknown';
+  const now = new Date().toISOString();
+
+  // Two passes on purpose: validate every row FIRST, with no side effects,
+  // then only start uploading CN documents once we know nothing in this
+  // batch will be rejected. Interleaving upload-then-validate (like the
+  // single-pass version used to) risks uploading a file for row 3 only to
+  // then discover row 1 has an impossible number and block the whole save
+  // -- same orphan-file problem as the Scrap movement flow had.
+  const rowEls = [...document.querySelectorAll(`#pt-rowsBody-${type} > tr[data-part]`)];
+  const violations = [];
+  const toSave = [];
+  for (const tr of rowEls) {
+    const part = tr.dataset.part;
+    const val = sel => { const el = tr.querySelector(sel); if (!el) return undefined; return el.value === '' ? null : parseFloat(el.value); };
+    const rpdc = val('.f-rpdc'), vendor = val('.f-vendor'), outcome = val('.f-outcome'), rejected = val('.f-rejected'),
+          recvOutcome = val('.f-recv-outcome'), recvRejected = val('.f-recv-rejected');
+    const actualInHub = tr.dataset.actualInHub !== '' ? parseFloat(tr.dataset.actualInHub) : null;
+    // A pipeline stage can't send/produce more than what actually fed into
+    // it -- these aren't independent numbers, each one is a subset of the
+    // one before it. Only checked when both sides of a given comparison
+    // were actually entered (or, for the first one, when the hub actually
+    // has a known count to compare against) -- a still-blank downstream
+    // field isn't a violation, it just hasn't been filled in yet.
+    if (rpdc != null && actualInHub != null && rpdc > actualInHub) {
+      violations.push(`${part}: Sent to RPDC (${rpdc}) exceeds Actual Available in Hub (${actualInHub})`);
+    }
+    if (vendor != null && rpdc != null && vendor > rpdc) {
+      violations.push(`${part}: Sent to Vendor (${vendor}) exceeds Sent to RPDC (${rpdc})`);
+    }
+    if (outcome != null && rejected != null && vendor != null && (outcome + rejected) > vendor) {
+      violations.push(`${part}: Refurbed + Rejected (${outcome + rejected}) exceeds Sent to Vendor (${vendor})`);
+    }
+    if (recvOutcome != null && outcome != null && recvOutcome > outcome) {
+      violations.push(`${part}: Received at RPDC, refurbed (${recvOutcome}) exceeds Refurbed (${outcome})`);
+    }
+    if (recvRejected != null && rejected != null && recvRejected > rejected) {
+      violations.push(`${part}: Received at RPDC, rejected (${recvRejected}) exceeds Rejected (${rejected})`);
+    }
+    const docInput = tr.querySelector('.f-cn-doc');
+    const docFile = docInput && docInput.files && docInput.files[0] ? docInput.files[0] : null;
+    if ([rpdc, vendor, outcome, rejected, recvOutcome, recvRejected].every(v => v === undefined || v === null) && !docFile) continue;
+    toSave.push({ part, rpdc, vendor, outcome, rejected, recvOutcome, recvRejected, docFile });
+  }
+
+  if (violations.length) {
+    alert('Cannot save — these numbers are not physically possible:\n\n' + violations.join('\n') + '\n\nEach stage can only send or produce as much as it actually received from the stage before it. Please correct the figure(s) above and save again.');
+    return;
+  }
+
+  const payload = [];
+  for (const s of toSave) {
+    const row = {
+      period_from: from, period_to: to, city, item_type: type, item_name: s.part,
+      sent_to_rpdc_qty: s.rpdc ?? null, sent_to_vendor_qty: s.vendor ?? null,
+      refurbed_qty: s.outcome ?? null, rejected_qty: s.rejected ?? null,
+      received_at_rpdc_qty: s.recvOutcome ?? null, received_at_rpdc_rejected_qty: s.recvRejected ?? null,
+      updated_by: email, updated_at: now
+    };
+    // Only touch cn_document_url when a NEW file was actually chosen this
+    // save -- merge-duplicates only updates columns present in the row, so
+    // omitting it here leaves whatever was already saved untouched instead
+    // of accidentally clearing it on every unrelated edit to this part.
+    if (s.docFile) {
+      const url = await uploadScrapPhoto(s.docFile);
+      if (url) row.cn_document_url = url;
+      else alert(`Could not upload the CN document for "${s.part}" — the rest of this row will still save.`);
+    }
+    payload.push(row);
+  }
+
+  if (payload.length) {
+    await ptSbUpsert('refurb_manual_entries_city', payload, 'period_from,period_to,city,item_type,item_name');
+  }
+
+  const msg = document.getElementById('pt-saveMsg-' + type);
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000);
+  await ptLoadAndRender(from, to, city, document.getElementById('f-hub').value || null);
+}
+
+
+// ===== end merged Parts Tracker =====
+
+let RESTRICTED_HUB = null;
+let RESTRICTED_CITY = null;
+
+// The hub_audit schema (auditors/hubs tables) only grants SELECT to the
+// 'authenticated' Postgres role -- the static anon key gets a flat 401
+// ("permission denied for schema hub_audit"). This mirrors admin.html's own
+// token handling: use the real session access_token, and if it's expired,
+// refresh it once via Supabase Auth before giving up.
+async function getHubAuditToken() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    return sess.access_token || null;
+  } catch (e) { return null; }
+}
+async function refreshHubAuditToken() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('sb_session') || '{}');
+    if (!sess.refresh_token) return null;
+    const r = await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: sess.refresh_token })
+    });
+    const d = await r.json();
+    if (d && d.access_token) {
+      sess.access_token = d.access_token;
+      if (d.refresh_token) sess.refresh_token = d.refresh_token;
+      localStorage.setItem('sb_session', JSON.stringify(sess));
+      return d.access_token;
+    }
+  } catch (e) {}
+  return null;
+}
+async function hubAuditGet(path) {
+  const token = await getHubAuditToken();
+  if (!token) return null;
+  const headers = { apikey: ANON, Authorization: `Bearer ${token}`, 'Accept-Profile': 'hub_audit' };
+  let r = await fetch(`${SB}/rest/v1/${path}`, { headers });
+  if (r.status === 401) {
+    const fresh = await refreshHubAuditToken();
+    if (!fresh) return null;
+    r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: ANON, Authorization: `Bearer ${fresh}`, 'Accept-Profile': 'hub_audit' } });
+  }
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// Locks a Service Manager / Hub Manager to their own assigned hub, both for
+// viewing (top filter) and for logging new movements (Create Movement form).
+// Reads the hub assignment from hub_audit.auditors (the same table Admin
+// Panel > Hub Audit Users already manages) -- not a separate mechanism, so
+// assigning someone here is just adding them there with a hub selected.
+// Anyone not in that table, or with a role other than hub_manager/service_manager,
+// or with no hub assigned, sees everything -- unrestricted.
+async function applyHubRestriction() {
+  const { email } = getCurrentUser();
+  if (!email) return;
+  const rows = await hubAuditGet(`auditors?email=eq.${encodeURIComponent(email)}&select=role,hub_id,city,is_active&limit=1`);
+  const row = rows && rows[0];
+  if (!row || row.is_active === false) return;
+
+  // Hub Manager / Service Manager: locked to exactly one hub.
+  if (row.role === 'hub_manager' || row.role === 'service_manager') {
+    if (!row.hub_id) return;
+    const hubRows = await hubAuditGet(`hubs?id=eq.${row.hub_id}&select=name,city`);
+    const hub = hubRows && hubRows[0];
+    if (!hub || !hub.name) return;
+
+    RESTRICTED_HUB = hub.name;
+    RESTRICTED_CITY = hub.city || row.city || null;
+
+    const citySel = document.getElementById('f-city');
+    const hubSel = document.getElementById('f-hub');
+    if (RESTRICTED_CITY) { citySel.value = RESTRICTED_CITY; }
+    citySel.disabled = true;
+    hubSel.innerHTML = `<option value="${RESTRICTED_HUB}">${RESTRICTED_HUB}</option>`;
+    hubSel.value = RESTRICTED_HUB;
+    hubSel.disabled = true;
+
+    // Also lock Create Movement's own City/Hub -- someone restricted to one
+    // hub for viewing shouldn't be able to log a movement for a different
+    // one via the independent fields there.
+    const sCitySel = document.getElementById('s-city');
+    const sHubSel = document.getElementById('s-hub');
+    if (RESTRICTED_CITY) { sCitySel.value = RESTRICTED_CITY; }
+    sCitySel.disabled = true;
+    sCitySel.dataset.seeded = '1';
+    sHubSel.innerHTML = `<option value="${RESTRICTED_HUB}">${RESTRICTED_HUB}</option>`;
+    sHubSel.value = RESTRICTED_HUB;
+    sHubSel.disabled = true;
+    sHubSel.dataset.seeded = '1';
+
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:var(--muted);margin:-10px 0 16px';
+    note.innerHTML = `<i class="ti ti-lock"></i> Your access is restricted to ${RESTRICTED_HUB}${RESTRICTED_CITY ? ' (' + RESTRICTED_CITY + ')' : ''}.`;
+    const ctlBar = document.querySelector('.ctl-bar');
+    if (ctlBar) ctlBar.insertAdjacentElement('afterend', note);
+    return;
+  }
+
+  // City Head (and similarly-shaped roles: a city assigned, no single hub):
+  // locked to their city, but free to pick any hub within it -- not
+  // restricted to just one, unlike Hub/Service Manager above.
+  if (row.role === 'city_head' && row.city) {
+    RESTRICTED_CITY = row.city;
+    const citySel = document.getElementById('f-city');
+    citySel.value = RESTRICTED_CITY;
+    citySel.disabled = true;
+
+    // City is locked, but Hub itself defaults to showing every hub across
+    // every city -- narrow it down to just this city's hubs so the lock
+    // is actually meaningful, not just cosmetic on the City field.
+    const hubSel = document.getElementById('f-hub');
+    const cityHubs = (ptMergedHubsByCity && ptMergedHubsByCity[RESTRICTED_CITY]) || [];
+    if (cityHubs.length) {
+      hubSel.innerHTML = '<option value="">All Hubs (in ' + RESTRICTED_CITY + ')</option>' + cityHubs.map(h => `<option value="${h}">${h}</option>`).join('');
+    }
+
+    // Same lock on Create Movement's own City/Hub -- City fixed, Hub
+    // narrowed to this city's list but still freely choosable within it.
+    const sCitySel = document.getElementById('s-city');
+    sCitySel.value = RESTRICTED_CITY;
+    sCitySel.disabled = true;
+    sCitySel.dataset.seeded = '1';
+    onMovementCityChange(true);
+    document.getElementById('s-hub').dataset.seeded = '1';
+
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:var(--muted);margin:-10px 0 16px';
+    note.innerHTML = `<i class="ti ti-lock"></i> Your access is restricted to ${RESTRICTED_CITY} — any hub within it.`;
+    const ctlBar = document.querySelector('.ctl-bar');
+    if (ctlBar) ctlBar.insertAdjacentElement('afterend', note);
+  }
+}
+
+(function init() {
+  const to = todayIST();
+  const from = to.slice(0,8) + '01';
+  document.getElementById('f-from').value = from;
+  document.getElementById('f-to').value = to;
+  document.getElementById('s-date').value = to;
+  Promise.all([loadHubs(), loadCategories(), loadRefurbParts(), loadVendors(), ptInit()]).then(async () => {
+    await applyHubRestriction();
+    onTypeChange();
+    loadAll();
+  });
+})();
+
+
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>
