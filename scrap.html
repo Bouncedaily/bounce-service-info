@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="auth-guard.js?v=1791888113"></script>
+<script src="auth-guard.js?v=1791894747"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -1291,7 +1291,8 @@ function drawRefurbRows(lbl) {
   else if (edit) { note.innerHTML = `<div class="banner info" style="margin:12px 16px 0">Saving figures for <b>${esc(f.city)}</b>, ${esc(periodLabel())}. Each stage can only be as large as the one before it.</div>`; }
   else note.innerHTML = '';
   const canEdit = edit && !!f.city;
-  $('#rf-head').innerHTML = `<tr><th>Part</th><th class="num">${RF.type === 'Tyre' ? 'Replaced' : 'Removed'}</th><th class="num">At hubs</th><th class="num">Sent to RPDC</th><th class="num">Sent to vendor</th><th class="num">At vendor</th><th class="num">${lbl.out}</th><th class="num">${lbl.rej}</th>${canEdit ? '<th class="num">Back at RPDC (ok)</th><th class="num">Back at RPDC (rejected)</th>' : ''}<th class="num">${lbl.rate[0].toUpperCase() + lbl.rate.slice(1, 7)}</th><th class="num">Documents</th></tr>`;
+  const T = RF.type === 'Tyre';
+  $('#rf-head').innerHTML = `<tr><th>Part</th><th class="num">System consumed</th><th class="num">Actual available in hub</th><th class="num">Sent to RPDC</th><th class="num">Sent to vendor</th><th class="num">At vendor</th><th class="num">${T ? 'CN approved' : 'Refurbed'}</th><th class="num">${T ? 'CN rejected' : 'Rejected'}</th><th class="num">${T ? 'CN approved part received at RPDC' : 'Refurbed part received at RPDC'}</th><th class="num">${T ? 'CN rejected part received at RPDC' : 'Rejected part received at RPDC'}</th><th class="num">${T ? 'CN document' : 'Document'}</th><th class="num">${T ? 'CN approved %' : 'Refurb %'}</th></tr>`;
   let rows = (RF.data || []).slice();
   const active = r => (Number(r.consumed) || 0) + (Number(r.sent_to_rpdc) || 0) + (Number(r.sent_to_vendor) || 0) + (Number(r.outcome) || 0) + (Number(r.rejected) || 0) > 0;
   const hidden = RF.showAll || canEdit ? 0 : rows.filter(r => !active(r)).length;
@@ -1305,12 +1306,12 @@ function drawRefurbRows(lbl) {
     const doc = r.cn_document_url ? `<a href="${esc(r.cn_document_url)}" target="_blank" rel="noopener">View</a>` : (notSent && !canEdit ? '<span class="pill amber">Not being sent</span>' : '<span class="muted">—</span>');
     return `<tr data-part="${esc(r.part_name)}" data-hub="${r.actual_in_hub ?? ''}"><td><b>${esc(r.part_name)}</b></td><td class="num">${num(r.consumed)}</td><td class="num">${r.actual_in_hub == null ? '<span class="muted">—</span>' : num(r.actual_in_hub)}</td>
       ${cell(r, 'sent_to_rpdc')}${cell(r, 'sent_to_vendor')}<td class="num ${atV ? 'warn' : 'muted'}" style="${atV ? 'font-weight:700' : ''}">${num(atV)}</td>${cell(r, 'outcome', 'ok')}${cell(r, 'rejected', 'err')}
-      ${canEdit ? cell(r, 'received_rpdc_outcome') + cell(r, 'received_rpdc_rejected') : ''}
-      <td class="num"><b>${fin ? Math.round(out / fin * 100) + '%' : '<span class="muted">—</span>'}</b></td>
-      <td class="num">${canEdit ? `${r.cn_document_url ? `<a href="${esc(r.cn_document_url)}" target="_blank" rel="noopener">View</a><br>` : ''}<input type="file" class="rf-doc" accept="image/*,application/pdf" style="max-width:150px;font-size:11px">` : doc}</td></tr>`;
-  }).join('') + (hidden ? `<tr class="more-row"><td colspan="12"><button class="btn link" type="button" id="rf-all">Show ${hidden} part${hidden === 1 ? '' : 's'} with nothing this period</button></td></tr>` : '')
-    + (canEdit ? `<tr><td colspan="12" style="text-align:right"><span class="err small" id="rf-err" style="margin-right:12px"></span><button class="btn primary" type="button" id="rf-save">Save RPDC figures</button></td></tr>` : '')
-    : '<tr><td colspan="12" class="muted">No parts for this period and filter.</td></tr>';
+      ${cell(r, 'received_rpdc_outcome')}${cell(r, 'received_rpdc_rejected')}
+      <td class="num">${canEdit ? `${r.cn_document_url ? `<a href="${esc(r.cn_document_url)}" target="_blank" rel="noopener">View</a><br>` : ''}<input type="file" class="rf-doc" accept="image/*,application/pdf" style="max-width:150px;font-size:11px">` : doc}</td>
+      <td class="num"><b>${fin ? Math.round(out / fin * 100) + '%' : '<span class="muted">—</span>'}</b></td></tr>`;
+  }).join('') + (hidden ? `<tr class="more-row"><td colspan="13"><button class="btn link" type="button" id="rf-all">Show ${hidden} part${hidden === 1 ? '' : 's'} with nothing this period</button></td></tr>` : '')
+    + (canEdit ? `<tr><td colspan="13" style="text-align:right"><span class="err small" id="rf-err" style="margin-right:12px"></span><button class="btn primary" type="button" id="rf-save">Save RPDC figures</button></td></tr>` : '')
+    : '<tr><td colspan="13" class="muted">No parts for this period and filter.</td></tr>';
   const all = $('#rf-all'); if (all) all.onclick = () => { RF.showAll = true; drawRefurbRows(lbl); };
   const sv = $('#rf-save'); if (sv) sv.onclick = () => saveRefurb(sv, lbl);
 }
