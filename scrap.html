@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="auth-guard.js?v=1791887210"></script>
+<script src="auth-guard.js?v=1791887427"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -541,17 +541,12 @@ async function loadOverview() {
   const f = F();
   el.innerHTML = `
     <div class="kpis" id="ov-kpis">${Array.from({ length: 5 }, () => '<div class="kpi"><div class="kpi-val"><span class="skel" style="width:90px;height:20px"></span></div><div class="kpi-lbl">&nbsp;</div></div>').join('')}</div>
-    <div class="card"><div class="card-hd"><h2>Where the scrap kg comes from</h2><span class="note">Job-card parts × part weight, ${esc(periodLabel())}</span>
-      <div class="switch" id="bk-switch" style="margin:0">${['Plastic', 'Iron', 'Aluminium'].map((c, i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-bk="${c}">${c}</button>`).join('')}</div></div>
-      <div id="bk-body">${breakupSkel()}</div></div>
     <div class="card"><div class="card-hd"><h2>Needs action</h2><span class="note">Each row is something a hub or head office has to do.</span></div>
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Hub</th><th>What</th><th>Detail</th><th>Since</th><th class="num">Action</th></tr></thead><tbody id="ov-actions">${skelRows(5, 4)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Hubs</h2><span class="note">Outstanding = scrap generated since the 31 Aug clean-out (or the hub's clean-out pickup) minus what was picked up since. Iron, plastic and aluminium.</span>
       <button class="btn" type="button" id="ov-csv"><i class="ti ti-download"></i>Export CSV</button></div>
       <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
 
-  $$('#bk-switch button').forEach(b => b.onclick = () => loadOverviewBreakup(b.dataset.bk));
-  loadOverviewBreakup('Plastic');
   const [ov, trig, queue, transfers] = await Promise.all([
     cached('ov|' + fkey(), () => rpc('get_scrap_overview', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
     cached('trig|' + f.city + '|' + f.hub, () => rpc('get_hub_scrap_trigger_status', { p_city: f.city, p_hub: f.hub })),
@@ -662,13 +657,6 @@ function breakupTable(rows, compact) {
     <tbody>${w.length > LIM ? `<tr class="more-row"><td colspan="4"><button class="btn link" type="button" onclick="this.closest('tr').remove();document.getElementById('${id}').hidden=false">Show all ${w.length} parts</button></td></tr>` : ''}
     <tr><td><b>Total</b></td><td class="num">${num(sum(w, r => r.qty))}</td><td></td><td class="num"><b>${num(total, 1)} kg</b></td></tr>
     ${nw.length ? `<tr><td colspan="4" class="warn small"><b>No weight set (counted as 0 kg):</b> ${nw.map(r => `${esc(r.part_name)} ×${num(r.qty)}`).join(', ')}</td></tr>` : ''}</tbody></table></div>`;
-}
-async function loadOverviewBreakup(cat) {
-  const f = F(), box = $('#bk-body'); if (!box) return;
-  $$('#bk-switch button').forEach(b => b.classList.toggle('on', b.dataset.bk === cat));
-  box.innerHTML = breakupSkel();
-  const rows = await fetchBreakup(cat, f.from, f.to, f.city, f.hub);
-  if ($('#bk-body') === box) box.innerHTML = breakupTable(rows, false);
 }
 function exportOverviewCSV() {
   const rows = S.ovRows || [];
@@ -849,7 +837,9 @@ function lineHtml(k) {
   const isScrap = LP.type === 'Scrap';
   const expTxt = e != null ? `expected ~${num(e)} ${unit}` : 'no system estimate';
   return `<div class="line" data-key="${esc(k)}">
-    <div class="line-top"><span class="line-name">${esc(k)}</span>${isScrap && ['Plastic', 'Iron', 'Aluminium'].includes(k) && e > 0 ? `<button type="button" class="btn link line-exp bk-toggle" style="padding:0;font-size:12px" aria-expanded="false">${expTxt} · breakup</button>` : `<span class="line-exp">${expTxt}</span>`}</div>
+    ${isScrap && ['Plastic', 'Iron', 'Aluminium'].includes(k) && e > 0
+      ? `<button type="button" class="line-top bk-toggle" aria-expanded="false" style="all:unset;display:flex;justify-content:space-between;align-items:baseline;gap:8px;cursor:pointer"><span class="line-name">${esc(k)} <i class="ti ti-chevron-down" style="font-size:14px;color:var(--muted)"></i></span><span class="line-exp" style="color:var(--blue)">${expTxt} · tap for breakup</span></button>`
+      : `<div class="line-top"><span class="line-name">${esc(k)}</span><span class="line-exp">${expTxt}</span></div>`}
     <div class="bk-box" hidden style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px"></div>
     <div class="line-row">
       <label class="qty"><span class="sr" style="position:absolute;left:-9999px">${esc(k)} ${unit === 'kg' ? 'weight in kg' : 'count'}</span>
