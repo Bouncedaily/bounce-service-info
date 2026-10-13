@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="auth-guard.js?v=1791885283"></script>
+<script src="auth-guard.js?v=1791887210"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -541,12 +541,17 @@ async function loadOverview() {
   const f = F();
   el.innerHTML = `
     <div class="kpis" id="ov-kpis">${Array.from({ length: 5 }, () => '<div class="kpi"><div class="kpi-val"><span class="skel" style="width:90px;height:20px"></span></div><div class="kpi-lbl">&nbsp;</div></div>').join('')}</div>
+    <div class="card"><div class="card-hd"><h2>Where the scrap kg comes from</h2><span class="note">Job-card parts × part weight, ${esc(periodLabel())}</span>
+      <div class="switch" id="bk-switch" style="margin:0">${['Plastic', 'Iron', 'Aluminium'].map((c, i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-bk="${c}">${c}</button>`).join('')}</div></div>
+      <div id="bk-body">${breakupSkel()}</div></div>
     <div class="card"><div class="card-hd"><h2>Needs action</h2><span class="note">Each row is something a hub or head office has to do.</span></div>
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Hub</th><th>What</th><th>Detail</th><th>Since</th><th class="num">Action</th></tr></thead><tbody id="ov-actions">${skelRows(5, 4)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Hubs</h2><span class="note">Outstanding = scrap generated since the 31 Aug clean-out (or the hub's clean-out pickup) minus what was picked up since. Iron, plastic and aluminium.</span>
       <button class="btn" type="button" id="ov-csv"><i class="ti ti-download"></i>Export CSV</button></div>
       <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
 
+  $$('#bk-switch button').forEach(b => b.onclick = () => loadOverviewBreakup(b.dataset.bk));
+  loadOverviewBreakup('Plastic');
   const [ov, trig, queue, transfers] = await Promise.all([
     cached('ov|' + fkey(), () => rpc('get_scrap_overview', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
     cached('trig|' + f.city + '|' + f.hub, () => rpc('get_hub_scrap_trigger_status', { p_city: f.city, p_hub: f.hub })),
@@ -638,6 +643,32 @@ async function loadOverview() {
     return `<tr><td>${hubCell(n, (t && t.city) || h.city)}</td><td>${meter}</td><td class="num">${h.generated_kg != null ? kg(h.generated_kg) : '—'}</td><td class="num ${h.picked_kg ? '' : 'muted'}">${kg(h.picked_kg || 0)}</td><td>${h.last_pickup ? dshort(h.last_pickup) + (h.last_vendor ? ` <span class="muted">· ${esc(h.last_vendor)}</span>` : '') : '<span class="muted">—</span>'}</td><td class="num">${pay}</td></tr>`;
   }).join('') : '<tr><td colspan="6" class="muted">No hubs match these filters.</td></tr>';
   $('#ov-csv').onclick = exportOverviewCSV;
+}
+// Part-by-part breakup of expected kg (shared by Overview and Log pickup)
+function breakupSkel() { return `<div class="scroll"><table><tbody>${skelRows(4, 4)}</tbody></table></div>`; }
+async function fetchBreakup(cat, from, to, city, hub) {
+  return cached(['bk', cat, from, to, city, hub].join('|'), () => rpc('get_scrap_category_part_breakdown', { p_category: cat, p_from: from, p_to: to, p_city: city, p_hub: hub }));
+}
+function breakupTable(rows, compact) {
+  if (!rows) return '<div class="msg err">Could not load the breakup. Tap Refresh.</div>';
+  if (!rows.length) return '<div class="msg">No job-card parts in this category for the period.</div>';
+  const w = rows.filter(r => r.is_weighted), nw = rows.filter(r => !r.is_weighted);
+  const total = sum(w, r => r.total_kg);
+  const LIM = compact ? 8 : 15;
+  const body = (list) => list.map(r => `<tr><td>${esc(r.part_name)}</td><td class="num">${num(r.qty)}</td><td class="num">${r.weight_per_unit_kg != null ? num(r.weight_per_unit_kg, 3) : '—'}</td><td class="num"><b>${num(r.total_kg, 1)}</b></td></tr>`).join('');
+  const id = 'bk' + Math.random().toString(36).slice(2, 7);
+  return `<div class="scroll"><table><thead><tr><th>Part</th><th class="num">Pcs</th><th class="num">kg each</th><th class="num">kg</th></tr></thead>
+    <tbody>${body(w.slice(0, LIM))}</tbody><tbody id="${id}" hidden>${body(w.slice(LIM))}</tbody>
+    <tbody>${w.length > LIM ? `<tr class="more-row"><td colspan="4"><button class="btn link" type="button" onclick="this.closest('tr').remove();document.getElementById('${id}').hidden=false">Show all ${w.length} parts</button></td></tr>` : ''}
+    <tr><td><b>Total</b></td><td class="num">${num(sum(w, r => r.qty))}</td><td></td><td class="num"><b>${num(total, 1)} kg</b></td></tr>
+    ${nw.length ? `<tr><td colspan="4" class="warn small"><b>No weight set (counted as 0 kg):</b> ${nw.map(r => `${esc(r.part_name)} ×${num(r.qty)}`).join(', ')}</td></tr>` : ''}</tbody></table></div>`;
+}
+async function loadOverviewBreakup(cat) {
+  const f = F(), box = $('#bk-body'); if (!box) return;
+  $$('#bk-switch button').forEach(b => b.classList.toggle('on', b.dataset.bk === cat));
+  box.innerHTML = breakupSkel();
+  const rows = await fetchBreakup(cat, f.from, f.to, f.city, f.hub);
+  if ($('#bk-body') === box) box.innerHTML = breakupTable(rows, false);
 }
 function exportOverviewCSV() {
   const rows = S.ovRows || [];
@@ -818,7 +849,8 @@ function lineHtml(k) {
   const isScrap = LP.type === 'Scrap';
   const expTxt = e != null ? `expected ~${num(e)} ${unit}` : 'no system estimate';
   return `<div class="line" data-key="${esc(k)}">
-    <div class="line-top"><span class="line-name">${esc(k)}</span><span class="line-exp">${expTxt}</span></div>
+    <div class="line-top"><span class="line-name">${esc(k)}</span>${isScrap && ['Plastic', 'Iron', 'Aluminium'].includes(k) && e > 0 ? `<button type="button" class="btn link line-exp bk-toggle" style="padding:0;font-size:12px" aria-expanded="false">${expTxt} · breakup</button>` : `<span class="line-exp">${expTxt}</span>`}</div>
+    <div class="bk-box" hidden style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px"></div>
     <div class="line-row">
       <label class="qty"><span class="sr" style="position:absolute;left:-9999px">${esc(k)} ${unit === 'kg' ? 'weight in kg' : 'count'}</span>
         <input class="q" type="number" inputmode="decimal" min="0" step="${unit === 'kg' ? '0.1' : '1'}" placeholder="0" value="${esc(st.qty)}"><span>${unit}</span></label>
@@ -867,6 +899,16 @@ function wireLogForm() {
     lines.addEventListener('click', e => {
       const l = e.target.closest('.line'); if (!l) return;
       if (e.target.closest('.cam')) { $('.file', l).click(); return; }
+      const bt = e.target.closest('.bk-toggle');
+      if (bt) {
+        const box = $('.bk-box', l), open = box.hidden;
+        box.hidden = !open; bt.setAttribute('aria-expanded', open);
+        if (open && !box.dataset.done) {
+          box.innerHTML = breakupSkel();
+          fetchBreakup(l.dataset.key, LP.from, LP.date, hubCity(LP.hub), isCityWide(LP.hub) ? null : LP.hub).then(rows => { box.innerHTML = breakupTable(rows, true); box.dataset.done = '1'; });
+        }
+        return;
+      }
       const chip = e.target.closest('.chip');
       if (chip) { const st = lineState(l.dataset.key); st.reason = st.reason === chip.dataset.reason ? null : chip.dataset.reason; renderWhy(l); const n = $('.note', l); if (n) n.focus(); }
     });
