@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="auth-guard.js?v=1791861018"></script>
+<script src="auth-guard.js?v=1791885283"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -1318,18 +1318,24 @@ async function saveRefurb(btn, lbl) {
 const CH = {};
 async function loadTrends() {
   const el = $('#tab-trends'), f = F();
-  el.innerHTML = `<div class="grid2">
+  el.innerHTML = `<div class="card"><div class="card-hd"><h2>System calculated vs available at hub</h2><span class="note">Pickups in ${esc(periodLabel())} · iron, plastic, aluminium · system figure uses today's part rules and weights for each pickup's period</span></div>
+      <div class="card-bd" id="rc-sum"><span class="skel" style="width:60%"></span></div>
+      <div class="scroll"><table style="min-width:820px"><thead><tr><th>Hub</th><th class="num">Pickups</th><th class="num">System calculated</th><th class="num">Available at hub</th><th class="num">%</th><th class="num">Plastic</th><th class="num">Iron</th><th class="num">Aluminium</th></tr></thead><tbody id="rc-rows">${skelRows(8, 5)}</tbody></table></div>
+      <div class="card-bd" style="border-top:1px solid var(--border)"><div class="muted small" style="margin-bottom:6px">By month, last 6 months (all pickups in the filter's city and hub)</div><div class="chartbox" style="height:220px"><canvas id="ch-rc" aria-label="Monthly system calculated vs available at hub"></canvas></div></div></div>
+    <div class="grid2">
     <div class="card"><div class="card-hd"><h2>Scrap generated vs picked up</h2><span class="note">kg per week, last 12 weeks · iron, plastic, aluminium</span></div><div class="card-bd"><div class="chartbox"><canvas id="ch-kg" aria-label="Weekly scrap generated and picked up"></canvas></div><div class="muted small" style="margin-top:8px">A gap that keeps widening means hubs are falling behind on pickups.</div></div></div>
     <div class="card"><div class="card-hd"><h2>Sales value vs money received</h2><span class="note">₹ per week, last 12 weeks</span></div><div class="card-bd"><div class="chartbox"><canvas id="ch-inr" aria-label="Weekly sales value and money received"></canvas></div><div class="small" id="ch-inr-note" style="margin-top:8px"></div></div></div></div>
     <div class="grid2">
     <div class="card"><div class="card-hd"><h2>Hubs by sales value</h2><span class="note">${esc(periodLabel())}</span></div><div class="scroll"><table><thead><tr><th>Hub</th><th class="num">Picked up</th><th class="num">Value</th><th class="num">Off by &gt;10%</th></tr></thead><tbody id="tr-lb">${skelRows(4, 5)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Why pickups differ from the system</h2><span class="note">Reasons given by hubs, ${esc(periodLabel())}</span></div><div class="card-bd" id="tr-reasons"><span class="skel" style="width:60%"></span></div></div></div>`;
-  const [flow, lb, reasons] = await Promise.all([
+  const [flow, lb, reasons, rec] = await Promise.all([
     cached('flow|' + f.city + '|' + f.hub, () => rpc('get_scrap_weekly_flow', { p_weeks: 12, p_city: f.city, p_hub: f.hub })),
     cached('lb|' + fkey(), () => rpc('get_scrap_hub_leaderboard', { p_city: f.city, p_from: f.from, p_to: f.to, p_hub: f.hub })),
-    cached('rs|' + fkey(), () => rpc('get_scrap_reason_counts', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub }))
+    cached('rs|' + fkey(), () => rpc('get_scrap_reason_counts', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
+    cached('rc|' + fkey(), () => rpc('get_scrap_recovery', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub }))
   ]);
   if (S.tab !== 'trends') return;
+  renderRecovery(rec);
   const w = flow || [];
   const labels = w.map(x => dshort(x.week_start));
   const mk = (id, sets, money) => {
@@ -1449,6 +1455,43 @@ async function boot() {
   updateBadge();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+
+// System calculated vs available at hub
+function pctOf(a, s) { return s > 0 ? Math.round(a / s * 100) : null; }
+function pctPill(p) {
+  if (p == null) return '<span class="muted">—</span>';
+  const cls = p >= 90 && p <= 110 ? 'green' : (p >= 75 && p <= 125 ? 'amber' : 'red');
+  return `<span class="pill ${cls}">${p}%</span>`;
+}
+function renderRecovery(r) {
+  const sumEl = $('#rc-sum'), rows = $('#rc-rows');
+  if (!sumEl) return;
+  if (!r) { sumEl.innerHTML = '<span class="err">Could not load. Tap Refresh.</span>'; rows.innerHTML = ''; return; }
+  const bc = r.by_category || {};
+  const catTxt = ['Plastic', 'Iron', 'Aluminium'].map(c => bc[c] ? `<span><b>${esc(c)}</b> ${pctPill(pctOf(bc[c].actual_kg, bc[c].system_kg))} <span class="muted">${kg(bc[c].actual_kg)} of ${kg(bc[c].system_kg)}</span></span>` : '').join('');
+  sumEl.innerHTML = (r.hubs || []).length
+    ? `<div class="facts"><span><b>Overall</b> ${pctPill(pctOf(r.actual_kg, r.system_kg))} <span class="muted">${kg(r.actual_kg)} at hubs of ${kg(r.system_kg)} system calculated</span></span>${catTxt}</div>
+       <div class="muted small" style="margin-top:8px">Green 90–110% · amber 75–125% · red outside that. Above 100% usually means parts with no weight set, or backlog from before the period; below means scrap that didn't reach the scale.</div>`
+    : '<span class="muted">No scrap pickups in this period.</span>';
+  const H = (r.hubs || []).slice().sort((a, b) => (pctOf(a.actual_kg, a.system_kg) ?? 999) - (pctOf(b.actual_kg, b.system_kg) ?? 999));
+  const cat = (h, c) => { const x = (h.cats || {})[c]; return x ? `${pctPill(pctOf(x.actual_kg, x.system_kg))}<div class="muted small">${num(x.actual_kg)} / ${num(x.system_kg)}</div>` : '<span class="muted">—</span>'; };
+  rows.innerHTML = H.length ? H.map(h => `<tr><td>${hubCell(h.hub_name, h.city)}<div class="muted small">last ${dshort(h.last_pickup)}</div></td><td class="num">${num(h.pickups)}</td>
+      <td class="num">${kg(h.system_kg)}</td><td class="num"><b>${kg(h.actual_kg)}</b></td><td class="num">${pctPill(pctOf(h.actual_kg, h.system_kg))}</td>
+      <td class="num">${cat(h, 'Plastic')}</td><td class="num">${cat(h, 'Iron')}</td><td class="num">${cat(h, 'Aluminium')}</td></tr>`).join('')
+    + `<tr><td><b>Total</b></td><td class="num">${num(sum(H, h => h.pickups))}</td><td class="num"><b>${kg(r.system_kg)}</b></td><td class="num"><b>${kg(r.actual_kg)}</b></td><td class="num">${pctPill(pctOf(r.actual_kg, r.system_kg))}</td><td colspan="3"></td></tr>`
+    : '<tr><td colspan="8" class="muted">No scrap pickups in this period.</td></tr>';
+  const M = r.months || [];
+  if (CH['ch-rc']) CH['ch-rc'].destroy();
+  if (!window.Chart || !M.length) return;
+  CH['ch-rc'] = new Chart($('#ch-rc'), { type: 'bar',
+    data: { labels: M.map(m => MON[+m.month.slice(5, 7) - 1]),
+      datasets: [{ label: 'System calculated', data: M.map(m => m.system_kg), backgroundColor: '#94a3b8', borderRadius: 3 },
+                 { label: 'Available at hub', data: M.map(m => m.actual_kg), backgroundColor: '#2563eb', borderRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Inter' } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${kg(c.raw)}`, footer: items => { const m = M[items[0].dataIndex]; const p = pctOf(m.actual_kg, m.system_kg); return p == null ? '' : `At hub = ${p}% of system`; } } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } } });
+}
 
 </script>
 </body>
