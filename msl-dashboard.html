@@ -571,7 +571,7 @@ body { overflow:auto!important; }
               <div class="panel-title">Parts × Hub heatmap</div>
               <div class="panel-sub" id="heatmapSub">Loading…</div>
             </div>
-            <div style="display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden">
+            <div id="hm-toggle" style="display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden">
               <button id="hm-ful" onclick="setHeatMetric('ful',this)" style="padding:5px 11px;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--red);color:#fff">Fulfillment</button>
               <button id="hm-close" onclick="setHeatMetric('close',this)" style="padding:5px 11px;border:none;border-left:1px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--card);color:var(--text2)">Closing Stock</button>
               <button id="hm-msl" onclick="setHeatMetric('msl',this)" style="padding:5px 11px;border:none;border-left:1px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--card);color:var(--text2)">MSL Qty</button>
@@ -1398,6 +1398,24 @@ function render() {
   if (parts.length === 0) {
     document.getElementById('heatmapTable').innerHTML = '<div class="loading-state" style="color:var(--muted)">No parts match current filters</div>';
   } else {
+    // One hub selected: show MSL, closing stock and the difference side by side instead of one metric column.
+    const oneHub = document.getElementById('hubSel').value;
+    const tog = document.getElementById('hm-toggle'); if (tog) tog.style.display = oneHub ? 'none' : 'inline-flex';
+    if (oneHub) {
+      const fmt = v => (v == null ? '<span style="color:var(--muted)">—</span>' : v);
+      let h1 = `<table><thead><tr><th>Part Name</th><th style="text-align:right">MSL</th><th style="text-align:right">Closing stock</th><th style="text-align:right">Difference</th></tr></thead><tbody>`;
+      parts.forEach(part => {
+        const st = partMap[part].hubs[oneHub];
+        const diff = st && typeof st === 'object' ? cellVariance(st) : '—';
+        h1 += `<tr><td>${part}<span class="pn">${partMap[part].number || ''}</span></td>`
+            + `<td style="text-align:right;font-variant-numeric:tabular-nums">${fmt(st && st.msl)}</td>`
+            + `<td style="text-align:right;font-variant-numeric:tabular-nums">${fmt(st && st.stock)}</td>`
+            + `<td style="text-align:right"><span class="cell ${statusClass(st)}">${diff}</span></td></tr>`;
+      });
+      h1 += '</tbody></table>';
+      document.getElementById('heatmapSub').textContent = parts.length + ' parts · ' + oneHub + (showShortOnly ? ' · short only' : '');
+      document.getElementById('heatmapTable').innerHTML = h1;
+    } else {
     let html = '<table><thead><tr><th>Part Name</th>';
     allHubs.forEach(h => { html += `<th>${h.replace(' ', '<br>')}</th>`; });
     html += '</tr></thead><tbody>';
@@ -1412,6 +1430,7 @@ function render() {
     html += '</tbody></table>';
     document.getElementById('heatmapTable').innerHTML = html;
     attachHeatTip();
+    }
   }
 
   // ── HUB RANKING (by MSL fulfilment %) ──
