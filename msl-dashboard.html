@@ -1289,8 +1289,19 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
   const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}</tr>`).join('') + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(null, h)).join('')}</tr>`;
   return `<div class="mt-card"><div class="mt-title">${title}<span>${sub}</span></div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
+// Preview: the new summary tables show only for these logins; everyone else sees the page as before.
+const MT_PREVIEW_USERS = ['nithish@bounceshare.com'];
+function mtViewer() {
+  try { if (window.authGetEmail) { const e = window.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
+  try { if (window.parent && window.parent !== window && window.parent.authGetEmail) { const e = window.parent.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
+  for (const st of [localStorage, sessionStorage]) {
+    try { const e = (JSON.parse(st.getItem('sb_session') || '{}').email || '').toLowerCase(); if (e) return e; } catch (e) {}
+  }
+  return '';
+}
 function renderMslTables() {
   const box = document.getElementById('mslTables'); if (!box) return;
+  if (!MT_PREVIEW_USERS.includes(mtViewer())) { box.innerHTML = ''; return; }
   if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
   MT_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn));
