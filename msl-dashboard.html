@@ -469,7 +469,14 @@ body { overflow:auto!important; }
 
       <!-- CONTROLS -->
       <div class="ctl-bar">
-        <div class="fg">
+        <div class="fg" id="modeWrap" style="display:none">
+          <label>View</label>
+          <div style="display:flex;border:1px solid var(--border2,#d1d5db);border-radius:6px;overflow:hidden">
+            <button type="button" id="modeHub" onclick="setMslMode('hub')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">Hub</button>
+            <button type="button" id="modeRpdc" onclick="setMslMode('rpdc')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">RPDC</button>
+          </div>
+        </div>
+        <div class="fg" id="cityWrap">
           <label>City</label>
           <select id="citySel" onchange="onCityChange()">
             <option value="">All Cities</option>
@@ -1256,13 +1263,28 @@ const MT_CSS = `
 `;
 let MT_ROWS = [];          // lines behind the tables (current city/hub load + category/FSN filters)
 let MT_CELLS = [];         // predicate per clickable number
-function mtCity(h) { for (const c in CITY_HUBS) if (CITY_HUBS[c].includes(h)) return c; return 'Other'; }
+function mtCity(h) { if (h === 'BLR RPDC') return 'Bangalore'; if (h === 'NCR RPDC') return 'NCR'; for (const c in CITY_HUBS) if (CITY_HUBS[c].includes(h)) return c; return 'Other'; }
+let MSL_MODE = 'hub';
+// Which city's hubs each RPDC supplies (assumption: BLR RPDC also serves Hyderabad and Mumbai).
+const RPDC_SERVES = { 'BLR RPDC': ['Bangalore', 'Hyderabad', 'Mumbai'], 'NCR RPDC': ['NCR'] };
+function setMslMode(m) {
+  MSL_MODE = m;
+  const on = (id, v) => { const e = document.getElementById(id); if (e) { e.style.background = v ? '#111827' : '#fff'; e.style.color = v ? '#fff' : '#374151'; } };
+  on('modeHub', m === 'hub'); on('modeRpdc', m === 'rpdc');
+  const show = (sel, v) => document.querySelectorAll(sel).forEach(e => { e.style.display = v ? '' : 'none'; });
+  show('#cityWrap', m === 'hub');
+  show('#hubSel', m === 'hub'); const hw = document.getElementById('hubSel'); if (hw && hw.closest('.fg')) hw.closest('.fg').style.display = m === 'hub' ? '' : 'none';
+  show('#tab-msl .kpi-row', m === 'hub'); show('#tab-msl .bottom-grid', m === 'hub');
+  const so = document.getElementById('shortOnly'); if (so) so.style.display = m === 'hub' ? '' : 'none';
+  const se = document.getElementById('search'); if (se && se.closest('.fg')) se.closest('.fg').style.display = m === 'hub' ? '' : 'none';
+  load();
+}
 function mtSt(r) { const s = (r.status || '').toLowerCase(); return s.includes('short') ? 'short' : s.includes('excess') ? 'ex' : s.includes('ok') ? 'ok' : (s.trim() ? 'other' : 'nc'); }
 function mtFsn(r) { const f = (fsnOf(r) || {}).fsn; return f ? (f === 'Non-Moving' ? 'Non-moving' : f) : 'Not in FSN list'; }
 function mtCat(r) { return (fsnOf(r) || {}).category || 'Unmapped'; }
-function mtNum(n, label, pred, cls) {
+function mtNum(n, label, pred, cls, src) {
   if (!n) return '';
-  MT_CELLS.push({ label, pred });
+  MT_CELLS.push({ label, pred, src });
   return `<button type="button" class="mt-n ${cls || ''}" data-mt="${MT_CELLS.length - 1}" title="Show these ${n} lines">${n.toLocaleString('en-IN')}</button>`;
 }
 function mtPct(rows) {
@@ -1304,6 +1326,9 @@ function mtViewer() {
 function renderMslTables() {
   const box = document.getElementById('mslTables'); if (!box) return;
   if (!MT_PREVIEW_USERS.includes(mtViewer())) { box.innerHTML = ''; return; }
+  const mw = document.getElementById('modeWrap');
+  if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); }
+  if (MSL_MODE === 'rpdc') { renderRpdcTables(box); return; }
   if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
   MT_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn));
@@ -1320,10 +1345,65 @@ function renderMslTables() {
     box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
   }
 }
+
+function setMslModeButtons() {
+  const on = (id, v) => { const e = document.getElementById(id); if (e) { e.style.background = v ? '#111827' : '#fff'; e.style.color = v ? '#fff' : '#374151'; } };
+  on('modeHub', MSL_MODE === 'hub'); on('modeRpdc', MSL_MODE === 'rpdc');
+}
+const RUNWAY_BUCKETS = [['0 days', d => d <= 0], ['1–7 days', d => d >= 1 && d <= 7], ['8–15 days', d => d >= 8 && d <= 15], ['16–30 days', d => d >= 16 && d <= 30], ['30+ days', d => d > 30]];
+function renderRpdcTables(box) {
+  if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
+  const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
+  const keep = r => (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn);
+  // RPDC lines with an MSL (parts with MSL 0 are not stocked there and are left out)
+  MT_ROWS = allData.filter(r => /rpdc/i.test(r.hub_name || '') && (r.msl_qty || 0) > 0 && keep(r));
+  const HUB_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && keep(r));
+  MT_CELLS = [];
+  if (!MT_ROWS.length) { box.innerHTML = '<div class="mt-card"><div class="mt-title">No RPDC lines for these filters</div></div>'; return; }
+  const rpdcs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort();
+
+  // Runway buckets x RPDC
+  const rwCell = (b, h) => { const set = MT_ROWS.filter(r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0)); return `<td>${mtNum(set.length, `${h || 'All RPDCs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0), b[0] === '0 days' ? 'mt-short' : '')}</td>`; };
+  const runway = `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${rpdcs.map(h => `<th>${h}</th>`).join('')}<th>Total</th></tr></thead><tbody>${RUNWAY_BUCKETS.map(b => `<tr><td>${b[0]}</td>${rpdcs.map(h => rwCell(b, h)).join('')}${rwCell(b, null)}</tr>`).join('')}</tbody></table></div></div>`;
+
+  // Can RPDC cover hub shortages?
+  const stockBy = {}; MT_ROWS.concat(allData.filter(r => /rpdc/i.test(r.hub_name || ''))).forEach(r => { stockBy[r.hub_name + '|' + r.part_number] = r; });
+  const coverRows = [];
+  rpdcs.forEach(rp => {
+    const cities = RPDC_SERVES[rp] || [];
+    const short = HUB_ROWS.filter(r => mtSt(r) === 'short' && cities.includes(mtCity(r.hub_name)));
+    const byPart = {};
+    short.forEach(r => { const k = r.part_number || r.part_name; (byPart[k] = byPart[k] || []).push(r); });
+    Object.entries(byPart).forEach(([pn, rows]) => {
+      const units = rows.reduce((s, r) => s + Math.max((r.msl_qty || 0) - (r.closing_stock || 0), 0), 0);
+      const st = stockBy[rp + '|' + pn];
+      const stock = st ? (st.closing_stock || 0) : 0;
+      const cover = stock >= units ? 'Can cover' : stock > 0 ? 'Partly' : "Can't cover";
+      coverRows.push({ rp, pn, name: rows[0].part_name, fsn: mtFsn(rows[0]), hubs: rows.length, units, stock, cover, rows });
+    });
+  });
+  const COVER_ORDER = ["Can't cover", 'Partly', 'Can cover'];
+  coverRows.sort((a, b) => COVER_ORDER.indexOf(a.cover) - COVER_ORDER.indexOf(b.cover) || b.units - a.units);
+  const coverColor = c => c === 'Can cover' ? '#15803d' : c === 'Partly' ? '#b45309' : '#b91c1c';
+  const sumCell = (rp, c) => { const rs = coverRows.filter(x => (rp === null || x.rp === rp) && x.cover === c); const hubLines = rs.flatMap(x => x.rows); return `<td>${mtNum(rs.length, `${rp || 'All RPDCs'} · ${c} (hub short lines)`, () => true, '', hubLines)}</td>`; };
+  const coverSummary = `<div class="mt-card"><div class="mt-title">Can RPDC cover hub shortages?<span>parts short at the hubs each RPDC supplies, vs RPDC stock</span></div><div class="mt-scroll"><table><thead><tr><th>Cover</th>${rpdcs.map(h => `<th>${h}</th>`).join('')}<th>Total</th></tr></thead><tbody>${COVER_ORDER.map(c => `<tr><td style="color:${coverColor(c)};font-weight:600">${c}</td>${rpdcs.map(h => sumCell(h, c)).join('')}${sumCell(null, c)}</tr>`).join('')}</tbody></table></div></div>`;
+  const coverList = `<div class="mt-card"><div class="mt-title">Hub shortages vs RPDC stock<span>${coverRows.length} parts · BLR RPDC supplies Bangalore, Hyderabad and Mumbai; NCR RPDC supplies NCR</span></div><div class="mt-scroll" style="max-height:520px;overflow:auto"><table><thead><tr><th>Part</th><th>RPDC</th><th style="text-align:left">FSN</th><th>Hubs short</th><th>Units short at hubs</th><th>RPDC stock</th><th style="text-align:left">Cover</th></tr></thead><tbody>${coverRows.map(x => `<tr><td>${x.name || x.pn}</td><td>${x.rp}</td><td style="text-align:left">${x.fsn}</td><td>${mtNum(x.hubs, `${x.name} · hubs short (${x.rp})`, () => true, 'mt-short', x.rows)}</td><td class="mt-short">${x.units.toLocaleString('en-IN')}</td><td>${x.stock.toLocaleString('en-IN')}</td><td style="text-align:left;color:${coverColor(x.cover)};font-weight:600">${x.cover}</td></tr>`).join('')}</tbody></table></div></div>`;
+
+  box.innerHTML =
+    `<div class="mt-row">${mtSummaryTable('MSL by RPDC', 'RPDC', rpdcs, r => r.hub_name, false)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
+    `<div class="mt-row">${runway}${coverSummary}</div>` +
+    coverList +
+    mtMatrix('Short parts by Category', 'Category × RPDC', 'Category', [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b)), mtCat, rpdcs);
+  if (!box.dataset.wired) {
+    box.dataset.wired = '1';
+    box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
+  }
+}
+
 let MT_OPEN = [];
 function mtOpen(c) {
   if (!c) return;
-  MT_OPEN = MT_ROWS.filter(c.pred).sort((a, b) => a.hub_name.localeCompare(b.hub_name) || (a.part_name || '').localeCompare(b.part_name || ''));
+  MT_OPEN = (c.src || MT_ROWS).filter(c.pred).sort((a, b) => a.hub_name.localeCompare(b.hub_name) || (a.part_name || '').localeCompare(b.part_name || ''));
   let m = document.getElementById('mtModal');
   if (!m) {
     m = document.createElement('div'); m.id = 'mtModal';
@@ -1388,14 +1468,18 @@ async function load() {
   await loadFsn();
   const hub  = document.getElementById('hubSel').value;
   const city = document.getElementById('citySel').value;
-  let qs = 'hub_name=not.is.null';
-  if (hub) {
+  // Hub view never includes the RPDC tabs (the page stays as it was before they were added);
+  // the RPDC view (preview) loads hubs + RPDCs, for the "can RPDC cover hub shortages" table.
+  let qs = MSL_MODE === 'rpdc' ? 'hub_name=not.is.null' : 'hub_name=not.ilike.*RPDC*';
+  if (MSL_MODE === 'rpdc') {
+    // all rows
+  } else if (hub) {
     qs = `hub_name=eq.${encodeURIComponent(hub)}`;
   } else if (city) {
     const cityHubs = CITY_HUBS[city] || [];
     qs = `hub_name=in.(${cityHubs.map(h => encodeURIComponent(h)).join(',')})`;
   }
-  const url = `${INFO_URL}/rest/v1/hub_msl?${qs}&order=part_name.asc&limit=5000`;
+  const url = `${INFO_URL}/rest/v1/hub_msl?${qs}&order=part_name.asc&limit=10000`;
   const res = await fetch(url, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
   allData = await res.json();
   document.getElementById('lastUpd').textContent = 'Last loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
