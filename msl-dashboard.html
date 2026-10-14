@@ -1355,15 +1355,16 @@ function renderRpdcTables(box) {
   if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
   const keep = r => (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn);
-  // RPDC lines with an MSL (parts with MSL 0 are not stocked there and are left out)
-  MT_ROWS = allData.filter(r => /rpdc/i.test(r.hub_name || '') && (r.msl_qty || 0) > 0 && keep(r));
+  // All RPDC lines, same as the sheet (MSL-0 lines count as the sheet marks them: OK → match / Excess)
+  MT_ROWS = allData.filter(r => /rpdc/i.test(r.hub_name || '') && keep(r));
+  const RW_ROWS = MT_ROWS.filter(r => (r.msl_qty || 0) > 0);   // runway only means something for parts with an MSL
   const HUB_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && keep(r));
   MT_CELLS = [];
   if (!MT_ROWS.length) { box.innerHTML = '<div class="mt-card"><div class="mt-title">No RPDC lines for these filters</div></div>'; return; }
   const rpdcs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort();
 
   // Runway buckets x RPDC
-  const rwCell = (b, h) => { const set = MT_ROWS.filter(r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0)); return `<td>${mtNum(set.length, `${h || 'All RPDCs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0), b[0] === '0 days' ? 'mt-short' : '')}</td>`; };
+  const rwCell = (b, h) => { const set = RW_ROWS.filter(r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0)); return `<td>${mtNum(set.length, `${h || 'All RPDCs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](r.runway_days ?? 0), b[0] === '0 days' ? 'mt-short' : '', RW_ROWS)}</td>`; };
   const runway = `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${rpdcs.map(h => `<th>${h}</th>`).join('')}<th>Total</th></tr></thead><tbody>${RUNWAY_BUCKETS.map(b => `<tr><td>${b[0]}</td>${rpdcs.map(h => rwCell(b, h)).join('')}${rwCell(b, null)}</tr>`).join('')}</tbody></table></div></div>`;
 
   // Can RPDC cover hub shortages?
