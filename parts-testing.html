@@ -48,6 +48,20 @@
 .card-hd h2 { font-size: 13px; font-weight: 700; color: var(--text); }
 .card-hd .sub { font-size: 11px; color: var(--muted); }
 .table-scroll { overflow-x: auto; overflow-y: auto; max-height: 600px; }
+/* Phone / narrow screens */
+#summary-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+#summary-body table { min-width: 980px; }
+#summary-body thead tr:first-child th:first-child, #summary-body tbody td:first-child:not([colspan]) { position: sticky; left: 0; background: var(--card, #fff); z-index: 1; }
+#summary-body tr.sec-row td span { position: sticky; left: 12px; }
+@media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .kpi-row .kpi:last-child { grid-column: 1 / -1; }
+  #scope-filters .fg { flex: 1 1 45%; }
+  #scope-filters select { width: 100%; }
+  .tab-bar { overflow-x: auto; white-space: nowrap; }
+}
+
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th {
   text-align: left; padding: 9px 12px;
@@ -758,7 +772,7 @@ function renderSummary() {
 
     if (g.pv.key !== lastKey) {
       lastKey = g.pv.key;
-      html += `<tr class="sec-row"><td colspan="11" style="background:#f8fafc;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 12px">${SECTION[lastKey]}</td></tr>`;
+      html += `<tr class="sec-row"><td colspan="11" style="background:#f8fafc;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 12px"><span>${SECTION[lastKey]}</span></td></tr>`;
     }
     const pv = partVerdict(tRows, oRows);
     const verdict = verdictPill(pv);
