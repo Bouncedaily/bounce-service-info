@@ -690,6 +690,13 @@ function renderSummary() {
   const groups = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()]
     .sort((a, b) => a.cat.localeCompare(b.cat) || a.vendor.localeCompare(b.vendor));
   const inGroup = (r, g) => r.part_category === g.cat && (r.vendor || '—') === g.vendor;
+  // Order by decision: problems first, then ready-to-approve, similar, still collecting, no benchmark.
+  const oemAll = (scoped || allRows).filter(r => r.type === 'OEM');
+  const RANK = { worse: 0, better: 1, similar: 2, collecting: 3, nobench: 4 };
+  groups.forEach(g => { g.pv = partVerdict(test.filter(r => inGroup(r, g)), oemAll.filter(r => r.part_category === g.cat)); g.n = test.filter(r => inGroup(r, g)).length; });
+  groups.sort((a, b) => RANK[a.pv.key] - RANK[b.pv.key] || (a.pv.key === 'collecting' ? b.pv.progress - a.pv.progress : 0) || b.n - a.n || a.cat.localeCompare(b.cat));
+  const SECTION = { worse: 'Needs attention: failing more than OEM', better: 'Better than OEM', similar: 'Similar to OEM', collecting: 'Still collecting data', nobench: 'No OEM benchmark to compare against' };
+  let lastKey = null;
   if (!groups.length) { document.getElementById('summary-body').innerHTML = '<div class="loading">No test parts match these filters.</div>'; return; }
   const oem  = (scoped || allRows).filter(r => r.type === 'OEM');
 
@@ -749,6 +756,10 @@ function renderSummary() {
 
     const vendor = g.vendor;
 
+    if (g.pv.key !== lastKey) {
+      lastKey = g.pv.key;
+      html += `<tr class="sec-row"><td colspan="11" style="background:#f8fafc;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 12px">${SECTION[lastKey]}</td></tr>`;
+    }
     const pv = partVerdict(tRows, oRows);
     const verdict = verdictPill(pv);
     const maxRate = Math.max(pv.tRate || 0, pv.oRate || 0) || 1;
