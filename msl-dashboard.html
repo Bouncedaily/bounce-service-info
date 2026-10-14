@@ -514,12 +514,15 @@ body { overflow:auto!important; }
           <label>Category</label>
           <select id="catSel" onchange="render()">
             <option value="">All Categories</option>
-            <option value="E">E — Electrical</option>
-            <option value="M">M — Mechanical</option>
-            <option value="B">B — Body</option>
-            <option value="R">R — Rubber / Hose</option>
-            <option value="C">C — Consumables / Fasteners</option>
-            <option value="SA">SA — Sub Assembly</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>FSN</label>
+          <select id="fsnSel" onchange="render()" title="Fast / Slow / Non-moving, from the Part Details FSN tab (last 3 months' billing)">
+            <option value="">All</option>
+            <option value="Fast">Fast</option>
+            <option value="Slow">Slow</option>
+            <option value="Non-Moving">Non-moving</option>
           </select>
         </div>
         <div class="fg">
@@ -1203,6 +1206,28 @@ function exportTopPartsCSV(){
 
 let allData = [];
 let showShortOnly = true;
+// Category + FSN per part number, from the sheet's "Part Details FSN" tab (synced with the hub tabs)
+let FSN = {};
+let fsnLoaded = false;
+async function loadFsn() {
+  if (fsnLoaded) return;
+  try {
+    const r = await fetch(`${INFO_URL}/rest/v1/part_fsn?select=part_number,part_name,category,fsn,avg_monthly_qty&limit=5000`, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
+    const rows = r.ok ? await r.json() : [];
+    rows.forEach(x => { FSN[x.part_number] = x; });
+    const cats = [...new Set(rows.map(x => x.category).filter(Boolean))].sort((a, b) => (a.startsWith('Not in') - b.startsWith('Not in')) || a.localeCompare(b));
+    const sel = document.getElementById('catSel');
+    cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    fsnLoaded = true;
+  } catch (e) { console.error('FSN load failed', e); }
+}
+function fsnOf(r) { return FSN[(r && r.part_number) || ''] || null; }
+function fsnBadge(num) {
+  const f = (FSN[num || ''] || {}).fsn;
+  if (!f) return '';
+  const k = f.toLowerCase().startsWith('fast') ? ['F', '#16a34a', 'rgba(22,163,74,.12)'] : f.toLowerCase().startsWith('slow') ? ['S', '#b45309', 'rgba(217,119,6,.12)'] : ['N', '#64748b', 'rgba(100,116,139,.14)'];
+  return `<span title="${f}-moving (avg ${FSN[num].avg_monthly_qty ?? '—'}/month)" style="display:inline-block;margin-left:6px;font-size:10px;font-weight:700;line-height:16px;min-width:16px;text-align:center;border-radius:4px;color:${k[1]};background:${k[2]}">${k[0]}</span>`;
+}
 
 const CITY_HUBS = {
   'Bangalore': ['Banaswadi','Bellandur','Bilekahalli','Electronic City','Hebbal','Hoodi','HSR Layout','Indiranagar','RR Nagar','Yeshwanthpur'],
@@ -1232,6 +1257,7 @@ function onCityChange() {
 }
 
 async function load() {
+  await loadFsn();
   const hub  = document.getElementById('hubSel').value;
   const city = document.getElementById('citySel').value;
   let qs = 'hub_name=not.is.null';
@@ -1262,6 +1288,7 @@ function toggleShort() {
 
 function getFiltered() {
   const cat    = document.getElementById('catSel').value;
+  const fsn    = document.getElementById('fsnSel').value;
   const search = document.getElementById('search').value.toLowerCase();
 
   // When short-only: include a part if ANY hub has it short
@@ -1276,11 +1303,8 @@ function getFiltered() {
   return allData.filter(r => {
     const partKey = r.part_name || r.part_number || '—';
     if (showShortOnly && !shortPartNames.has(partKey)) return false;
-    if (cat) {
-      const prefix = (r.part_number || '').split('-')[0].toUpperCase();
-      if (cat === 'C') { if (!['C','1'].includes(prefix[0])) return false; }
-      else if (!prefix.startsWith(cat)) return false;
-    }
+    if (cat && (fsnOf(r) || {}).category !== cat) return false;
+    if (fsn && (fsnOf(r) || {}).fsn !== fsn) return false;
     if (search && !(r.part_name || '').toLowerCase().includes(search) && !(r.part_number || '').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -1374,6 +1398,8 @@ function render() {
   const fulfillPct = countedRows > 0 ? Math.round(fulfilledRows / countedRows * 100) : 0;
 
   document.getElementById('kShort').textContent   = uniqueShortParts;
+  const fastShort = new Set(shortRows.filter(r => ((fsnOf(r) || {}).fsn || '') === 'Fast').map(r => r.part_name)).size;
+  document.getElementById('kShortSub').textContent = fsnLoaded ? `unique parts short · ${fastShort} fast-moving` : 'unique parts short';
   // Count SKUs (unique parts), like "Parts below MSL". With all hubs selected, the same SKU is
   // listed once per hub, so the hub-line count is shown underneath for reference.
   const fulfilledSkus = new Set(okRows.concat(excessRows).map(r => r.part_name || r.part_number)).size;
@@ -1418,7 +1444,7 @@ function render() {
       parts.forEach(part => {
         const st = partMap[part].hubs[oneHub];
         const diff = st && typeof st === 'object' ? cellVariance(st) : '—';
-        h1 += `<tr><td>${part}<span class="pn">${partMap[part].number || ''}</span></td>`
+        h1 += `<tr><td>${part}${fsnBadge(partMap[part].number)}<span class="pn">${partMap[part].number || ''}</span></td>`
             + `<td style="text-align:right;font-variant-numeric:tabular-nums">${fmt(st && st.msl)}</td>`
             + `<td style="text-align:right;font-variant-numeric:tabular-nums">${fmt(st && st.stock)}</td>`
             + `<td style="text-align:right"><span class="cell ${statusClass(st)}">${diff}</span></td></tr>`;
@@ -1431,7 +1457,7 @@ function render() {
     allHubs.forEach(h => { html += `<th>${h.replace(' ', '<br>')}</th>`; });
     html += '</tr></thead><tbody>';
     parts.forEach(part => {
-      html += `<tr><td>${part}<span class="pn">${partMap[part].number || ''}</span></td>`;
+      html += `<tr><td>${part}${fsnBadge(partMap[part].number)}<span class="pn">${partMap[part].number || ''}</span></td>`;
       allHubs.forEach(h => {
         const st = partMap[part].hubs[h];
         html += heatCell(part, h, st);
