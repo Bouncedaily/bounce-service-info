@@ -240,9 +240,9 @@ tr:hover td { background: var(--bg); }
         <div class="kbar" style="background:var(--red)"></div>
       </div>
       <div class="kpi">
-        <div class="kl">Beating OEM</div>
+        <div class="kl">Better than OEM</div>
         <div class="kv" id="k-beat">—</div>
-        <div class="ks">Part categories</div>
+        <div class="ks" id="k-beat-sub">Parts with enough data</div>
         <div class="kbar" style="background:var(--green)"></div>
       </div>
     </div>
@@ -251,7 +251,7 @@ tr:hover td { background: var(--bg); }
     <div class="card">
       <div class="card-hd">
         <h2>Part category summary</h2>
-        <span class="sub">Test avg KM vs OEM avg KM</span>
+        <span class="sub">Verdict = replacements per 1 lakh km run, test vs OEM (running parts included)</span>
       </div>
       <div id="summary-body">
         <div class="loading"><div class="spin"></div> Loading summary…</div>
@@ -595,32 +595,60 @@ function applyFilters() {
   restoreTab();
 }
 
+// ─── VERDICT ─────────────────────────────────────────────────
+// Compares replacements per 1 lakh (100,000) km run (every km counts, running parts included),
+// instead of the old "avg km at replacement", which ignored parts still running.
+// A verdict is shown only once there is enough evidence: the test part has had 3+
+// replacements, or has run enough km that OEM's rate would predict 3+ replacements.
+const MIN_EVENTS = 3, MIN_OEM_REPL = 5;
+function partVerdict(tRows, oRows) {
+  const tKm = tRows.reduce((s, r) => s + (r.km_on_part > 0 ? r.km_on_part : 0), 0);
+  const oKm = oRows.reduce((s, r) => s + (r.km_on_part > 0 ? r.km_on_part : 0), 0);
+  const tR = tRows.filter(r => r.status === 'Replaced').length;
+  const oR = oRows.filter(r => r.status === 'Replaced').length;
+  const tRate = tKm ? tR / tKm * 100000 : null;
+  const oRate = oKm ? oR / oKm * 100000 : null;
+  const v = { tKm, oKm, tR, oR, tRate, oRate, key: 'none', ratio: null, progress: 0 };
+  if (!oRows.length || oR < MIN_OEM_REPL || !oRate) { v.key = 'nobench'; return v; }
+  const expected = oRate * tKm / 100000;            // replacements OEM would have had on the test km
+  if (tR < MIN_EVENTS && expected < MIN_EVENTS) { v.key = 'collecting'; v.progress = Math.min(99, Math.round(Math.max(expected, tR) / MIN_EVENTS * 100)); return v; }
+  v.ratio = tRate / oRate;
+  v.key = v.ratio <= 0.8 ? 'better' : v.ratio >= 1.25 ? 'worse' : 'similar';
+  return v;
+}
+function verdictPill(v) {
+  if (v.key === 'nobench') return `<span class="pill p-gray" title="No OEM comparison group with ${MIN_OEM_REPL}+ replacements">No OEM benchmark</span>`;
+  if (v.key === 'collecting') return `<span class="pill p-amber" title="Needs ${MIN_EVENTS} replacements, or enough km for OEM to expect ${MIN_EVENTS}"><i class="ti ti-clock" aria-hidden="true"></i> Collecting · ${v.progress}%</span>`;
+  if (v.key === 'better') {
+    const txt = v.tR === 0 ? 'No failures yet' : `${Math.round((1 - v.ratio) * 100)}% fewer replacements`;
+    return `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> Better · ${txt}</span>`;
+  }
+  if (v.key === 'worse') return `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> Worse · ${v.ratio.toFixed(1)}× more replacements</span>`;
+  return `<span class="pill p-blue">≈ Similar to OEM</span>`;
+}
+const rateFmt = x => x == null ? '—' : x.toFixed(1);
+
 function renderKpis() {
   const test = allRows.filter(r => r.type === 'Test');
   const oem  = allRows.filter(r => r.type === 'OEM');
   const tRepl = test.filter(r => r.status === 'Replaced').length;
   const oRepl = oem.filter(r => r.status === 'Replaced').length;
 
-  // Count categories beating OEM
-  // Count each part + vendor separately (same split as the summary table)
-  const cats = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()];
-  let beating = 0;
-  cats.forEach(g => {
-    const tRows = test.filter(r => r.part_category === g.cat && (r.vendor || '—') === g.vendor && r.km_on_part > 0);
-    const oRows = oem.filter(r => r.part_category === g.cat && r.status === 'Replaced' && r.km_on_part > 0);
-    if (!tRows.length || !oRows.length) return;
-    const tAvg = avg(tRows.map(r => r.km_on_part));
-    const oAvg = avg(oRows.map(r => r.km_on_part));
-    if (tAvg > oAvg) beating++;
+  // Parts better than OEM, out of parts that have enough evidence for a verdict
+  const groups = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()];
+  let better = 0, decided = 0;
+  groups.forEach(g => {
+    const v = partVerdict(test.filter(r => r.part_category === g.cat && (r.vendor || '—') === g.vendor), oem.filter(r => r.part_category === g.cat));
+    if (['better', 'worse', 'similar'].includes(v.key)) { decided++; if (v.key === 'better') better++; }
   });
-
   document.getElementById('k-test').textContent  = test.length.toLocaleString();
   document.getElementById('k-trepl').textContent = tRepl.toLocaleString();
   document.getElementById('k-trepl-pct').textContent = test.length ? Math.round(tRepl/test.length*100) + '% of test fleet' : '—';
   document.getElementById('k-oem').textContent   = oem.length.toLocaleString();
   document.getElementById('k-orepl').textContent = oRepl.toLocaleString();
   document.getElementById('k-orepl-pct').textContent = oem.length ? Math.round(oRepl/oem.length*100) + '% of OEM bikes' : '—';
-  document.getElementById('k-beat').textContent  = beating + ' / ' + cats.length;
+  document.getElementById('k-beat').textContent  = better + ' / ' + decided;
+  const kbs = document.getElementById('k-beat-sub'); if (kbs) kbs.textContent = `of ${decided} parts with enough data (${groups.length} on test)`;
 }
 
 function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
@@ -656,7 +684,7 @@ function renderSummary() {
         <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">Test</th>
         <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">OEM</th>
         <th rowspan="2" style="width:16%">Running KM</th>
-        <th rowspan="2" style="width:16%">Avg KM (Replaced)</th>
+        <th rowspan="2" style="width:16%" title="Replacements per 1 lakh km run, counting every km including parts still running. Lower is better.">Replacements per 1 lakh km</th>
         <th rowspan="2" style="width:13%">Verdict</th>
       </tr>
       <tr>
@@ -692,19 +720,9 @@ function renderSummary() {
 
     const vendor = g.vendor;
 
-    let verdict = '';
-    // Verdict uses Replaced-only avg KM (true failure KM)
-    if (!oReplAvg || !tReplAvg) {
-      verdict = `<span class="pill p-amber"><i class="ti ti-clock" aria-hidden="true"></i> Too early</span>`;
-    } else if (tReplAvg >= oReplAvg * 1.05) {
-      const pct = Math.round((tReplAvg/oReplAvg-1)*100);
-      verdict = `<span class="pill p-green"><i class="ti ti-trending-up" aria-hidden="true"></i> +${pct}% better</span>`;
-    } else if (tReplAvg <= oReplAvg * 0.95) {
-      const pct = Math.round((1-tReplAvg/oReplAvg)*100);
-      verdict = `<span class="pill p-red"><i class="ti ti-trending-down" aria-hidden="true"></i> -${pct}% worse</span>`;
-    } else {
-      verdict = `<span class="pill p-blue">≈ Similar</span>`;
-    }
+    const pv = partVerdict(tRows, oRows);
+    const verdict = verdictPill(pv);
+    const maxRate = Math.max(pv.tRate || 0, pv.oRate || 0) || 1;
 
     html += `<tr>
       <td style="font-weight:600">${cat}</td>
@@ -729,17 +747,17 @@ function renderSummary() {
           </div>
         </div>
       </td>
-      <td class="km-cell">
+      <td class="km-cell" title="Avg km at replacement: Test ${tReplAvg ? fmt(tReplAvg) : '—'}, OEM ${oReplAvg ? fmt(oReplAvg) : '—'}">
         <div class="km-bars">
           <div class="km-bar-row">
             <span class="lbl"><span style="display:inline-block;width:6px;height:6px;background:var(--red);border-radius:1px;margin-right:2px;vertical-align:middle"></span>Test</span>
-            <div class="bar"><div style="width:${tReplBarW}%;background:var(--red)"></div></div>
-            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
+            <div class="bar"><div style="width:${Math.round((pv.tRate || 0) / maxRate * 100)}%;background:var(--red)"></div></div>
+            <span class="val">${rateFmt(pv.tRate)}</span>
           </div>
           <div class="km-bar-row">
             <span class="lbl"><span style="display:inline-block;width:6px;height:6px;background:#94a3b8;border-radius:1px;margin-right:2px;vertical-align:middle"></span>OEM</span>
-            <div class="bar"><div style="width:${oReplBarW}%;background:var(--muted)"></div></div>
-            <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
+            <div class="bar"><div style="width:${Math.round((pv.oRate || 0) / maxRate * 100)}%;background:var(--muted)"></div></div>
+            <span class="val">${rateFmt(pv.oRate)}</span>
           </div>
         </div>
       </td>
