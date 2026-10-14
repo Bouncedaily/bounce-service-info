@@ -1374,8 +1374,13 @@ function render() {
   const fulfillPct = countedRows > 0 ? Math.round(fulfilledRows / countedRows * 100) : 0;
 
   document.getElementById('kShort').textContent   = uniqueShortParts;
-  document.getElementById('kExcess').textContent  = fulfilledRows.toLocaleString('en-IN');
-  document.getElementById('kExcessSub').textContent = `${okRows.length.toLocaleString('en-IN')} OK + ${excessRows.length.toLocaleString('en-IN')} excess`;
+  // Count SKUs (unique parts), like "Parts below MSL". With all hubs selected, the same SKU is
+  // listed once per hub, so the hub-line count is shown underneath for reference.
+  const fulfilledSkus = new Set(okRows.concat(excessRows).map(r => r.part_name || r.part_number)).size;
+  document.getElementById('kExcess').textContent  = fulfilledSkus.toLocaleString('en-IN');
+  document.getElementById('kExcessSub').textContent = new Set(hubData.map(r => r.hub_name)).size > 1
+    ? `unique SKUs OK or excess · ${fulfilledRows.toLocaleString('en-IN')} hub lines (${okRows.length.toLocaleString('en-IN')} OK + ${excessRows.length.toLocaleString('en-IN')} excess)`
+    : `SKUs: ${okRows.length.toLocaleString('en-IN')} OK + ${excessRows.length.toLocaleString('en-IN')} excess`;
   document.getElementById('kFulfillSub').textContent = notCounted ? `OK + excess, of ${countedRows} counted (${notCounted} not counted yet)` : 'OK + excess, of all parts';
   document.getElementById('kFulfill').textContent = fulfillPct + '%';
   document.getElementById('kHubs').textContent    = allHubs.length;
