@@ -602,11 +602,12 @@ function renderKpis() {
   const oRepl = oem.filter(r => r.status === 'Replaced').length;
 
   // Count categories beating OEM
-  const cats = [...new Set(test.map(r => r.part_category))];
+  // Count each part + vendor separately (same split as the summary table)
+  const cats = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()];
   let beating = 0;
-  cats.forEach(cat => {
-    const tRows = test.filter(r => r.part_category === cat && r.km_on_part > 0);
-    const oRows = oem.filter(r => r.part_category === cat && r.status === 'Replaced' && r.km_on_part > 0);
+  cats.forEach(g => {
+    const tRows = test.filter(r => r.part_category === g.cat && (r.vendor || '—') === g.vendor && r.km_on_part > 0);
+    const oRows = oem.filter(r => r.part_category === g.cat && r.status === 'Replaced' && r.km_on_part > 0);
     if (!tRows.length || !oRows.length) return;
     const tAvg = avg(tRows.map(r => r.km_on_part));
     const oAvg = avg(oRows.map(r => r.km_on_part));
@@ -627,15 +628,20 @@ function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
 
 function renderSummary() {
-  const cats = [...new Set(allRows.filter(r => r.type === 'Test').map(r => r.part_category))].sort();
   const test = allRows.filter(r => r.type === 'Test');
+  // One row per part category AND vendor: the same part tested from two vendors
+  // (e.g. Cone Set from Gabriel and OEM +) must not be merged under one vendor.
+  const groups = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()]
+    .sort((a, b) => a.cat.localeCompare(b.cat) || a.vendor.localeCompare(b.vendor));
+  const inGroup = (r, g) => r.part_category === g.cat && (r.vendor || '—') === g.vendor;
   const oem  = allRows.filter(r => r.type === 'OEM');
 
   // Find max KM across all 4 metrics for bar scaling
   let maxKm = 0;
-  cats.forEach(cat => {
-    const tAll  = avg(test.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
-    const tRepl = avg(test.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
+  groups.forEach(g => {
+    const cat = g.cat;
+    const tAll  = avg(test.filter(r=>inGroup(r, g)&&r.km_on_part>0).map(r=>r.km_on_part));
+    const tRepl = avg(test.filter(r=>inGroup(r, g)&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
     const oAll  = avg(oem.filter(r=>r.part_category===cat&&r.km_on_part>0).map(r=>r.km_on_part));
     const oRepl = avg(oem.filter(r=>r.part_category===cat&&r.status==='Replaced'&&r.km_on_part>0).map(r=>r.km_on_part));
     maxKm = Math.max(maxKm, tAll, tRepl, oAll, oRepl);
@@ -663,8 +669,9 @@ function renderSummary() {
       </tr>
     </thead><tbody>`;
 
-  cats.forEach(cat => {
-    const tRows  = test.filter(r => r.part_category === cat);
+  groups.forEach(g => {
+    const cat = g.cat;
+    const tRows  = test.filter(r => inGroup(r, g));
     const tRepl  = tRows.filter(r => r.status === 'Replaced');
     const tRepair = tRows.reduce((s,r) => s + (r.repair_count||0), 0);
     const oRows  = oem.filter(r => r.part_category === cat);
@@ -683,7 +690,7 @@ function renderSummary() {
     const tReplBarW = maxKm ? Math.round(tReplAvg/maxKm*100) : 0;
     const oReplBarW = maxKm ? Math.round(oReplAvg/maxKm*100) : 0;
 
-    const vendor = tRows[0]?.vendor || '—';
+    const vendor = g.vendor;
 
     let verdict = '';
     // Verdict uses Replaced-only avg KM (true failure KM)
