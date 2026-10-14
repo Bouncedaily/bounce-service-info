@@ -48,6 +48,11 @@
 .card-hd h2 { font-size: 13px; font-weight: 700; color: var(--text); }
 .card-hd .sub { font-size: 11px; color: var(--muted); }
 .table-scroll { overflow-x: auto; overflow-y: auto; max-height: 600px; }
+/* Clickable summary rows */
+#summary-body tr.drill-row { cursor: pointer; }
+#summary-body tr.drill-row:hover td { background: #f8fafc; }
+#summary-body tr.drill-on td { background: #eef2ff !important; }
+
 /* Phone / narrow screens */
 #summary-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 #summary-body table { min-width: 980px; }
@@ -298,7 +303,7 @@ tr:hover td { background: var(--bg); }
     <div class="card">
       <div class="card-hd">
         <h2>All vehicles — raw data</h2>
-        <span class="sub" id="raw-count">—</span>
+        <span id="drill-chip"></span><span class="sub" id="raw-count">—</span>
       </div>
       <div class="raw-controls" style="align-items:flex-end">
         <div class="fg"><label>Search</label><input type="text" id="search" placeholder="Reg / chassis…" oninput="applyFilters()" /></div>
@@ -582,6 +587,13 @@ function populateRawFilterDims() {
 
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
+let drill = null;   // { cat, vendor } picked by clicking a summary row; narrows the raw table only
+function drillTo(cat, vendor) {
+  drill = (drill && drill.cat === cat && drill.vendor === vendor) ? null : { cat, vendor };
+  applyFilters();
+  if (drill) document.getElementById('raw-body').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function clearDrill() { drill = null; applyFilters(); }
 let scoped = null;   // set by applyFilters(); null until the first load
 function clearScope() {
   ['f-city', 'f-part', 'f-vendor', 'f-fitted-by'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
@@ -598,6 +610,7 @@ function applyFilters() {
 
   filtered = allRows.filter(r => {
     if (r.type !== 'Test') return false;  // always Test only in raw data
+    if (drill && (r.part_category !== drill.cat || (r.vendor || '—') !== drill.vendor)) return false;
     if (city     && r.city !== city) return false;
     if (part     && r.part_category !== part) return false;
     if (vendor   && r.vendor !== vendor) return false;
@@ -630,6 +643,8 @@ function applyFilters() {
   const active = [city, part, vendor, fittedBy].filter(Boolean);
   const cl = document.getElementById('f-clear'); if (cl) cl.style.display = active.length ? '' : 'none';
   const sn = document.getElementById('scope-note'); if (sn) sn.textContent = active.length ? 'Showing: ' + active.join(' · ') : '';
+  const chip = document.getElementById('drill-chip');
+  if (chip) chip.innerHTML = drill ? `<button type="button" onclick="clearDrill()" style="margin-left:10px;font-size:11px;font-weight:600;border:1px solid var(--border);background:#eef2ff;color:#3730a3;border-radius:12px;padding:3px 10px;cursor:pointer">${drill.cat} · ${drill.vendor} ✕</button>` : '';
   currentPage = 1;
   renderKpis();
   renderSummary();
@@ -778,7 +793,7 @@ function renderSummary() {
     const verdict = verdictPill(pv);
     const maxRate = Math.max(pv.tRate || 0, pv.oRate || 0) || 1;
 
-    html += `<tr>
+    html += `<tr class="drill-row${drill && drill.cat === g.cat && drill.vendor === g.vendor ? ' drill-on' : ''}" data-cat="${encodeURIComponent(g.cat)}" data-vendor="${encodeURIComponent(g.vendor)}" tabindex="0" title="Show these bikes in the raw data">
       <td style="font-weight:600">${cat}</td>
       <td><span class="pill p-gray" style="font-size:10px">${vendor}</span></td>
       <td>${tRows.length}</td>
@@ -885,6 +900,13 @@ function renderSummary() {
 
   html += '</tbody></table>';
   document.getElementById('summary-body').innerHTML = html;
+  const sb = document.getElementById('summary-body');
+  if (!sb.dataset.drillWired) {
+    sb.dataset.drillWired = '1';
+    const go = e => { const tr = e.target.closest('tr.drill-row'); if (tr) drillTo(decodeURIComponent(tr.dataset.cat), decodeURIComponent(tr.dataset.vendor)); };
+    sb.addEventListener('click', go);
+    sb.addEventListener('keydown', e => { if (e.key === 'Enter') go(e); });
+  }
 }
 
 function renderRaw() {
