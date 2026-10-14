@@ -948,7 +948,7 @@ let _consSeq = 0;
   if (!sel) return;
   let html = '<option value="">All years</option>';
   for (let y = new Date().getFullYear(); y >= 2025; y--) html += `<option value="${y}">${y}</option>`;
-  sel.innerHTML = html + '<option value="unknown">Unknown</option>';
+  sel.innerHTML = html;
 })();
 function consSeg(id) { const b = document.querySelector('#' + id + ' button.on'); return b ? b.dataset.v : null; }
 function setConsSeg(id, btn) {
@@ -999,7 +999,7 @@ function consLabels() {
 function consFilterText() {
   const repl = { first:'First replacements', other:'Other replacements', both:'All replacements' }[consSeg('cons-repl')] || '';
   const y = consYear();
-  return [consCity() || 'All cities', y ? (y === 'unknown' ? 'Deployed year unknown' : 'Deployed ' + y) : 'All deployed years', repl].join(' · ');
+  return [consCity() || 'All cities', y ? 'Deployed ' + y : 'All deployed years', repl].join(' · ');
 }
 // Count of replacements (with KM data) behind each avg/median; amber when under 5 = thin sample
 function consN(n) {
@@ -1031,7 +1031,7 @@ function renderConsumption() {
     <th class="num">${L.w3} ${L.stat}</th><th class="num">${L.lm} ${L.stat}</th><th class="num">${L.tm} ${L.stat}</th>
     <th class="num">This Month Achievement</th><th class="num">Replacements — YTD</th><th class="num">Total Cost (₹) — YTD</th><th class="num">Cost/KM (₹) — YTD</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>n</b> under each month value = replacements behind that average/median (amber when under 5, so read it with caution). <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date; "Unknown" = bikes with no deployment date in the fleet list. Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat} KM (YTD). Achievement = this month's ${L.stat.toLowerCase()} ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>n</b> under each month value = replacements behind that average/median (amber when under 5, so read it with caution). <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date (fleet list, else fleet KM data, else the year of its earliest job card). Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat} KM (YTD). Achievement = this month's ${L.stat.toLowerCase()} ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
 }
 function getConsumptionRows() {
   return consSortedRows().map(({ r, v }) => [r.part_bucket, r.expected_life_km, v.w3, v.w3n, v.lm, v.lmn, v.tm, v.tmn, v.ach, v.cnt, v.cost, v.cpk]);
