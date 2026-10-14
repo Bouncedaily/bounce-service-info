@@ -599,7 +599,7 @@ body { overflow:auto!important; }
             </div>
             <div class="legend">
               <div class="leg"><div class="leg-sq" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4)"></div>Short</div>
-              <div class="leg"><div class="leg-sq" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)"></div>OK</div>
+              <div class="leg"><div class="leg-sq" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)"></div>Match</div>
               <div class="leg"><div class="leg-sq" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3)"></div>Excess</div>
               <div class="leg"><div class="leg-sq" style="background:var(--bg);border:1px solid var(--border)"></div>Not counted</div>
             </div>
@@ -1226,13 +1226,16 @@ let allData = [];
 let showShortOnly = true;
 // Category + FSN per part number, from the sheet's "Part Details FSN" tab (synced with the hub tabs)
 let FSN = {};
+let FSN_MONTHS = '';
 let fsnLoaded = false;
 async function loadFsn() {
   if (fsnLoaded) return;
   try {
-    const r = await fetch(`${INFO_URL}/rest/v1/part_fsn?select=part_number,part_name,category,fsn,avg_monthly_qty&limit=5000`, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
+    const r = await fetch(`${INFO_URL}/rest/v1/part_fsn?select=part_number,part_name,category,fsn,avg_monthly_qty,month_labels&limit=5000`, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
     const rows = r.ok ? await r.json() : [];
     rows.forEach(x => { FSN[x.part_number] = x; });
+    const ml = (rows.find(x => x.month_labels) || {}).month_labels;
+    if (ml) { const p = ml.split(','); FSN_MONTHS = p.length > 1 ? `${p[0]}–${p[p.length - 1]}` : p[0]; }
     const cats = [...new Set(rows.map(x => x.category).filter(Boolean))].sort((a, b) => (a.startsWith('Not in') - b.startsWith('Not in')) || a.localeCompare(b));
     const sel = document.getElementById('catSel');
     cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
@@ -1257,6 +1260,14 @@ const MT_CSS = `
 #mslTables .mt-n:hover{background:#eef2ff;text-decoration:underline}
 #mslTables .mt-short{color:#b91c1c}
 #mslTables .mt-muted{color:var(--muted,#64748b)}
+#tab-msl.mt-preview .kpi-row,#tab-msl.mt-preview .right-col{display:none!important}
+#tab-msl.mt-preview .bottom-grid{grid-template-columns:1fr}
+#mslTables td:first-child,#mslTables th:first-child{position:sticky;left:0;z-index:1;background:#fff;box-shadow:1px 0 0 #eef0f3}
+#mslTables th:first-child,#mslTables tr.mt-total td:first-child{background:#f7f8fa}
+#mtModal .mt-tools{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #eef0f3}
+#mtModal .mt-tools input{font:inherit;font-size:13px;min-height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:8px;flex:1;max-width:340px}
+#mtModal th[data-k]{cursor:pointer;user-select:none}
+#mtModal th[data-k]:hover{color:#111827}
 #mtModal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
 #mtModal .mt-box{background:#fff;border-radius:12px;width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 #mtModal .mt-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb}
@@ -1314,18 +1325,24 @@ function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
     const hubsN = new Set(rows.map(r => r.hub_name)).size;
     return `<tr class="${total ? 'mt-total' : ''}"><td>${label}</td>${withHubs ? `<td>${hubsN}</td>` : ''}${cols.map(([m, h]) => {
       const set = by(m);
-      return `<td>${mtNum(set.length, `${label} · ${h}`, r => (total || keyOf(r) === label) && (m === 'lines' || mtSt(r) === m), m === 'short' ? 'mt-short' : m === 'nc' ? 'mt-muted' : '')}</td>`;
+      const cellHtml = `<td>${mtNum(set.length, `${label} · ${h}`, r => (total || keyOf(r) === label) && (m === 'lines' || mtSt(r) === m), m === 'short' ? 'mt-short' : m === 'nc' ? 'mt-muted' : '')}</td>`;
+      if (m !== 'short') return cellHtml;
+      const units = set.reduce((s, r) => s + Math.max((r.msl_qty || 0) - (r.closing_stock || 0), 0), 0);
+      return cellHtml + `<td class="mt-short">${units ? units.toLocaleString('en-IN') : ''}</td>`;
     }).join('')}<td>${mtPct(rows)}</td></tr>`;
   };
   const body = keys.filter(k => MT_ROWS.some(r => keyOf(r) === k)).map(k => line(k, MT_ROWS.filter(r => keyOf(r) === k), false)).join('') + line('Total', MT_ROWS, true);
-  return `<div class="mt-card"><div class="mt-title">${title}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  const note = /FSN/.test(title) && FSN_MONTHS ? `<span>FSN from ${FSN_MONTHS} billing · Part Details FSN tab</span>` : '';
+  return `<div class="mt-card"><div class="mt-title">${title}${note}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => c[0] === 'short' ? `<th>${c[1]}</th><th title="MSL minus closing stock, on short lines">Units short</th>` : `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
   const shortRows = MT_ROWS.filter(r => mtSt(r) === 'short');
   const keysShown = keys.filter(k => shortRows.some(r => keyOf(r) === k));
   const cell = (k, h) => { const n = shortRows.filter(r => (k === null || keyOf(r) === k) && r.hub_name === h).length; return `<td>${mtNum(n, `${k === null ? 'All' : k} · ${h} · Short`, r => mtSt(r) === 'short' && (k === null || keyOf(r) === k) && r.hub_name === h, 'mt-short')}</td>`; };
-  const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}</tr>`).join('') + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(null, h)).join('')}</tr>`;
-  return `<div class="mt-card"><div class="mt-title">${title}<span>${sub}</span></div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}</tr>`).join('') + `<tr class="mt-total"><td>Total short</td>${hubs.map(h => cell(null, h)).join('')}</tr>`
+    + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(MT_ROWS.filter(r => r.hub_name === h))}</td>`).join('')}</tr>`;
+  const fnote = /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
+  return `<div class="mt-card"><div class="mt-title">${title}<span>${sub}${fnote}</span></div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for these logins; everyone else sees the page as before.
 const MT_PREVIEW_USERS = ['nithish@bounceshare.com'];
@@ -1340,6 +1357,7 @@ function mtViewer() {
 function renderMslTables() {
   const box = document.getElementById('mslTables'); if (!box) return;
   if (!MT_PREVIEW_USERS.includes(mtViewer())) { box.innerHTML = ''; return; }
+  const tm = document.getElementById('tab-msl'); if (tm) tm.classList.add('mt-preview');
   const mw = document.getElementById('modeWrap');
   if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); }
   if (MSL_MODE === 'rpdc') { renderRpdcTables(box); return; }
@@ -1416,29 +1434,57 @@ function renderRpdcTables(box) {
 }
 
 let MT_OPEN = [];
+let MT_VIEW = { q: '', key: 'hub', dir: 1, label: '' };
+const MT_COLS = [
+  ['hub', 'Hub', r => r.hub_name], ['city', 'City', r => mtCity(r.hub_name)], ['part', 'Part', r => r.part_name || ''],
+  ['pn', 'Part no.', r => r.part_number || ''], ['cat', 'Category', r => mtCat(r)], ['fsn', 'FSN', r => mtFsn(r)],
+  ['msl', 'MSL', r => r.msl_qty ?? -1e9, 1], ['stock', 'Closing stock', r => r.closing_stock ?? -1e9, 1],
+  ['diff', 'Difference', r => (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : -1e9, 1],
+  ['status', 'Status', r => r.status || 'Not counted']
+];
 function mtOpen(c) {
   if (!c) return;
-  MT_OPEN = (c.src || MT_ROWS).filter(c.pred).sort((a, b) => a.hub_name.localeCompare(b.hub_name) || (a.part_name || '').localeCompare(b.part_name || ''));
+  MT_OPEN = (c.src || MT_ROWS).filter(c.pred);
+  MT_VIEW = { q: '', key: 'hub', dir: 1, label: c.label };
   let m = document.getElementById('mtModal');
   if (!m) {
     m = document.createElement('div'); m.id = 'mtModal';
-    m.innerHTML = '<div class="mt-box" role="dialog" aria-modal="true"><div class="mt-head"><b id="mtTitle"></b><span style="display:flex;gap:8px"><button type="button" id="mtCsv">Export CSV</button><button type="button" id="mtClose">Close</button></span></div><div class="mt-body" id="mtBody"></div></div>';
+    m.innerHTML = '<div class="mt-box" role="dialog" aria-modal="true"><div class="mt-head"><b id="mtTitle"></b><span style="display:flex;gap:8px"><button type="button" id="mtCsv">Export CSV</button><button type="button" id="mtClose">Close</button></span></div><div class="mt-tools"><input type="search" id="mtSearch" placeholder="Search hub, part, part no., category…" aria-label="Search these lines"><span id="mtShown" style="font-size:12px;color:#64748b"></span></div><div class="mt-body" id="mtBody"></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
     m.querySelector('#mtClose').onclick = () => { m.style.display = 'none'; };
     m.querySelector('#mtCsv').onclick = mtCsv;
+    m.querySelector('#mtSearch').addEventListener('input', e => { MT_VIEW.q = e.target.value; mtDraw(); });
+    m.querySelector('#mtBody').addEventListener('click', e => {
+      const th = e.target.closest('th[data-k]'); if (!th) return;
+      MT_VIEW.dir = MT_VIEW.key === th.dataset.k ? -MT_VIEW.dir : 1; MT_VIEW.key = th.dataset.k; mtDraw();
+    });
   }
-  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  m.querySelector('#mtSearch').value = '';
   m.querySelector('#mtTitle').textContent = `${c.label} — ${MT_OPEN.length} lines`;
-  m.querySelector('#mtBody').innerHTML = `<table><thead><tr><th>Hub</th><th>City</th><th>Part</th><th>Part no.</th><th>Category</th><th>FSN</th><th style="text-align:right">MSL</th><th style="text-align:right">Closing stock</th><th style="text-align:right">Difference</th><th>Status</th></tr></thead><tbody>${MT_OPEN.map(r => {
+  mtDraw();
+  m.style.display = 'flex';
+  m.querySelector('#mtSearch').focus();
+}
+function mtVisible() {
+  const q = MT_VIEW.q.trim().toLowerCase();
+  const col = MT_COLS.find(c => c[0] === MT_VIEW.key) || MT_COLS[0];
+  return MT_OPEN.filter(r => !q || [r.hub_name, r.part_name, r.part_number, mtCat(r), mtFsn(r), r.status].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => { const x = col[2](a), y = col[2](b); return (col[3] ? x - y : String(x).localeCompare(String(y))) * MT_VIEW.dir || (a.part_name || '').localeCompare(b.part_name || ''); });
+}
+function mtDraw() {
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const rows = mtVisible();
+  document.getElementById('mtShown').textContent = rows.length === MT_OPEN.length ? '' : `${rows.length} of ${MT_OPEN.length} shown`;
+  const arrow = k => MT_VIEW.key === k ? (MT_VIEW.dir > 0 ? ' ▲' : ' ▼') : '';
+  document.getElementById('mtBody').innerHTML = `<table><thead><tr>${MT_COLS.map(c => `<th data-k="${c[0]}" ${c[3] ? 'style="text-align:right"' : ''} title="Sort">${c[1]}${arrow(c[0])}</th>`).join('')}</tr></thead><tbody>${rows.map(r => {
     const d = (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : null;
     return `<tr><td>${esc(r.hub_name)}</td><td>${mtCity(r.hub_name)}</td><td>${esc(r.part_name)}</td><td style="color:#64748b">${esc(r.part_number)}</td><td>${esc(mtCat(r))}</td><td>${mtFsn(r)}</td><td style="text-align:right">${r.msl_qty ?? '—'}</td><td style="text-align:right">${r.closing_stock ?? '—'}</td><td style="text-align:right;color:${d < 0 ? '#b91c1c' : 'inherit'}">${d == null ? '—' : (d > 0 ? '+' : '') + d}</td><td>${esc(r.status || 'Not counted')}</td></tr>`;
-  }).join('')}</tbody></table>`;
-  m.style.display = 'flex';
+  }).join('') || '<tr><td colspan="10" style="color:#64748b">No lines match the search.</td></tr>'}</tbody></table>`;
 }
 function mtCsv() {
   const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Status'];
-  const rows = MT_OPEN.map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.status || 'Not counted']);
+  const rows = mtVisible().map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.status || 'Not counted']);
   const csv = [head, ...rows].map(x => x.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `msl_lines_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
 }
