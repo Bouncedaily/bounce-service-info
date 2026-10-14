@@ -1371,7 +1371,9 @@ function renderMslTables() {
   box.innerHTML =
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
     mtMatrix('Short parts by FSN', 'FSN × Hub', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
-    mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs);
+    mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
+    '<div id="mtOrder"></div>';
+  renderOrderList();
   if (!box.dataset.wired) {
     box.dataset.wired = '1';
     box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
@@ -1431,6 +1433,71 @@ function renderRpdcTables(box) {
     box.dataset.wired = '1';
     box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
   }
+}
+
+
+// ─── Order list for one hub: qty to bring each short part up to MSL (or MSL + buffer) ─────
+let ORDER_BUFFER = 0;          // % above MSL
+let RPDC_STOCK = null;         // { 'BLR RPDC|part_number': stock }, loaded once
+async function loadRpdcStock() {
+  if (RPDC_STOCK) return;
+  try {
+    const r = await fetch(`${INFO_URL}/rest/v1/hub_msl?hub_name=ilike.*RPDC*&select=hub_name,part_number,closing_stock,msl_qty&limit=5000`, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
+    const rows = r.ok ? await r.json() : [];
+    RPDC_STOCK = {};
+    rows.forEach(x => { RPDC_STOCK[x.hub_name + '|' + x.part_number] = x; });
+  } catch (e) { RPDC_STOCK = {}; }
+}
+function rpdcFor(hub) { const c = mtCity(hub); for (const rp in RPDC_SERVES) if (RPDC_SERVES[rp].includes(c)) return rp; return null; }
+function orderRows(hub) {
+  const f = 1 + ORDER_BUFFER / 100;
+  return MT_ROWS.filter(r => r.hub_name === hub && (r.msl_qty || 0) > 0)
+    .map(r => {
+      const target = Math.ceil((r.msl_qty || 0) * f);
+      const qty = Math.max(target - (r.closing_stock || 0), 0);
+      return { r, target, qty };
+    })
+    .filter(x => x.qty > 0)
+    .sort((a, b) => (mtFsn(a.r) === 'Fast' ? 0 : 1) - (mtFsn(b.r) === 'Fast' ? 0 : 1) || b.qty - a.qty);
+}
+async function renderOrderList() {
+  const box = document.getElementById('mtOrder'); if (!box) return;
+  const hub = document.getElementById('hubSel').value;
+  if (!hub) {
+    box.innerHTML = `<div class="mt-card"><div class="mt-title">Order list<span>pick a hub in the Hub filter to see what it needs to order</span></div></div>`;
+    return;
+  }
+  await loadRpdcStock();
+  const rp = rpdcFor(hub);
+  const list = orderRows(hub);
+  const units = list.reduce((s, x) => s + x.qty, 0);
+  const rpStock = x => { const st = RPDC_STOCK[rp + '|' + x.r.part_number]; return st ? (st.closing_stock || 0) : null; };
+  const sendable = x => { const st = RPDC_STOCK[rp + '|' + x.r.part_number]; if (!st) return null; return Math.max((st.closing_stock || 0) - (st.msl_qty || 0), 0); };
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const opts = [0, 10, 20, 50].map(b => `<option value="${b}" ${b === ORDER_BUFFER ? 'selected' : ''}>${b ? `MSL + ${b}%` : 'Match MSL'}</option>`).join('');
+  box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+      <div>Order list · ${esc(hub)}<span>${list.length} parts · ${units.toLocaleString('en-IN')} units to order${rp ? ` · ${rp} stock shown for reference` : ''}</span></div>
+      <div style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:600">
+        <label style="display:flex;gap:6px;align-items:center">Order up to <select id="ordBuf" style="font:inherit;font-size:12px;min-height:32px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px">${opts}</select></label>
+        <button type="button" id="ordCopy" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Copy list</button>
+        <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
+      </div></div>
+    <div class="mt-scroll" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="${rp} stock above its own MSL">${rp} can send</th>` : ''}</tr></thead><tbody>${
+      list.map(x => { const sd = sendable(x); return `<tr><td>${esc(x.r.part_name)}${fsnBadge(x.r.part_number)}</td><td style="text-align:left;color:#64748b">${esc(x.r.part_number)}</td><td style="text-align:left">${esc(mtCat(x.r))}</td><td style="text-align:left">${mtFsn(x.r)}</td><td>${x.r.msl_qty}</td><td>${x.r.closing_stock ?? 0}</td><td>${x.target}</td><td style="font-weight:700;color:#b91c1c">${x.qty.toLocaleString('en-IN')}</td>${rp ? `<td style="color:${sd == null ? '#64748b' : sd >= x.qty ? '#15803d' : sd > 0 ? '#b45309' : '#b91c1c'}">${sd == null ? 'not stocked' : sd.toLocaleString('en-IN')}</td>` : ''}</tr>`; }).join('')
+      || '<tr><td colspan="9" style="color:#15803d">Nothing to order: every part is at or above the target.</td></tr>'
+    }</tbody>${list.length ? `<tbody><tr class="mt-total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td>${units.toLocaleString('en-IN')}</td>${rp ? '<td></td>' : ''}</tr></tbody>` : ''}</table></div></div>`;
+  box.querySelector('#ordBuf').onchange = e => { ORDER_BUFFER = +e.target.value; renderOrderList(); };
+  box.querySelector('#ordCsv').onclick = () => {
+    const head = ['Hub', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' can send'] : []);
+    const rows = list.map(x => [hub, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
+    const csv = [head, ...rows].map(z => z.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `order_${hub.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  };
+  box.querySelector('#ordCopy').onclick = async e => {
+    const lines = [`${hub} – parts to order (${ORDER_BUFFER ? `MSL + ${ORDER_BUFFER}%` : 'to match MSL'}), ${new Date().toLocaleDateString('en-IN')}:`].concat(list.map((x, i) => `${i + 1}. ${x.r.part_name} (${x.r.part_number}) – ${x.qty}`)).concat([`Total: ${units} units`]);
+    try { await navigator.clipboard.writeText(lines.join('\n')); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy list'; }, 1500); }
+    catch (err) { alert(lines.join('\n')); }
+  };
 }
 
 let MT_OPEN = [];
