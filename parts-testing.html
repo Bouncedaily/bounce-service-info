@@ -712,6 +712,16 @@ function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
 function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n).toLocaleString(); }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
 
+// OEM comparison part name(s) shown under the OEM bikes count
+function oemNames(oRows) {
+  if (!oRows.length) return '';
+  const m = new Map();
+  oRows.forEach(r => { const n = r.part_name || '—'; m.set(n, (m.get(n) || 0) + 1); });
+  const list = [...m.entries()].sort((a, b) => b[1] - a[1]);
+  const txt = list.map(([n, c]) => list.length > 1 ? `${n} (${c})` : n).join('<br>');
+  return `<div style="font-size:10px;color:var(--muted);font-weight:400;line-height:1.35;margin-top:3px;max-width:170px;white-space:normal">${txt}</div>`;
+}
+
 function renderSummary() {
   const test = (scoped || allRows).filter(r => r.type === 'Test');
   // One row per part category AND vendor: the same part tested from two vendors
@@ -799,7 +809,7 @@ function renderSummary() {
       <td>${tRows.length}</td>
       <td>${tRepl.length}</td>
       <td>${tRepair || '—'}</td>
-      <td>${oRows.length}</td>
+      <td>${oRows.length}${oemNames(oRows)}</td>
       <td>${oRepl.length}</td>
       <td>${oRepair || '—'}</td>
       <td class="km-cell">
