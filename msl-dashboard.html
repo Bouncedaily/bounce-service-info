@@ -476,6 +476,14 @@ body { overflow:auto!important; }
             <button type="button" id="modeRpdc" onclick="setMslMode('rpdc')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">RPDC</button>
           </div>
         </div>
+        <div class="fg" id="rpdcWrap" style="display:none">
+          <label>RPDC</label>
+          <div style="display:flex;border:1px solid var(--border2,#d1d5db);border-radius:6px;overflow:hidden">
+            <button type="button" data-rpdc="" onclick="setRpdc('')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">All</button>
+            <button type="button" data-rpdc="BLR RPDC" onclick="setRpdc('BLR RPDC')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">BLR</button>
+            <button type="button" data-rpdc="NCR RPDC" onclick="setRpdc('NCR RPDC')" style="font:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:0;cursor:pointer">NCR</button>
+          </div>
+        </div>
         <div class="fg" id="cityWrap">
           <label>City</label>
           <select id="citySel" onchange="onCityChange()">
@@ -1265,6 +1273,11 @@ let MT_ROWS = [];          // lines behind the tables (current city/hub load + c
 let MT_CELLS = [];         // predicate per clickable number
 function mtCity(h) { if (h === 'BLR RPDC') return 'Bangalore'; if (h === 'NCR RPDC') return 'NCR'; for (const c in CITY_HUBS) if (CITY_HUBS[c].includes(h)) return c; return 'Other'; }
 let MSL_MODE = 'hub';
+let RPDC_SEL = '';   // '' = both RPDCs
+function paintRpdc() {
+  document.querySelectorAll('#rpdcWrap [data-rpdc]').forEach(b => { const on = b.dataset.rpdc === RPDC_SEL; b.style.background = on ? '#111827' : '#fff'; b.style.color = on ? '#fff' : '#374151'; });
+}
+function setRpdc(v) { RPDC_SEL = v; paintRpdc(); render(); }
 // Which city's hubs each RPDC supplies (assumption: BLR RPDC also serves Hyderabad and Mumbai).
 const RPDC_SERVES = { 'BLR RPDC': ['Bangalore', 'Hyderabad', 'Mumbai'], 'NCR RPDC': ['NCR'] };
 function setMslMode(m) {
@@ -1273,6 +1286,7 @@ function setMslMode(m) {
   on('modeHub', m === 'hub'); on('modeRpdc', m === 'rpdc');
   const show = (sel, v) => document.querySelectorAll(sel).forEach(e => { e.style.display = v ? '' : 'none'; });
   show('#cityWrap', m === 'hub');
+  show('#rpdcWrap', m === 'rpdc'); paintRpdc();
   show('#hubSel', m === 'hub'); const hw = document.getElementById('hubSel'); if (hw && hw.closest('.fg')) hw.closest('.fg').style.display = m === 'hub' ? '' : 'none';
   show('#tab-msl .kpi-row', m === 'hub'); show('#tab-msl .bottom-grid', m === 'hub');
   const so = document.getElementById('shortOnly'); if (so) so.style.display = m === 'hub' ? '' : 'none';
@@ -1356,7 +1370,7 @@ function renderRpdcTables(box) {
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
   const keep = r => (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn);
   // All RPDC lines, same as the sheet (MSL-0 lines count as the sheet marks them: OK → match / Excess)
-  MT_ROWS = allData.filter(r => /rpdc/i.test(r.hub_name || '') && keep(r));
+  MT_ROWS = allData.filter(r => /rpdc/i.test(r.hub_name || '') && (!RPDC_SEL || r.hub_name === RPDC_SEL) && keep(r));
   const RW_ROWS = MT_ROWS.filter(r => (r.msl_qty || 0) > 0);   // runway only means something for parts with an MSL
   const HUB_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && keep(r));
   MT_CELLS = [];
