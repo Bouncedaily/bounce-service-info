@@ -1294,7 +1294,7 @@ function mtPct(rows) {
   return `<span style="font-size:12px;color:${p >= 80 ? '#15803d' : p < 75 ? '#b91c1c' : 'inherit'}">${p}%</span>`;
 }
 function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
-  const cols = [['lines', 'Lines'], ['ok', 'OK'], ['ex', 'Excess'], ['short', 'Short'], ['nc', 'Not counted']];
+  const cols = [['lines', 'Total SKUs'], ['ok', 'Match'], ['ex', 'Excess'], ['short', 'Short'], ['nc', 'Not counted']];
   const line = (label, rows, total) => {
     const by = m => m === 'lines' ? rows : rows.filter(r => mtSt(r) === m);
     const hubsN = new Set(rows.map(r => r.hub_name)).size;
