@@ -536,6 +536,9 @@ body { overflow:auto!important; }
         <button class="toggle-btn" id="mslSyncBtn" style="display:none" onclick="mslSyncNow()" title="Pull the latest MSL data from the Google Sheet now"><i class="ti ti-refresh" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i><span id="mslSyncTxt">Sync now</span></button>
       </div>
 
+      <!-- SUMMARY TABLES (OOS-style). Every count opens its raw lines. -->
+      <div id="mslTables"></div>
+
       <!-- KPI ROW -->
       <div class="kpi-row">
         <div class="kpi">
@@ -1221,6 +1224,118 @@ async function loadFsn() {
     fsnLoaded = true;
   } catch (e) { console.error('FSN load failed', e); }
 }
+
+// ─── Summary tables (OOS style) + click-to-drill raw lines ──────────────
+const MT_CSS = `
+#mslTables .mt-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-bottom:16px}
+#mslTables .mt-card{background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;overflow:hidden;flex:1 1 520px;min-width:0;margin-bottom:16px}
+#mslTables .mt-row .mt-card{margin-bottom:0}
+#mslTables .mt-title{padding:12px 16px;font-size:14px;font-weight:700}
+#mslTables .mt-title span{font-size:11px;font-weight:500;color:var(--muted,#64748b);margin-left:6px}
+#mslTables .mt-scroll{overflow-x:auto}
+#mslTables table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+#mslTables th{background:#f7f8fa;color:var(--muted,#64748b);font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;padding:8px 10px;text-align:right}
+#mslTables th:first-child,#mslTables td:first-child{text-align:left;padding-left:16px}
+#mslTables td{padding:8px 10px;text-align:right;border-top:1px solid #eef0f3}
+#mslTables tr.mt-total td{background:#f7f8fa;font-weight:700}
+#mslTables .mt-n{background:none;border:0;padding:2px 4px;margin:-2px -4px;font:inherit;color:inherit;cursor:pointer;border-radius:4px}
+#mslTables .mt-n:hover{background:#eef2ff;text-decoration:underline}
+#mslTables .mt-short{color:#b91c1c}
+#mslTables .mt-muted{color:var(--muted,#64748b)}
+#mtModal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+#mtModal .mt-box{background:#fff;border-radius:12px;width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+#mtModal .mt-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb}
+#mtModal .mt-head b{font-size:15px}
+#mtModal .mt-body{overflow:auto}
+#mtModal table{width:100%;border-collapse:collapse;font-size:13px}
+#mtModal th{position:sticky;top:0;background:#f7f8fa;color:#64748b;font-size:11px;text-transform:uppercase;font-weight:600;padding:8px 10px;text-align:left}
+#mtModal td{padding:7px 10px;border-top:1px solid #eef0f3}
+#mtModal button{font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+`;
+let MT_ROWS = [];          // lines behind the tables (current city/hub load + category/FSN filters)
+let MT_CELLS = [];         // predicate per clickable number
+function mtCity(h) { for (const c in CITY_HUBS) if (CITY_HUBS[c].includes(h)) return c; return 'Other'; }
+function mtSt(r) { const s = (r.status || '').toLowerCase(); return s.includes('short') ? 'short' : s.includes('excess') ? 'ex' : s.includes('ok') ? 'ok' : (s.trim() ? 'other' : 'nc'); }
+function mtFsn(r) { const f = (fsnOf(r) || {}).fsn; return f ? (f === 'Non-Moving' ? 'Non-moving' : f) : 'Not in FSN list'; }
+function mtCat(r) { return (fsnOf(r) || {}).category || 'Unmapped'; }
+function mtNum(n, label, pred, cls) {
+  if (!n) return '';
+  MT_CELLS.push({ label, pred });
+  return `<button type="button" class="mt-n ${cls || ''}" data-mt="${MT_CELLS.length - 1}" title="Show these ${n} lines">${n.toLocaleString('en-IN')}</button>`;
+}
+function mtPct(rows) {
+  const counted = rows.filter(r => mtSt(r) !== 'nc').length;
+  if (!counted) return '<span class="mt-muted">—</span>';
+  const p = Math.round(rows.filter(r => ['ok', 'ex'].includes(mtSt(r))).length / counted * 100);
+  return `<span style="font-size:12px;color:${p >= 80 ? '#15803d' : p < 75 ? '#b91c1c' : 'inherit'}">${p}%</span>`;
+}
+function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
+  const cols = [['lines', 'Lines'], ['ok', 'OK'], ['ex', 'Excess'], ['short', 'Short'], ['nc', 'Not counted']];
+  const line = (label, rows, total) => {
+    const by = m => m === 'lines' ? rows : rows.filter(r => mtSt(r) === m);
+    const hubsN = new Set(rows.map(r => r.hub_name)).size;
+    return `<tr class="${total ? 'mt-total' : ''}"><td>${label}</td>${withHubs ? `<td>${hubsN}</td>` : ''}${cols.map(([m, h]) => {
+      const set = by(m);
+      return `<td>${mtNum(set.length, `${label} · ${h}`, r => (total || keyOf(r) === label) && (m === 'lines' || mtSt(r) === m), m === 'short' ? 'mt-short' : m === 'nc' ? 'mt-muted' : '')}</td>`;
+    }).join('')}<td>${mtPct(rows)}</td></tr>`;
+  };
+  const body = keys.filter(k => MT_ROWS.some(r => keyOf(r) === k)).map(k => line(k, MT_ROWS.filter(r => keyOf(r) === k), false)).join('') + line('Total', MT_ROWS, true);
+  return `<div class="mt-card"><div class="mt-title">${title}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
+  const shortRows = MT_ROWS.filter(r => mtSt(r) === 'short');
+  const keysShown = keys.filter(k => shortRows.some(r => keyOf(r) === k));
+  const cell = (k, h) => { const n = shortRows.filter(r => (k === null || keyOf(r) === k) && r.hub_name === h).length; return `<td>${mtNum(n, `${k === null ? 'All' : k} · ${h} · Short`, r => mtSt(r) === 'short' && (k === null || keyOf(r) === k) && r.hub_name === h, 'mt-short')}</td>`; };
+  const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}</tr>`).join('') + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(null, h)).join('')}</tr>`;
+  return `<div class="mt-card"><div class="mt-title">${title}<span>${sub}</span></div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function renderMslTables() {
+  const box = document.getElementById('mslTables'); if (!box) return;
+  if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
+  const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
+  MT_ROWS = allData.filter(r => r.hub_name && !/rpdc/i.test(r.hub_name) && (!cat || mtCat(r) === cat) && (!fsn || (fsnOf(r) || {}).fsn === fsn));
+  MT_CELLS = [];
+  if (!MT_ROWS.length) { box.innerHTML = ''; return; }
+  const hubs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort((a, b) => a.localeCompare(b));
+  const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
+  box.innerHTML =
+    `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
+    mtMatrix('Short parts by FSN', 'FSN × Hub', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
+    mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs);
+  if (!box.dataset.wired) {
+    box.dataset.wired = '1';
+    box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
+  }
+}
+let MT_OPEN = [];
+function mtOpen(c) {
+  if (!c) return;
+  MT_OPEN = MT_ROWS.filter(c.pred).sort((a, b) => a.hub_name.localeCompare(b.hub_name) || (a.part_name || '').localeCompare(b.part_name || ''));
+  let m = document.getElementById('mtModal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'mtModal';
+    m.innerHTML = '<div class="mt-box" role="dialog" aria-modal="true"><div class="mt-head"><b id="mtTitle"></b><span style="display:flex;gap:8px"><button type="button" id="mtCsv">Export CSV</button><button type="button" id="mtClose">Close</button></span></div><div class="mt-body" id="mtBody"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+    m.querySelector('#mtClose').onclick = () => { m.style.display = 'none'; };
+    m.querySelector('#mtCsv').onclick = mtCsv;
+  }
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  m.querySelector('#mtTitle').textContent = `${c.label} — ${MT_OPEN.length} lines`;
+  m.querySelector('#mtBody').innerHTML = `<table><thead><tr><th>Hub</th><th>City</th><th>Part</th><th>Part no.</th><th>Category</th><th>FSN</th><th style="text-align:right">MSL</th><th style="text-align:right">Closing stock</th><th style="text-align:right">Difference</th><th>Status</th></tr></thead><tbody>${MT_OPEN.map(r => {
+    const d = (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : null;
+    return `<tr><td>${esc(r.hub_name)}</td><td>${mtCity(r.hub_name)}</td><td>${esc(r.part_name)}</td><td style="color:#64748b">${esc(r.part_number)}</td><td>${esc(mtCat(r))}</td><td>${mtFsn(r)}</td><td style="text-align:right">${r.msl_qty ?? '—'}</td><td style="text-align:right">${r.closing_stock ?? '—'}</td><td style="text-align:right;color:${d < 0 ? '#b91c1c' : 'inherit'}">${d == null ? '—' : (d > 0 ? '+' : '') + d}</td><td>${esc(r.status || 'Not counted')}</td></tr>`;
+  }).join('')}</tbody></table>`;
+  m.style.display = 'flex';
+}
+function mtCsv() {
+  const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Status'];
+  const rows = MT_OPEN.map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.status || 'Not counted']);
+  const csv = [head, ...rows].map(x => x.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `msl_lines_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = document.getElementById('mtModal'); if (m) m.style.display = 'none'; } });
+
 function fsnOf(r) { return FSN[(r && r.part_number) || ''] || null; }
 function fsnBadge(num) {
   const f = (FSN[num || ''] || {}).fsn;
@@ -1379,6 +1494,7 @@ function cellVariance(st) {
 }
 
 function render() {
+  try { renderMslTables(); } catch (e) { console.error(e); }
   const filtered = getFiltered();
 
   // All hubs present in full dataset
