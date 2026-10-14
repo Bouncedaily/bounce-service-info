@@ -212,7 +212,29 @@ tr:hover td { background: var(--bg); }
     <!-- TAB: TEST VS OEM -->
     <div class="tab-pane active" id="tab-test-oem">
 
-    <!-- FILTER BAR -->
+    <!-- FILTER BAR: applies to KPIs, summary and raw data -->
+    <div class="raw-controls" id="scope-filters" style="align-items:flex-end;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:14px">
+      <div class="fg"><label>City</label><select id="f-city" onchange="applyFilters()">
+          <option value="">All cities</option>
+          <option>Bangalore</option>
+          <option>NCR</option>
+          <option>Hyderabad</option>
+        </select></div>
+      <div class="fg"><label>Part</label><select id="f-part" onchange="applyFilters()">
+          <option value="">All parts</option>
+        </select></div>
+      <div class="fg"><label>Vendor</label><select id="f-vendor" onchange="applyFilters()">
+          <option value="">All vendors</option>
+        </select></div>
+      <div class="fg"><label>Fitted By</label><select id="f-fitted-by" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="Plant">Plant</option>
+          <option value="Service Team">Service Team</option>
+        </select></div>
+      <button class="export-btn" type="button" id="f-clear" onclick="clearScope()" style="display:none">Clear filters</button>
+      <span class="page-info" id="scope-note" style="margin-left:auto"></span>
+    </div>
+    
     <!-- KPI ROW -->
     <div class="kpi-row">
       <div class="kpi">
@@ -266,28 +288,15 @@ tr:hover td { background: var(--bg); }
       </div>
       <div class="raw-controls" style="align-items:flex-end">
         <div class="fg"><label>Search</label><input type="text" id="search" placeholder="Reg / chassis…" oninput="applyFilters()" /></div>
-        <div class="fg"><label>City</label><select id="f-city" onchange="applyFilters()">
-          <option value="">All cities</option>
-          <option>Bangalore</option>
-          <option>NCR</option>
-          <option>Hyderabad</option>
-        </select></div>
-        <div class="fg"><label>Part</label><select id="f-part" onchange="applyFilters()">
-          <option value="">All parts</option>
-        </select></div>
-        <div class="fg"><label>Vendor</label><select id="f-vendor" onchange="applyFilters()">
-          <option value="">All vendors</option>
-        </select></div>
+        
+        
+        
         <div class="fg"><label>Status</label><select id="f-status" onchange="applyFilters()">
           <option value="">All</option>
           <option value="Active">Active</option>
           <option value="Replaced">Replaced</option>
         </select></div>
-        <div class="fg"><label>Fitted By</label><select id="f-fitted-by" onchange="applyFilters()">
-          <option value="">All</option>
-          <option value="Plant">Plant</option>
-          <option value="Service Team">Service Team</option>
-        </select></div>
+        
         
         <div class="fg"><label>Sort</label><select id="f-sort" onchange="applyFilters()">
           <option value="km_desc">KM on part ↓</option>
@@ -559,6 +568,11 @@ function populateRawFilterDims() {
 
 
 // ─── FILTERS + RENDER ────────────────────────────────────────
+let scoped = null;   // set by applyFilters(); null until the first load
+function clearScope() {
+  ['f-city', 'f-part', 'f-vendor', 'f-fitted-by'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  applyFilters();
+}
 function applyFilters() {
   const city    = document.getElementById('f-city').value;
   const part     = document.getElementById('f-part').value;
@@ -588,6 +602,20 @@ function applyFilters() {
     return 0;
   });
 
+  // Scope used by the KPIs and summary: city / part / vendor / fitted-by (not search, status or sort).
+  // OEM comparison rows follow city and part only, since they have no vendor or fitter.
+  scoped = allRows.filter(r => {
+    if (city && r.city !== city) return false;
+    if (part && r.part_category !== part) return false;
+    if (r.type === 'Test') {
+      if (vendor && r.vendor !== vendor) return false;
+      if (fittedBy && r.fitted_by !== fittedBy) return false;
+    }
+    return true;
+  });
+  const active = [city, part, vendor, fittedBy].filter(Boolean);
+  const cl = document.getElementById('f-clear'); if (cl) cl.style.display = active.length ? '' : 'none';
+  const sn = document.getElementById('scope-note'); if (sn) sn.textContent = active.length ? 'Showing: ' + active.join(' · ') : '';
   currentPage = 1;
   renderKpis();
   renderSummary();
@@ -629,8 +657,8 @@ function verdictPill(v) {
 const rateFmt = x => x == null ? '—' : x.toFixed(1);
 
 function renderKpis() {
-  const test = allRows.filter(r => r.type === 'Test');
-  const oem  = allRows.filter(r => r.type === 'OEM');
+  const test = (scoped || allRows).filter(r => r.type === 'Test');
+  const oem  = (scoped || allRows).filter(r => r.type === 'OEM');
   const tRepl = test.filter(r => r.status === 'Replaced').length;
   const oRepl = oem.filter(r => r.status === 'Replaced').length;
 
@@ -656,13 +684,14 @@ function fmt(n) { return (n == null || isNaN(n) || n < 0) ? '—' : Math.round(n
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'; }
 
 function renderSummary() {
-  const test = allRows.filter(r => r.type === 'Test');
+  const test = (scoped || allRows).filter(r => r.type === 'Test');
   // One row per part category AND vendor: the same part tested from two vendors
   // (e.g. Cone Set from Gabriel and OEM +) must not be merged under one vendor.
   const groups = [...new Map(test.map(r => [r.part_category + '\u0000' + (r.vendor || '—'), { cat: r.part_category, vendor: r.vendor || '—' }])).values()]
     .sort((a, b) => a.cat.localeCompare(b.cat) || a.vendor.localeCompare(b.vendor));
   const inGroup = (r, g) => r.part_category === g.cat && (r.vendor || '—') === g.vendor;
-  const oem  = allRows.filter(r => r.type === 'OEM');
+  if (!groups.length) { document.getElementById('summary-body').innerHTML = '<div class="loading">No test parts match these filters.</div>'; return; }
+  const oem  = (scoped || allRows).filter(r => r.type === 'OEM');
 
   // Find max KM across all 4 metrics for bar scaling
   let maxKm = 0;
