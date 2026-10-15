@@ -1397,13 +1397,14 @@ function renderMslTables() {
   if (!MT_ROWS.length) { box.innerHTML = ''; return; }
   const hubs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort((a, b) => a.localeCompare(b));
   const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
-  box.innerHTML =
+  box.innerHTML = '<div id="mtInsights"></div>' +
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
     mtRunwayMatrix(hubs) +
     mtMatrix('Short parts by FSN', '', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
     mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
     '<div id="mtOrder"></div>';
   renderOrderList();
+  renderInsights();
   if (!box.dataset.wired) {
     box.dataset.wired = '1';
     box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
@@ -1432,6 +1433,81 @@ function mtRunwayMatrix(hubs) {
     + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(ALL, h)).join('')}${cell(ALL, null)}</tr>`
     + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
   return `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+
+// ─── Key insights: 5 lines written from the current data (follows City / Hub / Category / FSN filters) ─────
+const INS_CSS = `
+#mtInsights .ins{background:#fff;border:1px solid var(--border,#e5e7eb);border-left:4px solid #1e4fd8;border-radius:10px;margin-bottom:16px;overflow:hidden}
+#mtInsights .ins-hd{padding:12px 16px 6px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#mtInsights .ins-hd b{font-size:15px}
+#mtInsights .ins-hd span{font-size:12px;color:var(--muted,#64748b)}
+#mtInsights .ins-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid #f0f1f3}
+#mtInsights .ins-ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+#mtInsights .ins-tx{font-size:14px;line-height:1.45}
+#mtInsights .ins-sub{font-size:12px;color:var(--muted,#64748b);margin-top:1px}
+#mtInsights .ins-cta{background:none;border:0;font:inherit;font-size:13px;font-weight:600;color:#1e4fd8;cursor:pointer;white-space:nowrap;padding:4px 0}
+#mtInsights .ins-cta:hover{text-decoration:underline}
+`;
+async function renderInsights() {
+  const box = document.getElementById('mtInsights'); if (!box) return;
+  if (!document.getElementById('ins-css')) { const st = document.createElement('style'); st.id = 'ins-css'; st.textContent = INS_CSS; document.head.appendChild(st); }
+  await loadRpdcStock();
+  const rows = MT_ROWS, fsnOfRow = r => (fsnOf(r) || {}).fsn || '', catOfRow = r => (fsnOf(r) || {}).category || '';
+  const fmtN = v => v.toLocaleString('en-IN');
+  const cta = (label, list, text) => { MT_CELLS.push({ label, pred: () => true, src: list }); return `<button type="button" class="ins-cta" data-mt="${MT_CELLS.length - 1}">${text} →</button>`; };
+  const items = [];
+  const TONE = { red: 'background:#fee2e2;color:#b91c1c', blue: 'background:#eaf0ff;color:#1e4fd8', amber: 'background:#fef3c7;color:#b45309', slate: 'background:#f1f5f9;color:#334155' };
+  const NUMC = { red: '#b91c1c', blue: '#1e4fd8', amber: '#b45309', slate: '#334155' };
+  const add = (tone, icon, num, text, sub, ctaHtml) => items.push({ tone, icon, num, text, sub, ctaHtml });
+
+  // 1) fast-moving parts already at 0 days of runway
+  const zero = rows.filter(r => fsnOfRow(r) === 'Fast' && mtSt(r) === 'short' && r.runway_days != null && r.runway_days <= 0);
+  if (zero.length) {
+    const byHub = {}; zero.forEach(r => { byHub[r.hub_name] = (byHub[r.hub_name] || 0) + 1; });
+    const top = Object.entries(byHub).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([h, n]) => `${h} (${n})`).join(', ');
+    add('red', '!', `${fmtN(zero.length)} fast-moving part${zero.length > 1 ? 's' : ''}`, 'are short with 0 days of stock left.', `Most at ${top}. These run out first.`, cta('Fast-moving parts with 0 days left', zero, `See the ${fmtN(zero.length)}`));
+  }
+
+  // 2) hub shortages the RPDC can cover from stock above its own MSL
+  const shortRows = rows.filter(r => mtSt(r) === 'short');
+  const perRp = {};
+  shortRows.forEach(r => { const rp = rpdcFor(r.hub_name); if (!rp) return; const k = rp + '|' + r.part_number; (perRp[k] = perRp[k] || { rp, pn: r.part_number, units: 0, rows: [] }); perRp[k].units += Math.max((r.msl_qty || 0) - (r.closing_stock || 0), 0); perRp[k].rows.push(r); });
+  const groups = Object.values(perRp);
+  if (groups.length) {
+    const covered = groups.filter(g => { const st = (RPDC_STOCK || {})[g.rp + '|' + g.pn]; return st && Math.max((st.closing_stock || 0) - (st.msl_qty || 0), 0) >= g.units; });
+    const byRp = {}; groups.forEach(g => { const b = byRp[g.rp] || (byRp[g.rp] = { all: 0, ok: 0 }); b.all++; }); covered.forEach(g => { byRp[g.rp].ok++; });
+    const pctC = Math.round(covered.length / groups.length * 100);
+    if (covered.length) add('blue', '↗', `${pctC}% of hub shortages`, 'can be covered from RPDC spare stock.', Object.entries(byRp).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} parts`).join(' · ') + (pctC >= 50 ? '. Mostly a dispatch problem, not a buying problem.' : '. The rest need buying or only part can be sent.'), cta('Hub shortages RPDC can cover from spare stock', covered.flatMap(g => g.rows), 'Dispatch list'));
+  }
+
+  // 3) parts short at some hubs and in excess at others in the same city
+  const byCityPart = {};
+  rows.forEach(r => { const k = mtCity(r.hub_name) + '|' + r.part_number; const g = byCityPart[k] || (byCityPart[k] = { name: r.part_name, short: [], extra: [] }); if (mtSt(r) === 'short') g.short.push(r); else if (mtSt(r) === 'ex' && (r.closing_stock || 0) - (r.msl_qty || 0) >= 2) g.extra.push(r); });
+  const transfer = Object.values(byCityPart).filter(g => g.short.length && g.extra.length);
+  if (transfer.length) {
+    const names = {}; transfer.forEach(g => { const n = names[g.name] || (names[g.name] = { s: 0, e: 0 }); n.s += g.short.length; n.e += g.extra.length; });
+    const ex = Object.entries(names).sort((a, b) => b[1].s - a[1].s)[0];
+    add('blue', '⇄', `${fmtN(Object.keys(names).length)} part${Object.keys(names).length > 1 ? 's' : ''}`, 'are short at some hubs and in excess at others in the same city.', `e.g. ${ex[0]}: short at ${ex[1].s} hub${ex[1].s > 1 ? 's' : ''}, extra at ${ex[1].e}. Transfer instead of ordering.`, cta('Parts to transfer between hubs (short + extra lines)', transfer.flatMap(g => g.short.concat(g.extra)), 'Transfer list'));
+  }
+
+  // 4) hubs well below the network average
+  const hubSet = [...new Set(rows.map(r => r.hub_name))];
+  const counted = rows.filter(r => mtSt(r) !== 'nc'), avg = counted.length ? Math.round(counted.filter(r => ['ok', 'ex'].includes(mtSt(r))).length / counted.length * 100) : 0;
+  const hubPct = hubSet.map(h => { const c = counted.filter(r => r.hub_name === h); return { h, p: c.length ? Math.round(c.filter(r => ['ok', 'ex'].includes(mtSt(r))).length / c.length * 100) : 100 }; });
+  const weak = hubPct.filter(x => x.p < 75).sort((a, b) => a.p - b.p);
+  if (weak.length && hubSet.length > 1) add('amber', '▼', `${weak.length} hub${weak.length > 1 ? 's' : ''}`, `${weak.length > 1 ? 'are' : 'is'} below 75% fulfilment (network ${avg}%).`, weak.slice(0, 4).map(x => `${x.h} ${x.p}%`).join(' · ') + (weak.length > 4 ? ` · +${weak.length - 4} more` : ''), cta('Short lines at hubs below 75%', shortRows.filter(r => weak.some(x => x.h === r.hub_name)), 'Open these hubs'));
+
+  // 5) lines holding 3x or more their MSL, fasteners not counted
+  const ex3 = rows.filter(r => mtSt(r) === 'ex' && (r.closing_stock || 0) >= 3 * Math.max(r.msl_qty || 0, 1) && catOfRow(r) !== 'Fastners');
+  if (ex3.length) {
+    const parts = {}; ex3.forEach(r => { const p = parts[r.part_name] || (parts[r.part_name] = { msl: 0, st: 0, cat: catOfRow(r) }); p.msl += r.msl_qty || 0; p.st += r.closing_stock || 0; });
+    const units = ex3.reduce((s, r) => s + (r.closing_stock || 0) - (r.msl_qty || 0), 0);
+    const examples = Object.entries(parts).filter(([, p]) => p.cat !== 'Child Parts').sort((a, b) => (b[1].st - b[1].msl) - (a[1].st - a[1].msl)).slice(0, 3).map(([n, p]) => `${n} (${fmtN(p.st)} vs MSL ${fmtN(p.msl)})`);
+    add('slate', '≡', `${fmtN(ex3.length)} line${ex3.length > 1 ? 's' : ''}`, `${ex3.length > 1 ? 'hold' : 'holds'} 3× or more ${ex3.length > 1 ? 'their' : 'its'} MSL (fasteners not counted).`, `${Object.keys(parts).length} part${Object.keys(parts).length > 1 ? 's' : ''}, about ${fmtN(units)} extra units` + (examples.length ? `: e.g. ${examples.join(', ')}` : '') + '. Move to short hubs or review MSL.', cta('Lines holding 3× or more their MSL (no fasteners)', ex3, 'Excess list'));
+  }
+
+  box.innerHTML = items.length ? `<div class="ins"><div class="ins-hd"><b>Key insights</b><span>written from the latest sync · follows the filters above</span></div>${items.map(i => `<div class="ins-row"><span class="ins-ic" style="${TONE[i.tone]}">${i.icon}</span><div class="ins-tx"><b style="color:${NUMC[i.tone]}">${i.num}</b> ${i.text}<div class="ins-sub">${i.sub}</div></div>${i.ctaHtml}</div>`).join('')}</div>` : '';
 }
 
 function renderRpdcTables(box) {
