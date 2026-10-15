@@ -1487,7 +1487,7 @@ function openTransferPlan() {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') m.style.display = 'none'; });
   }
   m.querySelector('#tpTitle').textContent = `Transfer plan — ${order.length} part${order.length > 1 ? 's' : ''}, ${plan.length} transfer${plan.length > 1 ? 's' : ''}, ${units.toLocaleString('en-IN')} units`;
-  m.querySelector('#tpSub').textContent = 'Only for shortages the RPDC can\'t cover from spare stock · same city only · the sending hub keeps at least its MSL';
+  m.querySelector('#tpSub').textContent = 'Only for shortages the RPDC can\'t cover from its stock · same city only · the sending hub keeps at least its MSL';
   const th = 'style="position:sticky;top:0;background:#f7f8fa;color:#64748b;font-size:11px;text-transform:uppercase;font-weight:600;padding:8px 10px;text-align:left;white-space:nowrap"';
   const thr = th.replace('text-align:left', 'text-align:right');
   const td = 'style="padding:7px 10px;border-top:1px solid #eef0f3;white-space:nowrap"';
@@ -1557,16 +1557,17 @@ async function renderInsights() {
   shortRows.forEach(r => { const rp = rpdcFor(r.hub_name); if (!rp) return; const k = rp + '|' + r.part_number; (perRp[k] = perRp[k] || { rp, pn: r.part_number, units: 0, rows: [] }); perRp[k].units += Math.max((r.msl_qty || 0) - (r.closing_stock || 0), 0); perRp[k].rows.push(r); });
   const groups = Object.values(perRp);
   if (groups.length) {
-    const covered = groups.filter(g => { const st = (RPDC_STOCK || {})[g.rp + '|' + g.pn]; return st && Math.max((st.closing_stock || 0) - (st.msl_qty || 0), 0) >= g.units; });
+    // RPDC can send even below its own MSL, so total RPDC stock is what counts (same as the RPDC view)
+    const covered = groups.filter(g => { const st = (RPDC_STOCK || {})[g.rp + '|' + g.pn]; return st && (st.closing_stock || 0) >= g.units; });
     const byRp = {}; groups.forEach(g => { const b = byRp[g.rp] || (byRp[g.rp] = { all: 0, ok: 0 }); b.all++; }); covered.forEach(g => { byRp[g.rp].ok++; });
     const pctC = Math.round(covered.length / groups.length * 100);
-    if (covered.length) add('blue', '↗', `${pctC}% of hub shortages`, 'can be covered from RPDC spare stock.', Object.entries(byRp).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} parts`).join(' · ') + (pctC >= 50 ? '. Mostly a dispatch problem, not a buying problem.' : '. The rest need buying or only part can be sent.'), cta('Hub shortages RPDC can cover from spare stock', covered.flatMap(g => g.rows), 'Dispatch list'));
+    if (covered.length) add('blue', '↗', `${pctC}% of hub shortages`, 'can be covered from RPDC stock.', Object.entries(byRp).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} parts`).join(' · ') + (pctC >= 50 ? '. Mostly a dispatch problem, not a buying problem.' : '. The rest need buying or only part can be sent.'), cta('Hub shortages RPDC can cover from its stock', covered.flatMap(g => g.rows), 'Dispatch list'));
   }
 
-  // 3) parts short at some hubs, which the RPDC can't supply from spare stock, but another hub in the same city has extra
+  // 3) parts short at some hubs, which the RPDC can't supply from its stock, but another hub in the same city has extra
   //    (the normal route is RPDC -> hub; a hub-to-hub transfer is only for what the RPDC can't cover)
   const rpdcCanCover = r => { const rp = rpdcFor(r.hub_name); const g = rp && perRp[rp + '|' + r.part_number]; const st = rp && (RPDC_STOCK || {})[rp + '|' + r.part_number];
-    return !!(g && st && Math.max((st.closing_stock || 0) - (st.msl_qty || 0), 0) >= g.units); };
+    return !!(g && st && (st.closing_stock || 0) >= g.units); };
   const byCityPart = {};
   rows.forEach(r => { const k = mtCity(r.hub_name) + '|' + r.part_number; const g = byCityPart[k] || (byCityPart[k] = { name: r.part_name, short: [], extra: [] });
     if (mtSt(r) === 'short' && !rpdcCanCover(r)) g.short.push(r); else if (mtSt(r) === 'ex' && (r.closing_stock || 0) - (r.msl_qty || 0) >= 2) g.extra.push(r); });
