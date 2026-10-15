@@ -1399,9 +1399,9 @@ function renderMslTables() {
   const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
   box.innerHTML =
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
+    mtRunwayMatrix(hubs) +
     mtMatrix('Short parts by FSN', 'FSN × Hub', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
     mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
-    mtRunwayMatrix(hubs) +
     '<div id="mtOrder"></div>';
   renderOrderList();
   if (!box.dataset.wired) {
