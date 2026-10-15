@@ -1508,9 +1508,24 @@ async function renderOrderList() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `order_${hub.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
   box.querySelector('#ordCopy').onclick = async e => {
-    const lines = [`${hub} – parts to order (${ORDER_BUFFER ? `MSL + ${ORDER_BUFFER}%` : 'to match MSL'}), ${new Date().toLocaleDateString('en-IN')}:`].concat(list.map((x, i) => `${i + 1}. ${x.r.part_name} (${x.r.part_number}) – ${x.qty}`)).concat([`Total: ${units} units`]);
-    try { await navigator.clipboard.writeText(lines.join('\n')); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy list'; }, 1500); }
-    catch (err) { alert(lines.join('\n')); }
+    // Copy as a real table (tab-separated + HTML), so it pastes into Excel / Sheets as columns
+    const title = `${hub} – parts to order (${ORDER_BUFFER ? `MSL + ${ORDER_BUFFER}%` : 'to match MSL'}), ${new Date().toLocaleDateString('en-IN')}`;
+    const head = ['S.No', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' can send'] : []);
+    const rows = list.map((x, i) => [i + 1, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
+    const total = ['', 'Total', '', '', '', '', '', '', units].concat(rp ? [''] : []);
+    const all = [[title], head, ...rows, total];
+    const clean = v => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
+    const tsv = all.map(r => r.map(clean).join('\t')).join('\n');
+    const escH = v => clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const html = `<table><tr><td colspan="${head.length}"><b>${escH(title)}</b></td></tr><tr>${head.map(h => `<th>${escH(h)}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map(v => `<td>${escH(v)}</td>`).join('')}</tr>`).join('')}<tr>${total.map(v => `<td><b>${escH(v)}</b></td>`).join('')}</tr></table>`;
+    try {
+      if (window.ClipboardItem) await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([tsv], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]);
+      else await navigator.clipboard.writeText(tsv);
+      e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy list'; }, 1500);
+    } catch (err) {
+      try { await navigator.clipboard.writeText(tsv); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy list'; }, 1500); }
+      catch (err2) { alert('Copy was blocked by the browser. Use Export CSV instead.'); }
+    }
   };
 }
 
