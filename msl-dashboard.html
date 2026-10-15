@@ -1450,6 +1450,24 @@ const INS_CSS = `
 #mtInsights .ins-cta:hover{text-decoration:underline}
 `;
 
+
+// ─── Same search box on every raw list: hides rows that don't match (total rows always stay) ─────
+function rowSearchHtml(id, ph) {
+  return `<input type="search" id="${id}" placeholder="${ph || 'Search hub, part, part no., category…'}" aria-label="Search this list" style="font:inherit;font-size:13px;min-height:36px;padding:0 10px;border:1px solid #d1d5db;border-radius:8px;width:340px;max-width:100%;background:#fff;color:#111827">`;
+}
+function wireRowSearch(inputId, tableHost, countId) {
+  const inp = document.getElementById(inputId), host = typeof tableHost === 'string' ? document.getElementById(tableHost) : tableHost;
+  if (!inp || !host) return;
+  const run = () => {
+    const q = inp.value.trim().toLowerCase();
+    const rows = [...host.querySelectorAll('tbody tr')].filter(tr => !tr.classList.contains('mt-total') && !tr.hasAttribute('data-keep'));
+    let shown = 0;
+    rows.forEach(tr => { const hit = !q || tr.textContent.toLowerCase().includes(q); tr.style.display = hit ? '' : 'none'; if (hit) shown++; });
+    const c = countId && document.getElementById(countId); if (c) c.textContent = q ? `${shown} of ${rows.length} shown` : '';
+  };
+  inp.oninput = run; run();
+}
+
 // ─── Transfer plan pop-up: one row per transfer, grouped by part ─────
 let TRANSFER_PLAN = [];
 function openTransferPlan() {
@@ -1462,7 +1480,7 @@ function openTransferPlan() {
   if (!m) {
     m = document.createElement('div'); m.id = 'tpModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px';
-    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(1400px,97vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb"><div><b id="tpTitle" style="font-size:15px"></b><div id="tpSub" style="font-size:12px;color:#64748b;margin-top:2px"></div></div><span style="display:flex;gap:8px"><button type="button" id="tpCopy" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Copy plan</button><button type="button" id="tpCsv" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Export CSV</button><button type="button" id="tpClose" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Close</button></span></div><div id="tpBody" style="overflow:auto"></div></div>';
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(1400px,97vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb"><div><b id="tpTitle" style="font-size:15px"></b><div id="tpSub" style="font-size:12px;color:#64748b;margin-top:2px"></div></div><span style="display:flex;gap:8px"><button type="button" id="tpCopy" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Copy plan</button><button type="button" id="tpCsv" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Export CSV</button><button type="button" id="tpClose" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Close</button></span></div><div style="display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #eef0f3">' + rowSearchHtml('tpSearch') + '<span id="tpShown" style="font-size:12px;color:#64748b"></span></div><div id="tpBody" style="overflow:auto"></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
     m.querySelector('#tpClose').onclick = () => { m.style.display = 'none'; };
@@ -1484,8 +1502,10 @@ function openTransferPlan() {
       html += `<tr><td${sep}><b>${esc(t.part)}</b></td><td${sep}><span style="color:#64748b">${esc(t.pn)}</span></td><td${sep}>${esc(t.fsn)}</td><td${sep}>${esc(t.city)}</td><td${sep}><b>${esc(t.from)}</b></td><td${sepr}>${t.fromStock} / ${t.fromMsl}</td><td${sep}><span style="color:#94a3b8">→</span></td><td${sep}><b>${esc(t.to)}</b></td><td${sepr}><span style="color:#b91c1c">${t.toStock}</span> / ${t.toMsl}</td><td${sepr}><b style="color:#1e4fd8">${t.qty}</b></td></tr>`;
     });
   });
-  html += `<tr><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
+  html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
   m.querySelector('#tpBody').innerHTML = html;
+  m.querySelector('#tpSearch').value = '';
+  wireRowSearch('tpSearch', 'tpBody', 'tpShown');
   const flat = order.flatMap(p => byPart[p]);
   const head = ['Part', 'Part no.', 'FSN', 'City', 'From hub', 'From stock', 'From MSL', 'To hub', 'To stock', 'To MSL', 'Qty to send'];
   const data = flat.map(t => [t.part, t.pn, t.fsn, t.city, t.from, t.fromStock, t.fromMsl, t.to, t.toStock, t.toMsl, t.qty]);
@@ -1633,13 +1653,14 @@ function renderRpdcTables(box) {
   const coverColor = c => c === 'Can cover' ? '#15803d' : c === 'Partly' ? '#b45309' : '#b91c1c';
   const sumCell = (rp, c) => { const rs = coverRows.filter(x => (rp === null || x.rp === rp) && x.cover === c); const hubLines = rs.flatMap(x => x.rows); return `<td>${mtNum(rs.length, `${rp || 'All RPDCs'} · ${c} (hub short lines)`, () => true, '', hubLines)}</td>`; };
   const coverSummary = `<div class="mt-card"><div class="mt-title">Can RPDC cover hub shortages?<span>parts short at the hubs each RPDC supplies, vs RPDC stock</span></div><div class="mt-scroll"><table><thead><tr><th>Cover</th>${rpdcs.map(h => `<th>${h}</th>`).join('')}<th>Total</th></tr></thead><tbody>${COVER_ORDER.map(c => `<tr><td style="color:${coverColor(c)};font-weight:600">${c}</td>${rpdcs.map(h => sumCell(h, c)).join('')}${sumCell(null, c)}</tr>`).join('')}</tbody></table></div></div>`;
-  const coverList = `<div class="mt-card"><div class="mt-title">Hub shortages vs RPDC stock<span>${coverRows.length} parts · BLR RPDC supplies Bangalore, Hyderabad and Mumbai; NCR RPDC supplies NCR</span></div><div class="mt-scroll" style="max-height:520px;overflow:auto"><table><thead><tr><th>Part</th><th>RPDC</th><th style="text-align:left">FSN</th><th>Hubs short</th><th>Units short at hubs</th><th>RPDC stock</th><th style="text-align:left">Cover</th></tr></thead><tbody>${coverRows.map(x => `<tr><td>${x.name || x.pn}</td><td>${x.rp}</td><td style="text-align:left">${x.fsn}</td><td>${mtNum(x.hubs, `${x.name} · hubs short (${x.rp})`, () => true, 'mt-short', x.rows)}</td><td class="mt-short">${x.units.toLocaleString('en-IN')}</td><td>${x.stock.toLocaleString('en-IN')}</td><td style="text-align:left;color:${coverColor(x.cover)};font-weight:600">${x.cover}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const coverList = `<div class="mt-card"><div class="mt-title">Hub shortages vs RPDC stock<span>${coverRows.length} parts · BLR RPDC supplies Bangalore, Hyderabad and Mumbai; NCR RPDC supplies NCR</span></div><div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">${rowSearchHtml('cvSearch', 'Search part, RPDC, FSN, cover…')}<span id="cvShown" style="font-size:12px;color:#64748b"></span></div><div class="mt-scroll" id="cvTable" style="max-height:520px;overflow:auto"><table><thead><tr><th>Part</th><th>RPDC</th><th style="text-align:left">FSN</th><th>Hubs short</th><th>Units short at hubs</th><th>RPDC stock</th><th style="text-align:left">Cover</th></tr></thead><tbody>${coverRows.map(x => `<tr><td>${x.name || x.pn}</td><td>${x.rp}</td><td style="text-align:left">${x.fsn}</td><td>${mtNum(x.hubs, `${x.name} · hubs short (${x.rp})`, () => true, 'mt-short', x.rows)}</td><td class="mt-short">${x.units.toLocaleString('en-IN')}</td><td>${x.stock.toLocaleString('en-IN')}</td><td style="text-align:left;color:${coverColor(x.cover)};font-weight:600">${x.cover}</td></tr>`).join('')}</tbody></table></div></div>`;
 
   box.innerHTML =
     `<div class="mt-row">${mtSummaryTable('MSL by RPDC', 'RPDC', rpdcs, r => r.hub_name, false)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
     `<div class="mt-row">${runway}${coverSummary}</div>` +
     coverList +
     mtMatrix('Short parts by Category', 'Category × RPDC', 'Category', [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b)), mtCat, rpdcs);
+  wireRowSearch('cvSearch', 'cvTable', 'cvShown');
   if (!box.dataset.wired) {
     box.dataset.wired = '1';
     box.addEventListener('click', e => { const b = e.target.closest('[data-mt]'); if (b) mtOpen(MT_CELLS[+b.dataset.mt]); });
@@ -1701,12 +1722,14 @@ async function renderOrderList() {
         <button type="button" id="ordCopy" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Copy list</button>
         <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
       </div></div>
-    <div class="mt-scroll" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Runway (days)</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
+    <div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">${rowSearchHtml('ordSearch', 'Search part, part no., category…')}<span id="ordShown" style="font-size:12px;color:#64748b"></span></div>
+    <div class="mt-scroll" id="ordTable" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Runway (days)</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
       list.map(x => { const sd = sendable(x); return `<tr><td>${esc(x.r.part_name)}${fsnBadge(x.r.part_number)}</td><td style="text-align:left;color:#64748b">${esc(x.r.part_number)}</td><td style="text-align:left">${esc(mtCat(x.r))}</td><td style="text-align:left">${mtFsn(x.r)}</td><td>${x.r.msl_qty}</td><td>${x.r.closing_stock ?? 0}</td><td style="${x.r.runway_days != null && x.r.runway_days <= 0 ? 'color:#b91c1c;font-weight:700' : ''}">${x.r.runway_days == null ? '—' : Math.max(0, x.r.runway_days)}</td><td>${x.target}</td><td style="font-weight:700;color:#b91c1c">${x.qty.toLocaleString('en-IN')}</td>${rp ? `<td style="color:${sd == null ? '#64748b' : sd >= x.qty ? '#15803d' : sd > 0 ? '#b45309' : '#b91c1c'}">${sd == null ? 'not stocked' : sd.toLocaleString('en-IN')}</td>` : ''}</tr>`; }).join('')
       || '<tr><td colspan="9" style="color:#15803d">Nothing to order: every part is at or above the target.</td></tr>'
     }</tbody>${list.length ? `<tbody><tr class="mt-total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${units.toLocaleString('en-IN')}</td>${rp ? '<td></td>' : ''}</tr></tbody>` : ''}</table></div></div>`;
   box.querySelector('#ordBuf').onchange = e => { ORDER_BUFFER = +e.target.value; renderOrderList(); };
   box.querySelector('#ordHub').onchange = e => { ORDER_HUB = e.target.value; renderOrderList(); };
+  wireRowSearch('ordSearch', 'ordTable', 'ordShown');
   box.querySelector('#ordCsv').onclick = () => {
     const head = ['Hub', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
     const rows = list.map(x => [hub, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.r.runway_days == null ? '' : Math.max(0, x.r.runway_days), x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
