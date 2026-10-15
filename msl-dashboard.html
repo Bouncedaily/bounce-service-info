@@ -1349,8 +1349,8 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
   const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}${cell(k, null)}</tr>`).join('')
     + `<tr class="mt-total"><td>Total short</td>${hubs.map(h => cell(null, h)).join('')}${cell(null, null)}</tr>`
     + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(MT_ROWS.filter(r => r.hub_name === h))}</td>`).join('')}<td style="border-left:1px solid #e5e7eb">${mtPct(MT_ROWS.filter(r => hubs.includes(r.hub_name)))}</td></tr>`;
-  const fnote = /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
-  return `<div class="mt-card"><div class="mt-title">${title}<span>${sub}${fnote}</span></div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  const fnote = sub && /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
+  return `<div class="mt-card"><div class="mt-title">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for these logins; everyone else sees the page as before.
 const MT_PREVIEW_USERS = ['nithish@bounceshare.com'];
@@ -1400,7 +1400,7 @@ function renderMslTables() {
   box.innerHTML =
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
     mtRunwayMatrix(hubs) +
-    mtMatrix('Short parts by FSN', 'FSN × Hub', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
+    mtMatrix('Short parts by FSN', '', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
     mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
     '<div id="mtOrder"></div>';
   renderOrderList();
