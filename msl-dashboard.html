@@ -1466,7 +1466,12 @@ async function renderInsights() {
   if (zero.length) {
     const byHub = {}; zero.forEach(r => { byHub[r.hub_name] = (byHub[r.hub_name] || 0) + 1; });
     const top = Object.entries(byHub).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([h, n]) => `${h} (${n})`).join(', ');
-    add('red', '!', `${fmtN(zero.length)} fast-moving part${zero.length > 1 ? 's' : ''}`, 'are short with 0 days of stock left.', `Most at ${top}. These run out first.`, cta('Fast-moving parts with 0 days left', zero, `See the ${fmtN(zero.length)}`));
+    // Count each part once (same part at 11 hubs = 1 part), and say how many hubs it is spread over
+    const byPart = {}; zero.forEach(r => { const k = r.part_number || r.part_name; (byPart[k] = byPart[k] || { name: r.part_name, hubs: 0 }).hubs++; });
+    const nParts = Object.keys(byPart).length;
+    const widest = Object.values(byPart).sort((a, b) => b.hubs - a.hubs).filter(p => p.hubs > 1).slice(0, 3).map(p => `${p.name} (${p.hubs} hubs)`).join(', ');
+    add('red', '!', `${fmtN(nParts)} fast-moving part${nParts > 1 ? 's' : ''}`, `${nParts > 1 ? 'are' : 'is'} short with 0 days of stock left, across ${fmtN(zero.length)} hub line${zero.length > 1 ? 's' : ''}.`,
+      (widest ? `Widest: ${widest}. ` : '') + `Hubs with the most: ${top}.`, cta('Fast-moving parts with 0 days left', zero, `See the ${fmtN(nParts)} parts`));
   }
 
   // 2) hub shortages the RPDC can cover from stock above its own MSL
