@@ -1377,6 +1377,16 @@ function renderMslTables() {
     else hh.insertBefore(wrap, hh.querySelector('.legend'));
     wrap.appendChild(so);
   }
+  // Part search also only filters the heatmap: move it next to Short only
+  const se = document.getElementById('search'), sw = so && so.parentNode;
+  if (se && sw && !sw.contains(se)) {
+    const oldFg = se.closest('.fg');
+    Object.assign(se.style, { fontSize: '12px', minHeight: '0', padding: '5px 10px', border: '1px solid #d1d5db', borderRadius: '6px', width: '200px' });
+    se.placeholder = 'Search part…';
+    se.setAttribute('aria-label', 'Search part in the heatmap');
+    sw.appendChild(se);
+    if (oldFg) oldFg.style.display = 'none';
+  }
   const mw = document.getElementById('modeWrap');
   if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); }
   if (MSL_MODE === 'rpdc') { renderRpdcTables(box); return; }
