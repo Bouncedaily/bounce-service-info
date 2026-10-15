@@ -1490,9 +1490,9 @@ async function renderOrderList() {
   if (topHub) ORDER_HUB = topHub;
   if (ORDER_HUB && !hubList.includes(ORDER_HUB)) ORDER_HUB = '';
   const hub = ORDER_HUB;
-  const hubPicker = `<label style="display:flex;gap:6px;align-items:center">Hub <select id="ordHub" style="font:inherit;font-size:12px;min-height:32px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px"><option value="">Choose a hub</option>${hubList.map(h => `<option ${h === hub ? 'selected' : ''}>${h}</option>`).join('')}</select></label>`;
+  const hubPicker = `<label style="display:flex;gap:6px;align-items:center">Hub <select id="ordHub" style="font:inherit;font-size:13px;font-weight:600;min-height:34px;min-width:180px;border:1px solid #9ca3af;border-radius:6px;padding:0 10px;background:#fff;color:#111827"><option value="">Choose a hub</option>${hubList.map(h => `<option ${h === hub ? 'selected' : ''}>${h}</option>`).join('')}</select></label>`;
   if (!hub) {
-    box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between"><div>Order list<span>choose a hub to see what it needs to order</span></div><div style="font-size:12px;font-weight:600">${hubPicker}</div></div></div>`;
+    box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px"><div>Order list<span>choose a hub to see what it needs to order</span></div><div style="font-size:12px;font-weight:600">${hubPicker}</div></div></div>`;
     box.querySelector('#ordHub').onchange = e => { ORDER_HUB = e.target.value; renderOrderList(); };
     return;
   }
@@ -1504,10 +1504,10 @@ async function renderOrderList() {
   const sendable = x => { const st = RPDC_STOCK[rp + '|' + x.r.part_number]; return st ? (st.closing_stock || 0) : null; };   // RPDC stock count
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const opts = [0, 10, 20, 50].map(b => `<option value="${b}" ${b === ORDER_BUFFER ? 'selected' : ''}>${b ? `MSL + ${b}%` : 'Match MSL'}</option>`).join('');
-  box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+  box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px">
       <div>Order list · ${esc(hub)}<span>${list.length} parts · ${units.toLocaleString('en-IN')} units to order${rp ? ` · ${rp} stock shown for reference` : ''}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:600">
-        ${hubPicker}
+      <div style="font-size:12px;font-weight:600">${hubPicker}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:600;margin-left:auto">
         <label style="display:flex;gap:6px;align-items:center">Order up to <select id="ordBuf" style="font:inherit;font-size:12px;min-height:32px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px">${opts}</select></label>
         <button type="button" id="ordCopy" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Copy list</button>
         <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
