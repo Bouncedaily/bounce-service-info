@@ -139,6 +139,8 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
       <label>Wave<select id="t-wave"></select></label>
       <label>City<select id="t-city"><option value="">All cities</option></select></label>
       <span class="spacer"></span>
+      <button class="btn" id="up-report" title="Load the delivery / reply report Marketing sends back (CSV or Excel)"><i class="ti ti-upload"></i>Upload WhatsApp report</button>
+      <input type="file" id="up-file" accept=".csv,.xlsx,.xls" hidden>
       <button class="btn dark" id="dl-track"><i class="ti ti-download"></i>Download</button>
     </div>
     <div id="track-body"></div>
@@ -257,6 +259,21 @@ function recText(r){
   return 'Front '+s(f)+' · rear '+s(b);
 }
 function maskPhone(p){ return p?('••••••'+String(p).slice(-4)):''; }
+// Plain wording for the WhatsApp line: "front brake pad", "rear brake shoe", "front and rear brake pads"
+function partsDuePlain(r,view){
+  var t=TH[view]||TH.C, lim=r.brake_type==='Disc'?t.pad:t.shoe, due=[];
+  if(r.front_km>lim) due.push((r.front_part||'Front brake').toLowerCase());
+  if(r.rear_km>lim) due.push((r.rear_part||'Rear brake').toLowerCase());
+  if(due.length<2) return due[0]||'';
+  var a=due[0].replace(/^front\s+/,''), b=due[1].replace(/^rear\s+/,'');
+  return a===b ? 'front and rear '+a+'s' : due[0]+' and '+due[1];
+}
+// First name for "Hi {{1}}": title case; blank / one-letter / non-name values become "Rider"
+function greetName(raw){
+  var w=String(raw||'').trim().split(/\s+/)[0].replace(/[^A-Za-z\u0900-\u0DFF]/g,'');
+  if(w.length<2) return 'Rider';
+  return /[A-Za-z]/.test(w) ? w.charAt(0).toUpperCase()+w.slice(1).toLowerCase() : w;
+}
 function partsDue(r,view){
   var t=TH[view]||TH.C, lim=r.brake_type==='Disc'?t.pad:t.shoe, out=[];
   if(r.front_km>lim) out.push(r.front_part); if(r.rear_km>lim) out.push(r.rear_part);
@@ -377,7 +394,7 @@ async function downloadWave(id,fmt){
   var view=(w.filters&&w.filters.view)||w.view_code||'C';
   var out=[['reg_number','rider_name','rider_phone','city','hub','brake_type','parts_due','km_since_replacement','message_type','wave_id']];
   r.data.forEach(function(t){ var c=CONTACTS[t.reg_number]||{};
-    out.push([t.reg_number,c.rider_name||t.rider_name_at_send||'',CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,t.brake_type,partsDue(t,view),Math.max(t.front_km||0,t.rear_km||0),t.message_type||'first','W'+id]); });
+    out.push([t.reg_number,greetName(c.rider_name||t.rider_name_at_send),CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,t.brake_type,partsDuePlain(t,view),Math.max(t.front_km||0,t.rear_km||0),t.message_type||'first','W'+id]); });
   download('brake_blast_'+w.name.replace(/[^A-Za-z0-9]+/g,'_')+'_'+stamp(), out, fmt);
 }
 
@@ -409,6 +426,7 @@ function renderTrack(){
     '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Control: '+n(a.ctl)+' not messaged</div></div>'+
     '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Control: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
     '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Control: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
+  html+=responsesCard(rows);
   var key=TRKLEVEL==='city'?'city':'hub_name', groups={};
   rows.forEach(function(t){ (groups[t[key]]=groups[t[key]]||[]).push(t); });
   var names=Object.keys(groups).sort(function(x,y){return groups[y].length-groups[x].length;});
@@ -439,10 +457,73 @@ async function logOutcome(reg,val,sel){
   var t=TRK.rows.filter(function(x){return x.reg_number===reg;})[0]; if(t){ t.last_call_outcome=val; t.last_call_at=new Date().toISOString(); }
   toast('Saved for '+reg); renderTrack();
 }
+
+// ─── WhatsApp report upload (Marketing's delivery / reply report) ─────────────
+// Column names are matched loosely so small differences in Marketing's file still work.
+var REPORT_COLS={
+  phone:['rider_phone','phone','mobile','number','phone number','contact'],
+  reg:['reg_number','reg number','reg','registration','vehicle'],
+  delivered:['delivered','delivery status','delivery'],
+  read:['read','seen'],
+  failed:['failed','error','undelivered'],
+  button:['button clicked','button','quick reply','response','cta'],
+  hub_text:['hub name typed','hub name','hub typed','hub'],
+  reply_text:['any other text replies','other replies','text reply','reply','message'],
+  opted_out:['opt-outs','opt outs','opted out','opt-out','opt out','blocked','blocks']
+};
+function pickCol(headers,keys){
+  var h=headers.map(function(x){return String(x||'').trim().toLowerCase();});
+  for(var i=0;i<keys.length;i++){ var k=h.indexOf(keys[i]); if(k>=0) return k; }
+  for(var j=0;j<keys.length;j++){ for(var m=0;m<h.length;m++){ if(h[m].indexOf(keys[j])>=0) return m; } }
+  return -1;
+}
+async function uploadReport(file){
+  if(!TRK){ toast('Pick a sent wave first'); return; }
+  try{ await loadXLSX(); }catch(e){ toast('Could not load the file reader, try again'); return; }
+  var buf=await file.arrayBuffer(), wb=XLSX.read(buf,{type:'array'}), ws=wb.Sheets[wb.SheetNames[0]];
+  var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+  if(aoa.length<2){ toast('The file has no rows'); return; }
+  var head=aoa[0], idx={}; Object.keys(REPORT_COLS).forEach(function(k){ idx[k]=pickCol(head,REPORT_COLS[k]); });
+  if(idx.phone<0&&idx.reg<0){ toast('Could not find a phone or reg number column'); return; }
+  var rows=aoa.slice(1).filter(function(r){ return r.some(function(v){return String(v).trim();}); }).map(function(r){
+    var o={}; Object.keys(idx).forEach(function(k){ if(idx[k]>=0) o[k]=String(r[idx[k]]||'').trim(); });
+    // a "delivered" column that holds a status word like "Read" or "Failed"
+    if(o.delivered&&/read/i.test(o.delivered)&&!o.read) o.read='yes';
+    if(o.delivered&&/fail|undeliver|error/i.test(o.delivered)){ o.failed='yes'; o.delivered='no'; }
+    return o; });
+  var found=Object.keys(idx).filter(function(k){return idx[k]>=0;}).join(', ');
+  var w=WAVES.filter(function(x){return x.id===TRK.id;})[0];
+  if(!confirm('Load '+rows.length+' rows into '+(w?w.name:'this wave')+'?\n\nColumns found: '+found+'\n\nUploading the same report again replaces the earlier upload.')) return;
+  $('up-report').disabled=true; toast('Loading report…');
+  var tot={rows:0,matched:0,unmatched:0,samples:[]};
+  for(var i=0;i<rows.length;i+=1500){
+    var r=await rpc('import_brake_report',{p_campaign:TRK.id,p_rows:rows.slice(i,i+1500)});
+    if(!r.ok){ $('up-report').disabled=false; toast('Upload failed: '+r.msg); return; }
+    var d=r.data||{}; tot.rows+=d.rows||0; tot.matched+=d.matched||0; tot.unmatched+=d.unmatched||0; tot.samples=tot.samples.concat(d.unmatched_samples||[]);
+  }
+  $('up-report').disabled=false;
+  toast(tot.matched+' of '+tot.rows+' rows matched'+(tot.unmatched?' · '+tot.unmatched+' not in this wave (e.g. '+tot.samples.slice(0,3).join(', ')+')':''));
+  await loadTrack();
+}
+// Rider responses from the WhatsApp report, by status
+var RESP_ORDER=['Brake replaced','Replaced ✓ (job card found)','Says replaced - no job card','Visited - no brake change','Will visit today','Will visit tomorrow','Will visit','Not interested','Refused','Opted out','Wrong number','Replied','Read','Delivered','Not delivered','Sent'];
+function responsesCard(rows){
+  var m=rows.filter(function(t){return t.grp==='messaged';}), by={};
+  m.forEach(function(t){ by[t.status]=(by[t.status]||0)+1; });
+  var keys=RESP_ORDER.filter(function(k){return by[k];}).concat(Object.keys(by).filter(function(k){return RESP_ORDER.indexOf(k)<0;}));
+  if(!m.some(function(t){return t.delivered_at||t.button_choice||t.failed;})) return '<div class="card"><div class="card-hd"><div><h2>Rider responses</h2><div class="muted" style="margin-top:3px">Upload the WhatsApp report from Marketing to see delivered, read and button replies.</div></div></div></div>';
+  var tone={ 'Brake replaced':'color:var(--green)','Replaced ✓ (job card found)':'color:var(--green)','Says replaced - no job card':'color:var(--amber)','Not interested':'color:var(--red)','Refused':'color:var(--red)','Opted out':'color:var(--red)','Not delivered':'color:var(--red)' };
+  var dl=m.filter(function(t){return t.delivered_at;}).length, rd=m.filter(function(t){return t.read_at;}).length;
+  return '<div class="card"><div class="card-hd"><div><h2>Rider responses</h2><div class="muted" style="margin-top:3px">Delivered '+n(dl)+' ('+pct(dl,m.length)+') · Read '+n(rd)+' ('+pct(rd,m.length)+') · from the WhatsApp report</div></div></div>'+
+    '<div class="scroll"><table><thead><tr><th>Status</th><th class="r">Riders</th><th class="r">Share</th></tr></thead><tbody>'+
+    keys.map(function(k){ return '<tr><td class="b" style="'+(tone[k]||'')+'">'+esc(k)+'</td><td class="r">'+n(by[k])+'</td><td class="r">'+pct(by[k],m.length)+'</td></tr>'; }).join('')+
+    '</tbody></table></div></div>';
+}
+
 function downloadTrack(fmt){
   if(!TRK) return; var rows=trackRows();
-  var out=[['reg_number','group','message_type','city','hub','brake_type','sent_at','visited_at','visit_hub','brake_replaced_at','replaced_parts','last_call_outcome','status']];
-  rows.forEach(function(t){ out.push([t.reg_number,t.grp,t.message_type,t.city,t.hub_name,t.brake_type,fmtWhen(t.sent_at),fmtWhen(t.visited_at),t.visit_hub,fmtWhen(t.brake_replaced_at),t.replaced_parts,t.last_call_outcome,t.status]); });
+  var out=[['reg_number','group','message_type','city','hub','brake_type','sent_at','delivered','read','button_clicked','hub_name_typed','job_card_for_claim','text_reply','visited_at','visit_hub','brake_replaced_at','replaced_parts','last_call_outcome','status']];
+  rows.forEach(function(t){ out.push([t.reg_number,t.grp,t.message_type,t.city,t.hub_name,t.brake_type,fmtWhen(t.sent_at),t.delivered_at?'yes':(t.failed?'failed':''),t.read_at?'yes':'',t.button_choice||'',t.claimed_hub||'',t.claimed_jc||'',t.last_reply_text||'',fmtWhen(t.visited_at),t.visit_hub,fmtWhen(t.brake_replaced_at),t.replaced_parts,t.last_call_outcome,t.status]); });
   download('brake_tracking_W'+TRK.id+'_'+stamp(), out, fmt||'xlsx');
 }
 function downloadCalls(){
@@ -479,6 +560,8 @@ $('waves-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) re
 $('t-wave').onchange=loadTrack;
 $('t-city').onchange=renderTrack;
 $('dl-track').onclick=function(){ downloadTrack('xlsx'); };
+$('up-report').onclick=function(){ $('up-file').value=''; $('up-file').click(); };
+$('up-file').onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) uploadReport(f); };
 $('track-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; if(b.dataset.lvl){ TRKLEVEL=b.dataset.lvl; renderTrack(); } else if(b.id==='dl-calls') downloadCalls(); };
 $('track-body').onchange=function(e){ var s=e.target; if(s.dataset&&s.dataset.out) logOutcome(s.dataset.out,s.value,s); };
 load();
