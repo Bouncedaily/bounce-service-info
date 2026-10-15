@@ -128,6 +128,13 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
     <div class="card"><div class="card-hd"><h2>Wave by city</h2></div>
       <div class="scroll"><table><thead><tr><th>City</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">of which reminders</th><th class="r">Control</th></tr></thead><tbody id="blast-city"></tbody></table></div>
     </div>
+    <div class="card"><div class="card-hd"><div><h2>Hub load check</h2><div class="muted" style="margin-top:3px">Expected walk-ins per day if this wave goes out, by each bike's hub. Riders can go to any nearby hub, so treat this as a guide.</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-weight:600;color:var(--muted)">
+        <label style="display:flex;gap:6px;align-items:center">Expected response <input id="hl-resp" type="number" min="1" max="100" value="25" style="width:64px" aria-label="Expected response percent">%</label>
+        <label style="display:flex;gap:6px;align-items:center">Hub capacity <input id="hl-cap" type="number" min="1" max="500" value="15" style="width:64px" aria-label="Brake jobs a hub can take per day">/ day</label>
+      </div></div>
+      <div class="scroll"><table><thead><tr><th>Hub</th><th>City</th><th class="r">In blast file</th><th class="r">Expected walk-ins / day</th><th>Load</th></tr></thead><tbody id="hub-load"></tbody></table></div>
+    </div>
     <div class="card"><div class="card-hd"><h2>Waves</h2></div>
       <div class="scroll"><table><thead><tr><th>Wave</th><th>Created</th><th class="r">In blast file</th><th class="r">Control</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="waves-body"></tbody></table></div>
     </div>
@@ -321,6 +328,7 @@ function renderBlast(){
     return '<tr><td>'+esc(c)+'</td><td class="r">'+n(k.n)+'</td><td class="r" style="color:var(--blue);font-weight:600">'+n(m)+'</td><td class="r">'+n(k.rem)+'</td><td class="r" style="color:var(--amber);font-weight:600">'+n(ctl)+'</td></tr>'; }).join('');
   $('blast-city').innerHTML=html?html+'<tr class="tot"><td>Total</td><td class="r">'+n(tot.n)+'</td><td class="r">'+n(tot.m)+'</td><td class="r">'+n(tot.rem)+'</td><td class="r">'+n(tot.c)+'</td></tr>':'<tr><td colspan="5" class="msg">No bikes ready for these filters.</td></tr>';
   $('blast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Control (not messaged)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
+  renderHubLoad(rows, pc);
   var d=latestDraft();
   $('b-create').disabled=!IS_ADMIN||!!d||!tot.n;
   $('b-dl-csv').disabled=$('b-dl-xlsx').disabled=!d;
@@ -426,7 +434,7 @@ function renderTrack(){
     '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Control: '+n(a.ctl)+' not messaged</div></div>'+
     '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Control: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
     '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Control: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
-  html+=responsesCard(rows);
+  html+=responsesCard(rows)+walkinCard(rows)+bannerCard(rows);
   var key=TRKLEVEL==='city'?'city':'hub_name', groups={};
   rows.forEach(function(t){ (groups[t[key]]=groups[t[key]]||[]).push(t); });
   var names=Object.keys(groups).sort(function(x,y){return groups[y].length-groups[x].length;});
@@ -448,6 +456,7 @@ function renderTrack(){
     '</tbody></table></div></div>';
   $('track-body').innerHTML=html;
   TRK.calls=calls;
+  wireTrackExtras();
 }
 async function logOutcome(reg,val,sel){
   if(!val) return; sel.disabled=true;
@@ -456,6 +465,76 @@ async function logOutcome(reg,val,sel){
   if(!r.ok){ toast('Could not save: '+r.msg); sel.value=''; return; }
   var t=TRK.rows.filter(function(x){return x.reg_number===reg;})[0]; if(t){ t.last_call_outcome=val; t.last_call_at=new Date().toISOString(); }
   toast('Saved for '+reg); renderTrack();
+}
+
+
+// ─── 1) Hub load check: expected walk-ins per day per hub, over the 3-day window in the message ─────
+function renderHubLoad(rows, pc){
+  var resp=Math.max(1,Math.min(100,Number($('hl-resp').value)||25))/100, cap=Math.max(1,Number($('hl-cap').value)||15);
+  var by={};
+  rows.forEach(function(r){ var k=by[r.hub_name]||(by[r.hub_name]={city:r.city,first:0,rem:0}); if(r.blast_status==='Reminder due') k.rem++; else k.first++; });
+  var list=Object.keys(by).map(function(h){ var k=by[h], msg=k.first-Math.round(k.first*pc)+k.rem, perDay=msg*resp/3; return {h:h,city:k.city,msg:msg,perDay:perDay}; })
+    .sort(function(a,b){return b.perDay-a.perDay;});
+  var over=list.filter(function(x){return x.perDay>cap;}).length;
+  $('hub-load').innerHTML=list.length?list.map(function(x){
+    var lvl=x.perDay>cap?['Over capacity','var(--red)']:x.perDay>cap*0.7?['Busy','var(--amber)']:['OK','var(--green)'];
+    return '<tr><td class="b">'+esc(x.h)+'</td><td>'+esc(x.city)+'</td><td class="r">'+n(x.msg)+'</td><td class="r b">'+(Math.round(x.perDay*10)/10)+'</td><td style="color:'+lvl[1]+';font-weight:700">'+lvl[0]+'</td></tr>';
+  }).join('')+(over?'<tr><td colspan="5" class="msg" style="color:var(--red)">'+over+' hub(s) may get more brake jobs than they can handle. Consider sending city by city, or a few hubs at a time.</td></tr>':'')
+  :'<tr><td colspan="5" class="msg">No bikes ready for these filters.</td></tr>';
+}
+
+// ─── 2) Hub walk-in list: riders who said they'll visit today / tomorrow and haven't come yet ─────
+var WKHUB='';
+function walkinRows(rows){ return rows.filter(function(t){ return t.grp==='messaged' && (t.button_choice==='visit_today'||t.button_choice==='visit_tomorrow') && !t.visited_at && !t.brake_replaced_at; }); }
+function walkinCard(rows){
+  var all=walkinRows(rows), hubs=uniq(all.map(function(t){return t.hub_name;}));
+  if(WKHUB&&hubs.indexOf(WKHUB)<0) WKHUB='';
+  var list=all.filter(function(t){return !WKHUB||t.hub_name===WKHUB;}).sort(function(a,b){ return (a.button_choice===b.button_choice?0:(a.button_choice==='visit_today'?-1:1)) || a.hub_name.localeCompare(b.hub_name); });
+  var w=WAVES.filter(function(x){return x.id===TRK.id;})[0], view=(w&&w.filters&&w.filters.view)||'C';
+  return '<div class="card"><div class="card-hd"><div><h2>Hub walk-in list</h2><div class="muted" style="margin-top:3px">Riders who tapped "I\'ll visit today / tomorrow" and have not come in yet · '+n(all.length)+' riders. Keep pads / shoes ready and serve them first.</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center"><select id="wk-hub" aria-label="Hub"><option value="">All hubs</option>'+hubs.map(function(h){return '<option'+(h===WKHUB?' selected':'')+'>'+esc(h)+'</option>';}).join('')+'</select>'+
+    '<button class="btn" id="wk-dl"'+(list.length?'':' disabled')+'><i class="ti ti-download"></i>Download</button></div></div>'+
+    '<div class="scroll"><table><thead><tr><th>Hub</th><th>Reg number</th><th>Rider</th><th>Phone</th><th>Brake</th><th>Parts due</th><th>Said</th></tr></thead><tbody>'+
+    (list.length?list.map(function(t){ var c=CONTACTS[t.reg_number]||{};
+      return '<tr><td class="b">'+esc(t.hub_name)+'</td><td class="b">'+esc(t.reg_number)+'</td><td>'+esc(c.rider_name||t.rider_name_at_send||'')+'</td><td>'+(CANPHONE?esc(maskPhone(c.rider_phone)):'<span class="muted">No access</span>')+'</td>'+
+        '<td><span class="tag '+(t.brake_type==='Disc'?'disc':'drum')+'">'+esc(t.brake_type)+'</span></td><td>'+esc(partsDuePlain(t,view))+'</td>'+
+        '<td style="font-weight:700;color:'+(t.button_choice==='visit_today'?'var(--green)':'var(--blue)')+'">'+(t.button_choice==='visit_today'?'Today':'Tomorrow')+'</td></tr>'; }).join('')
+      :'<tr><td colspan="7" class="msg">No riders waiting'+(WKHUB?' for '+esc(WKHUB):'')+'. This list fills in after the WhatsApp report is uploaded.</td></tr>')+
+    '</tbody></table></div></div>';
+}
+function downloadWalkins(){
+  var all=walkinRows(trackRows()).filter(function(t){return !WKHUB||t.hub_name===WKHUB;});
+  var w=WAVES.filter(function(x){return x.id===TRK.id;})[0], view=(w&&w.filters&&w.filters.view)||'C';
+  var out=[['hub','reg_number','rider_name','rider_phone','brake_type','parts_due','said']];
+  all.forEach(function(t){ var c=CONTACTS[t.reg_number]||{}; out.push([t.hub_name,t.reg_number,c.rider_name||t.rider_name_at_send||'',CANPHONE?(c.rider_phone||''):'',t.brake_type,partsDuePlain(t,view),t.button_choice==='visit_today'?'Today':'Tomorrow']); });
+  download('brake_walkins_W'+TRK.id+(WKHUB?'_'+WKHUB.replace(/[^A-Za-z0-9]+/g,'_'):'')+'_'+stamp(), out, 'xlsx');
+}
+
+// ─── 3) App banner lists: who should see "Your brake check is due", and who to remove ─────
+// Control riders never get the banner (it would spoil the comparison).
+function bannerDone(t){ return !!(t.brake_replaced_at || (t.button_choice==='replaced' && t.claimed_verified) || t.visited_at); }
+function bannerLists(rows){
+  var m=rows.filter(function(t){return t.grp==='messaged';});
+  return { show:m.filter(function(t){return !bannerDone(t) && !t.opted_out;}), hide:m.filter(function(t){return bannerDone(t) || t.opted_out;}), ctl:rows.length-m.length };
+}
+function bannerCard(rows){
+  var b=bannerLists(rows);
+  return '<div class="card"><div class="card-hd"><div><h2>App banner lists</h2><div class="muted" style="margin-top:3px">For the app team. <b>Show</b>: messaged riders still due ('+n(b.show.length)+'). <b>Hide</b>: brake replaced, visited, verified "already replaced" or opted out ('+n(b.hide.length)+'). '+n(b.ctl)+' control riders are left out of both, so they never see the banner.</div></div>'+
+    '<div style="display:flex;gap:8px"><button class="btn" id="bn-show"'+(b.show.length?'':' disabled')+'><i class="ti ti-download"></i>Show list</button><button class="btn" id="bn-hide"'+(b.hide.length?'':' disabled')+'><i class="ti ti-download"></i>Hide list</button></div></div></div>';
+}
+function downloadBanner(kind){
+  var b=bannerLists(trackRows()), list=b[kind];
+  var out=[['reg_number','rider_phone','city','hub',kind==='show'?'show_banner':'hide_banner','reason']];
+  list.forEach(function(t){ var c=CONTACTS[t.reg_number]||{};
+    var why=kind==='show'?'brake due':(t.brake_replaced_at?'brake replaced':t.visited_at?'visited hub':t.opted_out?'opted out':'already replaced (job card found)');
+    out.push([t.reg_number,CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,'yes',why]); });
+  download('brake_banner_'+kind+'_W'+TRK.id+'_'+stamp(), out, 'xlsx');
+}
+function wireTrackExtras(){
+  var hs=$('wk-hub'); if(hs) hs.onchange=function(){ WKHUB=hs.value; renderTrack(); };
+  var wd=$('wk-dl'); if(wd) wd.onclick=downloadWalkins;
+  var bs=$('bn-show'); if(bs) bs.onclick=function(){ downloadBanner('show'); };
+  var bh=$('bn-hide'); if(bh) bh.onclick=function(){ downloadBanner('hide'); };
 }
 
 // ─── WhatsApp report upload (Marketing's delivery / reply report) ─────────────
@@ -550,6 +629,7 @@ $('pg-next').onclick=function(){ PAGE++; renderLive(); };
 $('dl-live-csv').onclick=function(){ downloadLive('csv'); };
 $('dl-live-xlsx').onclick=function(){ downloadLive('xlsx'); };
 $('ctrl-pct').oninput=renderBlast;
+$('hl-resp').oninput=renderBlast; $('hl-cap').oninput=renderBlast;
 $('b-create').onclick=createWave;
 $('b-dl-csv').onclick=function(){ var d=latestDraft(); if(d) downloadWave(d.id,'csv'); };
 $('b-dl-xlsx').onclick=function(){ var d=latestDraft(); if(d) downloadWave(d.id,'xlsx'); };
