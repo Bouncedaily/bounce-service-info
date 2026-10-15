@@ -1369,6 +1369,9 @@ function renderMslTables() {
   const box = document.getElementById('mslTables'); if (!box) return;
   if (!MT_PREVIEW_USERS.includes(mtViewer())) { box.innerHTML = ''; return; }
   const tm = document.getElementById('tab-msl'); if (tm) tm.classList.add('mt-preview');
+  // "Short only" only filters the Parts × Hub heatmap, so it lives in the heatmap's header in the new view
+  const so = document.getElementById('shortOnly'), hh = document.querySelector('#tab-msl .heatmap-header');
+  if (so && hh && !hh.contains(so)) { so.style.marginLeft = 'auto'; so.style.alignSelf = 'center'; const lg = hh.querySelector('.legend'); hh.insertBefore(so, lg || null); }
   const mw = document.getElementById('modeWrap');
   if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); }
   if (MSL_MODE === 'rpdc') { renderRpdcTables(box); return; }
