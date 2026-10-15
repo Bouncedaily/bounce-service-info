@@ -111,6 +111,9 @@
           <input type="text" id="user-search" placeholder="Search name or email…" oninput="filterUsers()" style="flex:1;max-width:280px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12.5px">
           <div id="bulk-bar" style="display:none;align-items:center;gap:8px;margin-left:auto">
             <span style="font-size:11.5px;color:var(--muted)"><span id="bulk-count">0</span> selected</span>
+            <select id="bulk-dash" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px" aria-label="Dashboard"><option value="">Dashboard…</option></select>
+            <button class="btn" style="background:#052e16;color:#4ade80;border:1px solid #14532d" onclick="bulkAccess(true)">Give access</button>
+            <button class="btn" style="background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="bulkAccess(false)">Remove access</button>
             <button class="btn btn-danger" onclick="bulkRevoke()">Revoke Selected</button>
           </div>
         </div>
@@ -122,11 +125,30 @@
         </div>
       </div>
 
+      <!-- Access by dashboard -->
+      <div class="card" id="access-by-dash-card">
+        <div class="card-hd"><h2>Access by dashboard</h2><span class="sub">Who can open each dashboard · admins can open everything</span>
+          <input type="search" id="abd-search" placeholder="Search dashboard or person…" oninput="renderAccessByDash()" style="margin-left:auto;max-width:260px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12.5px">
+        </div>
+        <div class="tbl"><table><thead><tr><th style="width:220px">Dashboard</th><th style="width:70px">People</th><th>Who has access</th><th style="width:220px">Add someone</th></tr></thead>
+          <tbody id="abd-tbody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
+      </div>
+
       <!-- System Health -->
       <div class="card" id="syshealth-card" style="display:none">
-        <div class="card-hd"><h2>System Health</h2><span class="sub">Scheduled sync jobs — last run status</span>
+        <div class="card-hd"><h2>System Health</h2><span class="sub">Is every dashboard's data fresh, and did the scheduled jobs run?</span>
           <button class="btn" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="loadCronHealth()">↻ Refresh</button>
         </div>
+        <div id="fresh-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Data freshness</div>
+        <div class="tbl" style="margin-bottom:16px">
+          <table>
+            <thead><tr><th>Data</th><th>Used by</th><th>Last updated</th><th>Should refresh every</th><th>Status</th></tr></thead>
+            <tbody id="fresh-tbody"><tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div id="fresh-checks" style="margin-bottom:16px"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Scheduled jobs</div>
         <div class="tbl">
           <table>
             <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th><th>Action</th></tr></thead>
@@ -317,6 +339,8 @@ async function loadUsers() {
   var _ist=function(x){return new Date(new Date(x).getTime()+5.5*3600*1000).toISOString().slice(0,10);};var _t=_ist(Date.now());
   document.getElementById('s-today').textContent = users.filter(function(u){return u.last_login && _ist(u.last_login)===_t;}).length;
   renderUsers(users);
+  fillBulkDash();
+  renderAccessByDash();
 }
 function filterUsers() {
   const q = document.getElementById('user-search').value.trim().toLowerCase();
@@ -529,8 +553,83 @@ async function repairGap(btn) {
 }
 
 // ── SYSTEM HEALTH ──
+
+// ─── Shared list of dashboards (same as the per-user checkboxes) ─────
+const DASH_ACCESS_ALL = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['hub_leaderboard','Hub Leaderboard'],['tools_tracker','Tools Tracker'],['tools_audit','Tools Audit (can submit)'],['brake_campaign','Brake Campaign (sees rider phones)'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker'],['scrap','Scrap Management']];
+const DEFAULT_PERMS = {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,hub_control_tower:true,msl_dashboard:false,hub_tv:false,oos:false};
+const dashLabel = k => { const d = DASH_ACCESS_ALL.find(x => x[0] === k); return d ? d[1].replace('&amp;', '&') : k; };
+function fillBulkDash() {
+  const sel = document.getElementById('bulk-dash'); if (!sel || sel.options.length > 1) return;
+  DASH_ACCESS_ALL.forEach(d => { const o = document.createElement('option'); o.value = d[0]; o.textContent = d[1].replace('&amp;', '&'); sel.appendChild(o); });
+}
+// Give / remove one dashboard for every selected user
+async function bulkAccess(give) {
+  const key = document.getElementById('bulk-dash').value;
+  const emails = [...document.querySelectorAll('.user-select-cb:checked')].map(el => el.dataset.email).filter(e => e !== ADMIN);
+  if (!key) { showToast('Pick a dashboard first', 'err'); return; }
+  if (!emails.length) return;
+  if (!confirm(`${give ? 'Give' : 'Remove'} "${dashLabel(key)}" ${give ? 'to' : 'from'} ${emails.length} user(s)?`)) return;
+  let done = 0;
+  for (const email of emails) {
+    const u = (ALL_USERS || []).find(x => x.email === email); if (!u) continue;
+    const perms = { ...(u.permissions || DEFAULT_PERMS), [key]: give };
+    await rpc('update_user_permissions', { user_email: email, user_permissions: perms });
+    logAudit(email, 'set_perm', { key, val: give, bulk: true });
+    done++;
+  }
+  showToast(`${give ? 'Gave' : 'Removed'} ${dashLabel(key)} for ${done} user(s)`);
+  await loadUsers(); loadAuditLog();
+}
+// ─── Access by dashboard ─────
+function renderAccessByDash() {
+  const tb = document.getElementById('abd-tbody'); if (!tb) return;
+  const users = (ALL_USERS || []).filter(u => u.is_active !== false);
+  const q = (document.getElementById('abd-search').value || '').trim().toLowerCase();
+  const admins = users.filter(u => u.role === 'admin' || u.email === ADMIN);
+  const rows = DASH_ACCESS_ALL.map(([key, label]) => {
+    const has = users.filter(u => !(u.role === 'admin' || u.email === ADMIN) && (u.permissions || DEFAULT_PERMS)[key]);
+    const without = users.filter(u => !(u.role === 'admin' || u.email === ADMIN) && !(u.permissions || DEFAULT_PERMS)[key]);
+    const text = (label + ' ' + has.map(u => (u.name || '') + ' ' + u.email).join(' ')).toLowerCase();
+    if (q && !text.includes(q)) return '';
+    const chips = has.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email)).map(u => `<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;padding:2px 4px 2px 9px;border:1px solid var(--border);border-radius:999px;font-size:11.5px" title="${u.email}">${u.name || u.email}<button type="button" onclick="abdSet('${u.email}','${key}',false)" aria-label="Remove ${u.name || u.email}" style="border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 4px">×</button></span>`).join('');
+    const add = without.length ? `<select onchange="if(this.value){abdSet(this.value,'${key}',true)}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px"><option value="">+ Give access…</option>${without.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email)).map(u => `<option value="${u.email}">${u.name || u.email}</option>`).join('')}</select>` : '<span style="font-size:11px;color:var(--muted)">Everyone has it</span>';
+    return `<tr><td style="font-weight:600">${label}</td><td style="font-weight:700">${has.length}<span style="font-weight:400;color:var(--muted);font-size:11px"> + ${admins.length} admin</span></td><td>${chips || '<span style="font-size:11px;color:var(--muted)">Only admins</span>'}</td><td>${add}</td></tr>`;
+  }).join('');
+  tb.innerHTML = rows || '<tr><td colspan="4" class="empty">No match</td></tr>';
+}
+async function abdSet(email, key, val) {
+  if (!val && !confirm(`Remove "${dashLabel(key)}" from ${email}?`)) return;
+  const u = (ALL_USERS || []).find(x => x.email === email); if (!u) return;
+  const perms = { ...(u.permissions || DEFAULT_PERMS), [key]: val };
+  await rpc('update_user_permissions', { user_email: email, user_permissions: perms });
+  logAudit(email, 'set_perm', { key, val, from: 'access_by_dashboard' });
+  showToast(`${val ? 'Gave' : 'Removed'} ${dashLabel(key)} ${val ? 'to' : 'from'} ${u.name || email}`);
+  await loadUsers(); loadAuditLog();
+}
+// ─── Data freshness (System Health) ─────
+async function loadFreshness() {
+  const tb = document.getElementById('fresh-tbody'); if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr>';
+  try {
+    const r = await rpc('get_data_freshness', {});
+    const d = await r.json();
+    const ds = d.datasets || [];
+    const pill = st => { const m = { ok: ['#052e16', '#4ade80', 'Fresh'], late: ['#422006', '#fbbf24', 'Late'], stale: ['#450a0a', '#fca5a5', 'Stale'], missing: ['#450a0a', '#fca5a5', 'No data'] }[st] || ['#1e293b', '#cbd5e1', st]; return `<span class="pill" style="background:${m[0]};color:${m[1]}">${m[2]}</span>`; };
+    const age = h => h == null ? '—' : h < 1 ? `${Math.round(h * 60)} min ago` : h < 48 ? `${Math.round(h)} h ago` : `${Math.round(h / 24)} days ago`;
+    const every = h => h < 24 ? `${h} h` : `${Math.round(h / 24)} day`;
+    tb.innerHTML = ds.map(x => `<tr${x.status !== 'ok' ? ' style="background:rgba(220,38,38,.06)"' : ''}><td style="font-weight:600">${x.label}</td><td style="font-size:12px;color:var(--muted)">${x.dashboards}</td><td style="font-size:12px">${age(x.age_hours)}<div style="font-size:11px;color:var(--muted)">${x.last_at ? fmt(x.last_at) : ''}</div></td><td style="font-size:12px">${every(x.max_hours)}</td><td>${pill(x.status)}</td></tr>`).join('');
+    const n = st => ds.filter(x => x.status === st).length;
+    const box = (label, val, col) => `<div style="flex:1 1 140px;border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600">${label}</div><div style="font-size:22px;font-weight:700;color:${col}">${val}</div></div>`;
+    document.getElementById('fresh-summary').innerHTML = box('Fresh', n('ok'), '#4ade80') + box('Late', n('late'), '#fbbf24') + box('Stale / no data', n('stale') + n('missing'), '#fca5a5') + box('Datasets watched', ds.length, 'var(--text)');
+    document.getElementById('fresh-checks').innerHTML = (d.checks || []).map(c => `<div style="border:1px solid var(--border);border-left:4px solid ${c.status === 'ok' ? '#22c55e' : '#ef4444'};border-radius:8px;padding:10px 12px;font-size:12.5px"><b>${c.label}: ${c.value}</b><div style="color:var(--muted);margin-top:2px">${c.note}</div></div>`).join('');
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">Could not load.</td></tr>';
+  }
+}
+
 async function loadCronHealth() {
   loadFlowGaps();
+  loadFreshness();
   const tbody = document.getElementById('health-tbody');
   tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr>';
   try {
