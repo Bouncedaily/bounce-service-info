@@ -1427,7 +1427,9 @@ function mtRunwayMatrix(hubs) {
     return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${h || 'All hubs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](rw(r)), b[0] === '0 days' ? 'mt-short' : '', base)}</td>`;
   };
   const avg = h => { const set = base.filter(r => r.hub_name === h); return set.length ? Math.round(set.reduce((s, r) => s + Math.min(rw(r), 365), 0) / set.length) : ''; };
+  const ALL = ['Total', () => true];
   const body = RUNWAY_BUCKETS.map(b => `<tr><td>${b[0]}</td>${hubs.map(h => cell(b, h)).join('')}${cell(b, null)}</tr>`).join('')
+    + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(ALL, h)).join('')}${cell(ALL, null)}</tr>`
     + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
   return `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
