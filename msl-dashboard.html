@@ -1332,15 +1332,12 @@ function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
     const hubsN = new Set(rows.map(r => r.hub_name)).size;
     return `<tr class="${total ? 'mt-total' : ''}"><td>${label}</td>${withHubs ? `<td>${hubsN}</td>` : ''}${cols.map(([m, h]) => {
       const set = by(m);
-      const cellHtml = `<td>${mtNum(set.length, `${label} · ${h}`, r => (total || keyOf(r) === label) && (m === 'lines' || mtSt(r) === m), m === 'short' ? 'mt-short' : m === 'nc' ? 'mt-muted' : '')}</td>`;
-      if (m !== 'short') return cellHtml;
-      const units = set.reduce((s, r) => s + Math.max((r.msl_qty || 0) - (r.closing_stock || 0), 0), 0);
-      return cellHtml + `<td class="mt-short">${units ? units.toLocaleString('en-IN') : ''}</td>`;
+      return `<td>${mtNum(set.length, `${label} · ${h}`, r => (total || keyOf(r) === label) && (m === 'lines' || mtSt(r) === m), m === 'short' ? 'mt-short' : m === 'nc' ? 'mt-muted' : '')}</td>`;
     }).join('')}<td>${mtPct(rows)}</td></tr>`;
   };
   const body = keys.filter(k => MT_ROWS.some(r => keyOf(r) === k)).map(k => line(k, MT_ROWS.filter(r => keyOf(r) === k), false)).join('') + line('Total', MT_ROWS, true);
   const note = /FSN/.test(title) && FSN_MONTHS ? `<span>FSN from ${FSN_MONTHS} billing · Part Details FSN tab</span>` : '';
-  return `<div class="mt-card"><div class="mt-title">${title}${note}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => c[0] === 'short' ? `<th>${c[1]}</th><th title="MSL minus closing stock, on short lines">Units short</th>` : `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="mt-card"><div class="mt-title">${title}${note}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
   const shortRows = MT_ROWS.filter(r => mtSt(r) === 'short' && hubs.includes(r.hub_name));
