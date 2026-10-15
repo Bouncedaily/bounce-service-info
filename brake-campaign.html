@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brake Campaign</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#1d4ed8;--blue-bg:#e0ebff;--amber:#b45309;--amber-bg:#fdf0dc;--green:#15803d;--font:'Inter',-apple-system,'Segoe UI',Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1500px}
+h1{font-size:20px;margin:0;font-weight:700}
+h2{font-size:14px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 14px;line-height:1.5}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin:0 0 16px;overflow-x:auto}
+.tab{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+.tab:focus-visible,.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px}
+.bar label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);font-weight:600}
+input,select{padding:7px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;background:#fff;color:var(--text);font-family:inherit;min-height:34px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;min-height:36px;border:1px solid var(--border2);border-radius:7px;background:#fff;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.btn:hover{background:#f8fafc}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}.btn.primary:hover{background:#b91c1c}
+.btn.dark{background:var(--text);border-color:var(--text);color:#fff}.btn.dark:hover{background:#1e293b}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{min-height:30px;padding:4px 10px;font-size:12px}
+.spacer{flex:1}.muted{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-lbl{font-size:12px;color:var(--muted);font-weight:600}
+.kpi-val{font-size:26px;font-weight:800;line-height:1.2;margin-top:4px}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.chip{background:#fff;border:1px solid var(--border);border-radius:20px;padding:5px 12px}
+.fchip{background:#eff6ff;color:var(--blue);border-radius:6px;padding:4px 9px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.card-bd{padding:16px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #eef1f6;font-size:12.5px;white-space:nowrap}
+th{background:#f8fafc;color:var(--text2);font-size:11px;font-weight:700}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+td.b{font-weight:700}
+tr.tot td{font-weight:800;background:#fafbfc}
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11.5px;font-weight:700}
+.tag.disc{background:var(--blue-bg);color:var(--blue)}.tag.drum{background:var(--amber-bg);color:var(--amber)}
+.flag{display:inline-block;min-width:22px;text-align:center;padding:1px 7px;border-radius:10px;font-weight:700;background:#fde8e8;color:#b42318}
+.st{font-size:12px}.st.ok{color:var(--green);font-weight:600}.st.no{color:var(--muted)}
+.pager{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;color:var(--muted)}
+.counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0}
+.count{background:#f8fafc;border-radius:8px;padding:12px 14px}
+.count .v{font-size:24px;font-weight:800}
+.steps{display:flex;flex-wrap:wrap;gap:10px}
+.seg{display:inline-flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 14px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--text);min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--text);color:#fff}
+.funnel{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.fbox{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.fbox .v{font-size:30px;font-weight:800;margin-top:4px}
+.fbox .c{color:var(--muted);margin-top:4px}
+.msg{padding:28px 16px;text-align:center;color:var(--muted);line-height:1.6}
+.notice{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:10px 14px;margin-bottom:14px;line-height:1.5}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-decoration:underline}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:50;font-weight:600}
+.loading{padding:40px 16px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body>
+<div class="wrap">
+  <h1>Brake Campaign</h1>
+  <div class="psub" id="sub">Brake-overdue bikes for the WhatsApp blast, refreshed every hour.</div>
+
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab active" role="tab" aria-selected="true" data-tab="live">Live list</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="blast">Create blast file</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="track">Tracking</button>
+  </div>
+
+  <div id="alert"></div>
+
+  <!-- LIVE LIST -->
+  <section id="tab-live">
+    <div class="bar" aria-label="Filters">
+      <label>City<select id="f-city"><option value="">All cities</option></select></label>
+      <label>Hub<select id="f-hub"><option value="">All hubs</option></select></label>
+      <label>Threshold view<select id="f-view">
+        <option value="C">C · Pad &gt;10,000 / Shoe &gt;15,000 km</option>
+        <option value="B">B · Pad &gt;7,500 / Shoe &gt;12,000 km</option>
+        <option value="A">A · Pad &gt;6,000 / Shoe &gt;10,000 km</option></select></label>
+      <label>Flag count<select id="f-flag">
+        <option value="2">2 (front + rear)</option><option value="1">1 (one part)</option><option value="any">1 or 2</option></select></label>
+      <label>Brake type<select id="f-brake"><option value="">Disc + Drum</option><option value="Disc">Disc</option><option value="Drum">Drum</option></select></label>
+      <label>Show<select id="f-mode"><option value="ready">Ready for blast</option><option value="all">All overdue (with reason)</option></select></label>
+      <label>Search<input id="f-q" type="search" placeholder="Reg or rider"></label>
+      <span class="spacer"></span>
+      <button class="btn" id="dl-live-csv"><i class="ti ti-download"></i>CSV</button>
+      <button class="btn dark" id="dl-live-xlsx"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+    </div>
+    <div class="kpis" id="live-kpis"></div>
+    <div class="chips" id="live-cities"></div>
+    <div class="card">
+      <div class="scroll"><table>
+        <thead><tr><th>Reg number</th><th>City · Hub</th><th>Model</th><th>Brake</th><th class="r">Front km</th><th class="r">Rear km</th><th>Part record</th><th class="r">Days since service</th><th class="r">Flags</th><th>Status</th><th>Rider</th><th>Phone</th></tr></thead>
+        <tbody id="live-body"><tr><td colspan="12" class="loading">Loading live list…</td></tr></tbody>
+      </table></div>
+      <div class="pager"><span id="live-count"></span><span class="steps"><button class="btn sm" id="pg-prev">Previous</button><button class="btn sm" id="pg-next">Next</button></span></div>
+    </div>
+  </section>
+
+  <!-- CREATE BLAST FILE -->
+  <section id="tab-blast" hidden>
+    <div class="card"><div class="card-bd">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center">
+        <div class="chips" style="margin:0" id="blast-chips"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Control group
+          <input id="ctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Control group percent">%</label>
+      </div>
+      <div class="counts" id="blast-counts"></div>
+      <div class="steps">
+        <button class="btn primary" id="b-create">1 · Create wave</button>
+        <button class="btn" id="b-dl-csv">2 · Download CSV</button>
+        <button class="btn" id="b-dl-xlsx">2 · Download Excel</button>
+        <button class="btn dark" id="b-sent">3 · Mark as sent</button>
+      </div>
+      <div class="muted" id="blast-hint" style="margin-top:10px"></div>
+    </div></div>
+    <div class="card"><div class="card-hd"><h2>Wave by city</h2></div>
+      <div class="scroll"><table><thead><tr><th>City</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">of which reminders</th><th class="r">Control</th></tr></thead><tbody id="blast-city"></tbody></table></div>
+    </div>
+    <div class="card"><div class="card-hd"><h2>Waves</h2></div>
+      <div class="scroll"><table><thead><tr><th>Wave</th><th>Created</th><th class="r">In blast file</th><th class="r">Control</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="waves-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- TRACKING -->
+  <section id="tab-track" hidden>
+    <div class="bar">
+      <label>Wave<select id="t-wave"></select></label>
+      <label>City<select id="t-city"><option value="">All cities</option></select></label>
+      <span class="spacer"></span>
+      <button class="btn dark" id="dl-track"><i class="ti ti-download"></i>Download</button>
+    </div>
+    <div id="track-body"></div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var TH={A:{pad:6000,shoe:10000},B:{pad:7500,shoe:12000},C:{pad:10000,shoe:15000}};
+var LIVE=[], CONTACTS={}, CANPHONE=false, IS_ADMIN=false, WAVES=[], PAGE=0, PAGESZ=50, TRK=null, TRKLEVEL='city';
+var OUTCOMES=[['','Select outcome'],['will_visit','Will visit'],['call_no_answer','No answer'],['refused','Refused'],['wrong_number','Wrong number']];
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function n(v){return v==null||v===''?'':Number(v).toLocaleString('en-IN');}
+function pct(a,b){return b?Math.round(a*100/b)+'%':'—';}
+function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
+function fmtDate(iso){ if(!iso) return ''; return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'Asia/Kolkata'}); }
+function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},3200); }
+function alertBox(html,cls){ $('alert').innerHTML=html?'<div class="'+(cls||'err')+'">'+html+'</div>':''; }
+
+/* ── session (same approach as the other dashboards) ── */
+function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:localStorage}; }
+function tokenExpMs(jwt){ try{ var p=JSON.parse(atob(jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+var _refreshing=null;
+async function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async function(){
+    var o=readSess(), s=o.s; if(!s.refresh_token) return null;
+    try{
+      var r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token});
+      o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token;
+    }catch(e){ return null; }
+  })();
+  try{ return await _refreshing; } finally { _refreshing=null; }
+}
+async function validToken(){
+  var s=readSess().s; if(!s.access_token) return null;
+  var exp=tokenExpMs(s.access_token); if(exp&&exp>Date.now()+30000) return s.access_token;
+  return (await refreshSession())||s.access_token;
+}
+async function api(path,opts){
+  opts=opts||{};
+  var go=function(tok){ var h={apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json'}; if(opts.range) { h['Range-Unit']='items'; h.Range=opts.range; } return fetch(SB+path,{method:opts.method||'GET',headers:h,body:opts.body?JSON.stringify(opts.body):undefined}); };
+  var tok=await validToken(); if(!tok) return {ok:false,status:401,msg:'Please log in to the portal again'};
+  var r=await go(tok);
+  if(r.status===401){ var nt=await refreshSession(); if(nt) r=await go(nt); }
+  if(r.ok){ var t=await r.text(); return {ok:true,data:t?JSON.parse(t):null}; }
+  var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
+  return {ok:false,status:r.status,msg:m||('HTTP '+r.status)};
+}
+async function getAll(path){
+  var out=[], from=0, size=1000;
+  while(true){
+    var r=await api(path,{range:from+'-'+(from+size-1)});
+    if(!r.ok) return r;
+    out=out.concat(r.data||[]);
+    if(!r.data||r.data.length<size) break;
+    from+=size;
+  }
+  return {ok:true,data:out};
+}
+function rpc(fn,args){ return api('/rest/v1/rpc/'+fn,{method:'POST',body:args||{}}); }
+
+/* ── load ── */
+async function load(){
+  var s=readSess().s; IS_ADMIN = s.role==='admin';
+  var cols='reg_number,city,hub_name,model_name,status,brake_type,current_odo,front_part,front_km,front_record,rear_part,rear_km,rear_record,max_km,days_since_service,flags_a,flags_b,flags_c,eligible,exclusion_reason,blast_status,last_sent_at,refreshed_at';
+  var res=await Promise.all([
+    getAll('/rest/v1/brake_overdue_live?select='+cols+'&tier=not.is.null&order=max_km.desc'),
+    getAll('/rest/v1/rider_contacts?select=reg_number,rider_name,rider_phone'),
+    api('/rest/v1/brake_campaigns?select=*&order=created_at.desc')
+  ]);
+  if(!res[0].ok){ alertBox('Could not load the live list: '+esc(res[0].msg)); $('live-body').innerHTML=''; return; }
+  LIVE=res[0].data||[];
+  if(!LIVE.length){ alertBox('No access to the brake campaign. Ask a portal admin to turn on <b>Brake Campaign</b> for your login.','notice'); $('live-body').innerHTML=''; return; }
+  if(res[1].ok){ (res[1].data||[]).forEach(function(c){ CONTACTS[c.reg_number]=c; }); CANPHONE=(res[1].data||[]).length>0; }
+  WAVES=res[2].ok?(res[2].data||[]):[];
+  var ref=LIVE.reduce(function(m,r){ return r.refreshed_at&&r.refreshed_at>m?r.refreshed_at:m; },'');
+  $('sub').textContent='Brake-overdue bikes for the WhatsApp blast · refreshed every hour · last refresh '+fmtWhen(ref)+' IST';
+  fillSelect($('f-city'), uniq(LIVE.map(function(r){return r.city;})), 'All cities');
+  fillHubs();
+  renderLive(); renderBlast(); renderWaves(); fillTrackWaves();
+}
+function uniq(a){ return a.filter(function(v,i,s){return v&&s.indexOf(v)===i;}).sort(); }
+function fillSelect(sel,vals,allLbl){ var cur=sel.value; sel.innerHTML='<option value="">'+allLbl+'</option>'+vals.map(function(v){return '<option>'+esc(v)+'</option>';}).join(''); if(vals.indexOf(cur)>=0) sel.value=cur; }
+function fillHubs(){ var c=$('f-city').value; fillSelect($('f-hub'), uniq(LIVE.filter(function(r){return !c||r.city===c;}).map(function(r){return r.hub_name;})), 'All hubs'); }
+
+/* ── filtering ── */
+function F(){ return {city:$('f-city').value,hub:$('f-hub').value,view:$('f-view').value,flag:$('f-flag').value,brake:$('f-brake').value,mode:$('f-mode').value,q:$('f-q').value.trim().toUpperCase()}; }
+function flagsOf(r,v){ return v==='A'?r.flags_a:v==='B'?r.flags_b:r.flags_c; }
+function isReady(r){ return r.eligible && (r.blast_status==='New'||r.blast_status==='Reminder due'); }
+function filtered(f,forBlast){
+  return LIVE.filter(function(r){
+    var fl=flagsOf(r,f.view)||0;
+    if(fl<1) return false;
+    if(f.flag==='2'&&fl!==2) return false;
+    if(f.flag==='1'&&fl!==1) return false;
+    if(f.city&&r.city!==f.city) return false;
+    if(f.hub&&r.hub_name!==f.hub) return false;
+    if(f.brake&&r.brake_type!==f.brake) return false;
+    if((forBlast||f.mode==='ready')&&!isReady(r)) return false;
+    if(!forBlast&&f.q){ var c=CONTACTS[r.reg_number]; if(r.reg_number.indexOf(f.q)<0 && !(c&&c.rider_name&&c.rider_name.toUpperCase().indexOf(f.q)>=0)) return false; }
+    return true;
+  });
+}
+function statusOf(r){ if(isReady(r)) return r.blast_status==='Reminder due'?'Reminder due':'Ready'; return r.exclusion_reason||r.blast_status||''; }
+function recText(r){
+  var f=r.front_record||'', b=r.rear_record||'';
+  if(f===b) return f;
+  function s(x){return x==='Replaced on JC'?'replaced on JC':x.toLowerCase();}
+  return 'Front '+s(f)+' · rear '+s(b);
+}
+function maskPhone(p){ return p?('••••••'+String(p).slice(-4)):''; }
+function partsDue(r,view){
+  var t=TH[view]||TH.C, lim=r.brake_type==='Disc'?t.pad:t.shoe, out=[];
+  if(r.front_km>lim) out.push(r.front_part); if(r.rear_km>lim) out.push(r.rear_part);
+  return out.join(' + ');
+}
+
+/* ── live list ── */
+function renderLive(){
+  var f=F(), rows=filtered(f,false);
+  var disc=rows.filter(function(r){return r.brake_type==='Disc';}).length;
+  $('live-kpis').innerHTML=
+    kpi(f.mode==='ready'?'Ready for blast':'Overdue bikes', n(rows.length), 'View '+f.view+' · flag count '+(f.flag==='any'?'1 or 2':f.flag), '')+
+    kpi('Disc (pad) bikes', n(disc), 'Pads due', 'color:var(--blue)')+
+    kpi('Drum (shoe) bikes', n(rows.length-disc), 'Shoes due', 'color:var(--amber)');
+  var byc={}; rows.forEach(function(r){byc[r.city]=(byc[r.city]||0)+1;});
+  $('live-cities').innerHTML='<span class="muted" style="font-weight:600">By city:</span>'+Object.keys(byc).sort(function(a,b){return byc[b]-byc[a];}).map(function(c){return '<span class="chip"><b>'+esc(c)+'</b> '+n(byc[c])+'</span>';}).join('')+
+    (CANPHONE?'':'<span class="muted" style="margin-left:auto">Rider name and phone need Brake Campaign access</span>');
+  var pages=Math.max(1,Math.ceil(rows.length/PAGESZ)); if(PAGE>=pages) PAGE=pages-1;
+  var slice=rows.slice(PAGE*PAGESZ,(PAGE+1)*PAGESZ);
+  $('live-body').innerHTML=slice.length?slice.map(function(r){
+    var c=CONTACTS[r.reg_number]||{}, st=statusOf(r);
+    return '<tr><td class="b">'+esc(r.reg_number)+'</td><td>'+esc(r.city)+' · <span class="muted">'+esc(r.hub_name)+'</span></td><td>'+esc(r.model_name)+'</td>'+
+      '<td><span class="tag '+(r.brake_type==='Disc'?'disc':'drum')+'">'+esc(r.brake_type)+'</span></td>'+
+      '<td class="r b">'+n(r.front_km)+'</td><td class="r b">'+n(r.rear_km)+'</td><td class="muted">'+esc(recText(r))+'</td>'+
+      '<td class="r">'+(r.days_since_service==null?'—':r.days_since_service)+'</td><td class="r"><span class="flag">'+(flagsOf(r,f.view)||0)+'</span></td>'+
+      '<td><span class="st '+(isReady(r)?'ok':'no')+'">'+esc(st)+'</span></td><td>'+esc(c.rider_name||'')+'</td><td class="muted">'+esc(maskPhone(c.rider_phone))+'</td></tr>';
+  }).join(''):'<tr><td colspan="12" class="msg">No bikes match these filters.</td></tr>';
+  $('live-count').textContent=rows.length?('Showing '+(PAGE*PAGESZ+1)+'–'+Math.min(rows.length,(PAGE+1)*PAGESZ)+' of '+n(rows.length)+' · highest km first'):'';
+  $('pg-prev').disabled=PAGE===0; $('pg-next').disabled=PAGE>=pages-1;
+}
+function kpi(l,v,s,style){ return '<div class="kpi"><div class="kpi-lbl">'+esc(l)+'</div><div class="kpi-val" style="'+style+'">'+v+'</div><div class="kpi-sub">'+esc(s)+'</div></div>'; }
+
+/* ── create blast ── */
+function latestDraft(){ return WAVES.filter(function(w){return w.status==='draft';})[0]||null; }
+function renderBlast(){
+  var f=F(), rows=filtered(f,true), pc=Math.max(0,Math.min(50,Number($('ctrl-pct').value)||0))/100;
+  var chips=['View '+f.view,'Flag count '+(f.flag==='any'?'1 or 2':f.flag),f.city||'All cities'];
+  if(f.hub) chips.push(f.hub); if(f.brake) chips.push(f.brake);
+  $('blast-chips').innerHTML='<span class="muted" style="font-weight:600">Bikes from Live list:</span>'+chips.map(function(c){return '<span class="fchip">'+esc(c)+'</span>';}).join('')+'<a href="#" class="lnk" id="chg-f">Change</a>';
+  $('chg-f').onclick=function(e){e.preventDefault();showTab('live');};
+  var byc={}, tot={n:0,m:0,rem:0,c:0};
+  rows.forEach(function(r){ var k=byc[r.city]||(byc[r.city]={n:0,first:0,rem:0}); k.n++; if(r.blast_status==='Reminder due') k.rem++; else k.first++; });
+  var cities=Object.keys(byc).sort(function(a,b){return byc[b].n-byc[a].n;});
+  var html=cities.map(function(c){ var k=byc[c], ctl=Math.round(k.first*pc), m=k.n-ctl; tot.n+=k.n; tot.m+=m; tot.rem+=k.rem; tot.c+=ctl;
+    return '<tr><td>'+esc(c)+'</td><td class="r">'+n(k.n)+'</td><td class="r" style="color:var(--blue);font-weight:600">'+n(m)+'</td><td class="r">'+n(k.rem)+'</td><td class="r" style="color:var(--amber);font-weight:600">'+n(ctl)+'</td></tr>'; }).join('');
+  $('blast-city').innerHTML=html?html+'<tr class="tot"><td>Total</td><td class="r">'+n(tot.n)+'</td><td class="r">'+n(tot.m)+'</td><td class="r">'+n(tot.rem)+'</td><td class="r">'+n(tot.c)+'</td></tr>':'<tr><td colspan="5" class="msg">No bikes ready for these filters.</td></tr>';
+  $('blast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Control (not messaged)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
+  var d=latestDraft();
+  $('b-create').disabled=!IS_ADMIN||!!d||!tot.n;
+  $('b-dl-csv').disabled=$('b-dl-xlsx').disabled=!d;
+  $('b-sent').disabled=!IS_ADMIN||!d;
+  $('blast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Control bikes are picked at random inside each hub and are not messaged. Reminders go only to bikes messaged once, 7+ days ago, with no visit since.';
+}
+async function createWave(){
+  var f=F(), num=WAVES.length+1;
+  var name=prompt('Name this wave', 'Wave '+num+' · '+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
+  if(!name) return;
+  $('b-create').disabled=true;
+  var r=await rpc('create_brake_campaign',{p_name:name,p_view:f.view,p_flag:f.flag,p_cities:f.city?[f.city]:null,p_hubs:f.hub?[f.hub]:null,p_brake_types:f.brake?[f.brake]:null,p_control_pct:Number($('ctrl-pct').value)||0});
+  if(!r.ok){ toast('Could not create wave: '+r.msg); renderBlast(); return; }
+  toast(name+' created'); await reloadWaves(true);
+}
+async function markSent(id){
+  var w=WAVES.filter(function(x){return x.id===id;})[0]; if(!w) return;
+  if(!confirm('Mark '+w.name+' as sent? Visits are counted from now.')) return;
+  var r=await rpc('mark_brake_campaign_sent',{p_campaign:id});
+  if(!r.ok){ toast('Could not mark as sent: '+r.msg); return; }
+  toast(w.name+' marked as sent'); await reloadWaves(true);
+}
+async function deleteWave(id){
+  var w=WAVES.filter(function(x){return x.id===id;})[0]; if(!w||!confirm('Delete '+w.name+'? It has not been sent.')) return;
+  var r=await rpc('delete_brake_campaign',{p_campaign:id});
+  if(!r.ok){ toast('Could not delete: '+r.msg); return; }
+  toast(w.name+' deleted'); await reloadWaves(true);
+}
+async function reloadWaves(alsoLive){
+  var r=await api('/rest/v1/brake_campaigns?select=*&order=created_at.desc'); WAVES=r.ok?(r.data||[]):WAVES;
+  if(alsoLive){ var l=await getAll('/rest/v1/brake_overdue_live?select=reg_number,blast_status,last_sent_at&tier=not.is.null'); if(l.ok){ var m={}; l.data.forEach(function(x){m[x.reg_number]=x;}); LIVE.forEach(function(x){ var y=m[x.reg_number]; if(y){x.blast_status=y.blast_status;x.last_sent_at=y.last_sent_at;} }); } renderLive(); }
+  renderBlast(); renderWaves(); fillTrackWaves();
+}
+async function waveCounts(){
+  var ids=WAVES.map(function(w){return w.id;}); if(!ids.length) return {};
+  var r=await getAll('/rest/v1/brake_campaign_targets?select=campaign_id,grp&campaign_id=in.('+ids.join(',')+')');
+  var m={}; (r.ok?r.data:[]).forEach(function(t){ var k=m[t.campaign_id]||(m[t.campaign_id]={messaged:0,control:0}); k[t.grp]++; }); return m;
+}
+async function renderWaves(){
+  if(!WAVES.length){ $('waves-body').innerHTML='<tr><td colspan="7" class="msg">No waves yet. Create Wave 1 from the filters above.</td></tr>'; return; }
+  var c=await waveCounts();
+  $('waves-body').innerHTML=WAVES.map(function(w){ var k=c[w.id]||{messaged:0,control:0};
+    var acts='<button class="btn sm" data-dl="'+w.id+'">CSV</button> <button class="btn sm" data-dlx="'+w.id+'">Excel</button>';
+    if(w.status==='draft'&&IS_ADMIN) acts+=' <button class="btn sm dark" data-sent="'+w.id+'">Mark as sent</button> <button class="btn sm" data-del="'+w.id+'">Delete</button>';
+    return '<tr><td class="b">'+esc(w.name)+'</td><td>'+fmtWhen(w.created_at)+'</td><td class="r">'+n(k.messaged)+'</td><td class="r">'+n(k.control)+'</td><td>'+(w.status==='draft'?'Not sent':w.status==='live'?'Sent':'Closed')+'</td><td>'+fmtWhen(w.launched_at)+'</td><td>'+acts+'</td></tr>'; }).join('');
+}
+
+/* ── downloads ── */
+function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n'); }
+function saveBlob(name,blob){ var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500); }
+var _xlsx=null;
+function loadXLSX(){ if(window.XLSX) return Promise.resolve(); if(_xlsx) return _xlsx; _xlsx=new Promise(function(ok,bad){ var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=ok; s.onerror=function(){_xlsx=null;bad();}; document.head.appendChild(s); }); return _xlsx; }
+async function download(name,rows,fmt){
+  if(fmt==='xlsx'){
+    try{ await loadXLSX(); }catch(e){ toast('Excel export could not load, downloading CSV instead'); fmt='csv'; }
+    if(fmt==='xlsx'){ var ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Sheet1'); XLSX.writeFile(wb,name+'.xlsx'); return; }
+  }
+  saveBlob(name+'.csv', new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'}));
+}
+function stamp(){ return new Date().toISOString().slice(0,10); }
+function downloadLive(fmt){
+  var f=F(), rows=filtered(f,false);
+  var out=[['reg_number','city','hub','model','brake_type','front_part','front_km','rear_part','rear_km','part_record','days_since_service','flag_count','status','rider_name','rider_phone']];
+  rows.forEach(function(r){ var c=CONTACTS[r.reg_number]||{}; out.push([r.reg_number,r.city,r.hub_name,r.model_name,r.brake_type,r.front_part,r.front_km,r.rear_part,r.rear_km,recText(r),r.days_since_service,flagsOf(r,f.view),statusOf(r),c.rider_name||'',CANPHONE?(c.rider_phone||''):'']); });
+  download('brake_live_list_view'+f.view+'_'+stamp(), out, fmt);
+}
+async function downloadWave(id,fmt){
+  var w=WAVES.filter(function(x){return x.id===id;})[0]; if(!w) return;
+  var r=await getAll('/rest/v1/brake_campaign_targets?select=*&campaign_id=eq.'+id+'&grp=eq.messaged&order=city,hub_name');
+  if(!r.ok){ toast('Could not load the wave: '+r.msg); return; }
+  var view=(w.filters&&w.filters.view)||w.view_code||'C';
+  var out=[['reg_number','rider_name','rider_phone','city','hub','brake_type','parts_due','km_since_replacement','message_type','wave_id']];
+  r.data.forEach(function(t){ var c=CONTACTS[t.reg_number]||{};
+    out.push([t.reg_number,c.rider_name||t.rider_name_at_send||'',CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,t.brake_type,partsDue(t,view),Math.max(t.front_km||0,t.rear_km||0),t.message_type||'first','W'+id]); });
+  download('brake_blast_'+w.name.replace(/[^A-Za-z0-9]+/g,'_')+'_'+stamp(), out, fmt);
+}
+
+/* ── tracking ── */
+function fillTrackWaves(){
+  var sent=WAVES.filter(function(w){return w.status!=='draft';});
+  var sel=$('t-wave'), cur=sel.value;
+  sel.innerHTML=sent.length?sent.map(function(w){return '<option value="'+w.id+'">'+esc(w.name)+' · sent '+fmtDate(w.launched_at)+'</option>';}).join(''):'<option value="">No sent waves yet</option>';
+  if(cur&&sent.some(function(w){return String(w.id)===cur;})) sel.value=cur;
+}
+async function loadTrack(){
+  var id=$('t-wave').value;
+  if(!id){ $('track-body').innerHTML='<div class="card"><div class="msg">Tracking starts once a wave is marked as sent on the Create blast file tab.</div></div>'; return; }
+  $('track-body').innerHTML='<div class="loading">Loading…</div>';
+  var r=await getAll('/rest/v1/brake_campaign_targets?select=*&campaign_id=eq.'+id);
+  if(!r.ok){ $('track-body').innerHTML='<div class="err">Could not load tracking: '+esc(r.msg)+'</div>'; return; }
+  TRK={id:Number(id),rows:r.data};
+  fillSelect($('t-city'), uniq(TRK.rows.map(function(t){return t.city;})), 'All cities');
+  renderTrack();
+}
+function agg(rows){ var m=rows.filter(function(t){return t.grp==='messaged';}), c=rows.filter(function(t){return t.grp==='control';});
+  function cnt(a,k){return a.filter(function(t){return t[k];}).length;}
+  return {sent:m.length,mv:cnt(m,'visited_at'),mr:cnt(m,'brake_replaced_at'),ctl:c.length,cv:cnt(c,'visited_at'),cr:cnt(c,'brake_replaced_at')}; }
+function trackRows(){ var c=$('t-city').value; return TRK.rows.filter(function(t){return !c||t.city===c;}); }
+function renderTrack(){
+  if(!TRK) return;
+  var rows=trackRows(), a=agg(rows);
+  var html='<div class="funnel">'+
+    '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Control: '+n(a.ctl)+' not messaged</div></div>'+
+    '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Control: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
+    '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Control: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
+  var key=TRKLEVEL==='city'?'city':'hub_name', groups={};
+  rows.forEach(function(t){ (groups[t[key]]=groups[t[key]]||[]).push(t); });
+  var names=Object.keys(groups).sort(function(x,y){return groups[y].length-groups[x].length;});
+  html+='<div class="card"><div class="card-hd"><h2>'+(TRKLEVEL==='city'?'By city':'By hub')+'</h2><div class="seg" role="group" aria-label="Level"><button data-lvl="city" aria-pressed="'+(TRKLEVEL==='city')+'">City</button><button data-lvl="hub" aria-pressed="'+(TRKLEVEL==='hub')+'">Hub</button></div></div>'+
+    '<div class="scroll"><table><thead><tr><th>'+(TRKLEVEL==='city'?'City':'Hub')+'</th><th class="r">Sent</th><th class="r">Visited hub</th><th class="r">Brake replaced</th><th class="r">Visit %</th><th class="r">Control visit %</th></tr></thead><tbody>'+
+    names.map(function(g){ var x=agg(groups[g]); return '<tr><td class="b">'+esc(g)+'</td><td class="r">'+n(x.sent)+'</td><td class="r">'+n(x.mv)+'</td><td class="r">'+n(x.mr)+'</td><td class="r">'+pct(x.mv,x.sent)+'</td><td class="r">'+pct(x.cv,x.ctl)+'</td></tr>'; }).join('')+
+    '<tr class="tot"><td>Total</td><td class="r">'+n(a.sent)+'</td><td class="r">'+n(a.mv)+'</td><td class="r">'+n(a.mr)+'</td><td class="r">'+pct(a.mv,a.sent)+'</td><td class="r">'+pct(a.cv,a.ctl)+'</td></tr></tbody></table></div></div>';
+  var cutoff=Date.now()-4*86400000;
+  var calls=rows.filter(function(t){ return t.grp==='messaged'&&t.sent_at&&new Date(t.sent_at).getTime()<=cutoff&&!t.visited_at&&t.last_call_outcome!=='refused'&&t.last_call_outcome!=='wrong_number'; });
+  html+='<div class="card"><div class="card-hd"><div><h2>CRM call sheet</h2><div class="muted" style="margin-top:3px">Sent 4+ days ago and not visited yet · '+n(calls.length)+' riders</div></div><button class="btn" id="dl-calls"><i class="ti ti-download"></i>Download call sheet</button></div>'+
+    '<div class="scroll"><table><thead><tr><th>Reg number</th><th>City · Hub</th><th>Parts due</th><th>Sent</th><th>Rider</th><th>Contact</th><th>Last outcome</th><th>Outcome</th></tr></thead><tbody>'+
+    (calls.length?calls.map(function(t){ var c=CONTACTS[t.reg_number]||{}, ph=CANPHONE?c.rider_phone:'';
+      var w=WAVES.filter(function(x){return x.id===TRK.id;})[0], view=(w&&w.filters&&w.filters.view)||'C';
+      var lbl=(OUTCOMES.filter(function(o){return o[0]===t.last_call_outcome;})[0]||['',''])[1];
+      return '<tr><td class="b">'+esc(t.reg_number)+'</td><td>'+esc(t.city)+' · <span class="muted">'+esc(t.hub_name)+'</span></td><td>'+esc(partsDue(t,view))+'</td><td>'+fmtDate(t.sent_at)+'</td><td>'+esc(c.rider_name||t.rider_name_at_send||'')+'</td>'+
+        '<td>'+(ph?'<a class="btn sm" href="tel:+91'+esc(ph)+'">Call</a> <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/91'+esc(ph)+'">WhatsApp</a>':'<span class="muted">No access</span>')+'</td>'+
+        '<td>'+(lbl?esc(lbl)+' <span class="muted">'+fmtDate(t.last_call_at)+'</span>':'—')+'</td>'+
+        '<td><select aria-label="Outcome for '+esc(t.reg_number)+'" data-out="'+esc(t.reg_number)+'">'+OUTCOMES.map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+'</select></td></tr>'; }).join(''):'<tr><td colspan="8" class="msg">No riders to call right now.</td></tr>')+
+    '</tbody></table></div></div>';
+  $('track-body').innerHTML=html;
+  TRK.calls=calls;
+}
+async function logOutcome(reg,val,sel){
+  if(!val) return; sel.disabled=true;
+  var r=await rpc('log_brake_call_outcome',{p_campaign:TRK.id,p_reg:reg,p_outcome:val});
+  sel.disabled=false;
+  if(!r.ok){ toast('Could not save: '+r.msg); sel.value=''; return; }
+  var t=TRK.rows.filter(function(x){return x.reg_number===reg;})[0]; if(t){ t.last_call_outcome=val; t.last_call_at=new Date().toISOString(); }
+  toast('Saved for '+reg); renderTrack();
+}
+function downloadTrack(fmt){
+  if(!TRK) return; var rows=trackRows();
+  var out=[['reg_number','group','message_type','city','hub','brake_type','sent_at','visited_at','visit_hub','brake_replaced_at','replaced_parts','last_call_outcome','status']];
+  rows.forEach(function(t){ out.push([t.reg_number,t.grp,t.message_type,t.city,t.hub_name,t.brake_type,fmtWhen(t.sent_at),fmtWhen(t.visited_at),t.visit_hub,fmtWhen(t.brake_replaced_at),t.replaced_parts,t.last_call_outcome,t.status]); });
+  download('brake_tracking_W'+TRK.id+'_'+stamp(), out, fmt||'xlsx');
+}
+function downloadCalls(){
+  if(!TRK||!TRK.calls) return;
+  var w=WAVES.filter(function(x){return x.id===TRK.id;})[0], view=(w&&w.filters&&w.filters.view)||'C';
+  var out=[['reg_number','rider_name','rider_phone','city','hub','parts_due','sent_at','last_outcome']];
+  TRK.calls.forEach(function(t){ var c=CONTACTS[t.reg_number]||{}; out.push([t.reg_number,c.rider_name||'',CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,partsDue(t,view),fmtWhen(t.sent_at),t.last_call_outcome||'']); });
+  download('brake_crm_call_sheet_W'+TRK.id+'_'+stamp(), out, 'xlsx');
+}
+
+/* ── wiring ── */
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(b){ var on=b.dataset.tab===name; b.classList.toggle('active',on); b.setAttribute('aria-selected',on); });
+  ['live','blast','track'].forEach(function(t){ $('tab-'+t).hidden=(t!==name); });
+  if(name==='blast') renderBlast();
+  if(name==='track') loadTrack();
+}
+document.querySelectorAll('.tab').forEach(function(b){ b.onclick=function(){ showTab(b.dataset.tab); }; });
+['f-hub','f-view','f-flag','f-brake','f-mode'].forEach(function(id){ $(id).onchange=function(){ PAGE=0; renderLive(); }; });
+$('f-city').onchange=function(){ fillHubs(); PAGE=0; renderLive(); };
+$('f-q').oninput=function(){ PAGE=0; renderLive(); };
+$('pg-prev').onclick=function(){ PAGE=Math.max(0,PAGE-1); renderLive(); };
+$('pg-next').onclick=function(){ PAGE++; renderLive(); };
+$('dl-live-csv').onclick=function(){ downloadLive('csv'); };
+$('dl-live-xlsx').onclick=function(){ downloadLive('xlsx'); };
+$('ctrl-pct').oninput=renderBlast;
+$('b-create').onclick=createWave;
+$('b-dl-csv').onclick=function(){ var d=latestDraft(); if(d) downloadWave(d.id,'csv'); };
+$('b-dl-xlsx').onclick=function(){ var d=latestDraft(); if(d) downloadWave(d.id,'xlsx'); };
+$('b-sent').onclick=function(){ var d=latestDraft(); if(d) markSent(d.id); };
+$('waves-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.dl) downloadWave(Number(b.dataset.dl),'csv'); else if(b.dataset.dlx) downloadWave(Number(b.dataset.dlx),'xlsx');
+  else if(b.dataset.sent) markSent(Number(b.dataset.sent)); else if(b.dataset.del) deleteWave(Number(b.dataset.del)); };
+$('t-wave').onchange=loadTrack;
+$('t-city').onchange=renderTrack;
+$('dl-track').onclick=function(){ downloadTrack('xlsx'); };
+$('track-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; if(b.dataset.lvl){ TRKLEVEL=b.dataset.lvl; renderTrack(); } else if(b.id==='dl-calls') downloadCalls(); };
+$('track-body').onchange=function(e){ var s=e.target; if(s.dataset&&s.dataset.out) logOutcome(s.dataset.out,s.value,s); };
+load();
+</script>
+</body></html>
