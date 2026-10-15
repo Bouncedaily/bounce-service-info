@@ -1486,14 +1486,18 @@ async function renderInsights() {
     if (covered.length) add('blue', '↗', `${pctC}% of hub shortages`, 'can be covered from RPDC spare stock.', Object.entries(byRp).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} parts`).join(' · ') + (pctC >= 50 ? '. Mostly a dispatch problem, not a buying problem.' : '. The rest need buying or only part can be sent.'), cta('Hub shortages RPDC can cover from spare stock', covered.flatMap(g => g.rows), 'Dispatch list'));
   }
 
-  // 3) parts short at some hubs and in excess at others in the same city
+  // 3) parts short at some hubs, which the RPDC can't supply from spare stock, but another hub in the same city has extra
+  //    (the normal route is RPDC -> hub; a hub-to-hub transfer is only for what the RPDC can't cover)
+  const rpdcCanCover = r => { const rp = rpdcFor(r.hub_name); const g = rp && perRp[rp + '|' + r.part_number]; const st = rp && (RPDC_STOCK || {})[rp + '|' + r.part_number];
+    return !!(g && st && Math.max((st.closing_stock || 0) - (st.msl_qty || 0), 0) >= g.units); };
   const byCityPart = {};
-  rows.forEach(r => { const k = mtCity(r.hub_name) + '|' + r.part_number; const g = byCityPart[k] || (byCityPart[k] = { name: r.part_name, short: [], extra: [] }); if (mtSt(r) === 'short') g.short.push(r); else if (mtSt(r) === 'ex' && (r.closing_stock || 0) - (r.msl_qty || 0) >= 2) g.extra.push(r); });
+  rows.forEach(r => { const k = mtCity(r.hub_name) + '|' + r.part_number; const g = byCityPart[k] || (byCityPart[k] = { name: r.part_name, short: [], extra: [] });
+    if (mtSt(r) === 'short' && !rpdcCanCover(r)) g.short.push(r); else if (mtSt(r) === 'ex' && (r.closing_stock || 0) - (r.msl_qty || 0) >= 2) g.extra.push(r); });
   const transfer = Object.values(byCityPart).filter(g => g.short.length && g.extra.length);
   if (transfer.length) {
     const names = {}; transfer.forEach(g => { const n = names[g.name] || (names[g.name] = { s: 0, e: 0 }); n.s += g.short.length; n.e += g.extra.length; });
     const ex = Object.entries(names).sort((a, b) => b[1].s - a[1].s)[0];
-    add('blue', '⇄', `${fmtN(Object.keys(names).length)} part${Object.keys(names).length > 1 ? 's' : ''}`, 'are short at some hubs and in excess at others in the same city.', `e.g. ${ex[0]}: short at ${ex[1].s} hub${ex[1].s > 1 ? 's' : ''}, extra at ${ex[1].e}. Transfer instead of ordering.`, cta('Parts to transfer between hubs (short + extra lines)', transfer.flatMap(g => g.short.concat(g.extra)), 'Transfer list'));
+    add('blue', '⇄', `${fmtN(Object.keys(names).length)} part${Object.keys(names).length > 1 ? 's' : ''}`, 'can\'t be sent from the RPDC but another hub in the same city has extra.', `e.g. ${ex[0]}: short at ${ex[1].s} hub${ex[1].s > 1 ? 's' : ''}, extra at ${ex[1].e}. Transfer between hubs instead of ordering.`, cta('Parts to transfer between hubs (short + extra lines)', transfer.flatMap(g => g.short.concat(g.extra)), 'Transfer list'));
   }
 
   // 4) hubs well below the network average
