@@ -11,7 +11,7 @@
   <style>
     html { height: 100%; overflow: hidden; }
     body { height: 100%; overflow-y: auto; box-sizing: border-box; }
-    .wrap { padding: 24px; margin: 0 auto; }
+    .wrap { padding: 24px; margin: 0 auto; width: 100%; max-width: 1600px; box-sizing: border-box; }   /* same width on every tab */
     .page-title { font-size: 20px; font-weight: 800; color: var(--text); }
     .page-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 20px; }
 
@@ -526,16 +526,14 @@ async function loadSavingsPct() {
   document.getElementById('savingspct-export-btn').style.display = 'none';
   box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
   try {
-    var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_cost_savings_pct', {
-      method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
-    });
-    if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
-    var rows = await r.json();
+    var rows = await csRpc('get_refurb_cost_savings_pct');
+    if (!Array.isArray(rows)) { window._savingsPctLoaded = false; box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — <a href="#" onclick="window._savingsPctLoaded=true;loadSavingsPct();return false;">try again</a>.</div>'; return; }
     window._savingsPctRows = rows;
     renderSavingsPctTable(rows);
     if (rows.length) document.getElementById('savingspct-export-btn').style.display = '';
   } catch (e) {
-    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>';
+    console.error(e);
+    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not show this table — try refreshing.</div>';
   }
 }
 
@@ -632,22 +630,33 @@ async function setRefurbPctMode(m) {
   if (refurbPctMode === 'amt') await ensureSavingsRows(false);
   if (window._refurbPctRows) renderRefurbPctTables(window._refurbPctRows);
 }
+// RPC call with the login token (8 s DB limit; the anon key gets only 3 s), anon fallback, one retry
+async function csRpc(fn) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let r = await fetch(INFO_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: Object.assign(authHeaders(_sbAnonFallback), { 'Content-Type': 'application/json' }), body: '{}' });
+      if (r.status === 401 || r.status === 403) { _sbAnonFallback = true; r = await fetch(INFO_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: Object.assign(authHeaders(true), { 'Content-Type': 'application/json' }), body: '{}' }); }
+      if (r.ok) return await r.json();
+      console.error(fn, r.status, await r.text());
+    } catch (e) { console.error(fn, e); }
+    await new Promise(res => setTimeout(res, 900));
+  }
+  return null;
+}
 async function loadRefurbPct() {
   var box = document.getElementById('refurbpct-body');
   document.getElementById('refurbpct-export-btn').style.display = 'none';
   box.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)"><span class="rp-spin"></span>Loading…</div>';
   try {
-    var r = await fetch(INFO_URL + '/rest/v1/rpc/get_refurb_percentage_by_city', {
-      method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}'
-    });
-    if (!r.ok) { box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>'; return; }
-    var rows = await r.json();
+    var rows = await csRpc('get_refurb_percentage_by_city');
+    if (!Array.isArray(rows)) { window._refurbPctLoaded = false; box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — <a href="#" onclick="window._refurbPctLoaded=true;loadRefurbPct();return false;">try again</a>.</div>'; return; }
     window._refurbPctRows = rows;
     if (refurbPctMode === 'amt') await ensureSavingsRows(true);
     renderRefurbPctTables(rows);
     if (rows.length) document.getElementById('refurbpct-export-btn').style.display = '';
   } catch (e) {
-    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not load — try refreshing.</div>';
+    console.error(e);
+    box.innerHTML = '<div class="empty" style="padding:24px;color:#dc2626">Could not show this table — try refreshing.</div>';
   }
 }
 
