@@ -1239,6 +1239,7 @@ async function loadFsn() {
     const cats = [...new Set(rows.map(x => x.category).filter(Boolean))].sort((a, b) => (a.startsWith('Not in') - b.startsWith('Not in')) || a.localeCompare(b));
     const sel = document.getElementById('catSel');
     cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    if (SAVED_VIEW && SAVED_VIEW.cat && cats.includes(SAVED_VIEW.cat)) sel.value = SAVED_VIEW.cat;
     fsnLoaded = true;
   } catch (e) { console.error('FSN load failed', e); }
 }
@@ -1388,7 +1389,8 @@ function renderMslTables() {
     if (oldFg) oldFg.style.display = 'none';
   }
   const mw = document.getElementById('modeWrap');
-  if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); }
+  if (mw && mw.style.display === 'none') { mw.style.display = ''; setMslModeButtons(); if (MSL_MODE === 'rpdc') { const rw = document.getElementById('rpdcWrap'); if (rw) rw.style.display = ''; paintRpdc(); } }
+  saveView();
   if (MSL_MODE === 'rpdc') { renderRpdcTables(box); return; }
   if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
@@ -1431,7 +1433,8 @@ function mtRunwayMatrix(hubs) {
   const ALL = ['Total', () => true];
   const body = RUNWAY_BUCKETS.map(b => `<tr><td>${b[0]}</td>${hubs.map(h => cell(b, h)).join('')}${cell(b, null)}</tr>`).join('')
     + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(ALL, h)).join('')}${cell(ALL, null)}</tr>`
-    + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
+    + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`
+    + `<tr class="mt-total"><td title="When this hub last changed its MSL tab, as seen by the sync">Sheet last updated</td>${hubs.map(h => { const d = hubAgeDays(h); return `<td style="font-weight:600;color:${d == null ? 'inherit' : d >= STALE_DAYS ? '#b91c1c' : '#15803d'}">${hubAgeLabel(h)}</td>`; }).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
   return `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
@@ -1526,10 +1529,36 @@ function openTransferPlan() {
   m.style.display = 'flex';
 }
 
+
+// ─── When each hub last updated its MSL tab (recorded by the sync) ─────
+let HUB_META = null;
+async function loadHubMeta() {
+  if (HUB_META) return HUB_META;
+  try {
+    const r = await fetch(`${INFO_URL}/rest/v1/hub_msl_meta?select=hub_name,last_changed_at,last_synced_at,first_seen_at`, { headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY } });
+    const rows = r.ok ? await r.json() : [];
+    HUB_META = {}; rows.forEach(m => { HUB_META[m.hub_name] = m; });
+  } catch (e) { HUB_META = {}; }
+  return HUB_META;
+}
+function hubAgeDays(h) {
+  const m = (HUB_META || {})[h]; if (!m || !m.last_changed_at) return null;
+  return Math.floor((Date.now() - new Date(m.last_changed_at).getTime()) / 86400000);
+}
+// tracking started when the first sync with this feature ran, so "since" is a floor, not the exact date
+function hubAgeLabel(h) {
+  const d = hubAgeDays(h); if (d == null) return '—';
+  const m = HUB_META[h], since = m.first_seen_at && Math.abs(new Date(m.first_seen_at) - new Date(m.last_changed_at)) < 3600000;
+  const txt = d === 0 ? 'Today' : d === 1 ? '1 day ago' : `${d} days ago`;
+  return since && d > 0 ? `${d}+ days` : txt;
+}
+const STALE_DAYS = 2;
+
 async function renderInsights() {
   const box = document.getElementById('mtInsights'); if (!box) return;
   if (!document.getElementById('ins-css')) { const st = document.createElement('style'); st.id = 'ins-css'; st.textContent = INS_CSS; document.head.appendChild(st); }
   await loadRpdcStock();
+  await loadHubMeta();
   const rows = MT_ROWS, fsnOfRow = r => (fsnOf(r) || {}).fsn || '', catOfRow = r => (fsnOf(r) || {}).category || '';
   const fmtN = v => v.toLocaleString('en-IN');
   const cta = (label, list, text) => { MT_CELLS.push({ label, pred: () => true, src: list }); return `<button type="button" class="ins-cta" data-mt="${MT_CELLS.length - 1}">${text} →</button>`; };
@@ -1603,6 +1632,10 @@ async function renderInsights() {
   const hubPct = hubSet.map(h => { const c = counted.filter(r => r.hub_name === h); return { h, p: c.length ? Math.round(c.filter(r => ['ok', 'ex'].includes(mtSt(r))).length / c.length * 100) : 100 }; });
   const weak = hubPct.filter(x => x.p < 75).sort((a, b) => a.p - b.p);
   if (weak.length && hubSet.length > 1) add('amber', '▼', `${weak.length} hub${weak.length > 1 ? 's' : ''}`, `${weak.length > 1 ? 'are' : 'is'} below 75% fulfilment (network ${avg}%).`, weak.slice(0, 4).map(x => `${x.h} ${x.p}%`).join(' · ') + (weak.length > 4 ? ` · +${weak.length - 4} more` : ''), cta('Short lines at hubs below 75%', shortRows.filter(r => weak.some(x => x.h === r.hub_name)), 'Open these hubs'));
+
+  // 6) hubs whose MSL tab hasn't changed for a while (numbers may be stale)
+  const staleHubs = [...new Set(rows.map(r => r.hub_name))].map(h => ({ h, d: hubAgeDays(h) })).filter(x => x.d != null && x.d >= STALE_DAYS).sort((a, b) => b.d - a.d);
+  if (staleHubs.length) add('amber', '⏱', `${staleHubs.length} hub${staleHubs.length > 1 ? 's' : ''}`, `${staleHubs.length > 1 ? 'haven\'t' : 'hasn\'t'} updated the MSL sheet in ${STALE_DAYS}+ days, so ${staleHubs.length > 1 ? 'their' : 'its'} numbers may be old.`, staleHubs.slice(0, 5).map(x => `${x.h} (${hubAgeLabel(x.h)})`).join(' · ') + (staleHubs.length > 5 ? ` · +${staleHubs.length - 5} more` : ''), cta('Lines at hubs with an old MSL sheet', rows.filter(r => staleHubs.some(x => x.h === r.hub_name)), 'See their lines'));
 
   // 5) lines holding 3x or more their MSL, fasteners not counted
   const ex3 = rows.filter(r => mtSt(r) === 'ex' && (r.closing_stock || 0) >= 3 * Math.max(r.msl_qty || 0, 1) && catOfRow(r) !== 'Fastners');
@@ -1759,6 +1792,38 @@ async function renderOrderList() {
   };
 }
 
+
+// ─── Remember the last filter choice (new view only) ─────
+const VIEW_KEY = 'msl_view_v1';
+function saveView() {
+  if (!MT_PREVIEW_USERS.includes(mtViewer())) return;
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      city: document.getElementById('citySel').value, hub: document.getElementById('hubSel').value,
+      cat: document.getElementById('catSel').value, fsn: document.getElementById('fsnSel').value,
+      mode: MSL_MODE, rpdc: RPDC_SEL
+    }));
+  } catch (e) {}
+}
+let SAVED_VIEW = null;
+function restoreSavedView() {
+  try { if (MT_PREVIEW_USERS.includes(mtViewer())) SAVED_VIEW = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { SAVED_VIEW = null; }
+  const v = SAVED_VIEW;
+  if (v) {
+    const cs = document.getElementById('citySel');
+    if (v.city && [...cs.options].some(o => o.value === v.city)) cs.value = v.city;
+    // rebuild the hub list for that city (same as onCityChange, without loading twice)
+    const hubSel = document.getElementById('hubSel');
+    hubSel.innerHTML = '<option value="">All Hubs</option>';
+    (cs.value ? CITY_HUBS[cs.value] || [] : Object.values(CITY_HUBS).flat()).forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; hubSel.appendChild(o); });
+    if (v.hub && [...hubSel.options].some(o => o.value === v.hub)) hubSel.value = v.hub;
+    const fs = document.getElementById('fsnSel'); if (v.fsn && [...fs.options].some(o => o.value === v.fsn)) fs.value = v.fsn;
+    if (v.rpdc) RPDC_SEL = v.rpdc;
+    if (v.mode === 'rpdc') { setMslMode('rpdc'); return; }   // setMslMode loads
+  }
+  load();
+}
+
 let MT_OPEN = [];
 let MT_VIEW = { q: '', key: 'hub', dir: 1, label: '' };
 const MT_COLS = [
@@ -1854,6 +1919,7 @@ function onCityChange() {
 
 async function load() {
   await loadFsn();
+  await loadHubMeta();
   const hub  = document.getElementById('hubSel').value;
   const city = document.getElementById('citySel').value;
   // Hub view never includes the RPDC tabs (the page stays as it was before they were added);
@@ -2127,8 +2193,8 @@ function render() {
       </div>`).join('');
 }
 
-// Load on page open
-load();
+// Load on page open (the new view restores your last City / Hub / Category / FSN / view)
+restoreSavedView();
 try{ if(localStorage.getItem('msl_tab')==='parts') setTimeout(function(){ mslTab('parts'); }, 0); }catch(e){}
   
 
