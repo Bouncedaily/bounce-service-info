@@ -1401,6 +1401,7 @@ function renderMslTables() {
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
     mtMatrix('Short parts by FSN', 'FSN × Hub', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
     mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
+    mtRunwayMatrix(hubs) +
     '<div id="mtOrder"></div>';
   renderOrderList();
   if (!box.dataset.wired) {
@@ -1414,6 +1415,23 @@ function setMslModeButtons() {
   on('modeHub', MSL_MODE === 'hub'); on('modeRpdc', MSL_MODE === 'rpdc');
 }
 const RUNWAY_BUCKETS = [['0 days', d => d <= 0], ['1–7 days', d => d >= 1 && d <= 7], ['8–15 days', d => d >= 8 && d <= 15], ['16–30 days', d => d >= 16 && d <= 30], ['30+ days', d => d > 30]];
+
+// Runway (days of stock left) by hub, from the "Runway (Days)" column of each hub's MSL tab.
+// Only parts with an MSL count; negative values in the sheet are treated as 0 days.
+function mtRunwayMatrix(hubs) {
+  const rw = r => Math.max(0, r.runway_days ?? 0);
+  const base = MT_ROWS.filter(r => (r.msl_qty || 0) > 0 && r.runway_days != null && hubs.includes(r.hub_name));
+  if (!base.length) return '';
+  const cell = (b, h) => {
+    const n = base.filter(r => (h === null || r.hub_name === h) && b[1](rw(r))).length;
+    return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${h || 'All hubs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](rw(r)), b[0] === '0 days' ? 'mt-short' : '', base)}</td>`;
+  };
+  const avg = h => { const set = base.filter(r => r.hub_name === h); return set.length ? Math.round(set.reduce((s, r) => s + Math.min(rw(r), 365), 0) / set.length) : ''; };
+  const body = RUNWAY_BUCKETS.map(b => `<tr><td>${b[0]}</td>${hubs.map(h => cell(b, h)).join('')}${cell(b, null)}</tr>`).join('')
+    + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
+  return `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+
 function renderRpdcTables(box) {
   if (!document.getElementById('mt-css')) { const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = MT_CSS; document.head.appendChild(st); }
   const cat = document.getElementById('catSel').value, fsn = document.getElementById('fsnSel').value;
@@ -1519,24 +1537,24 @@ async function renderOrderList() {
         <button type="button" id="ordCopy" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Copy list</button>
         <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
       </div></div>
-    <div class="mt-scroll" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
-      list.map(x => { const sd = sendable(x); return `<tr><td>${esc(x.r.part_name)}${fsnBadge(x.r.part_number)}</td><td style="text-align:left;color:#64748b">${esc(x.r.part_number)}</td><td style="text-align:left">${esc(mtCat(x.r))}</td><td style="text-align:left">${mtFsn(x.r)}</td><td>${x.r.msl_qty}</td><td>${x.r.closing_stock ?? 0}</td><td>${x.target}</td><td style="font-weight:700;color:#b91c1c">${x.qty.toLocaleString('en-IN')}</td>${rp ? `<td style="color:${sd == null ? '#64748b' : sd >= x.qty ? '#15803d' : sd > 0 ? '#b45309' : '#b91c1c'}">${sd == null ? 'not stocked' : sd.toLocaleString('en-IN')}</td>` : ''}</tr>`; }).join('')
+    <div class="mt-scroll" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Runway (days)</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
+      list.map(x => { const sd = sendable(x); return `<tr><td>${esc(x.r.part_name)}${fsnBadge(x.r.part_number)}</td><td style="text-align:left;color:#64748b">${esc(x.r.part_number)}</td><td style="text-align:left">${esc(mtCat(x.r))}</td><td style="text-align:left">${mtFsn(x.r)}</td><td>${x.r.msl_qty}</td><td>${x.r.closing_stock ?? 0}</td><td style="${x.r.runway_days != null && x.r.runway_days <= 0 ? 'color:#b91c1c;font-weight:700' : ''}">${x.r.runway_days == null ? '—' : Math.max(0, x.r.runway_days)}</td><td>${x.target}</td><td style="font-weight:700;color:#b91c1c">${x.qty.toLocaleString('en-IN')}</td>${rp ? `<td style="color:${sd == null ? '#64748b' : sd >= x.qty ? '#15803d' : sd > 0 ? '#b45309' : '#b91c1c'}">${sd == null ? 'not stocked' : sd.toLocaleString('en-IN')}</td>` : ''}</tr>`; }).join('')
       || '<tr><td colspan="9" style="color:#15803d">Nothing to order: every part is at or above the target.</td></tr>'
-    }</tbody>${list.length ? `<tbody><tr class="mt-total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td>${units.toLocaleString('en-IN')}</td>${rp ? '<td></td>' : ''}</tr></tbody>` : ''}</table></div></div>`;
+    }</tbody>${list.length ? `<tbody><tr class="mt-total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${units.toLocaleString('en-IN')}</td>${rp ? '<td></td>' : ''}</tr></tbody>` : ''}</table></div></div>`;
   box.querySelector('#ordBuf').onchange = e => { ORDER_BUFFER = +e.target.value; renderOrderList(); };
   box.querySelector('#ordHub').onchange = e => { ORDER_HUB = e.target.value; renderOrderList(); };
   box.querySelector('#ordCsv').onclick = () => {
-    const head = ['Hub', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
-    const rows = list.map(x => [hub, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
+    const head = ['Hub', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
+    const rows = list.map(x => [hub, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.r.runway_days == null ? '' : Math.max(0, x.r.runway_days), x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
     const csv = [head, ...rows].map(z => z.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `order_${hub.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
   box.querySelector('#ordCopy').onclick = async e => {
     // Copy as a real table (tab-separated + HTML), so it pastes into Excel / Sheets as columns
     const title = `${hub} – parts to order (${ORDER_BUFFER ? `MSL + ${ORDER_BUFFER}%` : 'to match MSL'}), ${new Date().toLocaleDateString('en-IN')}`;
-    const head = ['S.No', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
-    const rows = list.map((x, i) => [i + 1, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
-    const total = ['', 'Total', '', '', '', '', '', '', units].concat(rp ? [''] : []);
+    const head = ['S.No', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
+    const rows = list.map((x, i) => [i + 1, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.r.runway_days == null ? '' : Math.max(0, x.r.runway_days), x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
+    const total = ['', 'Total', '', '', '', '', '', '', '', units].concat(rp ? [''] : []);
     const all = [[title], head, ...rows, total];
     const clean = v => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
     const tsv = all.map(r => r.map(clean).join('\t')).join('\n');
@@ -1560,6 +1578,7 @@ const MT_COLS = [
   ['pn', 'Part no.', r => r.part_number || ''], ['cat', 'Category', r => mtCat(r)], ['fsn', 'FSN', r => mtFsn(r)],
   ['msl', 'MSL', r => r.msl_qty ?? -1e9, 1], ['stock', 'Closing stock', r => r.closing_stock ?? -1e9, 1],
   ['diff', 'Difference', r => (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : -1e9, 1],
+  ['runway', 'Runway (days)', r => r.runway_days ?? -1e9, 1],
   ['status', 'Status', r => r.status || 'Not counted']
 ];
 function mtOpen(c) {
@@ -1599,12 +1618,12 @@ function mtDraw() {
   const arrow = k => MT_VIEW.key === k ? (MT_VIEW.dir > 0 ? ' ▲' : ' ▼') : '';
   document.getElementById('mtBody').innerHTML = `<table><thead><tr>${MT_COLS.map(c => `<th data-k="${c[0]}" ${c[3] ? 'style="text-align:right"' : ''} title="Sort">${c[1]}${arrow(c[0])}</th>`).join('')}</tr></thead><tbody>${rows.map(r => {
     const d = (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : null;
-    return `<tr><td>${esc(r.hub_name)}</td><td>${mtCity(r.hub_name)}</td><td class="mt-part">${esc(r.part_name)}</td><td style="color:#64748b">${esc(r.part_number)}</td><td>${esc(mtCat(r))}</td><td>${mtFsn(r)}</td><td style="text-align:right">${r.msl_qty ?? '—'}</td><td style="text-align:right">${r.closing_stock ?? '—'}</td><td style="text-align:right;color:${d < 0 ? '#b91c1c' : 'inherit'}">${d == null ? '—' : (d > 0 ? '+' : '') + d}</td><td>${esc(r.status || 'Not counted')}</td></tr>`;
-  }).join('') || '<tr><td colspan="10" style="color:#64748b">No lines match the search.</td></tr>'}</tbody></table>`;
+    return `<tr><td>${esc(r.hub_name)}</td><td>${mtCity(r.hub_name)}</td><td class="mt-part">${esc(r.part_name)}</td><td style="color:#64748b">${esc(r.part_number)}</td><td>${esc(mtCat(r))}</td><td>${mtFsn(r)}</td><td style="text-align:right">${r.msl_qty ?? '—'}</td><td style="text-align:right">${r.closing_stock ?? '—'}</td><td style="text-align:right;color:${d < 0 ? '#b91c1c' : 'inherit'}">${d == null ? '—' : (d > 0 ? '+' : '') + d}</td><td style="text-align:right;${r.runway_days != null && r.runway_days <= 0 ? 'color:#b91c1c;font-weight:700' : ''}">${r.runway_days == null ? '—' : Math.max(0, r.runway_days)}</td><td>${esc(r.status || 'Not counted')}</td></tr>`;
+  }).join('') || '<tr><td colspan="11" style="color:#64748b">No lines match the search.</td></tr>'}</tbody></table>`;
 }
 function mtCsv() {
-  const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Status'];
-  const rows = mtVisible().map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.status || 'Not counted']);
+  const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Status'];
+  const rows = mtVisible().map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.runway_days == null ? '' : Math.max(0, r.runway_days), r.status || 'Not counted']);
   const csv = [head, ...rows].map(x => x.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `msl_lines_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
 }
