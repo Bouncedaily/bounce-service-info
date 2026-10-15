@@ -2235,6 +2235,17 @@ function renderSvcRefreshedAt(){
 }
 setInterval(refreshServiceHistoryQuiet, 120000); // auto-refresh every 2 minutes, mirrors the Queue tab's cadence
 
+// Current odometer comes from bike_fleet.current_odometer (the fleet list), not from the
+// latest JC, which can be weeks old. Cached per reg so re-renders don't refetch.
+var SVC_FLEET_ODO = {};
+function fetchFleetOdo(reg){
+  if(SVC_FLEET_ODO[reg] !== undefined) return Promise.resolve(SVC_FLEET_ODO[reg]);
+  return fetch(SB+'/rest/v1/bike_fleet?select=current_odometer&reg_number=eq.'+encodeURIComponent(reg)+'&limit=1',
+    {headers:{apikey:ANON, Authorization:'Bearer '+ANON}})
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(d){ var v = (d && d[0] && d[0].current_odometer!=null && Number(d[0].current_odometer)>0) ? Number(d[0].current_odometer) : null; SVC_FLEET_ODO[reg]=v; return v; })
+    .catch(function(){ return null; });
+}
 function renderVehicleProfile(){
   var el = document.getElementById('svc-vehicle-profile');
   var rows = getFilteredSvcRows();
@@ -2254,11 +2265,22 @@ function renderVehicleProfile(){
     if(!best || !r.date) return r;
     return (new Date(r.date) > new Date(best.date)) ? r : best;
   }, null);
-  var currentOdo = latestRow && latestRow.odo!=null ? Number(latestRow.odo).toLocaleString('en-IN')+' km' : '—';
+  var lastJcOdo = latestRow && latestRow.odo!=null ? Number(latestRow.odo) : null;
+  var lastJcDate = latestRow && latestRow.date ? new Date(latestRow.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '';
+  var lastJcText = lastJcOdo!=null ? 'Last JC: '+lastJcOdo.toLocaleString('en-IN')+' km'+(lastJcDate?' on '+lastJcDate:'') : 'No odometer on JCs';
+  var cached = SVC_FLEET_ODO[reg];
+  var currentOdo = cached ? cached.toLocaleString('en-IN')+' km' : (cached===null ? '—' : '…');
+  if(cached === undefined){
+    fetchFleetOdo(reg).then(function(){
+      // re-render only if the same single vehicle is still on screen
+      var r2 = getFilteredSvcRows();
+      if(r2.length && r2[0].reg_number===reg && new Set(r2.map(function(x){return x.reg_number;})).size===1) renderVehicleProfile();
+    });
+  }
   el.innerHTML =
     '<div style="background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:28px;flex-wrap:wrap">' +
     '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Vehicle</div><div style="font-size:20px;font-weight:800;color:#0f172a">'+esc(reg)+'</div></div>' +
-    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Current Odometer</div><div style="font-size:17px;font-weight:700">'+currentOdo+'</div></div>' +
+    '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Current Odometer</div><div style="font-size:17px;font-weight:700">'+currentOdo+'</div><div style="font-size:11px;color:var(--muted,#64748b)">'+esc(lastJcText)+'</div></div>' +
     '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Lifetime Spend</div><div style="font-size:17px;font-weight:700">₹'+Math.round(totalSpend).toLocaleString('en-IN')+'</div></div>' +
     '<div><div style="font-size:11px;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:.04em;font-weight:600">Total Repairs (Job Cards)</div><div style="font-size:17px;font-weight:700">'+totalRepairs+'</div></div>' +
     '</div>';
