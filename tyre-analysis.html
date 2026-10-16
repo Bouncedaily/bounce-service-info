@@ -1034,7 +1034,7 @@ function consFilterText() {
 function consN(odo, replaced) {
   if (odo == null && replaced == null) return '';
   const thin = (odo || 0) < 5;
-  return `<div style="font-size:10px;font-weight:400;color:${thin ? '#d97706' : 'var(--muted,#64748b)'}">Replaced ${replaced ?? 0} · Odo ${odo ?? 0}</div>`;
+  return `<div style="font-size:10px;font-weight:400;color:${thin ? '#e3b07a' : '#b4bac4'}">Replaced ${replaced ?? 0} · Odo ${odo ?? 0}</div>`;
 }
 function renderConsumption() {
   const body = document.getElementById('consumption-body');
@@ -1048,7 +1048,7 @@ function renderConsumption() {
     <td>${r.part_bucket}</td>
     <td class="num">${fmt(r.expected_life_km)}</td>
     ${v.months.map((x, i) => v.pctMode
-      ? `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${x.pct==null||!x.bikes?'—':x.pct+'%'}</span><div style="font-size:10px;font-weight:400;color:var(--muted,#64748b)">${fmt(x.bikes||0)} bikes</div></td>`
+      ? `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${x.pct==null||!x.bikes?'—':x.pct+'%'}</span><div style="font-size:10px;font-weight:400;color:#b4bac4">${fmt(x.bikes||0)} bikes</div></td>`
       : `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${fmt(x.km)}</span>${consN(x.odo, x.rep)}</td>`).join('')}
     <td class="num" ${achClass(v.ach)}>${v.ach==null?'—':v.ach+'%'}</td>
     <td class="num">${fmt(v.cnt)}</td>
