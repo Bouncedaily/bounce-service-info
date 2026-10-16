@@ -961,7 +961,7 @@ let _consPen = {}, _consMon = {};
 // month columns: March 2026 to the current month
 function consMonths() { const out = [], now = new Date(); let y = 2026, m = 3; while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth() + 1)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; }
 function consMonLabel(k) { const [y, m] = k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + '-' + y.slice(2); }
-async function loadConsumption() {
+async function loadConsumption(_retry) {
   const body = document.getElementById('consumption-body');
   const seq = ++_consSeq;
   body.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
@@ -996,6 +996,7 @@ async function loadConsumption() {
   } catch(e) {
     if (seq !== _consSeq) return;
     console.error('loadConsumption error:', e);
+    if (!_retry) { setTimeout(() => { if (seq === _consSeq) loadConsumption(true); }, 1500); return; }   // one automatic retry
     body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadConsumption();return false;">Retry</a></div>';
   }
 }
