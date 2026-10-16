@@ -1017,7 +1017,7 @@ function consView(r) {
   return { months, w3, lm, tm, ach: pctMode ? null : ach, cost, cpk, cnt, w3n: n(r.w3_n), lmn: n(r.lm_n), tmn: n(r.tm_n), w3r: n(r.w3_rep), lmr: n(r.lm_rep), tmr: n(r.tm_rep), pct, pctMode };
 }
 function consSortedRows() {
-  return _consumptionRows.map(r => ({ r, v: consView(r) })).sort((a, b) => (b.v.cost || 0) - (a.v.cost || 0));
+  return _consumptionRows.map(r => ({ r, v: consView(r) })).sort((a, b) => String(a.r.part_bucket).localeCompare(String(b.r.part_bucket)));   // A to Z by part type
 }
 function consLabels() {
   const r0 = _consumptionRows[0] || {};
