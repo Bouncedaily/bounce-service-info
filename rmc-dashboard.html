@@ -478,17 +478,24 @@ function partRows(model, city, bucket, months){
 function viewParts(model){
   var P=state.parts, months=selMonths(); if(!validCity(P.city)) P.city=defCity();
   var city=P.city, ms=months.filter(function(m){return model[city]&&model[city][m];}), last=ms[ms.length-1], rows=partRows(model,city,P.bucket,ms);
-  rows.forEach(function(r){ r.s=r.by[last]?r.by[last].amt:0; }); rows.sort(function(a,b){return b.s-a.s;});
+  // sort: click any column header (part name, a month, or Total); default = latest month, highest first
+  var sk=P.sortKey||last, sd=P.sortDir||'desc';
+  if(sk!=='name' && sk!=='total' && ms.indexOf(sk)<0) { sk=last; sd='desc'; }
+  rows.forEach(function(r){ r.tot=ms.reduce(function(a,m){return a+(r.by[m]?r.by[m].amt:0);},0); r.s= sk==='total' ? r.tot : (r.by[sk]?r.by[sk].amt:0); });
+  rows.sort(function(a,b){ var c= sk==='name' ? a.label.localeCompare(b.label) : (a.s-b.s); return sd==='asc'?c:-c; });
+  var arrow=function(k){ return sk===k ? (sd==='asc'?' \u25b2':' \u25bc') : ''; };
+  var thS=function(k,label,left){ return '<th data-a="psort" data-v="'+k+'" style="cursor:pointer;user-select:none'+(left?';text-align:left':'')+'" title="Sort by '+esc(label)+'">'+label+arrow(k)+'</th>'; };
   var q=P.q.trim().toLowerCase(), shown=q?rows.filter(function(r){return r.label.toLowerCase().indexOf(q)>=0;}):rows.slice(0,P.top), rest=q?[]:rows.slice(P.top);
   var h='<div class="card"><h3>Part breakup \u00b7 '+cityName(city)+' \u00b7 '+NAMES[P.bucket]+'</h3><div class="row">'
     +'<span class="chip'+(P.bucket==='A'?' on':'')+'" data-a="pb" data-v="A">A</span><span class="chip'+(P.bucket==='P'?' on':'')+'" data-a="pb" data-v="P">P</span><span class="chip'+(P.bucket==='C'?' on':'')+'" data-a="pb" data-v="C">C</span>'
     +'<select data-a="pcity">'+cityOpts(city)+'</select>'
     +'<select data-a="ptop">'+[8,12,20,40].map(function(n){return '<option value="'+n+'"'+(P.top===n?' selected':'')+'>Top '+n+'</option>';}).join('')+'</select>'
     +'<input type="text" data-a="pq" placeholder="Search part..." value="'+esc(P.q)+'"><button class="btn sm" data-a="csv">'+ic('download')+' CSV</button></div>'
-    +'<p class="sub">Sorted by '+(last?C.monthLabel(last):'')+'. Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+unitName()+'.</p><div class="tw"><table><tr><th>Part</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
-  shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+rowCells(ms.map(function(m){ return val(r.by[m]?r.by[m].amt:0,city,m); }),true)+'</tr>'; });
-  if(rest.length) h+='<tr><td>All other '+P.bucket+' parts ('+rest.length+')</td>'+rowCells(ms.map(function(m){ return val(rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0),city,m); }),true)+'</tr>';
-  h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+ms.map(function(m){ return '<td>'+fmt(val(model[city][m][P.bucket],city,m))+'</td>'; }).join('')+'</tr></table></div></div>';
+    +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='total'?'total of the months shown':C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+unitName()+'.</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('total','Total')+'</tr>';
+  var sumV=function(get){ var t=0, any=false; ms.forEach(function(m){ var x=get(m); if(x!=null){ t+=x; any=true; } }); return any?t:null; };
+  shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+rowCells(ms.map(function(m){ return val(r.by[m]?r.by[m].amt:0,city,m); }),true)+'<td style="font-weight:600">'+fmt(sumV(function(m){ return val(r.by[m]?r.by[m].amt:0,city,m); }))+'</td></tr>'; });
+  if(rest.length) h+='<tr><td>All other '+P.bucket+' parts ('+rest.length+')</td>'+rowCells(ms.map(function(m){ return val(rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0),city,m); }),true)+'<td style="font-weight:600">'+fmt(sumV(function(m){ return val(rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0),city,m); }))+'</td></tr>';
+  h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+ms.map(function(m){ return '<td>'+fmt(val(model[city][m][P.bucket],city,m))+'</td>'; }).join('')+'<td>'+fmt(sumV(function(m){ return val(model[city][m][P.bucket],city,m); }))+'</td></tr></table></div></div>';
   return h;
 }
 function viewMovers(model){
@@ -599,6 +606,7 @@ root.addEventListener('click',function(e){
   else if(a==='pb') state.parts.bucket=v;
   else if(a==='dstat') state.dist.stat=v;
   else if(a==='dyear') state.dist.yr=v;
+  else if(a==='psort'){ var P2=state.parts; if((P2.sortKey||'')===v) P2.sortDir=(P2.sortDir==='asc'?'desc':'asc'); else { P2.sortKey=v; P2.sortDir=(v==='name'?'asc':'desc'); } }
   else if(a==='pickjc'){ document.getElementById('f_jc').click(); return; }
   else if(a==='reload'){ loadAll(); return; }
   else if(a==='csv'){ csv(); return; }
