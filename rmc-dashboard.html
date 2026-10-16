@@ -308,7 +308,7 @@ async function loadAll(){
     else { var k=c+'|'+x[2]+'|'+x[0]; state.hubFleet[k]=+x[4]||null; state.hubKm[k]=+x[5]||null; } });
   state.ops={}; (D.ops||[]).forEach(function(o){ var c=CITY_CODE[o.city]; if(!c) return; (state.ops[c]=state.ops[c]||{})[o.month]=o; });
   state.rules=(D.rules||[]).map(function(x){return {name:x[0],to:x[1],from:x[2]||''};});
-  st.dist=(D.dist||[]).map(function(x){ return {city:CITY_CODE[x[0]],part:x[1],month:x[2],avg:+x[3],med:+x[4],n:+x[5]}; }).filter(function(x){return x.city;});
+  st.dist=(D.dist||[]).map(function(x){ return {city:CITY_CODE[x[0]],part:x[1],month:x[2],avg:+x[3],med:+x[4],n:+x[5],yr:x[6]||'all'}; }).filter(function(x){return x.city;});
   st.files=[{name:'Portal data',rows:L.length,months:[...new Set(L.map(function(x){return x[0];}))].sort()}];
   var res=[{data:L}];
   state.store=st; state.loading=false;
@@ -523,10 +523,14 @@ function viewHubs(model){
   return h+'</table></div></div>';
 }
 function viewDist(){
-  var dl=state.store.dist||[], D=state.dist;
+  var D=state.dist, yrs=[...new Set((state.store.dist||[]).map(function(r){return r.yr;}).filter(function(y){return y!=='all';}))].sort();
+  if(!D.yr || (D.yr!=='all' && yrs.indexOf(D.yr)<0)) D.yr='all';
+  var dl=(state.store.dist||[]).filter(function(r){ return r.yr===D.yr; });
   var h='<div class="card"><h3>Distance between replacements</h3><div class="row">'
-    +[['med','Median'],['avg','Average'],['both','Average / Median']].map(function(o){ return '<span class="chip'+(D.stat===o[0]?' on':'')+'" data-a="dstat" data-v="'+o[0]+'">'+o[1]+'</span>'; }).join('')+'</div>'
-    +'<p class="sub">Km between consecutive replacements of the same part on the same bike, by month of the later replacement. First fitments and zero/negative odometer gaps are excluded; Gabriel equivalents count as the same part. Energy Ride Tyre is measured from the previous Energy Ride or Rear Tyre 12 Inch fitment on the bike. * = fewer than 5 replacements (indicative only). Hover a cell for the count. Higher km is green, lower is red. Oct = Oct 1\u20137 only.</p></div>';
+    +[['med','Median'],['avg','Average'],['both','Average / Median']].map(function(o){ return '<span class="chip'+(D.stat===o[0]?' on':'')+'" data-a="dstat" data-v="'+o[0]+'">'+o[1]+'</span>'; }).join('')
+    +'<span style="width:14px"></span><label style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Deployed year</label>'
+    +[['all','All bikes']].concat(yrs.map(function(y){return [y, y==='unknown'?'Unknown':y];})).map(function(o){ return '<span class="chip'+(D.yr===o[0]?' on':'')+'" data-a="dyear" data-v="'+o[0]+'">'+o[1]+'</span>'; }).join('')+'</div>'
+    +'<p class="sub">Km between consecutive replacements of the same part on the same bike, by month of the later replacement, the same as Wear &amp; Tear consumption (Other replacements): first fitments, 0 km gaps and flagged odometer readings are left out; Front Tyre 12-Inch and Zoom count as one front-tyre position. Deployed year = the bike\'s first deployment year. * = fewer than 5 replacements (indicative only). Hover a cell for the count. Higher km is green, lower is red.</p></div>';
   if(!dl.length) return h+'<div class="empty">No distance data yet. Import the service-cost file that has the "Replacement distance" sheet.</div>';
   var months=selMonths(), fmtK=function(v){ return Math.round(v).toLocaleString('en-IN'); };
   state.F.cities.forEach(function(city){
@@ -593,6 +597,7 @@ root.addEventListener('click',function(e){
   else if(a==='unit') state.unit=v;
   else if(a==='pb') state.parts.bucket=v;
   else if(a==='dstat') state.dist.stat=v;
+  else if(a==='dyear') state.dist.yr=v;
   else if(a==='pickjc'){ document.getElementById('f_jc').click(); return; }
   else if(a==='reload'){ loadAll(); return; }
   else if(a==='csv'){ csv(); return; }
