@@ -755,11 +755,20 @@ body { overflow:auto!important; }
         <button id="f-btn-yesterday" onclick="setBLDate('yesterday')"
           style="padding:3px 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">Yesterday</button>
         <button id="f-btn-7d" onclick="setBLDate('7d')"
-          style="padding:3px 12px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">7d</button>
+          style="padding:3px 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">7d</button>
+        <button id="f-btn-30d" onclick="setBLDate('30d')"
+          style="padding:3px 12px;border:none;border-right:1px solid var(--border);font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">30d</button>
+        <button id="f-btn-60d" onclick="setBLDate('60d')"
+          style="padding:3px 12px;border:none;font-size:12px;font-family:inherit;cursor:pointer;background:none;color:var(--text);font-weight:400;letter-spacing:0">60d</button>
       </div>
-      <!-- hidden date range inputs still needed for logic -->
-      <input type="date" id="f-bl-from" style="display:none"/>
-      <input type="date" id="f-bl-to" style="display:none"/>
+      <!-- custom range: any dates from 1 Jun 2026 (start of the inflow / outflow history) to today -->
+      <div style="display:flex;align-items:center;gap:5px">
+        <label for="f-bl-from" style="font-size:11px;color:var(--muted)">From</label>
+        <input type="date" id="f-bl-from" min="2026-06-01" onchange="onBLCustomRange()" style="padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit"/>
+        <label for="f-bl-to" style="font-size:11px;color:var(--muted)">To</label>
+        <input type="date" id="f-bl-to" min="2026-06-01" onchange="onBLCustomRange()" style="padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit"/>
+        <span id="f-bl-range-note" style="font-size:11px;color:var(--muted)"></span>
+      </div>
       <div id="f-bl-custom-range" style="display:none"></div>
       <!-- Inflow Type -->
       <div style="display:flex;align-items:center;gap:5px">
@@ -1754,7 +1763,7 @@ async function onBLDateSel() {
 }
 
 async function setBLDate(mode) {
-  var IDS = { today:'f-btn-today', yesterday:'f-btn-yesterday', '7d':'f-btn-7d' };
+  var IDS = { today:'f-btn-today', yesterday:'f-btn-yesterday', '7d':'f-btn-7d', '30d':'f-btn-30d', '60d':'f-btn-60d' };
   Object.keys(IDS).forEach(function(k){ var b=document.getElementById(IDS[k]); if(b){ b.style.background='none'; b.style.color='var(--text)'; b.style.fontWeight=''; } });
   var active = document.getElementById(IDS[mode] || IDS.today);
   if (active) { active.style.background='var(--accent)'; active.style.color='#fff'; active.style.fontWeight='600'; }
@@ -1763,6 +1772,8 @@ async function setBLDate(mode) {
   var todayStr = new Date(MS).toISOString().slice(0,10);
   var from, to;
   if (mode === '7d')       { to = todayStr; from = new Date(MS - 6*DAY).toISOString().slice(0,10); }
+  else if (mode === '30d') { to = todayStr; from = new Date(MS - 29*DAY).toISOString().slice(0,10); }
+  else if (mode === '60d') { to = todayStr; from = new Date(MS - 59*DAY).toISOString().slice(0,10); }
   else if (mode === 'yesterday') { from = to = new Date(MS - DAY).toISOString().slice(0,10); }
   else                     { from = to = todayStr; }
   document.getElementById('f-bl-from').value = from;
@@ -1779,9 +1790,13 @@ function getBLDateRange() {
 }
 
 async function onBLCustomRange() {
-  var from = document.getElementById('f-bl-from').value;
-  var to   = document.getElementById('f-bl-to').value;
+  var fEl = document.getElementById('f-bl-from'), tEl = document.getElementById('f-bl-to');
+  var from = fEl.value;
+  var to   = tEl.value;
   if (!from || !to) return; // wait for both dates
+  if (from < '2026-06-01') { from = '2026-06-01'; fEl.value = from; }
+  if (from > to) { var x = from; from = to; to = x; fEl.value = from; tEl.value = to; }
+  ['f-btn-today','f-btn-yesterday','f-btn-7d','f-btn-30d','f-btn-60d'].forEach(function(id){ var b=document.getElementById(id); if(b){ b.style.background='none'; b.style.color='var(--text)'; b.style.fontWeight=''; } });
   await fetchAndRenderBikeList(from, to);
   applyBikeListFilters();
 }
@@ -1835,6 +1850,7 @@ async function fetchAndRenderBikeList(from, to) {
     if (RAW.inflow.length >= ROW_CAP || RAW.outflow.length >= ROW_CAP) showRowCapWarning(RAW.inflow.length, RAW.outflow.length);
     else if (_capEl) _capEl.remove();
     try { var _fo = applyFilters(RAW).outflow; LAST_OUTFLOW = _fo; renderRepairAging(_fo); } catch(e) {}
+    try { var _n = document.getElementById('f-bl-range-note'); if (_n && from && to) { var _d = Math.round((new Date(to) - new Date(from)) / 86400000) + 1; _n.textContent = _d + ' day' + (_d > 1 ? 's' : '') + ' · ' + RAW.inflow.length.toLocaleString('en-IN') + ' in / ' + RAW.outflow.length.toLocaleString('en-IN') + ' out'; } } catch(e) {}
   } catch(e) { console.error('fetchAndRenderBikeList error', e); }
 }
 
@@ -2071,6 +2087,7 @@ function applyBikeListFilters() {
 function clearBikeListFilters() {
   document.getElementById('f-bl-inflow-type').value = '';
   document.getElementById('f-bl-repair-type').value = '';
+  try { var _td = todayISTDate(); document.getElementById('f-bl-from').max = _td; document.getElementById('f-bl-to').max = _td; } catch(e) {}
   setBLDate('today');
 }
 
