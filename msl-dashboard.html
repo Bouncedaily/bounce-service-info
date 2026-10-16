@@ -1354,7 +1354,7 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
   return `<div class="mt-card"><div class="mt-title">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for these logins; everyone else sees the page as before.
-const MT_PREVIEW_USERS = ['nithish@bounceshare.com'];
+const MT_PREVIEW_USERS = ['nithish@bounceshare.com', 'senthilkumar.t@bounceshare.com'];
 function mtViewer() {
   try { if (window.authGetEmail) { const e = window.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
   try { if (window.parent && window.parent !== window && window.parent.authGetEmail) { const e = window.parent.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
