@@ -283,7 +283,7 @@ function rpc(fn,args){ return api('/rest/v1/rpc/'+fn,{method:'POST',body:args||{
 
 /* ---------- data from the portal (DMS billing lines, job cards, fleet / km, ops costs, rules) ---------- */
 var CITY_CODE={Bangalore:'BLR',NCR:'NCR',Hyderabad:'HYD',Mumbai:'MUM'}, CITY_FULL={BLR:'Bangalore',NCR:'NCR',HYD:'Hyderabad',MUM:'Mumbai'};
-var OPS_IN=[['coco','COCO',1],['porter','Porter',1],['ins_iot','Insurance & IOT',1],['warr_prov','Warranty provision',1],['ins_claim','Insurance claim',-1],['scrap','Scrap',-1],['warr_claim','Warranty claim',-1],['other','Other maintenance',0],['ad_recovery','AD recovery',0]];
+var OPS_IN=[['labour','Labour (service team)',0],['coco','COCO',1],['porter','Porter',1],['ins_iot','Insurance & IOT',1],['warr_prov','Warranty provision',1],['ins_claim','Insurance claim',-1],['scrap','Scrap',-1],['warr_claim','Warranty claim',-1],['other','Other maintenance',0],['ad_recovery','AD recovery',0]];
 function persist(){}
 async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||''};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
 async function loadAll(){
@@ -354,11 +354,11 @@ function opsVal(kind, city, m, d){
   return o[kind]!=null ? +o[kind] : null;
 }
 function opsAmt(kind, city, m){ return opsVal(kind, city, m, lastModel[city]&&lastModel[city][m]); }
-// Net service cost = all DMS parts + LabCost + COCO + Porter + Insurance & IOT + Warranty provision - Insurance claim - Scrap - Warranty claim
+// Total (report structure) = Labour (service team) + A + P + C + Other maintenance. Labour and Other are city-level monthly inputs.
 function netInfo(d, city, m){
   if(!d || state.F.hub || state.F.model) return {v:null, missing:[]};
-  var v=d.A+d.P+d.C+d.W+d.F+(opsVal('lab',city,m,d)||0), missing=[];
-  OPS_IN.forEach(function(f){ if(!f[2]) return; var x=opsVal(f[0],city,m,d); if(x==null) missing.push(f[1]); else v+=f[2]*x; });
+  var v=d.A+d.P+d.C, missing=[];
+  [['labour','Labour'],['other','Other maintenance']].forEach(function(f){ var x=opsVal(f[0],city,m,d); if(x==null) missing.push(f[1]); else v+=x; });
   return {v:v, missing:missing};
 }
 function totalAmt(d, city, m){ var n=netInfo(d,city,m); return n.missing.length?null:n.v; }
@@ -378,6 +378,7 @@ function den(city, month, unit){
   if(city==='ALL'){ var t=0, any=false; for(var i=0;i<state.F.cities.length;i++){ var c=state.F.cities[i]; if(!(lastModel[c]&&lastModel[c][month])) continue; var d=den(c,month,unit); if(d==null) return null; t+=d; any=true; } return any?t:null; }
   if(state.F.model) return null;
   if(state.F.hub){ var k=city+'|'+state.F.hub+'|'+month; return unit==='km' ? (state.hubKm[k]||null) : (state.hubFleet[k]||null); }
+  if(unit!=='km'){ var od=((state.ops[city]||{})[month]||{}).avg_deployed; if(od) return +od; }
   var t=(unit==='km'?state.km:state.fleet)[city]; return (t&&t[month])||null;
 }
 function val(amt, city, month){
@@ -456,23 +457,16 @@ function viewOverview(model){
         var d=(pv!=null&&cur!=null)?cur-pv:null, cls=d==null?'':(d>0?'up':'dn');
         return '<div class="kpi" style="border-left-color:'+(k==='T'?'#1F3864':COLORS[k])+'"><div class="l">'+(k==='T'?'Parts total (A+P+C)':NAMES[k])+' \u00b7 '+C.monthLabel(last)+'</div><div class="v">'+fmt(cur)+'</div><div class="d '+cls+'">'+(d==null?'':(d>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(d))+' vs '+C.monthLabel(prev))+'</div></div>'; }).join('');
       var tm=ms.filter(function(m){ return totalAmt(model[city][m],city,m)!=null; }), tl=tm[tm.length-1], tq=tm[tm.length-2], tc=tl?totalAmt(model[city][tl],city,tl):null, tp=tq?totalAmt(model[city][tq],city,tq):null, tcv=tc==null?null:val(tc,city,tl), tpv=tp==null?null:val(tp,city,tq), td=(tcv!=null&&tpv!=null)?tcv-tpv:null;
-      kp+='<div class="kpi" style="border-left-color:#111827"><div class="l">Net service cost \u00b7 '+(tl?C.monthLabel(tl):'')+'</div><div class="v">'+fmt(tcv)+'</div><div class="d '+(td==null?'':(td>0?'up':'dn'))+'">'+(td==null?'':(td>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(td))+' vs '+C.monthLabel(tq))+'</div></div>';
+      kp+='<div class="kpi" style="border-left-color:#111827"><div class="l">Total (Labour+A+P+C+Other) \u00b7 '+(tl?C.monthLabel(tl):'')+'</div><div class="v">'+fmt(tcv)+'</div><div class="d '+(td==null?'':(td>0?'up':'dn'))+'">'+(td==null?'':(td>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(td))+' vs '+C.monthLabel(tq))+'</div></div>';
       h+='<div class="kpis">'+kp+'</div>'; }
     h+='<div class="grid2"><div>'+stacked(city,ms,model)+'</div><div class="tw"><table><tr><th>'+unitName()+'</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
-    ['A','P','C'].forEach(function(k){ h+='<tr><td>'+NAMES[k]+'</td>'+rowCells(ms.map(function(m){return val(model[city][m][k],city,m);}),true)+'</tr>'; });
-    h+='<tr class="tot"><td>Parts total (A+P+C)</td>'+ms.map(function(m){ var d=model[city][m], t=['A','P','C'].reduce(function(a,b){var x=val(d[b],city,m);return x==null||a==null?null:a+x;},0); return '<td>'+fmt(t)+'</td>'; }).join('')+'</tr>';
-    h+='<tr><td>Labour (LabCost)</td>'+rowCells(ms.map(function(m){ var a=opsVal('lab',city,m,model[city][m]); return a==null?null:val(a,city,m); }),true)+'</tr>';
-    // One "Other" row: everything between parts + labour and net service cost (COCO, Porter, Insurance & IOT, Warranty provision,
-    // minus Insurance claim, Scrap, Warranty claim; plus the W / F parts that warranty claim offsets). Parts total + Labour + Other = Net.
-    h+='<tr><td>Other</td>'+ms.map(function(m){ var d=model[city][m]; if(state.F.hub||state.F.model||!d) return '<td>\u2013</td>';
-      var n=netInfo(d,city,m); if(n.v==null) return '<td>\u2013</td>';
-      var oth=n.v-(d.A+d.P+d.C)-(opsVal('lab',city,m,d)||0);
-      var tip=OPS_IN.filter(function(f){return f[2];}).map(function(f){ var x=opsVal(f[0],city,m,d); return (f[2]<0?'− ':'+ ')+f[1]+': '+(x==null?'not entered':fmt(val(x,city,m))); }).join('\n')+'\n+ Warranty & F parts (DMS): '+fmt(val(d.W+d.F,city,m));
-      return '<td title="'+esc(tip)+'"'+(n.missing.length?' style="color:#b45309"':'')+'>'+fmt(val(oth,city,m))+(n.missing.length?'*':'')+'</td>'; }).join('')+'</tr>';
-    h+='<tr class="tot"><td>Net service cost</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Missing: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':fmt(val(n.v,city,m))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
-    ['other','ad_recovery'].forEach(function(k){ var f=OPS_IN.filter(function(x){return x[0]===k;})[0]; h+='<tr><td style="color:#6b7280">'+(k==='other'?'Other maintenance (sheet)':f[1])+' <span style="font-size:11px">(not in Net)</span></td>'+ms.map(function(m){ var a=opsVal(k,city,m,model[city][m]); return '<td style="color:#6b7280">'+(a==null?'\u2013':fmt(val(a,city,m)))+'</td>'; }).join('')+'</tr>'; });
+    var inRow=function(k,label){ return '<tr><td>'+label+'</td>'+rowCells(ms.map(function(m){ var a=opsVal(k,city,m,model[city][m]); return a==null?null:val(a,city,m); }),true)+'</tr>'; };
+    var pRow=function(k){ return '<tr><td>'+NAMES[k]+'</td>'+rowCells(ms.map(function(m){return val(model[city][m][k],city,m);}),true)+'</tr>'; };
+    h+=inRow('labour','Labour (service team)')+pRow('P')+pRow('A')+inRow('other','Other maintenance')+pRow('C');
+    h+='<tr class="tot"><td>Total (Labour + A + P + C + Other)</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':fmt(val(n.v,city,m))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
+    h+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+ms.map(function(m){ var d=model[city][m]; return '<td style="color:#6b7280">'+fmt(val(d.A+d.P+d.C,city,m))+'</td>'; }).join('')+'</tr>';
     if(!state.F.hub && !state.F.model) h+='<tr><td>Job cards with parts (count)</td>'+ms.map(function(m){ var n=jcCount(city,m); return '<td style="color:#6b7280">'+(n?n.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join('')+'</tr>';
-    h+='</table></div></div><div class="note">Net service cost = Parts total (A+P+C) + Labour + Other. <b>Other</b> = COCO + Porter + Insurance &amp; IOT + Warranty provision − Insurance claim − Scrap − Warranty claim, plus the warranty (W) and F parts that the warranty claim offsets; hover an Other cell for its breakup. Labour and Warranty claim come from DMS (labour lines, W parts) unless entered in the monthly inputs; the other inputs are entered month-wise per city under Rules &amp; settings. * = some inputs not entered yet (hover to see which). Jan–Jun DMS lines are parts only, with no hub or model. Inputs are city-level, so they show as a dash with a hub or model filter on.</div></div>';
+    h+='</table></div></div><div class="note">Total = Labour (service team) + A + P + C + Other maintenance, the same as the report. Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Jan–Jun DMS lines are parts only, with no hub or model; Labour and Other show as a dash with a hub or model filter on.</div></div>';
   });
   return h||'<div class="empty">No data for the current filters.</div>';
 }
@@ -557,10 +551,10 @@ function viewSettings(){
    +'<div class="row"><label><input type="checkbox" data-a="fold"'+(state.foldOn?' checked':'')+'> Fold refurbished variants into their base part in part tables</label></div><div class="tw"><table><tr><th>Part name (as in DMS)</th><th>Move to</th><th>From month</th><th></th></tr>';
   state.rules.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td><b style="color:'+COLORS[r.to]+'">'+r.to+'</b></td><td>'+(r.from?C.monthLabel(r.from):'all months')+'</td><td><span class="x" data-a="rdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
   h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="rn" placeholder="Part name, e.g. DIU UNIT or MASTER CYLINDER HANDLE*" style="min-width:320px"><select id="rt"><option>C</option><option>P</option></select><input type="month" id="rf"><button class="btn sm pri" data-a="radd">Add rule</button><button class="btn sm" data-a="rreset">Reset to defaults</button></div></div>';
-  h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub">COCO, Porter, Insurance &amp; IOT and Warranty provision are added to Net service cost; Insurance claim, Scrap and Warranty claim are subtracted. Other maintenance and AD recovery are shown but not added. Leave Warranty claim blank to use DMS warranty (W) parts. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
+  h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub"><b>Labour (service team)</b> and <b>Other maintenance</b> feed the Total. COCO, Porter, Insurance &amp; IOT, Warranty provision, Insurance claim, Scrap, Warranty claim and AD recovery are kept for reference. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
   var oc=state.opsCity||'BLR', oms=ms.slice(); var nm=new Date(); var cur=nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0'); if(oms.indexOf(cur)<0) oms.push(cur);
   h+='<div class="tw"><table><tr><th>Input</th>'+oms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
-  OPS_IN.forEach(function(f){ h+='<tr><td>'+(f[2]>0?'+ ':f[2]<0?'− ':'')+f[1]+'</td>'+oms.map(function(m){ var o=(state.ops[oc]||{})[m]||{}, v=o[f[0]]; return '<td><input type="number" step="0.01" style="width:78px" data-a="opsin" data-k="'+f[0]+'" data-c="'+oc+'" data-m="'+m+'" value="'+(v==null?'':Math.round(v/1000)/100)+'"></td>'; }).join('')+'</tr>'; });
+  OPS_IN.forEach(function(f){ h+='<tr><td'+(f[0]==='labour'||f[0]==='other'?' style="font-weight:700"':'')+'>'+f[1]+'</td>'+oms.map(function(m){ var o=(state.ops[oc]||{})[m]||{}, v=o[f[0]]; return '<td><input type="number" step="0.01" style="width:78px" data-a="opsin" data-k="'+f[0]+'" data-c="'+oc+'" data-m="'+m+'" value="'+(v==null?'':Math.round(v/1000)/100)+'"></td>'; }).join('')+'</tr>'; });
   h+='</table></div></div>';
   h+='<div class="card"><h3>Fleet and km (denominators for per-bike and per-km)</h3><p class="sub">Fleet = monthly average of daily active bikes; km = sum of each bike\'s monthly km (Metabase exports). Hub-level fleet and km are by each bike\'s current hub.</p><div class="tw"><table><tr><th>City / metric</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
   cs.forEach(function(c){ [['fleet','Fleet (avg active bikes)'],['km','Km run']].forEach(function(t2){ h+='<tr><td>'+c+' \u00b7 '+t2[1]+'</td>'+ms.map(function(m){ var v=(state[t2[0]][c]||{})[m]; return '<td>'+(v==null?'\u2013':Math.round(v).toLocaleString('en-IN'))+'</td>'; }).join('')+'</tr>'; }); });
