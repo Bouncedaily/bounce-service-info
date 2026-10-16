@@ -132,7 +132,7 @@
       if (!perms) return;
       const map = {
         'dashboard': 'rmc', 'fleet': 'fleet_km', 'parts': 'parts_testing',
-        'tyre': 'wear_tear', 'hub': 'hub_control_tower', 'msl': 'msl_dashboard', 'oos': 'oos',
+        'tyre': 'wear_tear', 'msl': 'msl_dashboard', 'oos': 'oos',
         'savings': 'cost_savings'
       };
       document.querySelectorAll('.sb-item[data-view]').forEach(el => {
