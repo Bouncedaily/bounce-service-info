@@ -346,7 +346,8 @@ var lastModel={};
 // LabCost and Warranty claim come from the ops sheet when entered, otherwise from DMS (labour total, W parts).
 // The other inputs are city-level, so they are blank when a hub or model filter is on.
 function opsVal(kind, city, m, d){
-  if(city==='ALL'){ var t=0, any=false; for(var i=0;i<state.F.cities.length;i++){ var c=state.F.cities[i]; var dc=lastModel[c]&&lastModel[c][m]; if(!dc) continue; var v=opsVal(kind,c,m,dc); if(v==null) return null; t+=v; any=true; } return any?t:null; }
+  // Combined view: add up the cities that have a value (a city with no input, e.g. Mumbai, no longer blanks the whole column)
+  if(city==='ALL'){ var t=0, any=false; for(var i=0;i<state.F.cities.length;i++){ var c=state.F.cities[i]; var dc=lastModel[c]&&lastModel[c][m]; if(!dc) continue; var v=opsVal(kind,c,m,dc); if(v==null) continue; t+=v; any=true; } return any?t:null; }
   var o=(state.ops[city]||{})[m]||{}, filt=state.F.hub||state.F.model;
   if(kind==='lab') return (!filt && o.lab_cost!=null) ? +o.lab_cost : (d?d.L:null);
   if(kind==='warr_claim') return (!filt && o.warr_claim!=null) ? +o.warr_claim : (d?d.W:null);
