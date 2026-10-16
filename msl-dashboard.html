@@ -1340,18 +1340,20 @@ function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
   const note = /FSN/.test(title) && FSN_MONTHS ? `<span>FSN from ${FSN_MONTHS} billing · Part Details FSN tab</span>` : '';
   return `<div class="mt-card"><div class="mt-title">${title}${note}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
-function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs) {
-  const shortRows = MT_ROWS.filter(r => mtSt(r) === 'short' && hubs.includes(r.hub_name));
+function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
+  src = src || MT_ROWS;
+  const shortRows = src.filter(r => mtSt(r) === 'short' && hubs.includes(r.hub_name));
   const keysShown = keys.filter(k => shortRows.some(r => keyOf(r) === k));
   const cell = (k, h) => {
     const n = shortRows.filter(r => (k === null || keyOf(r) === k) && (h === null || r.hub_name === h)).length;
-    return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${k === null ? 'All' : k} · ${h === null ? 'All hubs' : h} · Short`, r => mtSt(r) === 'short' && (k === null || keyOf(r) === k) && (h === null || r.hub_name === h) && hubs.includes(r.hub_name), 'mt-short')}</td>`;
+    return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${k === null ? 'All' : k} · ${h === null ? 'All hubs' : h} · Short`, r => mtSt(r) === 'short' && (k === null || keyOf(r) === k) && (h === null || r.hub_name === h) && hubs.includes(r.hub_name), 'mt-short', src)}</td>`;
   };
+  if (!keysShown.length) return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div><div style="padding:12px 16px;color:var(--muted,#64748b);font-size:13px">No short parts for this filter.</div></div>`;
   const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}${cell(k, null)}</tr>`).join('')
     + `<tr class="mt-total"><td>Total short</td>${hubs.map(h => cell(null, h)).join('')}${cell(null, null)}</tr>`
-    + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(MT_ROWS.filter(r => r.hub_name === h))}</td>`).join('')}<td style="border-left:1px solid #e5e7eb">${mtPct(MT_ROWS.filter(r => hubs.includes(r.hub_name)))}</td></tr>`;
+    + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(src.filter(r => r.hub_name === h))}</td>`).join('')}<td style="border-left:1px solid #e5e7eb">${mtPct(src.filter(r => hubs.includes(r.hub_name)))}</td></tr>`;
   const fnote = sub && /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
-  return `<div class="mt-card"><div class="mt-title">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for these logins; everyone else sees the page as before.
 const MT_PREVIEW_USERS = ['nithish@bounceshare.com', 'senthilkumar.t@bounceshare.com'];
@@ -1401,10 +1403,10 @@ function renderMslTables() {
   const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
   box.innerHTML = '<div id="mtInsights"></div>' +
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
-    mtRunwayMatrix(hubs) +
-    mtMatrix('Short parts by FSN', '', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, hubs) +
-    mtMatrix('Short parts by Category', 'Category × Hub', 'Category', cats, mtCat, hubs) +
+    '<div id="cardRunway"></div><div id="cardSF"></div><div id="cardSC"></div>' +
     '<div id="mtOrder"></div>';
+  MT_HUBS = hubs; MT_CATS = cats;
+  renderCardTables();
   renderOrderList();
   renderInsights();
   if (!box.dataset.wired) {
@@ -1421,10 +1423,12 @@ const RUNWAY_BUCKETS = [['0 days', d => d <= 0], ['1–7 days', d => d >= 1 && d
 
 // Runway (days of stock left) by hub, from the "Runway (Days)" column of each hub's MSL tab.
 // Only parts with an MSL count; negative values in the sheet are treated as 0 days.
-function mtRunwayMatrix(hubs) {
+function mtRunwayMatrix(hubs, src, tools) {
+  src = src || MT_ROWS;
   const rw = r => Math.max(0, r.runway_days ?? 0);
-  const base = MT_ROWS.filter(r => (r.msl_qty || 0) > 0 && r.runway_days != null && hubs.includes(r.hub_name));
-  if (!base.length) return '';
+  const base = src.filter(r => (r.msl_qty || 0) > 0 && r.runway_days != null && hubs.includes(r.hub_name));
+  const head = `<div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span>${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div>`;
+  if (!base.length) return `<div class="mt-card">${head}<div style="padding:12px 16px;color:var(--muted,#64748b);font-size:13px">No parts for this filter.</div></div>`;
   const cell = (b, h) => {
     const n = base.filter(r => (h === null || r.hub_name === h) && b[1](rw(r))).length;
     return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${h || 'All hubs'} · runway ${b[0]}`, r => (h === null || r.hub_name === h) && b[1](rw(r)), b[0] === '0 days' ? 'mt-short' : '', base)}</td>`;
@@ -1435,7 +1439,7 @@ function mtRunwayMatrix(hubs) {
     + `<tr class="mt-total"><td>Total</td>${hubs.map(h => cell(ALL, h)).join('')}${cell(ALL, null)}</tr>`
     + `<tr class="mt-total"><td>Avg days left (capped at 365)</td>${hubs.map(h => `<td>${avg(h)}</td>`).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`
     + `<tr class="mt-total"><td title="When this hub last changed its MSL tab, as seen by the sync">Sheet last updated</td>${hubs.map(h => { const d = hubAgeDays(h); return `<td style="font-weight:600;color:${d == null ? 'inherit' : d >= STALE_DAYS ? '#b91c1c' : '#15803d'}">${hubAgeLabel(h)}</td>`; }).join('')}<td style="border-left:1px solid #e5e7eb"></td></tr>`;
-  return `<div class="mt-card"><div class="mt-title">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span></div><div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="mt-card">${head}<div class="mt-scroll"><table><thead><tr><th>Runway</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 
@@ -1648,6 +1652,31 @@ async function renderInsights() {
 
   if (!box.dataset.planWired) { box.dataset.planWired = '1'; box.addEventListener('click', e => { if (e.target.closest('[data-plan]')) openTransferPlan(); }); }
   box.innerHTML = items.length ? `<div class="ins"><div class="ins-hd"><b>Key insights</b><span>written from the latest sync · follows the filters above</span></div>${items.map(i => `<div class="ins-row"><span class="ins-ic" style="${TONE[i.tone]}">${i.icon}</span><div class="ins-tx"><b style="color:${NUMC[i.tone]}">${i.num}</b> ${i.text}<div class="ins-sub">${i.sub}</div></div>${i.ctaHtml}</div>`).join('')}</div>` : '';
+}
+
+
+// ─── Filters on individual tables (on top of the filters at the top of the page) ─────
+let MT_HUBS = [], MT_CATS = [];
+const CARD_F = { rwCat: '', rwFsn: '', sfCat: '', scFsn: '' };
+const FSN_OPTS = ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'];
+function cardSel(key, label, opts) {
+  if (CARD_F[key] && !opts.includes(CARD_F[key])) CARD_F[key] = '';
+  return `<select data-cardf="${key}" aria-label="${label}" style="font:inherit;font-size:12px;font-weight:500;min-height:30px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px;background:#fff;color:#111827"><option value="">All ${label === 'FSN' ? 'FSN' : label.toLowerCase()}</option>${opts.map(o => `<option${o === CARD_F[key] ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
+}
+function renderCardTables() {
+  const rw = document.getElementById('cardRunway'), sf = document.getElementById('cardSF'), sc = document.getElementById('cardSC');
+  if (!rw) return;
+  const rwSrc = MT_ROWS.filter(r => (!CARD_F.rwCat || mtCat(r) === CARD_F.rwCat) && (!CARD_F.rwFsn || mtFsn(r) === CARD_F.rwFsn));
+  rw.innerHTML = mtRunwayMatrix(MT_HUBS, rwSrc, cardSel('rwCat', 'Categories', MT_CATS) + cardSel('rwFsn', 'FSN', FSN_OPTS));
+  const sfSrc = MT_ROWS.filter(r => !CARD_F.sfCat || mtCat(r) === CARD_F.sfCat);
+  sf.innerHTML = mtMatrix('Short parts by FSN', '', 'FSN', FSN_OPTS, mtFsn, MT_HUBS, sfSrc, cardSel('sfCat', 'Categories', MT_CATS));
+  const scSrc = MT_ROWS.filter(r => !CARD_F.scFsn || mtFsn(r) === CARD_F.scFsn);
+  sc.innerHTML = mtMatrix('Short parts by Category', 'Category × Hub', 'Category', MT_CATS, mtCat, MT_HUBS, scSrc, cardSel('scFsn', 'FSN', FSN_OPTS));
+  const box = document.getElementById('mslTables');
+  if (box && !box.dataset.cardWired) {
+    box.dataset.cardWired = '1';
+    box.addEventListener('change', e => { const sel = e.target.closest('[data-cardf]'); if (!sel) return; CARD_F[sel.dataset.cardf] = sel.value; renderCardTables(); });
+  }
 }
 
 function renderRpdcTables(box) {
