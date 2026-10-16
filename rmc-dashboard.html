@@ -288,39 +288,33 @@ function persist(){}
 async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||''};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
 async function loadAll(){
   state.loading=true; toast('Loading RMC data…'); render();
-  var res=await Promise.all([
-    getAll('/rest/v1/rmc_cost_lines?select=month,city,hub_name,model,issue_catg,category,item_desc,qty,amount&order=id'),
-    getAll('/rest/v1/rmc_jc_counts?select=month,city,hub_name,jcs_with_parts'),
-    getAll('/rest/v1/service_metrics_monthly?select=month,city,hub_name,scope,bikes_deployed,total_km&scope=in.(rmc_city,rmc_hub)'),
-    getAll('/rest/v1/rmc_ops_costs?select=*'),
-    getAll('/rest/v1/rmc_reclass_rules?select=part_name,move_to,from_month&order=id'),
-    rpc('rmc_replacement_distance',{})
-  ]);
-  var bad=res.filter(function(r){return !r.ok;})[0];
-  if(bad){ state.loading=false; toast(bad.status===401||bad.status===403?'No access: the RMC Dashboard is admin-only for now.':'Could not load: '+bad.msg); render(); return; }
+  var t0=Date.now(), r=await rpc('rmc_dashboard_data',{});
+  if(!r.ok){ state.loading=false; toast(r.status===401||r.status===403||/access/i.test(r.msg||'')?'No access: the RMC Dashboard is admin-only for now.':'Could not load: '+r.msg); render(); return; }
+  var D=r.data||{}, L=D.lines||[];
   var st=C.newStore(), agg={};
-  res[0].data.forEach(function(r){
-    var city=CITY_CODE[r.city]; if(!city) return;
-    var cat=r.category==='Labour'?'Labour':'Part', pn=cat==='Part'?C.NORM(r.item_desc):'LABOUR';
-    if(cat==='Part'&&!st.names[pn]) st.names[pn]=r.item_desc;
-    var key=[city,r.month,r.hub_name||'',r.model||'',r.issue_catg||'NA',cat,pn].join('|');
-    var e=agg[key]||(agg[key]={city:city,month:r.month,hub:r.hub_name||'',model:r.model||'',issue:r.issue_catg||'NA',cat:cat,pn:pn,amt:0,qty:0});
-    e.amt+=+r.amount||0; e.qty+=+r.qty||0;
+  L.forEach(function(x){ // [month, city, hub, model, issue, category, desc, qty, amount]
+    var city=CITY_CODE[x[1]]; if(!city) return;
+    var cat=x[5]==='Labour'?'Labour':'Part', pn=cat==='Part'?C.NORM(x[6]):'LABOUR';
+    if(cat==='Part'&&!st.names[pn]) st.names[pn]=x[6];
+    var key=city+'|'+x[0]+'|'+(x[2]||'')+'|'+(x[3]||'')+'|'+(x[4]||'NA')+'|'+cat+'|'+pn;
+    var e=agg[key]||(agg[key]={city:city,month:x[0],hub:x[2]||'',model:x[3]||'',issue:x[4]||'NA',cat:cat,pn:pn,amt:0,qty:0});
+    e.amt+=+x[8]||0; e.qty+=+x[7]||0;
   });
   st.rows=Object.keys(agg).map(function(k){return agg[k];});
-  res[1].data.forEach(function(r){ var c=CITY_CODE[r.city]; if(!c) return; var k=c+'|'+r.month; st.jc[k]=(st.jc[k]||0)+(+r.jcs_with_parts||0); });
+  (D.jc||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0]; st.jc[k]=(st.jc[k]||0)+(+x[3]||0); });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
-  res[2].data.forEach(function(r){ var c=CITY_CODE[r.city]; if(!c) return;
-    if(r.scope==='rmc_city'){ if(r.bikes_deployed!=null)(state.fleet[c]=state.fleet[c]||{})[r.month]=+r.bikes_deployed; if(r.total_km!=null)(state.km[c]=state.km[c]||{})[r.month]=+r.total_km; }
-    else { var k=c+'|'+r.hub_name+'|'+r.month; state.hubFleet[k]=+r.bikes_deployed||null; state.hubKm[k]=+r.total_km||null; } });
-  state.ops={}; res[3].data.forEach(function(r){ var c=CITY_CODE[r.city]; if(!c) return; (state.ops[c]=state.ops[c]||{})[r.month]=r; });
-  state.rules=res[4].data.map(function(r){return {name:r.part_name,to:r.move_to,from:r.from_month||''};});
-  st.dist=(res[5].data||[]).map(function(r){ return {city:CITY_CODE[r.city],part:r.part,month:r.month,avg:+r.avg_km,med:+r.med_km,n:+r.n}; }).filter(function(r){return r.city;});
-  st.files=[{name:'Portal data',rows:res[0].data.length,months:[...new Set(res[0].data.map(function(r){return r.month;}))].sort()}];
+  (D.smm||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; // [month, city, hub, scope, bikes, km]
+    if(x[3]==='rmc_city'){ if(x[4]!=null)(state.fleet[c]=state.fleet[c]||{})[x[0]]=+x[4]; if(x[5]!=null)(state.km[c]=state.km[c]||{})[x[0]]=+x[5]; }
+    else { var k=c+'|'+x[2]+'|'+x[0]; state.hubFleet[k]=+x[4]||null; state.hubKm[k]=+x[5]||null; } });
+  state.ops={}; (D.ops||[]).forEach(function(o){ var c=CITY_CODE[o.city]; if(!c) return; (state.ops[c]=state.ops[c]||{})[o.month]=o; });
+  state.rules=(D.rules||[]).map(function(x){return {name:x[0],to:x[1],from:x[2]||''};});
+  st.dist=(D.dist||[]).map(function(x){ return {city:CITY_CODE[x[0]],part:x[1],month:x[2],avg:+x[3],med:+x[4],n:+x[5]}; }).filter(function(x){return x.city;});
+  st.files=[{name:'Portal data',rows:L.length,months:[...new Set(L.map(function(x){return x[0];}))].sort()}];
+  var res=[{data:L}];
   state.store=st; state.loading=false;
   state.F.cities=allCities(); state.parts.city=state.mv.city=state.hubs.city=defCity();
   var ms=allMonths(); state.mv.y=ms[ms.length-1]; state.mv.x=ms[Math.max(0,ms.length-2)];
-  toast('Loaded '+res[0].data.length.toLocaleString('en-IN')+' DMS lines · '+ms.map(C.monthLabel).join(', '));
+  toast('Loaded '+L.length.toLocaleString('en-IN')+' DMS lines in '+((Date.now()-t0)/1000).toFixed(1)+' s · '+ms.map(C.monthLabel).join(', '));
   render();
 }
 // Upload a new DMS month (RMC file). Aggregated in the browser, then saved; replaces the months it covers.
