@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--purple:#7c3aed;--font:'Inter',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+input,select{padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:none;border-color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.kpi.hero{background:linear-gradient(135deg,#eff6ff,#fff);border-color:#bfdbfe}
+.kpi-val{font-size:24px;font-weight:800}.kpi.hero .kpi-val{font-size:30px;color:var(--blue)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+.kpi-sub{font-size:11px;color:var(--muted2);margin-top:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.card-bd{padding:14px 16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7px 9px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;font-size:12.5px}
+th{background:#eef2f7;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;cursor:pointer;position:sticky;top:0}
+th:hover{background:#e2e8f2}
+td.l,th.l{text-align:left}
+tbody tr:nth-child(even) td{background:#fafbfd}
+tbody tr:hover td{background:#eef4ff}
+.rank{color:var(--muted2);font-weight:700}
+.hi{color:var(--green);font-weight:700}.lo{color:var(--red);font-weight:700}.mid{color:var(--amber);font-weight:600}
+.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+.pill.hi{background:#dcfce7;color:#15803d}.pill.lo{background:#fee2e2;color:#b91c1c}.pill.mid{background:#fef3c7;color:#a16207}
+.barcell{position:relative;background:#eef2ff;border-radius:4px;height:16px;min-width:40px}
+.barcell>span{position:absolute;left:0;top:0;bottom:0;border-radius:4px;opacity:.85}
+.tmix{display:flex;flex-direction:column;gap:8px}
+.tmix-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.tmix-lbl{width:120px;color:var(--text2)}.tmix-bar{flex:1;background:#f1f5f9;border-radius:5px;height:14px;overflow:hidden}
+.tmix-bar>span{display:block;height:100%;border-radius:5px}.tmix-val{width:52px;text-align:right;font-weight:600}
+.attn{display:flex;flex-wrap:wrap;gap:8px}
+.attn-item{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px}
+.attn-item b{color:var(--red)}
+.muted{color:var(--muted);font-size:11px}
+.spin{padding:40px;text-align:center;color:var(--muted)}
+.chart-box{position:relative;height:280px}
+.chart-box.tall{height:360px}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Technician Productivity</h1>
+<div class="psub">Performance = productive labour hours per technician per day, vs the <b>8&nbsp;hrs/day target</b>. Source: completed repairs (outflow) with ~94% labour coverage; includes OOS&rarr;RFD turnaround (TAT).</div>
+<div class="bar">
+  <span><label>From</label><input type="date" id="from"></span>
+  <span><label>To</label><input type="date" id="to"></span>
+  <span><label>City</label><select id="city" onchange="load()"><option value="">All Cities</option><option>Bangalore</option><option>Hyderabad</option><option>NCR</option></select></span>
+  <span><label>Hub</label><select id="hub" onchange="load()"><option value="">All Hubs</option></select></span>
+  <span><label>Min active days</label><input type="number" id="mind" value="3" style="width:56px" onchange="render()"></span>
+  <span id="status" class="muted"></span>
+</div>
+<div class="kpis" id="kpis"></div>
+
+<div class="card"><div class="card-hd">Team trend <span class="muted">7-day avg labour hrs/tech/day vs target</span></div><div class="card-bd" id="trend"></div></div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-hd">Jobs/Day — ranked <span class="muted" id="jobsBarSub"></span></div>
+    <div class="card-bd"><div class="chart-box"><canvas id="chartJobsBar"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-hd">Labour Hrs/Day — ranked <span class="muted">target 8/day</span></div>
+    <div class="card-bd"><div class="chart-box"><canvas id="chartHrsBar"></canvas></div></div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card" style="border-color:#bbf7d0">
+    <div class="card-hd" style="color:var(--green)">🏆 Top Performers — highest labour hrs/day vs 8-hr target</div>
+    <div class="card-bd" id="top"></div>
+  </div>
+  <div class="card" style="border-color:#fecaca">
+    <div class="card-hd" style="color:var(--red)">⚠ Needs Attention — lowest labour hrs/day vs 8-hr target</div>
+    <div class="card-bd" id="attn"></div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-hd">Jobs/Day vs Labour Hrs/Day <span class="muted">each dot = one technician</span></div>
+    <div class="card-bd"><div class="chart-box tall"><canvas id="chartScatter"></canvas></div></div>
+  </div>
+  <div class="card"><div class="card-hd">Job mix <span class="muted">OOS / RR / PDI</span></div><div class="card-bd" id="mix"></div></div>
+</div>
+
+<div class="grid2">
+  <div class="card"><div class="card-hd">Avg Labour Hrs / Tech / Day by Hub <span class="muted">target 8/day</span></div><div class="card-bd" style="overflow-x:auto" id="byhub"></div></div>
+  <div class="card"><div class="card-hd">Avg Labour Hrs / Tech / Day by City <span class="muted">target 8/day</span></div><div class="card-bd" style="overflow-x:auto" id="bycity"></div></div>
+</div>
+<div class="card"><div class="card-hd"><span>Technician Leaderboard</span><span class="muted" id="lb-count"></span></div>
+  <div style="overflow-x:auto"><table id="lb"><thead><tr>
+    <th class="l">#</th><th class="l" data-k="technician_name">Technician</th><th class="l" data-k="hub">Hub</th>
+    <th data-k="active_days">Active Days</th><th data-k="labour_hrs">Labour Hrs</th><th data-k="labour_hrs_per_day">Hrs/Day</th>
+    <th data-k="efficiency">Efficiency</th><th data-k="jobs">Jobs</th><th data-k="jobs_per_day">Jobs/Day</th><th data-k="mins_per_job">Mins/Job</th><th data-k="jobs_per_hour">Jobs/Hr</th><th data-k="avg_tat_days">Avg TAT (d)</th>
+    <th data-k="cost">Cost/Job</th><th data-k="oos">OOS</th><th data-k="rr">RR</th><th data-k="pdi">PDI</th>
+  </tr></thead><tbody id="lb-body"></tbody></table></div>
+</div>
+</div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+const TARGET=8;
+let DATA=null, SORT={k:'labour_hrs_per_day',dir:-1};
+function istToday(){return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10);}
+function daysAgo(n){var d=new Date(Date.now()+5.5*3600*1000);d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+function nf(n){return (n==null?0:n).toLocaleString('en-IN');}
+function inr(n){n=n||0;if(n>=1e7)return '₹'+(n/1e7).toFixed(2)+'Cr';if(n>=1e5)return '₹'+(n/1e5).toFixed(1)+'L';if(n>=1000)return '₹'+(n/1000).toFixed(1)+'k';return '₹'+Math.round(n);}
+function median(a){if(!a.length)return 0;var s=a.slice().sort(function(x,y){return x-y;});var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function effCls(r){return r>=1?'hi':(r<0.8?'lo':'mid');}
+async function load(){
+  var f=document.getElementById('from').value||daysAgo(30), t=document.getElementById('to').value||istToday();
+  var city=document.getElementById('city').value||null, hub=document.getElementById('hub').value||null;
+  document.getElementById('status').textContent='Loading…';
+  try{
+    var r=await fetch(SB+'/rest/v1/rpc/get_tech_productivity',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},
+      body:JSON.stringify({p_start:f,p_end:t,p_city:city,p_hub:hub})});
+    if(!r.ok){document.getElementById('status').innerHTML='<span style="color:var(--red)">Error loading</span>';return;}
+    DATA=await r.json(); populateHubs(); render();
+    document.getElementById('status').textContent='Synced '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){document.getElementById('status').innerHTML='<span style="color:var(--red)">Error</span>';}
+}
+function populateHubs(){var sel=document.getElementById('hub');if(sel.options.length>1)return;
+  (DATA.by_hub||[]).map(function(h){return h.hub;}).filter(Boolean).sort().forEach(function(h){var o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o);});}
+function render(){
+  if(!DATA)return;
+  var lb=(DATA.leaderboard||[]).slice();
+  var mind=+document.getElementById('mind').value||0;
+  var elig=lb.filter(function(r){return r.active_days>=mind;});
+  // FREELANCER is a pool of unnamed freelancers, not one person. It now appears once per hub it worked in
+  // (the leaderboard is one row per technician per hub), so it is left out of every average below.
+  var eligReal = elig.filter(function(r){return r.technician_name!=='FREELANCER';});
+  var rates=eligReal.map(function(r){return r.labour_hrs_per_day;}).filter(function(x){return x>0;});
+  var avg=rates.length?rates.reduce(function(s,x){return s+x;},0)/rates.length:0;
+  var med=median(rates);
+  var meetPct=eligReal.length?Math.round(100*eligReal.filter(function(r){return r.labour_hrs_per_day>=TARGET;}).length/eligReal.length):0;
+  var t=DATA.totals||{}, costPerJob=t.jobs?Math.round(t.cost/t.jobs):0;
+  document.getElementById('kpis').innerHTML=
+    '<div class="kpi hero"><div class="kpi-val">'+avg.toFixed(1)+'</div><div class="kpi-lbl">Avg Labour Hrs / Tech / Day</div><div class="kpi-sub">target '+TARGET+' · '+Math.round(avg/TARGET*100)+'% of target</div></div>'+
+    [['Median Hrs/Tech/Day',med.toFixed(1)],['% Techs Meeting 8h',meetPct+'%'],['Active Technicians',nf(t.active_techs)],['Total Jobs',nf(t.jobs)],['Avg Cost / Job',inr(costPerJob)],['Avg Mins / Job',(t.avg_mins_per_job||'—')+'m'],['Avg OOS→RFD TAT',(t.avg_tat_days!=null?t.avg_tat_days+'d':'—')]]
+      .map(function(k){return '<div class="kpi"><div class="kpi-val">'+k[1]+'</div><div class="kpi-lbl">'+k[0]+'</div></div>';}).join('');
+  // FREELANCER is an aggregate bucket covering many unnamed freelance
+  // technicians, not a real individual -- confirmed earlier, excluded
+  // from every per-technician ranking/chart below so it can't distort them.
+  var hubSrc = eligReal.length?eligReal:lb.filter(function(r){return r.technician_name!=='FREELANCER';});
+  renderTop(eligReal); renderAttn(eligReal); renderHub(hubSrc); renderCity(hubSrc); renderLb(lb);
+  renderTrend(DATA.daily||[]); renderMix(DATA.by_type||[]);
+  renderRankedBars(eligReal); renderScatter(eligReal);
+}
+var CHARTS={};
+function destroyChart(id){ if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];} }
+function labelPlugin(fmt){
+  return { id:'valLabels'+Math.random(), afterDatasetsDraw:function(chart){
+    var ctx=chart.ctx;
+    chart.data.datasets.forEach(function(ds,dsIndex){
+      var meta=chart.getDatasetMeta(dsIndex); if(meta.hidden)return;
+      ctx.save();ctx.font='600 10px sans-serif';ctx.fillStyle=ds.borderColor||ds.backgroundColor;ctx.textAlign='center';
+      meta.data.forEach(function(point,i){var v=ds.data[i];if(v==null)return;ctx.fillText(fmt(v),point.x,point.y-6);});
+      ctx.restore();
+    });
+  }};
+}
+function techLabel(r,rows){
+  var n=r.technician_name.split(' ').slice(0,2).join(' ');
+  var multi=rows.filter(function(x){return x.technician_name===r.technician_name;}).length>1;
+  return multi?n+' ('+r.hub+')':n;
+}
+function renderRankedBars(rows){
+  var top=rows.slice().sort(function(a,b){return b.jobs_per_day-a.jobs_per_day;}).slice(0,15);
+  document.getElementById('jobsBarSub').textContent='top 15 of '+rows.length+' qualifying';
+  destroyChart('jobs');
+  CHARTS.jobs=new Chart(document.getElementById('chartJobsBar'),{type:'bar',
+    data:{labels:top.map(function(r){return techLabel(r,rows);}),
+      datasets:[{label:'Jobs/Day',data:top.map(function(r){return r.jobs_per_day;}),backgroundColor:'#dc2626',borderRadius:4}]},
+    plugins:[labelPlugin(function(v){return v.toFixed(1);})],
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
+      plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9.5},maxRotation:60,minRotation:60}},y:{beginAtZero:true}}}
+  });
+  var topHrs=rows.slice().sort(function(a,b){return b.labour_hrs_per_day-a.labour_hrs_per_day;}).slice(0,15);
+  destroyChart('hrs');
+  CHARTS.hrs=new Chart(document.getElementById('chartHrsBar'),{type:'bar',
+    data:{labels:topHrs.map(function(r){return techLabel(r,rows);}),
+      datasets:[{label:'Labour Hrs/Day',data:topHrs.map(function(r){return r.labour_hrs_per_day;}),
+        backgroundColor:topHrs.map(function(r){return r.labour_hrs_per_day>=TARGET?'#16a34a':(r.labour_hrs_per_day>=TARGET*0.8?'#d97706':'#dc2626');}),borderRadius:4}]},
+    plugins:[labelPlugin(function(v){return v.toFixed(1);})],
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
+      plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9.5},maxRotation:60,minRotation:60}},y:{beginAtZero:true}}}
+  });
+}
+function renderScatter(rows){
+  destroyChart('scatter');
+  CHARTS.scatter=new Chart(document.getElementById('chartScatter'),{type:'scatter',
+    data:{datasets:[{label:'Technicians',
+      data:rows.map(function(r){return {x:r.jobs_per_day,y:r.labour_hrs_per_day,name:r.technician_name,hub:r.hub};}),
+      backgroundColor:'#dc2626',pointRadius:5,pointHoverRadius:7}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){
+        return ctx.raw.name+' ('+ctx.raw.hub+'): '+ctx.raw.x.toFixed(1)+' jobs/day, '+ctx.raw.y.toFixed(1)+' hrs/day';
+      }}}},
+      scales:{x:{title:{display:true,text:'Jobs/Day'},beginAtZero:true},y:{title:{display:true,text:'Labour Hrs/Day'},beginAtZero:true}}}
+  });
+}
+function renderTop(elig){
+  var top=elig.slice().sort(function(a,b){return b.labour_hrs_per_day-a.labour_hrs_per_day;}).slice(0,6);
+  document.getElementById('top').innerHTML = top.length?('<div class="attn">'+top.map(function(r){
+    return '<div class="attn-item" style="background:#f0fdf4;border-color:#bbf7d0"><b style="color:var(--green)">'+r.technician_name+'</b> ('+r.hub+') — '+r.labour_hrs_per_day+' hrs/day, <b style="color:var(--green)">'+Math.round(r.labour_hrs_per_day/TARGET*100)+'%</b> of target';
+  }).join('')+'</div>'):'<div class="muted">No qualifying technicians.</div>';
+}
+function renderAttn(elig){
+  var bottom=elig.slice().sort(function(a,b){return a.labour_hrs_per_day-b.labour_hrs_per_day;}).slice(0,6);
+  document.getElementById('attn').innerHTML = bottom.length?('<div class="attn">'+bottom.map(function(r){
+    return '<div class="attn-item"><b>'+r.technician_name+'</b> ('+r.hub+') — '+r.labour_hrs_per_day+' hrs/day, <b>'+Math.round(r.labour_hrs_per_day/TARGET*100)+'%</b> of target';
+  }).join('')+'</div>'):'<div class="muted">No technicians below threshold.</div>';
+}
+function renderTrend(d){
+  var el=document.getElementById('trend');
+  if(!d.length){el.innerHTML='<div class="muted">No data</div>';return;}
+  var vals=d.map(function(x){return x.labour_per_tech||0;}), n=vals.length;
+  var ma=vals.map(function(_,i){var s=Math.max(0,i-6),seg=vals.slice(s,i+1);return seg.reduce(function(a,b){return a+b;},0)/seg.length;});
+  var W=1000,H=200,pad=26,max=Math.max(TARGET,Math.max.apply(null,vals))*1.05||1;
+  function X(i){return pad+(n<2?0:i/(n-1))*(W-2*pad);}
+  function Y(v){return H-pad-(v/max)*(H-2*pad);}
+  var dp=vals.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);});
+  var mp=ma.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1);});
+  var tY=Y(TARGET), avg=vals.reduce(function(a,b){return a+b;},0)/n, delta=ma[n-1]-ma[0];
+  var dir=delta>0.2?'<span style="color:var(--green)">&#9650; improving</span>':(delta<-0.2?'<span style="color:var(--red)">&#9660; declining</span>':'<span style="color:var(--muted)">&#8596; steady</span>');
+  el.innerHTML='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="muted">period avg <b>'+avg.toFixed(1)+'</b> hrs/tech/day · vs target 8</span><span>'+dir+' ('+(delta>=0?'+':'')+delta.toFixed(1)+')</span></div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:185px">'+
+    '<line x1="'+pad+'" y1="'+tY.toFixed(1)+'" x2="'+(W-pad)+'" y2="'+tY.toFixed(1)+'" stroke="#16a34a" stroke-width="1" stroke-dasharray="5,4"/>'+
+    '<text x="'+(W-pad)+'" y="'+(tY-4).toFixed(1)+'" font-size="11" fill="#16a34a" text-anchor="end">target 8</text>'+
+    '<polyline points="'+dp.join(' ')+'" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.55"/>'+
+    '<polyline points="'+mp.join(' ')+'" fill="none" stroke="#2563eb" stroke-width="2.5"/>'+
+    '</svg>'+
+    '<div class="muted" style="display:flex;justify-content:space-between;margin-top:4px"><span>'+d[0].date+'</span><span>7-day avg (blue) · daily (grey)</span><span>'+d[d.length-1].date+'</span></div>';
+}
+function renderMix(types){
+  var colors={'OOS':'#2563eb','RR':'#16a34a','PDI':'#d97706','Running Repair':'#16a34a','Rider Submission':'#7c3aed','Recovery':'#0891b2','Bike Exchange':'#db2777','Manual JC':'#64748b'};
+  var tot=types.reduce(function(s,x){return s+x.jobs;},0)||1;
+  document.getElementById('mix').innerHTML='<div class="tmix">'+types.map(function(x){
+    return '<div class="tmix-row"><div class="tmix-lbl">'+x.submission_type+'</div><div class="tmix-bar"><span style="width:'+(x.jobs/tot*100).toFixed(0)+'%;background:'+(colors[x.submission_type]||'#94a3b8')+'"></span></div><div class="tmix-val">'+nf(x.jobs)+'</div><div style="width:86px;text-align:right;color:var(--muted2);font-size:11px">~'+(x.avg_mins||'—')+' min/job</div></div>';
+  }).join('')+'</div>';
+}
+function renderHub(lb){
+  var by={}; lb.forEach(function(r){var h=r.hub||'—';(by[h]=by[h]||{hub:h,city:r.city,techs:0,jobs:0,hsum:0,jsum:0});by[h].techs++;by[h].jobs+=r.jobs;by[h].hsum+=r.labour_hrs_per_day;by[h].jsum+=r.jobs_per_day;});
+  var rows=Object.keys(by).map(function(k){var o=by[k];o.avg=o.techs?o.hsum/o.techs:0;o.avgBikes=o.techs?o.jsum/o.techs:0;return o;}).sort(function(a,b){return b.avg-a.avg;});
+  var max=Math.max(TARGET,Math.max.apply(null,rows.map(function(r){return r.avg;})))||1;
+  document.getElementById('byhub').innerHTML='<table><thead><tr><th class="l">Hub</th><th class="l">City</th><th>Techs</th><th>Avg Bikes/Tech/Day</th><th>Avg Hrs/Tech/Day</th><th>vs 8h</th><th class="l">&nbsp;</th></tr></thead><tbody>'+
+    rows.map(function(r){var cls=effCls(r.avg/TARGET);
+      return '<tr><td class="l">'+r.hub+'</td><td class="l muted">'+(r.city||'')+'</td><td>'+r.techs+'</td><td>'+r.avgBikes.toFixed(1)+'</td>'+
+      '<td class="'+cls+'">'+r.avg.toFixed(1)+'</td><td><span class="pill '+cls+'">'+Math.round(r.avg/TARGET*100)+'%</span></td>'+
+      '<td class="l" style="width:180px"><div class="barcell"><span style="width:'+Math.min(100,r.avg/max*100).toFixed(0)+'%;background:'+(cls==='hi'?'#16a34a':cls==='lo'?'#dc2626':'#d97706')+'"></span></div></td></tr>';
+    }).join('')+'</tbody></table>';
+}
+function renderCity(lb){
+  var by={}; lb.forEach(function(r){var c=r.city||'—';(by[c]=by[c]||{city:c,hubs:{},techs:0,jobs:0,hsum:0,jsum:0});by[c].hubs[r.hub||'—']=1;by[c].techs++;by[c].jobs+=r.jobs;by[c].hsum+=r.labour_hrs_per_day;by[c].jsum+=r.jobs_per_day;});
+  var rows=Object.keys(by).map(function(k){var o=by[k];o.hubCount=Object.keys(o.hubs).length;o.avg=o.techs?o.hsum/o.techs:0;o.avgBikes=o.techs?o.jsum/o.techs:0;return o;}).sort(function(a,b){return b.avg-a.avg;});
+  var max=Math.max(TARGET,Math.max.apply(null,rows.map(function(r){return r.avg;})))||1;
+  document.getElementById('bycity').innerHTML='<table><thead><tr><th class="l">City</th><th>Hubs</th><th>Techs</th><th>Avg Bikes/Tech/Day</th><th>Avg Hrs/Tech/Day</th><th>vs 8h</th><th class="l">&nbsp;</th></tr></thead><tbody>'+
+    rows.map(function(r){var cls=effCls(r.avg/TARGET);
+      return '<tr><td class="l">'+r.city+'</td><td class="muted">'+r.hubCount+'</td><td>'+r.techs+'</td><td>'+r.avgBikes.toFixed(1)+'</td>'+
+      '<td class="'+cls+'">'+r.avg.toFixed(1)+'</td><td><span class="pill '+cls+'">'+Math.round(r.avg/TARGET*100)+'%</span></td>'+
+      '<td class="l" style="width:180px"><div class="barcell"><span style="width:'+Math.min(100,r.avg/max*100).toFixed(0)+'%;background:'+(cls==='hi'?'#16a34a':cls==='lo'?'#dc2626':'#d97706')+'"></span></div></td></tr>';
+    }).join('')+'</tbody></table>';
+}
+function renderLb(lb){
+  var rows=lb.slice();
+  rows.forEach(function(r){r.efficiency=r.labour_hrs_per_day/TARGET; r.cost_per_job=r.jobs?r.cost/r.jobs:0;});
+  rows.sort(function(a,b){var x=a[SORT.k],y=b[SORT.k];if(typeof x==='string')return SORT.dir*x.localeCompare(y);return SORT.dir*((x||0)-(y||0));});
+  var nT=Object.keys(rows.reduce(function(o,r){o[r.technician_name]=1;return o;},{})).length;
+  document.getElementById('lb-count').textContent=nT+' technicians'+(rows.length!==nT?' · '+rows.length+' technician-hub rows (a technician who worked at 2 hubs appears once per hub)':'')+' · sorted by '+SORT.k.replace(/_/g,' ');
+  document.getElementById('lb-body').innerHTML=rows.map(function(r,i){
+    var cls=effCls(r.efficiency);
+    return '<tr><td class="l rank">'+(i+1)+'</td><td class="l" style="font-weight:600">'+r.technician_name+'</td><td class="l">'+(r.hub||'')+'</td>'+
+      '<td>'+r.active_days+'</td><td>'+nf(r.labour_hrs)+'</td><td class="'+cls+'" style="font-weight:700">'+r.labour_hrs_per_day+'</td>'+
+      '<td><span class="pill '+cls+'">'+Math.round(r.efficiency*100)+'%</span></td>'+
+      '<td>'+nf(r.jobs)+'</td><td>'+r.jobs_per_day+'</td><td>'+(r.mins_per_job||'—')+'</td><td>'+(r.jobs_per_hour||'—')+'</td><td>'+(r.avg_tat_days!=null?r.avg_tat_days:'—')+'</td><td>'+inr(r.cost_per_job)+'</td>'+
+      '<td>'+(r.oos||0)+'</td><td>'+(r.rr||0)+'</td><td>'+(r.pdi||0)+'</td></tr>';
+  }).join('');
+}
+document.querySelectorAll('#lb th[data-k]').forEach(function(th){
+  th.addEventListener('click',function(){var k=th.getAttribute('data-k');SORT.dir=(SORT.k===k)?-SORT.dir:(k==='technician_name'||k==='hub'?1:-1);SORT.k=k;render();});
+});
+document.getElementById('from').value=daysAgo(30);
+document.getElementById('to').value=istToday();
+document.getElementById('from').addEventListener('change',load);
+document.getElementById('to').addEventListener('change',load);
+load();
+</script>
+</body></html>

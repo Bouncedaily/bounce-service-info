@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+input,select{padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:none;border-color:var(--red)}
+button{background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600}
+.tblwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+table{width:100%;table-layout:fixed;border-collapse:collapse;background:var(--card)}
+th,td{padding:7px 8px;text-align:center;vertical-align:middle;border-bottom:1px solid var(--border);font-size:14px;overflow:hidden;text-overflow:ellipsis}
+td{white-space:nowrap}
+th+th,td+td{border-left:1px solid #eff2f6}
+th{background:#e9eef5;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;white-space:normal;vertical-align:middle;position:sticky;top:0;z-index:2}
+td.l,th.l{text-align:center}
+td.l{white-space:normal;word-break:break-word}
+th:nth-child(3),td:nth-child(3),th:nth-child(10),td:nth-child(10),th:nth-child(12),td:nth-child(12){text-align:center}
+tbody tr:hover td{background:#eef4ff}
+tr.alt td{background:#f7f9fc}
+tr.city-total td{font-weight:700;background:#eef2ff!important;border-top:2px solid var(--border2)}
+tr.grand-total td{font-weight:800;background:#dde6ff!important;border-top:2px solid var(--border2)}
+.inp{width:58px;text-align:center;padding:4px 5px;font-size:13px}
+.inp-r{width:150px;text-align:left;padding:3px 6px;font-size:12px}
+.eff-hi{color:var(--green);font-weight:700}
+.eff-mid{color:var(--amber);font-weight:700}
+.eff-lo{color:var(--red);font-weight:700}
+.muted{color:var(--muted);font-size:11px}
+.grp{background:#f1f5f9;font-weight:700;color:var(--text2)}
+</style></head>
+<body>
+<div class="wrap">
+<h1>Standup — Daily Service Ops</h1>
+<div class="psub">Auto-captured from the OOS dashboard (frozen nightly, like the 11:59 PM entry). Auto-captured nightly. Techs is editable (default = technicians in outflow). Prod Hrs = total labour hrs ÷ techs. Productivity = Total ÷ techs; Efficiency vs 8/tech target.</div>
+<div class="bar">
+  <span><label>Date</label><input type="date" id="d" onchange="load()"></span>
+  <span><label>City</label><select id="city" onchange="render()"><option value="">All Cities</option></select></span>
+  <span id="status" class="muted"></span>
+</div>
+<div class="tblwrap">
+<table><thead><tr>
+  <th class="l">Hub</th><th>OOS Count (Day Start)</th><th>Target for the Day</th><th>Inflow (Rider Sub. &amp; Recovery)</th><th>Bike Exchange</th><th>Outflow (OOS to RFD)</th><th>OOS Count (Day End)</th>
+  <th>Running Repair</th><th>PDI to RFD</th><th>B2C Repair</th><th>Total Repair</th><th>Technicians Worked</th><th>Productivity in Count</th><th>Productivity in Hrs</th><th>Efficiency %</th>
+</tr></thead><tbody id="tb"></tbody></table>
+</div>
+</div>
+<script>
+const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+let DAILY=[],PREV={},MANUAL={},CUR='';
+function istToday(){return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10);}
+function istYesterday(){return prevDate(istToday());}
+function prevDate(d){var x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()-1);return x.toISOString().slice(0,10);}
+function num(v){return v==null||v===''?0:(parseFloat(v)||0);}
+function effCls(e){return e>=100?'eff-hi':(e<80?'eff-lo':'eff-mid');}
+async function getJSON(q){try{var r=await fetch(SB+'/rest/v1/'+q,{headers:HDR});return r.ok?await r.json():[];}catch(e){return [];}}
+async function load(){
+  var d=document.getElementById('d').value||istYesterday(); CUR=d;
+  document.getElementById('status').textContent='Loading…';
+  var res=await Promise.all([
+    getJSON('standup_daily?data_date=eq.'+d+'&order=city,hub_name'),
+    getJSON('standup_daily?data_date=eq.'+prevDate(d)+'&select=hub_name,oos_end'),
+    getJSON('standup_manual?data_date=eq.'+d)
+  ]);
+  DAILY=res[0]; PREV={}; res[1].forEach(function(r){var hub=(r.hub_name||'').replace(/^Flipkart hub - /i,'');PREV[hub]=(PREV[hub]||0)+r.oos_end;});
+  MANUAL={}; res[2].forEach(function(r){MANUAL[r.hub_name]=r;});
+  render();
+  document.getElementById('status').textContent='Synced '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+function render(){
+  var cities=[...new Set(DAILY.map(function(r){return r.city;}).filter(Boolean))].sort();
+  var csel=document.getElementById('city');
+  if(csel.options.length<=1){cities.forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;csel.appendChild(o);});}
+  var fCity=csel.value;
+  var merged={};
+  DAILY.forEach(function(r){
+    var hub=(r.hub_name||'').replace(/^Flipkart hub - /i,'');
+    var mm=merged[hub]||(merged[hub]={hub_name:hub,city:r.city,inflow:0,fleet_exchange:0,rr:0,outflow_oos:0,pdi:0,b2c:0,oos_end:0,techs_auto:0,prod_hrs_auto:0});
+    mm.inflow+=r.inflow||0;mm.fleet_exchange+=r.fleet_exchange||0;mm.rr+=r.rr||0;mm.outflow_oos+=r.outflow_oos||0;mm.pdi+=r.pdi||0;mm.b2c+=r.b2c||0;mm.oos_end+=r.oos_end||0;mm.techs_auto+=r.techs_auto||0;mm.prod_hrs_auto+=r.prod_hrs_auto||0;
+    if(!/^Flipkart/i.test(r.hub_name)&&r.city)mm.city=r.city;
+  });
+  var rows=Object.keys(merged).map(function(k){return merged[k];}).filter(function(r){
+    var act=r.oos_end+r.inflow+r.fleet_exchange+r.rr+r.outflow_oos+r.pdi+r.b2c;
+    if(act<=0)return false;
+    if(fCity && r.city!==fCity)return false;
+    return true;
+  });
+  var byCity={}; rows.forEach(function(r){(byCity[r.city]=byCity[r.city]||[]).push(r);});
+  var tb=document.getElementById('tb'); tb.innerHTML='';
+  if(!rows.length){tb.innerHTML='<tr><td class="l" colspan="15" style="color:var(--muted);padding:26px">No data captured for '+CUR+' yet. It fills in through the day.</td></tr>';return;}
+  var gt={os:0,in:0,fe:0,out:0,oe:0,rr:0,pdi:0,b2c:0,tot:0,tg:0,te:0,ph:0};
+  var ri=0;
+  Object.keys(byCity).sort().forEach(function(city){
+    var hubs=byCity[city];
+    var ct={os:0,in:0,fe:0,out:0,oe:0,rr:0,pdi:0,b2c:0,tot:0,tg:0,te:0,ph:0};
+    hubs.forEach(function(r){
+      var m=MANUAL[r.hub_name]||{};
+      var b2cv=(m.b2c!=null)?num(m.b2c):num(r.b2c);
+      var total=r.outflow_oos+r.rr+r.pdi+b2cv;
+      var tech=(m.technicians!=null)?num(m.technicians):num(r.techs_auto);
+      var ph=(m.productive_hrs!=null)?num(m.productive_hrs):num(r.prod_hrs_auto);
+      var target=num(m.target_oos_rfd);
+      var prod=tech>0?total/tech:0, eff=tech>0?total/(tech*8)*100:0;
+      var phPerTech=tech>0?ph/tech:0;
+      var os=(PREV[r.hub_name]!=null)?PREV[r.hub_name]:Math.max(0,num(r.oos_end)-r.inflow-r.fleet_exchange+r.outflow_oos);
+      var h=(r.hub_name||'').replace(/"/g,'&quot;');
+      tb.insertAdjacentHTML('beforeend','<tr data-hub="'+h+'" class="'+(ri++%2?'alt':'')+'">'+
+        '<td class="l">'+r.hub_name+'</td>'+
+        '<td>'+(os===''?'&mdash;':os)+'</td>'+
+        '<td><input class="inp me" data-f="target_oos_rfd" type="number" value="'+(m.target_oos_rfd!=null?m.target_oos_rfd:'')+'"></td>'+
+        '<td>'+r.inflow+'</td><td>'+r.fleet_exchange+'</td><td class="'+((target>0&&r.outflow_oos<target)?'eff-lo':'')+'">'+r.outflow_oos+'</td><td>'+r.oos_end+'</td>'+
+        '<td>'+r.rr+'</td><td>'+r.pdi+'</td><td><input class="inp me" data-f="b2c" type="number" value="'+(m.b2c!=null?m.b2c:(r.b2c||''))+'"></td><td><b>'+total+'</b></td>'+
+        '<td><input class="inp me" data-f="technicians" type="number" title="Default: technicians in today outflow — edit to override" value="'+tech+'"></td>'+
+        '<td class="'+effCls(eff)+'">'+(prod?prod.toFixed(1):'&mdash;')+'</td>'+
+        '<td title="total labour hrs ÷ techs">'+(phPerTech?phPerTech.toFixed(1):'&mdash;')+'</td>'+
+        '<td class="'+effCls(eff)+'">'+(eff?Math.round(eff)+'%':'&mdash;')+'</td>'+
+      '</tr>');
+      ct.os+=num(os);ct.in+=r.inflow;ct.fe+=r.fleet_exchange;ct.out+=r.outflow_oos;ct.oe+=r.oos_end;ct.rr+=r.rr;ct.pdi+=r.pdi;ct.b2c+=b2cv;ct.tot+=total;ct.tg+=target;ct.te+=tech;ct.ph+=ph;
+    });
+    var cp=ct.te>0?ct.tot/ct.te:0, ce=ct.te>0?ct.tot/(ct.te*8)*100:0, cph=ct.te>0?ct.ph/ct.te:0;
+    tb.insertAdjacentHTML('beforeend','<tr class="city-total"><td class="l">'+city+' Total</td>'+
+      '<td>'+ct.os+'</td><td>'+(ct.tg||'')+'</td><td>'+ct.in+'</td><td>'+ct.fe+'</td><td class="'+((ct.tg>0&&ct.out<ct.tg)?'eff-lo':'')+'">'+ct.out+'</td><td>'+ct.oe+'</td>'+
+      '<td>'+ct.rr+'</td><td>'+ct.pdi+'</td><td>'+ct.b2c+'</td><td>'+ct.tot+'</td>'+
+      '<td>'+(ct.te||'')+'</td><td class="'+effCls(ce)+'">'+(cp?cp.toFixed(1):'&mdash;')+'</td>'+
+      '<td>'+(cph?cph.toFixed(1):'')+'</td><td class="'+effCls(ce)+'">'+(ce?Math.round(ce)+'%':'&mdash;')+'</td></tr>');
+    gt.os+=ct.os;gt.in+=ct.in;gt.fe+=ct.fe;gt.out+=ct.out;gt.oe+=ct.oe;gt.rr+=ct.rr;gt.pdi+=ct.pdi;gt.b2c+=ct.b2c;gt.tot+=ct.tot;gt.tg+=ct.tg;gt.te+=ct.te;gt.ph+=ct.ph;
+  });
+  if(Object.keys(byCity).length>1){
+    var gp=gt.te>0?gt.tot/gt.te:0, gge=gt.te>0?gt.tot/(gt.te*8)*100:0, gph=gt.te>0?gt.ph/gt.te:0;
+    tb.insertAdjacentHTML('beforeend','<tr class="grand-total"><td class="l">Total</td>'+
+      '<td>'+gt.os+'</td><td>'+(gt.tg||'')+'</td><td>'+gt.in+'</td><td>'+gt.fe+'</td><td class="'+((gt.tg>0&&gt.out<gt.tg)?'eff-lo':'')+'">'+gt.out+'</td><td>'+gt.oe+'</td>'+
+      '<td>'+gt.rr+'</td><td>'+gt.pdi+'</td><td>'+gt.b2c+'</td><td>'+gt.tot+'</td>'+
+      '<td>'+(gt.te||'')+'</td><td class="'+effCls(gge)+'">'+(gp?gp.toFixed(1):'&mdash;')+'</td>'+
+      '<td>'+(gph?gph.toFixed(1):'')+'</td><td class="'+effCls(gge)+'">'+(gge?Math.round(gge)+'%':'&mdash;')+'</td></tr>');
+  }
+}
+document.getElementById('tb').addEventListener('change',function(e){
+  if(!e.target.classList.contains('me'))return;
+  var tr=e.target.closest('tr'); var hub=tr.getAttribute('data-hub'); var f=e.target.getAttribute('data-f');
+  var v=e.target.value;
+  MANUAL[hub]=MANUAL[hub]||{}; MANUAL[hub][f]=(f==='reason')?v:(v===''?null:num(v));
+  upsert(hub); render();
+});
+function upsert(hub){
+  var m=MANUAL[hub]||{};
+  fetch(SB+'/rest/v1/standup_manual',{method:'POST',
+    headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify({data_date:CUR,hub_name:hub,target_oos_rfd:m.target_oos_rfd??null,technicians:m.technicians??null,b2c:m.b2c??null,productive_hrs:m.productive_hrs??null,reason:m.reason??null,updated_at:new Date().toISOString()})
+  }).then(function(r){document.getElementById('status').textContent=r.ok?'Saved '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'Save failed';});
+}
+document.getElementById('d').value=istYesterday();
+load();
+setInterval(load, 5*60*1000);
+</script>
+</body></html>

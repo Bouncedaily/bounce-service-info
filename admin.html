@@ -49,7 +49,28 @@
     .fmsg{padding:10px 14px;border-radius:8px;font-size:13px;margin:10px 18px;display:none}
     .fmsg.ok{background:#052e16;border:1px solid #16a34a;color:#4ade80;display:block}
     .fmsg.err{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;display:block}
-  </style>
+      .adm-help{font-size:12px;color:var(--muted);padding:10px 18px;border-bottom:1px solid var(--border);line-height:1.55}
+    .adm-form{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg)}
+    .adm-form-hd{font-weight:700;font-size:13px;margin-bottom:10px}
+    .adm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 14px}
+    .adm-grid label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+    .adm-grid input:not([type=checkbox]):not([type=color]),.adm-grid select,.adm-select{padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px}
+    .adm-select{width:100%;font-size:12px}
+    .adm-grid label.adm-chk{flex-direction:row;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+    .adm-actions{display:flex;gap:8px;margin-top:12px;align-items:center}
+    .adm-sub{font-size:11px;color:var(--muted);margin-top:2px}
+    .adm-ico{display:inline-flex;width:26px;height:26px;border-radius:6px;align-items:center;justify-content:center;margin-right:8px;vertical-align:middle;font-size:15px}
+    .adm-chip{display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;padding:2px 4px 2px 9px;border:1px solid var(--border);border-radius:999px;font-size:12px}
+    .adm-chip button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 4px}
+    .btn-ghost{background:var(--bg);border:1px solid var(--border);color:var(--text);margin-right:4px}
+    .btn-danger{background:#dc2626;color:#fff}
+    .adm-sw{position:relative;display:inline-block;width:34px;height:18px}
+    .adm-sw input{opacity:0;width:0;height:0}
+    .adm-sw span{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;cursor:pointer;transition:.15s}
+    .adm-sw span:before{content:"";position:absolute;width:14px;height:14px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+    .adm-sw input:checked+span{background:#16a34a}
+    .adm-sw input:checked+span:before{transform:translateX(16px)}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -58,7 +79,7 @@
   <div class="content">
     <div class="wrap">
       <div class="ptitle">Admin Panel</div>
-      <div class="psub">Manage dashboard access and users</div>
+      <div class="psub">Users, dashboards, roles and scheduled syncs — everything the portal needs, without code changes</div>
 
       <!-- Stats -->
       <div class="card">
@@ -74,7 +95,9 @@
       <div id="hau-tabs" style="display:flex;gap:24px;margin:4px 4px 14px;border-bottom:1px solid #e5e9f0">
         <div class="hau-tab" data-t="allowed" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid #f53b3b;color:#0f172a">Allowed Users</div>
         <div class="hau-tab" data-t="hubaudit" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Hub Audit Users</div>
-        <div class="hau-tab" data-t="syshealth" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">System Health</div>
+        <div class="hau-tab" data-t="pages" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Pages &amp; Sidebar</div>
+        <div class="hau-tab" data-t="roles" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">Roles</div>
+        <div class="hau-tab" data-t="syshealth" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">System Health &amp; Syncs</div>
         <div class="hau-tab" data-t="rmcupload" style="padding:10px 2px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent;color:#64748b">RMC Upload</div>
       </div>
       <!-- Hub Audit Users -->
@@ -148,13 +171,48 @@
           </table>
         </div>
         <div id="fresh-checks" style="margin-bottom:16px"></div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Scheduled jobs</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 0 6px">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Scheduled syncs</div>
+          <input type="search" id="job-search" placeholder="Search…" oninput="renderJobs()" style="margin-left:auto;max-width:220px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px">
+        </div>
+        <div class="adm-help" style="margin:0 0 8px">Times are shown in IST. <b>Run now</b> starts a sync immediately, <b>Pause</b> stops it until you resume it, <b>Edit</b> changes its name, time or alerts. "Succeeded" means the job started; whether data actually arrived is shown under Data freshness above.</div>
+        <div id="job-form" class="adm-form" style="display:none"></div>
         <div class="tbl">
           <table>
-            <thead><tr><th>Job</th><th>Schedule</th><th>Last Run</th><th>Status</th><th>Last 24h</th><th>Action</th></tr></thead>
+            <thead><tr><th>Sync</th><th>Runs</th><th>Last run</th><th>Status</th><th>Last 24h</th><th style="width:210px"></th></tr></thead>
             <tbody id="health-tbody"><tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Freshness checks</div>
+          <button class="btn" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="fcEdit(null)">+ Add check</button>
+        </div>
+        <div class="adm-help" style="margin:0 0 8px">Each check looks at the newest timestamp in one table column. "Late" = older than expected, "Stale" = 3× older. Stale checks trigger an alert email to people with the <b>Sync alerts</b> role.</div>
+        <div id="fc-form" class="adm-form" style="display:none"></div>
+        <div class="tbl"><table><thead><tr><th>Check</th><th>Table · column</th><th>Expected every</th><th style="width:70px">On</th><th style="width:120px"></th></tr></thead>
+          <tbody id="fc-tbody"><tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
+      </div>
+
+      <!-- Pages & Sidebar (portal_pages) -->
+      <div class="card" id="pages-card" style="display:none">
+        <div class="card-hd"><h2>Pages &amp; Sidebar</h2><span class="sub">Everything in the sidebar and on the home page comes from this list</span>
+          <button class="btn btn-green" style="margin-left:auto" onclick="pgEdit(null)">+ Add page</button>
+        </div>
+        <div class="adm-help">To add a new dashboard: upload its <b>.html</b> file to the GitHub repo (<i>Add file → Upload files</i>), then click <b>+ Add page</b> and type the file name. To retire one, switch <b>Visible</b> off — nothing needs deleting.</div>
+        <div id="pg-form" class="adm-form" style="display:none"></div>
+        <div class="tbl"><table><thead><tr><th style="width:70px">Order</th><th>Page</th><th>File</th><th>Who can open</th><th style="width:70px">Visible</th><th style="width:70px">Home</th><th style="width:130px"></th></tr></thead>
+          <tbody id="pg-tbody"><tr><td colspan="7" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
+      </div>
+
+      <!-- Roles (portal_roles / user_roles) -->
+      <div class="card" id="roles-card" style="display:none">
+        <div class="card-hd"><h2>Roles</h2><span class="sub">Special rights inside dashboards (Sync now, mark Paid, approvals, alerts)</span>
+          <button class="btn btn-green" style="margin-left:auto" onclick="rlNew()">+ New role</button>
+        </div>
+        <div class="adm-help">Dashboard <b>access</b> is set in Allowed Users. <b>Roles</b> are extra rights inside a dashboard. Built-in roles are already wired into the dashboards; a new role only does something once a page checks it (<code>has_role('your_key')</code>).</div>
+        <div id="rl-form" class="adm-form" style="display:none"></div>
+        <div class="tbl"><table><thead><tr><th style="width:260px">Role</th><th>People</th><th style="width:220px">Add someone</th></tr></thead>
+          <tbody id="rl-tbody"><tr><td colspan="3" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
       </div>
 
       <!-- RMC Upload -->
@@ -235,7 +293,7 @@ const HDR = { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY };
 // defined this way in ho-approval-queue.html) but was never actually
 // declared here, causing "currentUser is not defined" on upload.
 function currentUser(){try{var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}');return s.email||'';}catch(e){return '';}}
-const ADMIN = 'nithish@bounceshare.com';
+const ADMIN = (currentUser() || '').toLowerCase();   // you can't revoke or edit your own account by accident
 
 // Get session
 const sess = JSON.parse(localStorage.getItem('sb_session') || sessionStorage.getItem('sb_session') || '{}');
@@ -323,6 +381,7 @@ async function logAudit(target, action, details) {
   try { await rpc('log_permission_action', {p_actor: sess.email||'unknown', p_target: target, p_action: action, p_details: details||null}); } catch(e) {}
 }
 async function loadUsers() {
+  if (!PAGES_ADMIN.length) await loadPagesForAdmin();
   const users = await get('allowed_users?order=added_at.asc');
   ALL_USERS = users;
   if (!users || !users.length) {
@@ -371,7 +430,7 @@ async function bulkRevoke() {
   loadAuditLog();
 }
 function renderUsers(users) {
-  const DASH_ACCESS = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['hub_leaderboard','Hub Leaderboard'],['tools_tracker','Tools Tracker'],['tools_audit','Tools Audit (can submit)'],['brake_campaign','Brake Campaign (sees rider phones)'],['rmc_cost','RMC Dashboard'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker'],['scrap','Scrap Management']];
+  const DASH_ACCESS = DASH_ACCESS_ALL;   // built from the Pages list (Admin → Pages & Sidebar)
   document.getElementById('users-tbody').innerHTML = users.length ? users.map(u => {
     const p = u.permissions || {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,msl_dashboard:false,oos:false};
     const isProt = u.email===ADMIN;
@@ -555,7 +614,7 @@ async function repairGap(btn) {
 // ── SYSTEM HEALTH ──
 
 // ─── Shared list of dashboards (same as the per-user checkboxes) ─────
-const DASH_ACCESS_ALL = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['hub_leaderboard','Hub Leaderboard'],['tools_tracker','Tools Tracker'],['tools_audit','Tools Audit (can submit)'],['brake_campaign','Brake Campaign (sees rider phones)'],['rmc_cost','RMC Dashboard'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker'],['scrap','Scrap Management']];
+let DASH_ACCESS_ALL = [['service_overview','Service Overview'],['fleet_km','Fleet KM Analysis'],['parts_testing','Parts Testing'],['wear_tear','Wear &amp; Tear'],['msl_dashboard','Parts Dashboard'],['cost_savings','Cost Savings'],['oos','OOS Dashboard'],['hub_audit','Hub Audit'],['hub_leaderboard','Hub Leaderboard'],['tools_tracker','Tools Tracker'],['tools_audit','Tools Audit (can submit)'],['brake_campaign','Brake Campaign (sees rider phones)'],['rmc_cost','RMC Dashboard'],['standup','Standup'],['tech','Technician Productivity'],['jcreview','HO Approval'],['feedback','Customer Feedback'],['leakage','Damage Leakage'],['parts_tracker','Parts Tracker'],['scrap','Scrap Management']];
 const DEFAULT_PERMS = {rmc:true,fleet_km:true,parts_testing:true,wear_tear:true,msl_dashboard:false,oos:false};
 const dashLabel = k => { const d = DASH_ACCESS_ALL.find(x => x[0] === k); return d ? d[1].replace('&amp;', '&') : k; };
 function fillBulkDash() {
@@ -627,55 +686,303 @@ async function loadFreshness() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN CONTROL: pages & sidebar, roles, scheduled syncs, freshness checks
+// Everything here reads/writes Supabase tables through admin-only RPCs.
+// ═══════════════════════════════════════════════════════════════════
+const ae = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function arpc(fn, body) {
+  const r = await rpc(fn, body || {});
+  const t = await r.text();
+  let d = null; try { d = t ? JSON.parse(t) : null; } catch(e) { d = t; }
+  if (!r.ok) throw new Error((d && (d.message || d.hint)) || ('HTTP ' + r.status));
+  return d;
+}
+const tog = (on, fn) => `<label class="adm-sw"><input type="checkbox" ${on ? 'checked' : ''} onchange="${fn}"><span></span></label>`;
+const btn = (label, fn, cls) => `<button class="btn ${cls || 'btn-ghost'}" onclick="${fn}">${label}</button>`;
+function closeForm(id) { const f = document.getElementById(id); if (f) { f.style.display = 'none'; f.innerHTML = ''; } }
+
+// ── Permission keys for the user checkboxes come from the pages list ──
+const PERM_LABEL_OVERRIDES = { tools_audit: 'Tools Audit (can submit)', brake_campaign: 'Brake Campaign (sees rider phones)' };
+let PAGES_ADMIN = [];
+async function loadPagesForAdmin() {
+  try { PAGES_ADMIN = await get('portal_pages?select=*&order=sort_order.asc'); } catch(e) { PAGES_ADMIN = []; }
+  if (!PAGES_ADMIN.length) return;
+  const seen = new Set(), list = [];
+  PAGES_ADMIN.filter(p => !p.admin_only).forEach(p => (p.perm_keys || []).forEach((k, i) => {
+    if (seen.has(k)) return; seen.add(k);
+    list.push([k, ae(PERM_LABEL_OVERRIDES[k] || (i === 0 ? p.label : p.label + ' · ' + k)) + (p.visible ? '' : ' (hidden page)')]);
+  }));
+  DASH_ACCESS_ALL = list;
+}
+
+// ── PAGES & SIDEBAR ──
+async function loadPagesAdmin() {
+  await loadPagesForAdmin();
+  const tb = document.getElementById('pg-tbody'); if (!tb) return;
+  const ps = PAGES_ADMIN;
+  tb.innerHTML = ps.length ? ps.map((p, i) => {
+    const who = p.admin_only ? '<span class="pill p-admin">Admins only</span>'
+      : (p.perm_keys || []).length ? (p.perm_keys || []).map(k => `<code>${ae(k)}</code>`).join(' or ') : '<span class="pill p-active">Everyone</span>';
+    return `<tr${p.visible ? '' : ' style="opacity:.55"'}>
+      <td style="white-space:nowrap">${i > 0 ? btn('↑', `pgMove(${i},-1)`) : ''}${i < ps.length - 1 ? btn('↓', `pgMove(${i},1)`) : ''}</td>
+      <td><span class="adm-ico" style="background:${ae(p.icon_bg)};color:${ae(p.icon_color)}"><i class="ti ${ae(p.icon)}"></i></span>
+        <b>${ae(p.label)}</b><div class="adm-sub">${ae(p.section)} · key <code>${ae(p.key)}</code></div></td>
+      <td><a href="${ae(p.file)}" target="_blank" rel="noopener" style="font-size:12px">${ae(p.file)}</a></td>
+      <td>${who}</td>
+      <td>${p.key === 'admin' ? '—' : tog(p.visible, `pgFlag('${ae(p.key)}','visible',this.checked)`)}</td>
+      <td>${tog(p.show_on_home, `pgFlag('${ae(p.key)}','show_on_home',this.checked)`)}</td>
+      <td style="white-space:nowrap">${btn('Edit', `pgEdit('${ae(p.key)}')`)}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">Could not load pages.</td></tr>';
+}
+async function pgSave(p, msg) {
+  try { await arpc('admin_upsert_page', { p }); showToast(msg || 'Saved'); await loadPagesAdmin(); return true; }
+  catch(e) { showToast('❌ ' + e.message, 'err'); return false; }
+}
+function pgFlag(key, field, val) {
+  const p = PAGES_ADMIN.find(x => x.key === key); if (!p) return;
+  pgSave({ ...p, [field]: val }, `${p.label}: ${field === 'visible' ? (val ? 'visible' : 'hidden') : (val ? 'on home page' : 'off home page')}`);
+}
+async function pgMove(i, dir) {
+  const a = PAGES_ADMIN[i], b = PAGES_ADMIN[i + dir]; if (!a || !b) return;
+  let sa = b.sort_order, sb = a.sort_order;
+  if (sa === sb) { sa = sb + dir; }
+  try { await arpc('admin_upsert_page', { p: { ...a, sort_order: sa } }); await arpc('admin_upsert_page', { p: { ...b, sort_order: sb } }); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+  loadPagesAdmin();
+}
+function pgEdit(key) {
+  const p = key ? PAGES_ADMIN.find(x => x.key === key) : { key: '', label: '', description: '', file: '', icon: 'ti-layout-dashboard', icon_bg: '#f1f5f9', icon_color: '#334155',
+    section: 'Analytics', sort_order: (Math.max(0, ...PAGES_ADMIN.filter(x => x.key !== 'admin').map(x => x.sort_order)) + 10), perm_keys: [], visible: true, admin_only: false, show_on_home: true };
+  if (!p) return;
+  const known = [...new Set(PAGES_ADMIN.flatMap(x => x.perm_keys || []))].sort();
+  const f = document.getElementById('pg-form'); f.style.display = '';
+  f.innerHTML = `<div class="adm-form-hd">${key ? 'Edit page: ' + ae(p.label) : 'Add a page'}</div>
+    <div class="adm-grid">
+      <label>Key (used in the link, e.g. #msl)<input id="pf-key" value="${ae(p.key)}" ${key ? 'disabled' : ''} placeholder="lowercase_no_spaces"></label>
+      <label>Name in sidebar<input id="pf-label" value="${ae(p.label)}"></label>
+      <label>File in the GitHub repo<input id="pf-file" value="${ae(p.file)}" placeholder="my-dashboard.html"></label>
+      <label>Section heading<input id="pf-section" value="${ae(p.section)}" list="pf-sections"></label>
+      <label style="grid-column:1/-1">Home-page description<input id="pf-desc" value="${ae(p.description || '')}"></label>
+      <label>Icon (<a href="https://tabler.io/icons" target="_blank" rel="noopener">browse</a>, e.g. ti-truck)<input id="pf-icon" value="${ae(p.icon)}" oninput="document.getElementById('pf-ico').className='ti '+this.value"></label>
+      <label>Icon colours<span style="display:flex;gap:8px;align-items:center"><input type="color" id="pf-bg" value="${ae(p.icon_bg)}"><input type="color" id="pf-fg" value="${ae(p.icon_color)}">
+        <span class="adm-ico" style="background:${ae(p.icon_bg)};color:${ae(p.icon_color)}"><i id="pf-ico" class="ti ${ae(p.icon)}"></i></span></span></label>
+      <label>Order (lower = higher up)<input id="pf-sort" type="number" value="${ae(p.sort_order)}"></label>
+      <label style="grid-column:1/-1">Who can open it — permission keys (any one is enough). Leave empty for everyone.
+        <input id="pf-perms" value="${ae((p.perm_keys || []).join(', '))}" placeholder="e.g. msl_dashboard">
+        <span class="adm-sub">Existing keys: ${known.map(k => `<a href="#" onclick="pfAddKey('${ae(k)}');return false"><code>${ae(k)}</code></a>`).join(' ')}. A new key appears as a checkbox in Allowed Users after saving.</span></label>
+      <label class="adm-chk"><input type="checkbox" id="pf-visible" ${p.visible ? 'checked' : ''} ${p.key === 'admin' ? 'disabled' : ''}> Visible</label>
+      <label class="adm-chk"><input type="checkbox" id="pf-home" ${p.show_on_home ? 'checked' : ''}> Show on home page</label>
+      <label class="adm-chk"><input type="checkbox" id="pf-adminonly" ${p.admin_only ? 'checked' : ''} ${p.key === 'admin' ? 'disabled' : ''}> Admins only</label>
+    </div>
+    <datalist id="pf-sections">${[...new Set(PAGES_ADMIN.map(x => x.section))].map(s => `<option>${ae(s)}</option>`).join('')}</datalist>
+    <div class="adm-actions">${btn('Save', 'pgSubmit()', 'btn-green')}${btn('Cancel', "closeForm('pg-form')")}
+      ${key && key !== 'admin' ? `<span style="flex:1"></span>${btn('Delete page', `pgDelete('${ae(key)}')`, 'btn-danger')}` : ''}</div>`;
+  f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function pfAddKey(k) { const el = document.getElementById('pf-perms'); const cur = el.value.split(',').map(x => x.trim()).filter(Boolean); if (!cur.includes(k)) cur.push(k); el.value = cur.join(', '); }
+async function pgSubmit() {
+  const v = id => document.getElementById(id).value.trim();
+  const p = { key: v('pf-key').toLowerCase(), label: v('pf-label'), file: v('pf-file'), section: v('pf-section') || 'Analytics', description: v('pf-desc'),
+    icon: v('pf-icon'), icon_bg: v('pf-bg'), icon_color: v('pf-fg'), sort_order: parseInt(v('pf-sort'), 10) || 100,
+    perm_keys: v('pf-perms').split(',').map(x => x.trim().toLowerCase()).filter(Boolean),
+    visible: document.getElementById('pf-visible').checked, show_on_home: document.getElementById('pf-home').checked, admin_only: document.getElementById('pf-adminonly').checked };
+  if (p.key === 'admin') { p.visible = true; p.admin_only = true; }
+  if (await pgSave(p, `Saved ${p.label}. Users see it on their next page load.`)) { closeForm('pg-form'); loadUsers(); }
+}
+async function pgDelete(key) {
+  const p = PAGES_ADMIN.find(x => x.key === key);
+  if (!confirm(`Delete "${p ? p.label : key}" from the portal?\n\nThis only removes it from the sidebar list (the file stays in GitHub). Switching "Visible" off is usually enough.`)) return;
+  try { await arpc('admin_delete_page', { p_key: key }); showToast('Page removed'); closeForm('pg-form'); loadPagesAdmin(); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+
+// ── ROLES ──
+let ROLES = [], ROLE_MEMBERS = [];
+async function loadRolesAdmin() {
+  const tb = document.getElementById('rl-tbody'); if (!tb) return;
+  ROLES = await get('portal_roles?select=*&order=built_in.desc,label.asc');
+  ROLE_MEMBERS = await get('user_roles?select=*');
+  const users = (ALL_USERS || []).filter(u => u.is_active !== false);
+  const nameOf = e => { const u = (ALL_USERS || []).find(x => (x.email || '').toLowerCase() === e.toLowerCase()); return u && u.name ? u.name : e; };
+  tb.innerHTML = ROLES.length ? ROLES.map(r => {
+    const mem = ROLE_MEMBERS.filter(m => m.role_key === r.key).map(m => m.email.toLowerCase());
+    const chips = mem.sort().map(e => `<span class="adm-chip" title="${ae(e)}">${ae(nameOf(e))}<button onclick="rlSet('${ae(e)}','${ae(r.key)}',false)" title="Remove">×</button></span>`).join('');
+    const opts = users.filter(u => !mem.includes((u.email || '').toLowerCase())).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))
+      .map(u => `<option value="${ae(u.email)}">${ae(u.name || u.email)}</option>`).join('');
+    return `<tr><td><b>${ae(r.label)}</b>${r.built_in ? '' : ' <span class="pill p-viewer">custom</span>'}<div class="adm-sub">${ae(r.description || '')}</div>
+        <div class="adm-sub"><code>${ae(r.key)}</code> ${r.built_in ? '' : `· <a href="#" onclick="rlNew('${ae(r.key)}');return false">edit</a> · <a href="#" onclick="rlDelete('${ae(r.key)}');return false" style="color:#dc2626">delete</a>`}</div></td>
+      <td>${chips || '<span class="adm-sub">Nobody yet</span>'}</td>
+      <td><select class="adm-select" onchange="if(this.value){rlSet(this.value,'${ae(r.key)}',true)}"><option value="">+ Give to…</option>${opts}</select></td></tr>`;
+  }).join('') : '<tr><td colspan="3" class="empty">No roles found.</td></tr>';
+}
+async function rlSet(email, role, grant) {
+  const r = ROLES.find(x => x.key === role);
+  if (!grant && !confirm(`Remove "${r ? r.label : role}" from ${email}?`)) { loadRolesAdmin(); return; }
+  try { await arpc('admin_set_user_role', { p_email: email, p_role: role, p_grant: grant }); showToast(`${grant ? 'Gave' : 'Removed'} ${r ? r.label : role}`); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+  loadRolesAdmin(); loadAuditLog();
+}
+function rlNew(key) {
+  const r = key ? ROLES.find(x => x.key === key) : { key: '', label: '', description: '' };
+  const f = document.getElementById('rl-form'); f.style.display = '';
+  f.innerHTML = `<div class="adm-form-hd">${key ? 'Edit role' : 'New role'}</div><div class="adm-grid">
+    <label>Key<input id="rf-key" value="${ae(r.key)}" ${key ? 'disabled' : ''} placeholder="lowercase_no_spaces"></label>
+    <label>Name<input id="rf-label" value="${ae(r.label)}"></label>
+    <label style="grid-column:1/-1">What it allows<input id="rf-desc" value="${ae(r.description || '')}"></label></div>
+    <div class="adm-actions">${btn('Save', 'rlSubmit()', 'btn-green')}${btn('Cancel', "closeForm('rl-form')")}</div>`;
+}
+async function rlSubmit() {
+  const v = id => document.getElementById(id).value.trim();
+  try { await arpc('admin_upsert_role', { p_key: v('rf-key').toLowerCase(), p_label: v('rf-label'), p_description: v('rf-desc') }); showToast('Role saved'); closeForm('rl-form'); loadRolesAdmin(); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+async function rlDelete(key) {
+  if (!confirm(`Delete role "${key}"? Everyone who has it loses it.`)) return;
+  try { await arpc('admin_delete_role', { p_key: key }); showToast('Role deleted'); loadRolesAdmin(); } catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+
+// ── SCHEDULED SYNCS ──
+// pg_cron runs in UTC; everything shown to the admin is IST (UTC+5:30).
+const pad2 = n => String(n).padStart(2, '0');
+function utcToIst(h, m) { let t = (h * 60 + m + 330) % 1440; return [Math.floor(t / 60), t % 60]; }
+function istToUtc(h, m) { let t = ((h * 60 + m - 330) % 1440 + 1440) % 1440; return [Math.floor(t / 60), t % 60]; }
+function fmtTime(h, m) { const ap = h >= 12 ? 'PM' : 'AM'; const hh = h % 12 || 12; return `${hh}:${pad2(m)} ${ap}`; }
+function cronHuman(c) {
+  const p = (c || '').trim().split(/\s+/); if (p.length !== 5) return c;
+  const [mi, hr, dom, mon, dow] = p; const everyDay = dom === '*' && mon === '*' && dow === '*';
+  let m;
+  if (everyDay && hr === '*' && (m = mi.match(/^\*\/(\d+)$/))) return `Every ${m[1]} min`;
+  if (everyDay && hr === '*' && (m = mi.match(/^(\d+)-59\/(\d+)$/))) return `Every ${m[2]} min`;
+  if (everyDay && hr === '*' && /^\d+$/.test(mi)) return `Hourly at :${pad2(+mi)}`;
+  if (everyDay && hr === '*' && /^\d+(,\d+)+$/.test(mi)) return `${mi.split(',').length}× an hour`;
+  if (everyDay && /^\d+$/.test(mi) && (m = hr.match(/^\*\/(\d+)$/))) return `Every ${m[1]} h (at :${pad2(+mi)})`;
+  if (everyDay && /^\d+$/.test(mi) && /^\d+$/.test(hr)) { const [h, mm] = utcToIst(+hr, +mi); return `Daily ${fmtTime(h, mm)} IST`; }
+  return `${c} (UTC)`;
+}
+let JOBS = [];
 async function loadCronHealth() {
   loadFlowGaps();
   loadFreshness();
+  loadFreshnessChecks();
   const tbody = document.getElementById('health-tbody');
   tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spin"></span>Loading…</td></tr>';
-  try {
-    const r = await rpc('get_cron_health', {});
-    const jobs = await r.json();
-    tbody.innerHTML = jobs.length ? jobs.map(j => {
-      const failed = j.last_status === 'failed';
-      const statusPill = j.last_status
-        ? `<span class="pill" style="background:${failed?'#450a0a':'#052e16'};color:${failed?'#fca5a5':'#4ade80'}" title="${(j.last_error||'').replace(/"/g,'&quot;')}">${j.last_status}</span>`
-        : '<span style="color:var(--muted);font-size:11px">never run</span>';
-      const badge24h = (j.fail_24h > 0)
-        ? `<span style="color:#fca5a5;font-weight:600">${j.fail_24h} failed</span> / ${j.ok_24h} ok`
-        : `${j.ok_24h} ok`;
-      return `<tr${failed?' style="background:rgba(220,38,38,.06)"':''} id="health-row-${j.jobname}">
-        <td style="font-weight:600;font-family:monospace;font-size:12px">${j.jobname}</td>
-        <td style="font-family:monospace;font-size:11.5px;color:var(--muted)">${j.schedule}</td>
-        <td style="font-size:12px;color:var(--muted)">${fmt(j.last_run_at)}</td>
-        <td>${statusPill}</td>
-        <td style="font-size:12px">${badge24h}</td>
-        <td><button class="btn" style="background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="rerunJob('${j.jobname}', this)">↻ Re-run</button></td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="6" class="empty">No scheduled jobs</td></tr>';
-  } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Could not load.</td></tr>';
+  try { JOBS = await arpc('get_cron_health', {}); renderJobs(); }
+  catch(e) { tbody.innerHTML = `<tr><td colspan="6" class="empty">Could not load: ${ae(e.message)}</td></tr>`; }
+}
+function renderJobs() {
+  const tbody = document.getElementById('health-tbody'); if (!tbody) return;
+  const q = ((document.getElementById('job-search') || {}).value || '').trim().toLowerCase();
+  const rows = (JOBS || []).filter(j => !q || [j.label, j.jobname, j.description, j.edge_function].join(' ').toLowerCase().includes(q));
+  tbody.innerHTML = rows.length ? rows.map(j => {
+    const failed = j.last_status === 'failed';
+    const status = !j.active ? '<span class="pill" style="background:#334155;color:#e2e8f0">paused</span>'
+      : j.last_status ? `<span class="pill" style="background:${failed ? '#450a0a' : '#052e16'};color:${failed ? '#fca5a5' : '#4ade80'}" title="${ae(j.last_error || '')}">${ae(j.last_status)}</span>`
+      : '<span class="adm-sub">never run</span>';
+    const h24 = j.fail_24h > 0 ? `<span style="color:#dc2626;font-weight:600">${j.fail_24h} failed</span> / ${j.ok_24h} ok` : `${j.ok_24h} ok`;
+    return `<tr${failed && j.active ? ' style="background:rgba(220,38,38,.06)"' : (!j.active ? ' style="opacity:.6"' : '')}>
+      <td><b>${ae(j.label || j.jobname)}</b>${j.alert_enabled ? '' : ' <span class="adm-sub" title="No alert emails">🔕</span>'}
+        <div class="adm-sub">${ae(j.description || '')}</div><div class="adm-sub"><code>${ae(j.jobname)}</code>${j.edge_function ? ' → ' + ae(j.edge_function) : ''}</div></td>
+      <td style="font-size:12px;white-space:nowrap" title="${ae(j.schedule)} (UTC)">${ae(cronHuman(j.schedule))}</td>
+      <td style="font-size:12px;color:var(--muted)">${fmt(j.last_run_at)}</td>
+      <td>${status}</td><td style="font-size:12px">${h24}</td>
+      <td style="white-space:nowrap">${btn('▶ Run now', `rerunJob('${ae(j.jobname)}', this)`)}${btn(j.active ? 'Pause' : 'Resume', `jobActive('${ae(j.jobname)}', ${!j.active})`)}${btn('Edit', `jobEdit('${ae(j.jobname)}')`)}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">No matching syncs</td></tr>';
+}
+async function rerunJob(jobname, b) {
+  b.disabled = true; const t = b.textContent; b.textContent = 'Running…';
+  try { const d = await arpc('rerun_cron_job', { p_jobname: jobname });
+    if (d.success) showToast(`✅ Started ${jobname} (${d.duration_ms} ms). Data appears once the sync finishes.`); else showToast(`❌ ${jobname}: ${d.error}`, 'err'); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+  b.disabled = false; b.textContent = t;
+}
+async function jobActive(jobname, active) {
+  const j = JOBS.find(x => x.jobname === jobname);
+  if (!active && !confirm(`Pause "${j ? (j.label || jobname) : jobname}"?\n\nIt won't run again until you press Resume.`)) return;
+  try { await arpc('admin_set_cron_active', { p_jobname: jobname, p_active: active }); showToast(active ? 'Resumed' : 'Paused'); loadCronHealth(); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+function jobEdit(jobname) {
+  const j = JOBS.find(x => x.jobname === jobname); if (!j) return;
+  const p = j.schedule.trim().split(/\s+/); let mode = 'custom', every = 15, minute = 0, ist = '09:00';
+  let m;
+  if (p.length === 5 && p[2] === '*' && p[3] === '*' && p[4] === '*') {
+    if (p[1] === '*' && (m = p[0].match(/^(?:\*|\d+-59)\/(\d+)$/))) { mode = 'every'; every = +m[1]; }
+    else if (p[1] === '*' && /^\d+$/.test(p[0])) { mode = 'hourly'; minute = +p[0]; }
+    else if (/^\d+$/.test(p[0]) && /^\d+$/.test(p[1])) { mode = 'daily'; const [h, mm] = utcToIst(+p[1], +p[0]); ist = pad2(h) + ':' + pad2(mm); }
   }
+  const f = document.getElementById('job-form'); f.style.display = '';
+  f.innerHTML = `<div class="adm-form-hd">Edit sync: <code>${ae(jobname)}</code></div><div class="adm-grid">
+    <label>Name<input id="jf-label" value="${ae(j.label || '')}" placeholder="${ae(jobname)}"></label>
+    <label class="adm-chk" style="align-self:end"><input type="checkbox" id="jf-alert" ${j.alert_enabled ? 'checked' : ''}> Send alert emails when it fails</label>
+    <label style="grid-column:1/-1">What it does<input id="jf-desc" value="${ae(j.description || '')}"></label>
+    <label>When it runs<select id="jf-mode" onchange="jfMode()">
+      <option value="every" ${mode === 'every' ? 'selected' : ''}>Every N minutes</option>
+      <option value="hourly" ${mode === 'hourly' ? 'selected' : ''}>Once an hour</option>
+      <option value="daily" ${mode === 'daily' ? 'selected' : ''}>Once a day (IST)</option>
+      <option value="custom" ${mode === 'custom' ? 'selected' : ''}>Custom (cron, UTC)</option></select></label>
+    <label id="jf-every-l">Every how many minutes<input id="jf-every" type="number" min="1" max="59" value="${every}"></label>
+    <label id="jf-min-l">At minute past the hour<input id="jf-min" type="number" min="0" max="59" value="${minute}"></label>
+    <label id="jf-time-l">Time (IST)<input id="jf-time" type="time" value="${ist}"></label>
+    <label id="jf-cron-l">Cron (minute hour day month weekday, UTC)<input id="jf-cron" value="${ae(j.schedule)}"></label>
+    <div class="adm-sub" style="grid-column:1/-1">Currently: <b>${ae(cronHuman(j.schedule))}</b> · <code>${ae(j.schedule)}</code> UTC</div></div>
+    <div class="adm-actions">${btn('Save', `jobSubmit('${ae(jobname)}')`, 'btn-green')}${btn('Cancel', "closeForm('job-form')")}</div>`;
+  jfMode(); f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function jfMode() {
+  const m = document.getElementById('jf-mode').value;
+  [['every', 'jf-every-l'], ['hourly', 'jf-min-l'], ['daily', 'jf-time-l'], ['custom', 'jf-cron-l']].forEach(([k, id]) => { document.getElementById(id).style.display = m === k ? '' : 'none'; });
+}
+function jfCron() {
+  const m = document.getElementById('jf-mode').value;
+  if (m === 'every') { const n = Math.min(59, Math.max(1, parseInt(document.getElementById('jf-every').value, 10) || 15)); return `*/${n} * * * *`; }
+  if (m === 'hourly') { const n = Math.min(59, Math.max(0, parseInt(document.getElementById('jf-min').value, 10) || 0)); return `${n} * * * *`; }
+  if (m === 'daily') { const [h, mm] = (document.getElementById('jf-time').value || '09:00').split(':').map(Number); const [uh, um] = istToUtc(h, mm); return `${um} ${uh} * * *`; }
+  return document.getElementById('jf-cron').value.trim();
+}
+async function jobSubmit(jobname) {
+  const j = JOBS.find(x => x.jobname === jobname); const cron = jfCron();
+  try {
+    await arpc('admin_update_job_meta', { p_jobname: jobname, p_label: document.getElementById('jf-label').value, p_description: document.getElementById('jf-desc').value, p_alert_enabled: document.getElementById('jf-alert').checked });
+    if (j && cron !== j.schedule) await arpc('admin_set_cron_schedule', { p_jobname: jobname, p_schedule: cron });
+    showToast(`Saved · ${cronHuman(cron)}`); closeForm('job-form'); loadCronHealth(); loadAuditLog();
+  } catch(e) { showToast('❌ ' + e.message, 'err'); }
 }
 
-async function rerunJob(jobname, btn) {
-  btn.disabled = true; btn.textContent = 'Running…';
-  try {
-    const r = await rpc('rerun_cron_job', { p_jobname: jobname });
-    const d = await r.json();
-    if (d.success) {
-      showToast(`✅ ${jobname} ran successfully (${d.duration_ms}ms)`);
-    } else {
-      showToast(`❌ ${jobname} failed: ${d.error}`, 'err');
-    }
-  } catch(e) {
-    showToast(`❌ Network error re-running ${jobname}`, 'err');
-  }
-  btn.disabled = false; btn.textContent = '↻ Re-run';
-  // Note: manual runs via this RPC don't create a row in cron.job_run_details
-  // (that table only logs actual pg_cron-triggered executions), so the
-  // Status/Last Run columns above intentionally won't flip to "succeeded"
-  // from this -- only the job's own next scheduled run will do that. The
-  // toast above is the real signal for whether THIS run worked.
+// ── FRESHNESS CHECKS ──
+let FCHECKS = [];
+async function loadFreshnessChecks() {
+  const tb = document.getElementById('fc-tbody'); if (!tb) return;
+  FCHECKS = await get('data_freshness_checks?select=*&order=sort_order.asc');
+  const every = h => h < 24 ? `${h} h` : `${Math.round(h / 24 * 10) / 10} day`;
+  tb.innerHTML = FCHECKS.length ? FCHECKS.map(c => `<tr${c.active ? '' : ' style="opacity:.55"'}><td><b>${ae(c.label)}</b><div class="adm-sub">${ae(c.dashboards || '')}</div></td>
+    <td style="font-size:12px"><code>${ae(c.table_name)}.${ae(c.column_name)}</code></td><td style="font-size:12px">${every(+c.max_hours)}</td>
+    <td>${tog(c.active, `fcToggle(${c.id},this.checked)`)}</td><td style="white-space:nowrap">${btn('Edit', `fcEdit(${c.id})`)}${btn('🗑', `fcDelete(${c.id})`)}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">No checks yet.</td></tr>';
+}
+function fcEdit(id) {
+  const c = id ? FCHECKS.find(x => x.id === id) : { label: '', dashboards: '', table_name: '', column_name: 'synced_at', max_hours: 2, sort_order: 100, active: true };
+  const f = document.getElementById('fc-form'); f.style.display = '';
+  f.innerHTML = `<div class="adm-form-hd">${id ? 'Edit check' : 'Add check'}</div><div class="adm-grid">
+    <label>Name<input id="fcf-label" value="${ae(c.label)}"></label><label>Used by (dashboards)<input id="fcf-dash" value="${ae(c.dashboards || '')}"></label>
+    <label>Table<input id="fcf-table" value="${ae(c.table_name)}" placeholder="e.g. hub_msl"></label><label>Timestamp column<input id="fcf-col" value="${ae(c.column_name)}" placeholder="e.g. synced_at"></label>
+    <label>Should refresh every (hours)<input id="fcf-hours" type="number" step="0.5" min="0.5" value="${ae(c.max_hours)}"></label><label>Order<input id="fcf-sort" type="number" value="${ae(c.sort_order)}"></label></div>
+    <div class="adm-actions">${btn('Save', `fcSubmit(${id || 'null'})`, 'btn-green')}${btn('Cancel', "closeForm('fc-form')")}</div>`;
+}
+async function fcSubmit(id) {
+  const v = x => document.getElementById(x).value.trim();
+  const p = { label: v('fcf-label'), dashboards: v('fcf-dash'), table_name: v('fcf-table'), column_name: v('fcf-col'), max_hours: parseFloat(v('fcf-hours')) || 2, sort_order: parseInt(v('fcf-sort'), 10) || 100, active: true };
+  if (id) { p.id = id; p.active = (FCHECKS.find(x => x.id === id) || {}).active !== false; }
+  try { await arpc('admin_upsert_freshness_check', { p }); showToast('Check saved'); closeForm('fc-form'); loadFreshnessChecks(); loadFreshness(); }
+  catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+async function fcToggle(id, on) {
+  const c = FCHECKS.find(x => x.id === id); if (!c) return;
+  try { await arpc('admin_upsert_freshness_check', { p: { ...c, active: on } }); loadFreshnessChecks(); loadFreshness(); } catch(e) { showToast('❌ ' + e.message, 'err'); }
+}
+async function fcDelete(id) {
+  if (!confirm('Delete this freshness check?')) return;
+  try { await arpc('admin_delete_freshness_check', { p_id: id }); loadFreshnessChecks(); loadFreshness(); } catch(e) { showToast('❌ ' + e.message, 'err'); }
 }
 
 // ── DASHBOARD USAGE ──
@@ -1089,7 +1396,7 @@ loadUsers();  loadActivity();  loadCronHealth();  loadDashboardUsage();  loadAud
   function hubName(id){var h=HUBS.find(function(x){return x.id===id;});return h?h.name:'';}
   async function boot(){
     if(!document.getElementById('hau-list'))return;
-    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');var healthCard=document.getElementById('syshealth-card');var usageCard=document.getElementById('usage-card');var activityCard=document.getElementById('activity-card');var auditlogCard=document.getElementById('auditlog-card');var rmcCard=document.getElementById('rmcupload-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');if(healthCard)healthCard.style.display=(sel==='syshealth'?'':'none');if(rmcCard)rmcCard.style.display=(sel==='rmcupload'?'':'none');var hideDupes=(sel==='syshealth'||sel==='rmcupload');if(usageCard)usageCard.style.display=(hideDupes?'none':'');if(activityCard)activityCard.style.display=(hideDupes?'none':'');if(auditlogCard)auditlogCard.style.display=(hideDupes?'none':'');if(sel==='rmcupload')loadRmcUploadHistory();}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
+    var allowedCard=(function(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var h=cs[i].querySelector('h2');if(h&&/Allowed Users/i.test(h.textContent))return cs[i];}return null;})();var myCard=document.getElementById('hau-card');var healthCard=document.getElementById('syshealth-card');var usageCard=document.getElementById('usage-card');var activityCard=document.getElementById('activity-card');var auditlogCard=document.getElementById('auditlog-card');var rmcCard=document.getElementById('rmcupload-card');function setTab(sel){var ts=document.querySelectorAll('.hau-tab');for(var i=0;i<ts.length;i++){var on=ts[i].getAttribute('data-t')===sel;ts[i].style.borderBottom='2px solid '+(on?'#f53b3b':'transparent');ts[i].style.color=on?'#0f172a':'#64748b';}if(allowedCard)allowedCard.style.display=(sel==='allowed'?'':'none');if(myCard)myCard.style.display=(sel==='hubaudit'?'':'none');if(healthCard)healthCard.style.display=(sel==='syshealth'?'':'none');if(rmcCard)rmcCard.style.display=(sel==='rmcupload'?'':'none');var pgC=document.getElementById('pages-card');if(pgC)pgC.style.display=(sel==='pages'?'':'none');var rlC=document.getElementById('roles-card');if(rlC)rlC.style.display=(sel==='roles'?'':'none');var abC=document.getElementById('access-by-dash-card');if(abC)abC.style.display=(sel==='allowed'?'':'none');if(sel==='pages')loadPagesAdmin();if(sel==='roles')loadRolesAdmin();var hideDupes=(sel==='syshealth'||sel==='rmcupload'||sel==='pages'||sel==='roles');if(usageCard)usageCard.style.display=(hideDupes?'none':'');if(activityCard)activityCard.style.display=(hideDupes?'none':'');if(auditlogCard)auditlogCard.style.display=(hideDupes?'none':'');if(sel==='rmcupload')loadRmcUploadHistory();}var tabs=document.querySelectorAll('.hau-tab');for(var k=0;k<tabs.length;k++){(function(t){t.onclick=function(){setTab(t.getAttribute('data-t'));};})(tabs[k]);}setTab('allowed');
     try{HUBS=await api('hubs?select=id,name,city&is_active=eq.true&order=city.asc,name.asc');}catch(e){}
     var cs=Array.from(new Set(HUBS.map(function(h){return h.city;}))).sort();
     var cy=document.getElementById('hau-city');if(cy)cy.innerHTML='<option value="">—</option>'+cs.map(function(c){return '<option>'+esc(c)+'</option>';}).join('');

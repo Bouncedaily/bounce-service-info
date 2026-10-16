@@ -1353,8 +1353,24 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
   const fnote = sub && /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
   return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}${tools ? `<span style="margin-left:14px;display:flex;gap:8px">${tools}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
-// Preview: the new summary tables show only for these logins; everyone else sees the page as before.
-const MT_PREVIEW_USERS = ['nithish@bounceshare.com', 'senthilkumar.t@bounceshare.com'];
+// Preview: the new summary tables show only for people with the "MSL: new view" role (Admin → Roles);
+// everyone else sees the page as before. The last answer is cached so the page doesn't flicker on load.
+let MT_PREVIEW_USERS = (function(){ try { const c = JSON.parse(localStorage.getItem('msl_new_view_for') || 'null'); return c ? [c] : []; } catch (e) { return []; } })();
+(async function loadMslPreviewRole() {
+  try {
+    const tok = (JSON.parse(localStorage.getItem('sb_session') || '{}').access_token) || '';
+    if (!tok) return;
+    const r = await fetch(INFO_URL + '/rest/v1/rpc/my_roles', { method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: '{}' });
+    if (!r.ok) return;
+    const roles = await r.json();
+    const me = mtViewer();
+    const was = MT_PREVIEW_USERS.includes(me);
+    const now = Array.isArray(roles) && roles.includes('msl_new_view');
+    MT_PREVIEW_USERS = now ? [me] : [];
+    try { if (now) localStorage.setItem('msl_new_view_for', JSON.stringify(me)); else localStorage.removeItem('msl_new_view_for'); } catch (e) {}
+    if (was !== now && typeof renderMslTables === 'function') { try { renderMslTables(); } catch (e) {} }
+  } catch (e) {}
+})();
 function mtViewer() {
   try { if (window.authGetEmail) { const e = window.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
   try { if (window.parent && window.parent !== window && window.parent.authGetEmail) { const e = window.parent.authGetEmail(); if (e) return e.toLowerCase(); } } catch (e) {}
