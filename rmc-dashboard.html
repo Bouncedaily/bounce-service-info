@@ -137,11 +137,12 @@ var SVCCore = (function(){
     return P.map(function(n){return {name:n,to:'P',from:''};}).concat(C.map(function(n){return {name:n,to:'C',from:''};})).concat(C9.map(function(n){return {name:n,to:'C',from:'2026-09'};}));
   }
   function compileRules(rules){
-    var list=rules.map(function(r){ return {k:NORM(String(r.name).replace(/\*\s*$/,'')), w:/\*\s*$/.test(r.name), to:r.to, from:r.from||''}; }), cache={};
-    return function(pn, month){
-      var ck=pn+'|'+month; if(cache[ck]) return cache[ck];
-      var res='A';
-      for(var i=0;i<list.length;i++){ var r=list[i]; if(r.from && month<r.from) continue; if(r.w ? pn.indexOf(r.k)===0 : pn===r.k) res=r.to; }
+    var list=rules.map(function(r){ return {k:NORM(String(r.name).replace(/\*\s*$/,'')), w:/\*\s*$/.test(r.name), to:r.to, from:r.from||'', p:!!r.p}; }), cache={};
+    // issue 'A' (default): any matching rule applies. issue 'P': only rules marked "also P-tagged" apply; otherwise P stays P.
+    return function(pn, month, issue){
+      issue=issue||'A'; var ck=pn+'|'+month+'|'+issue; if(cache[ck]) return cache[ck];
+      var res=issue;
+      for(var i=0;i<list.length;i++){ var r=list[i]; if(r.from && month<r.from) continue; if(issue==='P' && !r.p) continue; if(r.w ? pn.indexOf(r.k)===0 : pn===r.k) res=r.to; }
       return (cache[ck]=res);
     };
   }
@@ -169,7 +170,7 @@ var SVCCore = (function(){
       if(F.hub && r.hub!==F.hub) continue;
       if(F.model && r.model!==F.model) continue;
       var b;
-      if(r.cat==='Labour') b='L'; else if(r.issue==='P') b='P'; else if(r.issue==='A') b=ctx.rule(r.pn,r.month); else if(r.issue==='W') b='W'; else if(r.issue==='F') b='F'; else continue;
+      if(r.cat==='Labour') b='L'; else if(r.issue==='P') b=ctx.rule(r.pn,r.month,'P'); else if(r.issue==='A') b=ctx.rule(r.pn,r.month,'A'); else if(r.issue==='W') b='W'; else if(r.issue==='F') b='F'; else continue;
       var o=out[r.city]||(out[r.city]={}), m=o[r.month]||(o[r.month]={A:0,P:0,C:0,L:0,W:0,F:0,parts:{A:{},P:{},C:{}}});
       m[b]+=r.amt;
       if(b!=='L' && b!=='W' && b!=='F'){
@@ -285,7 +286,7 @@ function rpc(fn,args){ return api('/rest/v1/rpc/'+fn,{method:'POST',body:args||{
 var CITY_CODE={Bangalore:'BLR',NCR:'NCR',Hyderabad:'HYD',Mumbai:'MUM'}, CITY_FULL={BLR:'Bangalore',NCR:'NCR',HYD:'Hyderabad',MUM:'Mumbai'};
 var OPS_IN=[['labour','Labour (service team)',0],['coco','COCO',1],['porter','Porter',1],['ins_iot','Insurance & IOT',1],['warr_prov','Warranty provision',1],['ins_claim','Insurance claim',-1],['scrap','Scrap',-1],['warr_claim','Warranty claim',-1],['other','Other maintenance',0],['ad_recovery','AD recovery',0]];
 function persist(){}
-async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||''};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
+async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||'',p:!!x.p};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
 async function loadAll(){
   state.loading=true; toast('Loading RMC data…'); render();
   var t0=Date.now(), r=await rpc('rmc_dashboard_data',{});
@@ -307,7 +308,7 @@ async function loadAll(){
     if(x[3]==='rmc_city'){ if(x[4]!=null)(state.fleet[c]=state.fleet[c]||{})[x[0]]=+x[4]; if(x[5]!=null)(state.km[c]=state.km[c]||{})[x[0]]=+x[5]; }
     else { var k=c+'|'+x[2]+'|'+x[0]; state.hubFleet[k]=+x[4]||null; state.hubKm[k]=+x[5]||null; } });
   state.ops={}; (D.ops||[]).forEach(function(o){ var c=CITY_CODE[o.city]; if(!c) return; (state.ops[c]=state.ops[c]||{})[o.month]=o; });
-  state.rules=(D.rules||[]).map(function(x){return {name:x[0],to:x[1],from:x[2]||''};});
+  state.rules=(D.rules||[]).map(function(x){return {name:x[0],to:x[1],from:x[2]||'',p:!!x[3]};});
   st.dist=(D.dist||[]).map(function(x){ return {city:CITY_CODE[x[0]],part:x[1],month:x[2],avg:+x[3],med:+x[4],n:+x[5],yr:x[6]||'all'}; }).filter(function(x){return x.city;});
   st.files=[{name:'Portal data',rows:L.length,months:[...new Set(L.map(function(x){return x[0];}))].sort()}];
   var res=[{data:L}];
@@ -521,7 +522,7 @@ function viewHubs(model){
   var months=selMonths(), city=H.city, ctxo=ctx(), by={};
   var inC=function(c){ return city==='ALL' ? state.F.cities.indexOf(c)>=0 : c===city; };
   state.store.rows.forEach(function(r){ if(!inC(r.city)||!r.hub||months.indexOf(r.month)<0) return; if(state.F.model && r.model!==state.F.model) return; if(r.cat==='Labour') return;
-    var b= r.issue==='P'?'P': r.issue==='A'?ctxo.rule(r.pn,r.month):null; if(!b) return; var hk=r.city+'|'+r.hub; (by[hk]=by[hk]||{A:0,P:0,C:0})[b]+=r.amt; });
+    var b= (r.issue==='P'||r.issue==='A')?ctxo.rule(r.pn,r.month,r.issue):null; if(!b) return; var hk=r.city+'|'+r.hub; (by[hk]=by[hk]||{A:0,P:0,C:0})[b]+=r.amt; });
   var rows=Object.keys(by).map(function(k){ var t=by[k].A+by[k].P+by[k].C, f=state.hubFleet[k], kp=k.split('|'); return {hub:(city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'),A:by[k].A,P:by[k].P,C:by[k].C,t:t,f:f,pb:f?t/(f*months.length):null}; }).sort(function(a,b){return b.t-a.t;});
   var h='<div class="card"><h3>Hubs</h3><div class="row"><select data-a="hcity">'+cityOpts(city)+'</select></div><p class="sub">Parts cost by hub for '+months.map(C.monthLabel).join(', ')+'. Per bike per month uses the hub\'s current fleet from the fleet/km file.</p>';
   if(!rows.length) return h+'<div class="empty">No hub data. The JC export needs a hub column (JC_Hub Name).</div></div>';
@@ -559,10 +560,10 @@ function viewDist(){
   return h;
 }
 function viewSettings(){
-  var ms=allMonths(), cs=allCities(), h='<div class="card"><h3>Reclassification rules (A-tagged amounts only)</h3><p class="sub">P-tagged amounts always stay in P. A rule moves a part\'s A-tagged amount to P or C. Saved for everyone using this dashboard. "From" limits it to that month onwards (use it for September-only changes). End a name with * to match all variants starting with it. Changes apply immediately.</p>'
-   +'<div class="row"><label><input type="checkbox" data-a="fold"'+(state.foldOn?' checked':'')+'> Fold refurbished variants into their base part in part tables</label></div><div class="tw"><table><tr><th>Part name (as in DMS)</th><th>Move to</th><th>From month</th><th></th></tr>';
-  state.rules.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td><b style="color:'+COLORS[r.to]+'">'+r.to+'</b></td><td>'+(r.from?C.monthLabel(r.from):'all months')+'</td><td><span class="x" data-a="rdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
-  h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="rn" placeholder="Part name, e.g. DIU UNIT or MASTER CYLINDER HANDLE*" style="min-width:320px"><select id="rt"><option>C</option><option>P</option></select><input type="month" id="rf"><button class="btn sm pri" data-a="radd">Add rule</button><button class="btn sm" data-a="rreset">Reset to defaults</button></div></div>';
+  var ms=allMonths(), cs=allCities(), h='<div class="card"><h3>Reclassification rules</h3><p class="sub">A rule moves a part\'s A-tagged amount to P or C. P-tagged amounts stay in P unless the rule is marked <b>A + P</b> (e.g. frames). Saved for everyone using this dashboard. "From" limits it to that month onwards (use it for September-only changes). End a name with * to match all variants starting with it. Changes apply immediately.</p>'
+   +'<div class="row"><label><input type="checkbox" data-a="fold"'+(state.foldOn?' checked':'')+'> Fold refurbished variants into their base part in part tables</label></div><div class="tw"><table><tr><th>Part name (as in DMS)</th><th>Move to</th><th>Moves</th><th>From month</th><th></th></tr>';
+  state.rules.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td><b style="color:'+COLORS[r.to]+'">'+r.to+'</b></td><td>'+(r.p?'<b>A + P</b>':'A only')+'</td><td>'+(r.from?C.monthLabel(r.from):'all months')+'</td><td><span class="x" data-a="rdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
+  h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="rn" placeholder="Part name, e.g. DIU UNIT or MASTER CYLINDER HANDLE*" style="min-width:320px"><select id="rt"><option>C</option><option>P</option></select><input type="month" id="rf"><label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="rp"> also P-tagged</label><button class="btn sm pri" data-a="radd">Add rule</button><button class="btn sm" data-a="rreset">Reset to defaults</button></div></div>';
   h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub"><b>Labour (service team)</b> and <b>Other maintenance</b> feed the Total. COCO, Porter, Insurance &amp; IOT, Warranty provision, Insurance claim, Scrap, Warranty claim and AD recovery are kept for reference. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
   var oc=state.opsCity||'BLR', oms=ms.slice(); var nm=new Date(); var cur=nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0'); if(oms.indexOf(cur)<0) oms.push(cur);
   h+='<div class="tw"><table><tr><th>Input</th>'+oms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
@@ -611,7 +612,7 @@ root.addEventListener('click',function(e){
   else if(a==='reload'){ loadAll(); return; }
   else if(a==='csv'){ csv(); return; }
   else if(a==='rdel'){ state.rules.splice(+v,1); saveRules(); }
-  else if(a==='radd'){ var n=document.getElementById('rn').value.trim(); if(!n) return; state.rules.push({name:n,to:document.getElementById('rt').value,from:document.getElementById('rf').value||''}); saveRules(); }
+  else if(a==='radd'){ var n=document.getElementById('rn').value.trim(); if(!n) return; state.rules.push({name:n,to:document.getElementById('rt').value,from:document.getElementById('rf').value||'',p:document.getElementById('rp').checked}); saveRules(); }
   else if(a==='rreset'){ if(!confirm('Reset the rules to the original 26?')) return; state.rules=C.defaultRules(); saveRules(); }
   
   else return;
