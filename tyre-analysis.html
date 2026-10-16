@@ -957,7 +957,10 @@ function setConsSeg(id, btn) {
 }
 function consCity() { return document.getElementById('top-city').value || ''; }
 function consYear() { return document.getElementById('cons-year')?.value || ''; }
-let _consPen = {};
+let _consPen = {}, _consMon = {};
+// month columns: March 2026 to the current month
+function consMonths() { const out = [], now = new Date(); let y = 2026, m = 3; while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth() + 1)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; }
+function consMonLabel(k) { const [y, m] = k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + '-' + y.slice(2); }
 async function loadConsumption() {
   const body = document.getElementById('consumption-body');
   const seq = ++_consSeq;
@@ -978,8 +981,16 @@ async function loadConsumption() {
         body: JSON.stringify({ p_city: consCity() || null, p_deploy_year: consYear() || null, p_repl: consSeg('cons-repl') || 'other' }) });
       if (rp.ok) pen = await rp.json();
     } catch (e) { console.error('penetration', e); }
+    let mon = [];
+    try {
+      const rm = await fetch(`${SB_URL}/rest/v1/rpc/wear_tear_monthly`, { method: 'POST',
+        headers: {'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`,'Content-Type':'application/json'},
+        body: JSON.stringify({ p_city: consCity() || null, p_deploy_year: consYear() || null, p_repl: consSeg('cons-repl') || 'other' }) });
+      if (rm.ok) mon = await rm.json();
+    } catch (e) { console.error('monthly', e); }
     if (seq !== _consSeq) return; // a newer filter change is already loading
     _consPen = {}; pen.forEach(p => { _consPen[p.part_bucket] = p; });
+    _consMon = {}; mon.forEach(x => { (_consMon[x.part_bucket] = _consMon[x.part_bucket] || {})[x.month] = x; });
     _consumptionRows = rows;
     renderConsumption();
   } catch(e) {
@@ -1000,7 +1011,9 @@ function consView(r) {
   const p = _consPen[r.part_bucket] || {}, fleet = n(p.fleet_bikes);
   const pct = { w3: consPct(n(p.w3_bikes), fleet), lm: consPct(n(p.lm_bikes), fleet), tm: consPct(n(p.tm_bikes), fleet),
                 w3b: n(p.w3_bikes), lmb: n(p.lm_bikes), tmb: n(p.tm_bikes), fleet };
-  return { w3, lm, tm, ach: pctMode ? null : ach, cost, cpk, cnt, w3n: n(r.w3_n), lmn: n(r.lm_n), tmn: n(r.tm_n), w3r: n(r.w3_rep), lmr: n(r.lm_rep), tmr: n(r.tm_rep), pct, pctMode };
+  const mo = _consMon[r.part_bucket] || {};
+  const months = consMonths().map(k => { const x = mo[k] || {}; return { k, km: n(med ? x.med_km : x.avg_km), odo: n(x.n_odo), rep: n(x.n_rep), bikes: n(x.bikes), pct: consPct(n(x.bikes) || 0, fleet) }; });
+  return { months, w3, lm, tm, ach: pctMode ? null : ach, cost, cpk, cnt, w3n: n(r.w3_n), lmn: n(r.lm_n), tmn: n(r.tm_n), w3r: n(r.w3_rep), lmr: n(r.lm_rep), tmr: n(r.tm_rep), pct, pctMode };
 }
 function consSortedRows() {
   return _consumptionRows.map(r => ({ r, v: consView(r) })).sort((a, b) => (b.v.cost || 0) - (a.v.cost || 0));
@@ -1033,10 +1046,9 @@ function renderConsumption() {
   const rows = consSortedRows().map(({ r, v }) => `<tr>
     <td>${r.part_bucket}</td>
     <td class="num">${fmt(r.expected_life_km)}</td>
-    ${v.pctMode ? [['w3','w3b'],['lm','lmb'],['tm','tmb']].map(([k,b], i) => `<td class="num"><span style="${i===2?'font-weight:600':''}">${v.pct[k]==null?'—':v.pct[k]+'%'}</span><div style="font-size:10px;font-weight:400;color:var(--muted,#64748b)">${fmt(v.pct[b]||0)} of ${fmt(v.pct.fleet||0)} bikes</div></td>`).join('')
-      : `<td class="num">${fmt(v.w3)}${consN(v.w3n, v.w3r)}</td>
-    <td class="num">${fmt(v.lm)}${consN(v.lmn, v.lmr)}</td>
-    <td class="num"><span style="font-weight:600">${fmt(v.tm)}</span>${consN(v.tmn, v.tmr)}</td>`}
+    ${v.months.map((x, i) => v.pctMode
+      ? `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${x.pct==null||!x.bikes?'—':x.pct+'%'}</span><div style="font-size:10px;font-weight:400;color:var(--muted,#64748b)">${fmt(x.bikes||0)} bikes</div></td>`
+      : `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${fmt(x.km)}</span>${consN(x.odo, x.rep)}</td>`).join('')}
     <td class="num" ${achClass(v.ach)}>${v.ach==null?'—':v.ach+'%'}</td>
     <td class="num">${fmt(v.cnt)}</td>
     <td class="num">${fmtC(v.cost)}</td>
@@ -1046,22 +1058,23 @@ function renderConsumption() {
     ? `<div style="margin:8px 12px;padding:8px 12px;border-left:4px solid #d97706;background:#fffbeb;color:#92400e;font-size:12px;border-radius:6px"><b>Read with care:</b> First-replacement km for ${consYear() ? consYear() + '-deployed bikes' : 'all deployed years'} includes bikes deployed before the job-card data starts (May 2025). For those bikes the real first replacement may be missing, so the odometer counts km from earlier parts too and <b>overstates part life</b>. Use <b>Deployed year 2026</b> for clean first-fit life.</div>` : '';
   body.innerHTML = firstWarn + `<table><thead><tr>
     <th>Part Type</th><th class="num">Expected Life (KM)</th>
-    <th class="num">${L.w3} ${L.stat}</th><th class="num">${L.lm} ${L.stat}</th><th class="num">${L.tm} ${L.stat}</th>
+    ${consMonths().map(k => `<th class="num">${consMonLabel(k)}</th>`).join('')}
     <th class="num">This Month Achievement</th><th class="num">Replacements — YTD</th><th class="num">Total Cost (₹) — YTD</th><th class="num">Cost/KM (₹) — YTD</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>% replaced</b> = bikes that had this part replaced in the period (counted once) ÷ all bikes deployed, for the selected deployed year and city (all bikes, whatever brake type); it follows the First / Other / Both choice, and Achievement is not shown in this view. With "First" selected, KM follows the Deployed year filter; only 2026-deployed bikes have their full history in the data, so other years overstate first-fit life. Under each month value: <b>Replaced</b> = replacements in that period; <b>Odo</b> = replacements with a reliable KM, which are the ones used in the average/median (amber when under 5). A KM is left out when it is 0 or when the odometer reading on its JC, or (for Other) on the previous replacement's JC, is flagged as wrong: missing, stuck at the previous reading, a dip or spike against the bike's other readings, going backwards, or rising more than 300 km/day. Flags refresh nightly. <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date (fleet list, else fleet KM data, else the year of its earliest job card). Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat === '% replaced' ? 'Avg' : L.stat} KM (YTD). Achievement = this month's ${L.stat === '% replaced' ? 'avg' : L.stat.toLowerCase()} km ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Month columns show the ${L.stat === '% replaced' ? '% of bikes replaced' : L.stat.toLowerCase() + ' km'} for each month from March; the current month is month-to-date. ${L.stat === '% replaced' ? 'Bikes deployed (denominator): ' + fmt((Object.values(_consPen)[0] || {}).fleet_bikes || 0) + '. ' : ''}Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>% replaced</b> = bikes that had this part replaced in the period (counted once) ÷ all bikes deployed, for the selected deployed year and city (all bikes, whatever brake type); it follows the First / Other / Both choice, and Achievement is not shown in this view. With "First" selected, KM follows the Deployed year filter; only 2026-deployed bikes have their full history in the data, so other years overstate first-fit life. Under each month value: <b>Replaced</b> = replacements in that period; <b>Odo</b> = replacements with a reliable KM, which are the ones used in the average/median (amber when under 5). A KM is left out when it is 0 or when the odometer reading on its JC, or (for Other) on the previous replacement's JC, is flagged as wrong: missing, stuck at the previous reading, a dip or spike against the bike's other readings, going backwards, or rising more than 300 km/day. Flags refresh nightly. <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date (fleet list, else fleet KM data, else the year of its earliest job card). Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat === '% replaced' ? 'Avg' : L.stat} KM (YTD). Achievement = this month's ${L.stat === '% replaced' ? 'avg' : L.stat.toLowerCase()} km ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
 }
 function getConsumptionRows() {
-  return consSortedRows().map(({ r, v }) => v.pctMode
-    ? [r.part_bucket, r.expected_life_km, v.pct.w3, v.pct.w3b, v.pct.fleet, v.pct.lm, v.pct.lmb, v.pct.fleet, v.pct.tm, v.pct.tmb, v.pct.fleet, null, v.cnt, v.cost, v.cpk]
-    : [r.part_bucket, r.expected_life_km, v.w3, v.w3r, v.w3n, v.lm, v.lmr, v.lmn, v.tm, v.tmr, v.tmn, v.ach, v.cnt, v.cost, v.cpk]);
+  return consSortedRows().map(({ r, v }) => [r.part_bucket, r.expected_life_km]
+    .concat(...v.months.map(x => v.pctMode ? [x.bikes ? x.pct : null, x.bikes || 0] : [x.km, x.rep || 0, x.odo || 0]))
+    .concat(v.pctMode ? [v.pct.fleet, v.cnt, v.cost, v.cpk] : [v.ach, v.cnt, v.cost, v.cpk]));
 }
 function exportConsumptionXLSX() {
   const L = consLabels(), city = consCity(), y = consYear(), repl = consSeg('cons-repl');
   exportXLSX('wear_tear_consumption_' + (city ? city.toLowerCase() + '_' : '') + (y ? 'dep' + y + '_' : '') + repl + '_' + L.stat.toLowerCase() + '_' + today() + '.xlsx',
-    consSeg('cons-stat') === 'pct'
-      ? ['Part Type','Expected Life (KM)', L.w3+' % replaced', L.w3+' bikes replaced', 'Bikes deployed', L.lm+' % replaced', L.lm+' bikes replaced', 'Bikes deployed', L.tm+' % replaced', L.tm+' bikes replaced', 'Bikes deployed', 'This Month Achievement %', 'Replacements (YTD)', 'Total Cost (YTD)', 'Cost/KM (YTD)'] :
-    ['Part Type','Expected Life (KM)', L.w3+' '+L.stat, L.w3+' Replaced', L.w3+' Odo', L.lm+' '+L.stat, L.lm+' Replaced', L.lm+' Odo', L.tm+' '+L.stat, L.tm+' Replaced', L.tm+' Odo', 'This Month Achievement %', 'Replacements (YTD)', 'Total Cost (YTD)', 'Cost/KM (YTD)'],
+    ['Part Type','Expected Life (KM)'].concat(...consMonths().map(k => consSeg('cons-stat') === 'pct'
+      ? [consMonLabel(k) + ' % replaced', consMonLabel(k) + ' bikes replaced']
+      : [consMonLabel(k) + ' ' + L.stat, consMonLabel(k) + ' Replaced', consMonLabel(k) + ' Odo']))
+      .concat(consSeg('cons-stat') === 'pct' ? ['Bikes deployed', 'Replacements (YTD)', 'Total Cost (YTD)', 'Cost/KM (YTD)'] : ['This Month Achievement %', 'Replacements (YTD)', 'Total Cost (YTD)', 'Cost/KM (YTD)']),
     getConsumptionRows());
 }
 
