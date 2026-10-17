@@ -1425,20 +1425,20 @@ async function openSettings(which) {
   const [vendors, rates] = await Promise.all([sbGet('scrap_vendors?select=*&order=vendor_name.asc'), sbGet('vendor_category_rates?select=*')]);
   S.vendors = vendors || S.vendors;
   const rv = {}; (rates || []).forEach(r => { (rv[r.vendor_id] ||= {})[r.category] = r.rate; }); S.rates = rv;
-  const cats = S.cats.filter(c => c.category !== 'Other/Uncategorized');
+  const cats = S.cats.slice().sort((a, b) => (a.category === 'Other/Uncategorized') - (b.category === 'Other/Uncategorized'));
   const card = v => `<div class="vcard ${v.approved ? '' : 'pending'}" data-v="${v.id}">
-    <div class="vrow"><label class="fl">Name<input data-k="vendor_name" value="${esc(v.vendor_name)}" style="width:180px"></label><label class="fl">Contact<input data-k="contact" value="${esc(v.contact || '')}" style="width:140px"></label><label class="fl">GSTIN<input data-k="gstin" value="${esc(v.gstin || '')}" style="width:160px"></label>
+    <div class="vrow"><label class="fl">Name<input data-k="vendor_name" value="${esc(v.vendor_name)}" style="width:180px"></label><label class="fl">Contact<input data-k="contact" value="${esc(v.contact || '')}" style="width:140px"></label><label class="fl">GSTIN<input data-k="gstin" value="${esc(v.gstin || '')}" style="width:160px"></label><label class="fl">PAN<input data-k="pan" value="${esc(v.pan || '')}" style="width:120px" maxlength="10"></label>
       <button class="btn" type="button" data-vinfo>Save details</button>${v.approved ? '<span class="pill green" style="align-self:center">Approved</span>' : '<button class="btn go" type="button" data-vapprove>Approve</button>'}</div>
-    <div class="rates">${cats.map(c => `<label class="fl">${esc(c.category)} (₹/${esc(c.unit)})<input type="number" min="0" step="0.5" data-cat="${esc(c.category)}" value="${rv[v.id] && rv[v.id][c.category] != null ? rv[v.id][c.category] : ''}"></label>`).join('')}<button class="btn" type="button" data-vrates style="align-self:flex-end">Save rates</button></div>
+    <div class="rates">${cats.map(c => `<label class="fl">${c.category === 'Other/Uncategorized' ? 'Other (e.g. damage carton)' : esc(c.category)} (₹/${esc(c.unit || 'kg')})<input type="number" min="0" step="0.5" data-cat="${esc(c.category)}" value="${rv[v.id] && rv[v.id][c.category] != null ? rv[v.id][c.category] : ''}"></label>`).join('')}<button class="btn" type="button" data-vrates style="align-self:flex-end">Save rates</button></div>
     <div class="small" data-vmsg style="margin-top:6px"></div></div>`;
   const pend = (vendors || []).filter(v => !v.approved), appr = (vendors || []).filter(v => v.approved);
-  body.innerHTML = `<div class="vcard"><div class="vrow"><label class="fl">New vendor name<input id="nv-name" style="width:200px"></label><label class="fl">Contact<input id="nv-contact" style="width:140px"></label><label class="fl">GSTIN<input id="nv-gst" style="width:160px"></label><button class="btn primary" type="button" id="nv-add">Add vendor</button></div><div class="muted small" style="margin-top:6px">New vendors need approval before hubs can pick them.</div></div>
+  body.innerHTML = `<div class="vcard"><div class="vrow"><label class="fl">New vendor name<input id="nv-name" style="width:200px"></label><label class="fl">Contact<input id="nv-contact" style="width:140px"></label><label class="fl">GSTIN<input id="nv-gst" style="width:160px"></label><label class="fl">PAN<input id="nv-pan" style="width:120px" maxlength="10"></label><button class="btn primary" type="button" id="nv-add">Add vendor</button></div><div class="muted small" style="margin-top:6px">New vendors need approval before hubs can pick them.</div></div>
     ${pend.length ? `<h3 style="font-size:13px;color:var(--red-d)">Waiting for approval (${pend.length})</h3>${pend.map(card).join('')}` : ''}
     <h3 style="font-size:13px">Approved (${appr.length})</h3>${appr.map(card).join('') || '<p class="muted">No approved vendors yet.</p>'}`;
   body.onclick = async e => {
     if (e.target.closest('#nv-add')) {
       const name = $('#nv-name').value.trim(); if (!name) return;
-      const r = await send('POST', 'scrap_vendors', { vendor_name: name, contact: $('#nv-contact').value.trim() || null, gstin: $('#nv-gst').value.trim() || null, approved: false });
+      const r = await send('POST', 'scrap_vendors', { vendor_name: name, contact: $('#nv-contact').value.trim() || null, gstin: $('#nv-gst').value.trim() || null, pan: ($('#nv-pan').value.trim().toUpperCase() || null), approved: false });
       if (!r.ok) { alert('Not added: ' + r.error); return; }
       openSettings('vendors'); return;
     }
