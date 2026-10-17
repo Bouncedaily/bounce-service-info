@@ -1348,12 +1348,12 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
     const n = shortRows.filter(r => (k === null || keyOf(r) === k) && (h === null || r.hub_name === h)).length;
     return `<td${h === null ? ' style="font-weight:700;border-left:1px solid #e5e7eb"' : ''}>${mtNum(n, `${k === null ? 'All' : k} · ${h === null ? 'All hubs' : h} · Short`, r => mtSt(r) === 'short' && (k === null || keyOf(r) === k) && (h === null || r.hub_name === h) && hubs.includes(r.hub_name), 'mt-short', src)}</td>`;
   };
-  if (!keysShown.length) return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div><div style="padding:12px 16px;color:var(--muted,#64748b);font-size:13px">No short parts for this filter.</div></div>`;
+  if (!keysShown.length) return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${tools ? `<span style="margin-left:14px;display:flex;gap:8px">${tools}</span>` : ''}</div><div style="padding:12px 16px;color:var(--muted,#64748b);font-size:13px">No short parts for this filter.</div></div>`;
   const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}${cell(k, null)}</tr>`).join('')
     + `<tr class="mt-total"><td>Total short</td>${hubs.map(h => cell(null, h)).join('')}${cell(null, null)}</tr>`
     + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(src.filter(r => r.hub_name === h))}</td>`).join('')}<td style="border-left:1px solid #e5e7eb">${mtPct(src.filter(r => hubs.includes(r.hub_name)))}</td></tr>`;
   const fnote = sub && /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
-  return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}${tools ? `<span style="margin-left:14px;display:flex;gap:8px">${tools}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for these logins; everyone else sees the page as before.
 const MT_PREVIEW_USERS = ['nithish@bounceshare.com', 'senthilkumar.t@bounceshare.com'];
@@ -1427,7 +1427,7 @@ function mtRunwayMatrix(hubs, src, tools) {
   src = src || MT_ROWS;
   const rw = r => Math.max(0, r.runway_days ?? 0);
   const base = src.filter(r => (r.msl_qty || 0) > 0 && r.runway_days != null && hubs.includes(r.hub_name));
-  const head = `<div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span>${tools ? `<span style="margin-left:auto;display:flex;gap:8px">${tools}</span>` : ''}</div>`;
+  const head = `<div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">Runway<span>days of stock left · parts with an MSL · from each hub's MSL tab</span>${tools ? `<span style="margin-left:14px;display:flex;gap:8px">${tools}</span>` : ''}</div>`;
   if (!base.length) return `<div class="mt-card">${head}<div style="padding:12px 16px;color:var(--muted,#64748b);font-size:13px">No parts for this filter.</div></div>`;
   const cell = (b, h) => {
     const n = base.filter(r => (h === null || r.hub_name === h) && b[1](rw(r))).length;
@@ -1650,9 +1650,9 @@ async function renderInsights() {
       .concat([`${pc[3]}% need new stock: no RPDC or hub has it (${split.buy.length})`]);
     const html = {
       tone: 'blue', icon: '↗', num: `${pc[0]}% of hub shortages`,
-      text: `can be covered from RPDC stock, ${pc[1]}% by transfers between hubs${split.part.length ? `, ${pc[2]}% partly by transfer` : ''}, and ${pc[3] + (split.part.length ? 0 : 0)}% need new stock.`,
+      text: `can be covered from RPDC stock, <b style="color:#1e4fd8">${pc[1]}% by transfers between hubs</b>${split.part.length ? `, <b style="color:#b45309">${pc[2]}% partly by transfer</b>` : ''}, and <b style="color:#b91c1c">${pc[3]}% need new stock</b>.`,
       sub: lines.join(' · ') + '. ' + Object.entries(groups.reduce((m, g) => { const b = m[g.rp] || (m[g.rp] = { all: 0, ok: 0 }); b.all++; if (okRp(g)) b.ok++; return m; }, {})).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} from RPDC`).join(' · '),
-      ctaHtml: (it ? it.ctaHtml : '') + ' ' + cta('Hub shortages that need new stock (no RPDC or hub can supply in full)', buyRows, 'Buy list')
+      ctaHtml: '<span style="display:flex;gap:16px;align-items:center;justify-content:flex-end">' + (it ? it.ctaHtml : '') + cta('Hub shortages that need new stock (no RPDC or hub can supply in full)', buyRows, 'Buy list') + '</span>'
     };
     if (it) Object.assign(it, html); else items.push(html);
   }
@@ -1807,7 +1807,7 @@ async function renderOrderList() {
   box.innerHTML = `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px">
       <div>Order list · ${esc(hub)}<span>${list.length} parts · ${units.toLocaleString('en-IN')} units to order${rp ? ` · ${rp} stock shown for reference` : ''}</span></div>
       <div style="font-size:12px;font-weight:600">${hubPicker}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:600;margin-left:auto">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:600">
         <label style="display:flex;gap:6px;align-items:center">Order up to <select id="ordBuf" style="font:inherit;font-size:12px;min-height:32px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px">${opts}</select></label>
         <button type="button" id="ordCopy" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Copy list</button>
         <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
