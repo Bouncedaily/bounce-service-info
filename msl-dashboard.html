@@ -1477,6 +1477,7 @@ function wireRowSearch(inputId, tableHost, countId) {
 
 // ─── Transfer plan pop-up: one row per transfer, grouped by part ─────
 let TRANSFER_PLAN = [];
+let TP_VIEW = 'summary';   // transfer plan opens on the one-row-per-part summary
 function openTransferPlan() {
   const plan = TRANSFER_PLAN.slice();
   const byPart = {}; plan.forEach(t => { (byPart[t.part] = byPart[t.part] || []).push(t); });
@@ -1487,7 +1488,7 @@ function openTransferPlan() {
   if (!m) {
     m = document.createElement('div'); m.id = 'tpModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px';
-    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(1400px,97vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb"><div><b id="tpTitle" style="font-size:15px"></b><div id="tpSub" style="font-size:12px;color:#64748b;margin-top:2px"></div></div><span style="display:flex;gap:8px"><button type="button" id="tpCopy" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Copy plan</button><button type="button" id="tpCsv" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Export CSV</button><button type="button" id="tpClose" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Close</button></span></div><div style="display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #eef0f3">' + rowSearchHtml('tpSearch') + '<span id="tpShown" style="font-size:12px;color:#64748b"></span></div><div id="tpBody" style="overflow:auto"></div></div>';
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(1400px,97vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5e7eb"><div><b id="tpTitle" style="font-size:15px"></b><div id="tpSub" style="font-size:12px;color:#64748b;margin-top:2px"></div></div><span style="display:flex;gap:8px;align-items:center"><span id="tpView" style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden"><button type="button" data-v="summary" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border:0;cursor:pointer">Summary by part</button><button type="button" data-v="detail" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border:0;border-left:1px solid #d1d5db;cursor:pointer">Detailed transfers</button></span><button type="button" id="tpCopy" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Copy plan</button><button type="button" id="tpCsv" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Export CSV</button><button type="button" id="tpClose" style="font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer">Close</button></span></div><div style="display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #eef0f3">' + rowSearchHtml('tpSearch') + '<span id="tpShown" style="font-size:12px;color:#64748b"></span></div><div id="tpBody" style="overflow:auto"></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
     m.querySelector('#tpClose').onclick = () => { m.style.display = 'none'; };
@@ -1498,38 +1499,61 @@ function openTransferPlan() {
   const th = 'style="position:sticky;top:0;background:#f7f8fa;color:#64748b;font-size:11px;text-transform:uppercase;font-weight:600;padding:8px 10px;text-align:left;white-space:nowrap"';
   const thr = th.replace('text-align:left', 'text-align:right');
   const td = 'style="padding:7px 10px;border-top:1px solid #eef0f3;white-space:nowrap"';
+  const tdw = 'style="padding:7px 10px;border-top:1px solid #eef0f3;white-space:normal;min-width:180px;text-align:left"';
   const tdr = 'style="padding:7px 10px;border-top:1px solid #eef0f3;white-space:nowrap;text-align:right"';
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FSN</th><th ${th}>City</th><th ${th}>From hub</th><th ${thr}>From stock / MSL</th><th ${th}></th><th ${th}>To hub</th><th ${thr}>To stock / MSL</th><th ${thr}>Qty to send</th></tr></thead><tbody>`;
-  order.forEach((p, pi) => {
-    const rows = byPart[p];
-    rows.sort((a, b) => a.from.localeCompare(b.from) || b.qty - a.qty).forEach((t, ri) => {
-      // part name on every row; a slightly stronger line where a new part starts
-      const sep = ri === 0 && pi > 0 ? ' style="padding:7px 10px;border-top:2px solid #e2e8f0;white-space:nowrap"' : ` ${td}`;
-      const sepr = ri === 0 && pi > 0 ? ' style="padding:7px 10px;border-top:2px solid #e2e8f0;white-space:nowrap;text-align:right"' : ` ${tdr}`;
-      html += `<tr><td${sep}><b>${esc(t.part)}</b></td><td${sep}><span style="color:#64748b">${esc(t.pn)}</span></td><td${sep}>${esc(t.fsn)}</td><td${sep}>${esc(t.city)}</td><td${sep}><b>${esc(t.from)}</b></td><td${sepr}>${t.fromStock} / ${t.fromMsl}</td><td${sep}><span style="color:#94a3b8">→</span></td><td${sep}><b>${esc(t.to)}</b></td><td${sepr}><span style="color:#b91c1c">${t.toStock}</span> / ${t.toMsl}</td><td${sepr}><b style="color:#1e4fd8">${t.qty}</b></td></tr>`;
+  // one row per part + city: every sending and receiving hub with its quantity
+  const summary = [];
+  order.forEach(p => {
+    const byCity = {}; byPart[p].forEach(t => { (byCity[t.city] = byCity[t.city] || []).push(t); });
+    Object.entries(byCity).forEach(([city, ts]) => {
+      const from = {}, to = {}; ts.forEach(t => { from[t.from] = (from[t.from] || 0) + t.qty; to[t.to] = (to[t.to] || 0) + t.qty; });
+      const lst = o => Object.entries(o).sort((a, b) => b[1] - a[1]);
+      summary.push({ part: p, pn: ts[0].pn, fsn: ts[0].fsn, city, from: lst(from), to: lst(to), n: ts.length, units: ts.reduce((a, t) => a + t.qty, 0) });
     });
   });
-  html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
-  m.querySelector('#tpBody').innerHTML = html;
+  const hubs = (l, col) => l.map(([h, q]) => `<span style="white-space:nowrap"><b>${esc(h)}</b> <span style="color:${col};font-weight:700">${q}</span></span>`).join('<span style="color:#cbd5e1"> · </span>');
+  function render(view) {
+    m.querySelectorAll('#tpView button').forEach(b => { const on = b.dataset.v === view; b.style.background = on ? '#1e4fd8' : '#fff'; b.style.color = on ? '#fff' : '#111827'; });
+    let html, head, data;
+    if (view === 'summary') {
+      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FSN</th><th ${th}>City</th><th ${th}>Send from (units)</th><th ${th}></th><th ${th}>Send to (units)</th><th ${thr}>Transfers</th><th ${thr}>Units</th></tr></thead><tbody>`;
+      summary.forEach(r => { html += `<tr><td ${td}><b>${esc(r.part)}</b></td><td ${td}><span style="color:#64748b">${esc(r.pn)}</span></td><td ${td}>${esc(r.fsn)}</td><td ${td}>${esc(r.city)}</td><td ${tdw}>${hubs(r.from, '#64748b')}</td><td ${td}><span style="color:#94a3b8">→</span></td><td ${tdw}>${hubs(r.to, '#1e4fd8')}</td><td ${tdr}>${r.n}</td><td ${tdr}><b style="color:#1e4fd8">${r.units}</b></td></tr>`; });
+      html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${plan.length}</b></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
+      head = ['Part', 'Part no.', 'FSN', 'City', 'Send from (hub: units)', 'Send to (hub: units)', 'Transfers', 'Units'];
+      data = summary.map(r => [r.part, r.pn, r.fsn, r.city, r.from.map(([h, q]) => `${h}: ${q}`).join(', '), r.to.map(([h, q]) => `${h}: ${q}`).join(', '), r.n, r.units]);
+    } else {
+      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FSN</th><th ${th}>City</th><th ${th}>From hub</th><th ${thr}>From stock / MSL</th><th ${th}></th><th ${th}>To hub</th><th ${thr}>To stock / MSL</th><th ${thr}>Qty to send</th></tr></thead><tbody>`;
+      order.forEach((p, pi) => {
+        byPart[p].slice().sort((a, b) => a.from.localeCompare(b.from) || b.qty - a.qty).forEach((t, ri) => {
+          const sep = ri === 0 && pi > 0 ? ' style="padding:7px 10px;border-top:2px solid #e2e8f0;white-space:nowrap"' : ` ${td}`;
+          const sepr = ri === 0 && pi > 0 ? ' style="padding:7px 10px;border-top:2px solid #e2e8f0;white-space:nowrap;text-align:right"' : ` ${tdr}`;
+          html += `<tr><td${sep}><b>${esc(t.part)}</b></td><td${sep}><span style="color:#64748b">${esc(t.pn)}</span></td><td${sep}>${esc(t.fsn)}</td><td${sep}>${esc(t.city)}</td><td${sep}><b>${esc(t.from)}</b></td><td${sepr}>${t.fromStock} / ${t.fromMsl}</td><td${sep}><span style="color:#94a3b8">→</span></td><td${sep}><b>${esc(t.to)}</b></td><td${sepr}><span style="color:#b91c1c">${t.toStock}</span> / ${t.toMsl}</td><td${sepr}><b style="color:#1e4fd8">${t.qty}</b></td></tr>`;
+        });
+      });
+      html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
+      head = ['Part', 'Part no.', 'FSN', 'City', 'From hub', 'From stock', 'From MSL', 'To hub', 'To stock', 'To MSL', 'Qty to send'];
+      data = order.flatMap(p => byPart[p]).map(t => [t.part, t.pn, t.fsn, t.city, t.from, t.fromStock, t.fromMsl, t.to, t.toStock, t.toMsl, t.qty]);
+    }
+    m.querySelector('#tpBody').innerHTML = html;
+    wireRowSearch('tpSearch', 'tpBody', 'tpShown');
+    m.querySelector('#tpCsv').onclick = () => {
+      const csv = [head, ...data].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' })); a.download = `transfer_plan_${view}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    };
+    m.querySelector('#tpCopy').onclick = async e => {
+      const clean = v => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
+      const tsv = [head, ...data].map(r => r.map(clean).join('\t')).join('\n');
+      const htm = `<table><tr>${head.map(h => `<th>${clean(h)}</th>`).join('')}</tr>${data.map(r => `<tr>${r.map(v => `<td>${clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</td>`).join('')}</tr>`).join('')}</table>`;
+      try {
+        if (window.ClipboardItem) await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([tsv], { type: 'text/plain' }), 'text/html': new Blob([htm], { type: 'text/html' }) })]);
+        else await navigator.clipboard.writeText(tsv);
+        e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy plan'; }, 1500);
+      } catch (err) { alert('Copy was blocked by the browser. Use Export CSV instead.'); }
+    };
+  }
   m.querySelector('#tpSearch').value = '';
-  wireRowSearch('tpSearch', 'tpBody', 'tpShown');
-  const flat = order.flatMap(p => byPart[p]);
-  const head = ['Part', 'Part no.', 'FSN', 'City', 'From hub', 'From stock', 'From MSL', 'To hub', 'To stock', 'To MSL', 'Qty to send'];
-  const data = flat.map(t => [t.part, t.pn, t.fsn, t.city, t.from, t.fromStock, t.fromMsl, t.to, t.toStock, t.toMsl, t.qty]);
-  m.querySelector('#tpCsv').onclick = () => {
-    const csv = [head, ...data].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' })); a.download = `transfer_plan_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
-  };
-  m.querySelector('#tpCopy').onclick = async e => {
-    const clean = v => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
-    const tsv = [head, ...data].map(r => r.map(clean).join('\t')).join('\n');
-    const htm = `<table><tr>${head.map(h => `<th>${clean(h)}</th>`).join('')}</tr>${data.map(r => `<tr>${r.map(v => `<td>${clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</td>`).join('')}</tr>`).join('')}</table>`;
-    try {
-      if (window.ClipboardItem) await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([tsv], { type: 'text/plain' }), 'text/html': new Blob([htm], { type: 'text/html' }) })]);
-      else await navigator.clipboard.writeText(tsv);
-      e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy plan'; }, 1500);
-    } catch (err) { alert('Copy was blocked by the browser. Use Export CSV instead.'); }
-  };
+  m.querySelectorAll('#tpView button').forEach(b => { b.onclick = () => { TP_VIEW = b.dataset.v; m.querySelector('#tpSearch').value = ''; render(TP_VIEW); }; });
+  render(TP_VIEW);
   m.style.display = 'flex';
 }
 
