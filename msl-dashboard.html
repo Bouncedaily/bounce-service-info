@@ -1630,6 +1630,33 @@ async function renderInsights() {
       `<button type="button" class="ins-cta" data-plan="1">Transfer plan →</button>`);
   }
 
+  // 2b) Split of all hub shortages (one RPDC + part = one shortage): RPDC / hub transfer / partly transfer / new stock
+  if (groups.length) {
+    const okRp = g => { const st = (RPDC_STOCK || {})[g.rp + '|' + g.pn]; return st && (st.closing_stock || 0) >= g.units; };
+    const split = { rp: [], tr: [], part: [], buy: [] };
+    groups.forEach(g => {
+      if (okRp(g)) { split.rp.push(g); return; }
+      const hubs = new Set(g.rows.map(r => r.hub_name));
+      const moved = TRANSFER_PLAN.filter(t => t.pn === g.pn && hubs.has(t.to)).reduce((a, t) => a + t.qty, 0);
+      (moved >= g.units && g.units > 0 ? split.tr : moved > 0 ? split.part : split.buy).push(g);
+    });
+    const n = groups.length, raw = ['rp', 'tr', 'part', 'buy'].map(k => split[k].length / n * 100);
+    const pc = raw.map(Math.floor); let left = 100 - pc.reduce((a, b) => a + b, 0);
+    raw.map((v, i) => [v - Math.floor(v), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { pc[i]++; left--; } });   // add up to 100
+    const it = items.find(x => x.icon === '↗');
+    const buyRows = split.buy.concat(split.part).flatMap(g => g.rows);
+    const lines = [`${pc[0]}% from RPDC stock (${split.rp.length} parts)`, `${pc[1]}% by transfer between hubs (${split.tr.length})`]
+      .concat(split.part.length ? [`${pc[2]}% partly by transfer, rest needs buying (${split.part.length})`] : [])
+      .concat([`${pc[3]}% need new stock: no RPDC or hub has it (${split.buy.length})`]);
+    const html = {
+      tone: 'blue', icon: '↗', num: `${pc[0]}% of hub shortages`,
+      text: `can be covered from RPDC stock, ${pc[1]}% by transfers between hubs${split.part.length ? `, ${pc[2]}% partly by transfer` : ''}, and ${pc[3] + (split.part.length ? 0 : 0)}% need new stock.`,
+      sub: lines.join(' · ') + '. ' + Object.entries(groups.reduce((m, g) => { const b = m[g.rp] || (m[g.rp] = { all: 0, ok: 0 }); b.all++; if (okRp(g)) b.ok++; return m; }, {})).map(([rp, b]) => `${rp}: ${b.ok} of ${b.all} from RPDC`).join(' · '),
+      ctaHtml: (it ? it.ctaHtml : '') + ' ' + cta('Hub shortages that need new stock (no RPDC or hub can supply in full)', buyRows, 'Buy list')
+    };
+    if (it) Object.assign(it, html); else items.push(html);
+  }
+
   // 4) hubs well below the network average
   const hubSet = [...new Set(rows.map(r => r.hub_name))];
   const counted = rows.filter(r => mtSt(r) !== 'nc'), avg = counted.length ? Math.round(counted.filter(r => ['ok', 'ex'].includes(mtSt(r))).length / counted.length * 100) : 0;
