@@ -350,7 +350,9 @@ const BASELINE = '2026-08-31';          // all hub scrap cleared on this day
 const VARIANCE = 0.10;                  // a reason is needed when off by more than 10%
 const REASONS = ['Broken', 'Backlog', 'Sent to refurb', 'Sent to RPDC', 'Other'];
 const MAIN_CATS = ['Plastic', 'Iron', 'Aluminium'];
-const EXTRA_CATS = ['Wires', 'Brake Shoes', 'Electronics', 'Lighting', 'Battery', 'Controller'];
+const EXTRA_CATS = ['Wires', 'Brake Shoes', 'Electronics', 'Lighting', 'Battery', 'Controller', 'Carton Box'];
+// scrap that does not come off bikes, so there is no system (consumed) quantity: shown as "–"
+const NO_CONSUMPTION_CATS = ['Carton Box'];
 const COUNTED_CATS = ['Electronics', 'Lighting', 'Battery', 'Controller'];
 
 const S = {
@@ -830,14 +832,14 @@ function renderLines(keys) {
     <div class="lines-hd"><span>${head}</span><span class="muted small" style="font-weight:400">Photo needed for every line</span></div>
     ${!isScrap ? `<input type="search" class="partsearch" id="lp-q" placeholder="Search parts" value="${esc(LP.query)}" aria-label="Search parts">` : ''}
     <div id="lp-lines">${shown.map(lineHtml).join('') || `<div class="msg">${LP.query ? 'No part matches that search.' : 'The system expects no parts from this hub for this period. Use "Show all parts" if something is being sent anyway.'}</div>`}</div>
-    ${hiddenCount > 0 ? `<button class="add-more" type="button" id="lp-more">${isScrap ? '+ Wires, brake shoes, electronics, lighting, battery (by count)' : `Show all ${keys.length} parts`}</button>` : ''}
+    ${hiddenCount > 0 ? `<button class="add-more" type="button" id="lp-more">${isScrap ? '+ Wires, brake shoes, electronics, lighting, battery, carton box' : `Show all ${keys.length} parts`}</button>` : ''}
   </div>`;
 }
 
 function lineHtml(k) {
   const st = lineState(k), unit = lineUnit(k), e = LP.expected[k];
   const isScrap = LP.type === 'Scrap';
-  const expTxt = e != null ? `expected ~${num(e)} ${unit}` : 'no system estimate';
+  const expTxt = NO_CONSUMPTION_CATS.includes(k) ? 'consumed –' : e != null ? `expected ~${num(e)} ${unit}` : 'no system estimate';
   return `<div class="line" data-key="${esc(k)}">
     ${isScrap && ['Plastic', 'Iron', 'Aluminium'].includes(k) && e > 0
       ? `<button type="button" class="line-top bk-toggle" aria-expanded="false" style="all:unset;display:flex;justify-content:space-between;align-items:baseline;gap:8px;cursor:pointer"><span class="line-name">${esc(k)} <i class="ti ti-chevron-down" style="font-size:14px;color:var(--muted)"></i></span><span class="line-exp" style="color:var(--blue)">${expTxt} · tap for breakup</span></button>`
