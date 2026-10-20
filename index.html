@@ -362,7 +362,7 @@ input[type=date] { min-width: 130px; }
 <div id="view-login" style="display:none">
   <div class="login-card">
     <div class="login-logo">
-      <div class="login-logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg></div>
+      <img src="bounce-logo.png" alt="Bounce Daily" style="height:40px;width:auto" onerror="this.remove()">
       <div class="login-logo-text">Bounce <span>Service Info</span></div>
     </div>
     <!-- Step 1: Email -->
@@ -382,7 +382,25 @@ input[type=date] { min-width: 130px; }
       <input type="password" class="login-input" id="li-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')liSignIn()">
       <div class="login-msg" id="li-msg-signin"></div>
       <button class="login-btn" id="li-btn-signin" onclick="liSignIn()">Sign In</button>
-      <div class="login-footer" style="margin-top:10px"><a href="#" onclick="liShowEmail();return false" style="color:var(--muted);font-size:11px">← Use different email</a></div>
+      <div class="login-footer" style="margin-top:10px;display:flex;justify-content:space-between"><a href="#" onclick="liShowEmail();return false" style="color:var(--muted);font-size:11px">← Use different email</a><a href="#" onclick="liForgot();return false" style="color:var(--muted);font-size:11px">Forgot password?</a></div>
+    </div>
+    <!-- Step 2c: Forgot password: code by email, then a new password -->
+    <div id="ls-forgot" style="display:none">
+      <div class="login-title">Reset Password</div>
+      <div class="login-sub" id="li-sub-forgot">We'll email a 6-digit code to your work email.</div>
+      <div class="login-msg" id="li-msg-forgot"></div>
+      <button class="login-btn" id="li-btn-forgot" onclick="liRequestReset(false)">Email Me a Code</button>
+      <div id="li-reset-fields" style="display:none;margin-top:12px">
+        <label class="login-label">Code from the email</label>
+        <input type="text" class="login-input" id="li-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">
+        <label class="login-label" style="margin-top:10px">New Password</label>
+        <input type="password" class="login-input" id="li-rpw1" placeholder="Min 8 characters" autocomplete="new-password">
+        <label class="login-label" style="margin-top:10px">Confirm Password</label>
+        <input type="password" class="login-input" id="li-rpw2" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')liConfirmReset()">
+        <button class="login-btn" id="li-btn-reset" onclick="liConfirmReset()">Set New Password & Sign In</button>
+        <div class="login-footer" style="margin-top:8px"><a href="#" onclick="liRequestReset(true);return false" style="color:var(--muted);font-size:11px">Send a new code</a></div>
+      </div>
+      <div class="login-footer" style="margin-top:10px"><a href="#" onclick="liBackToSignIn();return false" style="color:var(--muted);font-size:11px">← Back to sign in</a></div>
     </div>
     <!-- Step 2b: Create password -->
     <div id="ls-create" style="display:none">
@@ -407,6 +425,7 @@ function liShowEmail() {
   document.getElementById('ls-email').style.display='';
   document.getElementById('ls-signin').style.display='none';
   document.getElementById('ls-create').style.display='none';
+  document.getElementById('ls-forgot').style.display='none';
   document.getElementById('li-msg-email').textContent='';
   document.getElementById('li-msg-email').className='login-msg';
 }
@@ -504,6 +523,47 @@ function liSignInAttempt(pw, attemptNum) {
     }
     liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error. Try again.','err');
   });
+}
+
+// ── Forgot password: a 6-digit code goes to the user's work email, then they set a new password ──
+function liForgot() {
+  document.getElementById('ls-signin').style.display='none';
+  document.getElementById('ls-forgot').style.display='';
+  document.getElementById('li-reset-fields').style.display='none';
+  document.getElementById('li-btn-forgot').style.display='';
+  document.getElementById('li-sub-forgot').textContent = "We'll email a 6-digit code to " + liEmail + '.';
+  liMsg('li-msg-forgot','','');
+}
+function liBackToSignIn() {
+  document.getElementById('ls-forgot').style.display='none';
+  document.getElementById('ls-signin').style.display='';
+}
+function liRequestReset(again) {
+  liSetBusy('li-btn-forgot', true, 'Sending...');
+  fetch(EDGE_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'request_reset', email: liEmail})})
+  .then(function(r){ return r.json(); }).then(function(d){
+    liSetBusy('li-btn-forgot', false, 'Email Me a Code');
+    if (d.error) { liMsg('li-msg-forgot', d.error, 'err'); return; }
+    document.getElementById('li-btn-forgot').style.display='none';
+    document.getElementById('li-reset-fields').style.display='';
+    document.getElementById('li-sub-forgot').textContent = 'We sent a 6-digit code to ' + liEmail + '. It works for 15 minutes.';
+    liMsg('li-msg-forgot', again ? 'New code sent.' : 'Code sent. Check your inbox.', 'ok');
+    document.getElementById('li-code').focus();
+  }).catch(function(e){ liSetBusy('li-btn-forgot', false, 'Email Me a Code'); liMsg('li-msg-forgot', 'Network error. Try again.', 'err'); });
+}
+function liConfirmReset() {
+  var code = document.getElementById('li-code').value.replace(/\D/g, '');
+  var pw1 = document.getElementById('li-rpw1').value, pw2 = document.getElementById('li-rpw2').value;
+  if (code.length !== 6) { liMsg('li-msg-forgot','Enter the 6-digit code from the email.','err'); return; }
+  if (pw1.length < 8) { liMsg('li-msg-forgot','Minimum 8 characters.','err'); return; }
+  if (pw1 !== pw2) { liMsg('li-msg-forgot','Passwords do not match.','err'); return; }
+  liSetBusy('li-btn-reset', true, 'Saving...');
+  fetch(EDGE_FN, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'confirm_reset', email: liEmail, code: code, password: pw1})})
+  .then(function(r){ return r.json(); }).then(function(d){
+    liSetBusy('li-btn-reset', false, 'Set New Password & Sign In');
+    if (!d.success || !d.access_token) { liMsg('li-msg-forgot', d.error || 'Could not reset the password.', 'err'); return; }
+    liSaveSession(d.access_token, d.refresh_token, liEmail, d.role, d.permissions);
+  }).catch(function(e){ liSetBusy('li-btn-reset', false, 'Set New Password & Sign In'); liMsg('li-msg-forgot', 'Network error. Try again.', 'err'); });
 }
 
 function liCreatePw() {
