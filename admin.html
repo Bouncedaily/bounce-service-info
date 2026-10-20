@@ -124,6 +124,14 @@
         <div id="hau-list" style="margin-top:10px"><span class="spin"></span>Loading…</div>
       </div>
 
+      <!-- Access requests from new users -->
+      <div class="card" id="access-req-card">
+        <div class="card-hd"><h2>Access requests <span id="ar-count" style="display:none;background:#dc2626;color:#fff;border-radius:999px;font-size:11px;padding:2px 8px;margin-left:6px;vertical-align:middle"></span></h2><span class="sub">New people who asked to use the portal. Approve to add them, with the dashboards you tick.</span>
+          <label style="margin-left:auto;font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="ar-history" onchange="loadAccessRequests()"> Show approved / rejected</label>
+        </div>
+        <div id="ar-list"><span class="spin"></span>Loading…</div>
+      </div>
+
       <!-- Users -->
       <div class="card">
         <div class="card-hd"><h2>Allowed Users</h2><span class="sub">Only these emails can log in</span></div>
@@ -313,6 +321,7 @@ if (!sess.email) { console.warn('No session in admin iframe — portal should ha
   document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('sb-user-email');
   if (el) el.textContent = sess.email || '';
+  loadAccessRequests();
   loadUsers();
   
   loadActivity();
@@ -712,6 +721,47 @@ function closeForm(id) { const f = document.getElementById(id); if (f) { f.style
 // ── Permission keys for the user checkboxes come from the pages list ──
 const PERM_LABEL_OVERRIDES = { tools_audit: 'Tools Audit (can submit)', brake_campaign: 'Brake Campaign (sees rider phones)' };
 let PAGES_ADMIN = [];
+// ── ACCESS REQUESTS ──
+let AR_ROWS = [];
+async function loadAccessRequests() {
+  const box = document.getElementById('ar-list'); if (!box) return;
+  const hist = document.getElementById('ar-history')?.checked;
+  try {
+    AR_ROWS = await arpc('get_access_requests', { p_status: hist ? null : 'pending' }) || [];
+    const pend = AR_ROWS.filter(r => r.status === 'pending').length;
+    const badge = document.getElementById('ar-count'); badge.style.display = pend ? '' : 'none'; badge.textContent = pend;
+    if (!AR_ROWS.length) { box.innerHTML = '<div class="muted" style="padding:6px 2px">No ' + (hist ? '' : 'pending ') + 'requests.</div>'; return; }
+    const fmt = d => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    box.innerHTML = '<div class="tbl"><table><thead><tr><th>Requested</th><th>Name</th><th>Email</th><th>Cities</th><th>Hubs</th><th>Status</th><th></th></tr></thead><tbody>' +
+      AR_ROWS.map(r => `<tr id="ar-row-${r.id}"><td style="white-space:nowrap">${fmt(r.requested_at)}</td><td><b>${ae(r.name)}</b></td><td>${ae(r.email)}</td><td>${ae((r.cities || []).join(', '))}</td><td>${ae((r.hubs || []).join(', ') || 'All hubs')}</td>
+        <td>${r.status === 'pending' ? '<span style="color:#b45309;font-weight:600">Pending</span>' : r.status === 'approved' ? '<span style="color:#15803d;font-weight:600">Approved</span>' : '<span style="color:#b91c1c;font-weight:600">Rejected</span>' + (r.reason ? ' · ' + ae(r.reason) : '')}${r.decided_by ? '<div class="muted" style="font-size:11px">' + ae(r.decided_by) + ' · ' + fmt(r.decided_at) + '</div>' : ''}</td>
+        <td style="white-space:nowrap">${r.status === 'pending' ? `<button class="btn btn-green" onclick="arOpenApprove(${r.id})">Approve</button> <button class="btn" onclick="arReject(${r.id})">Reject</button>` : ''}</td></tr>
+        <tr id="ar-approve-${r.id}" style="display:none"><td colspan="7" style="background:var(--bg)"></td></tr>`).join('') + '</tbody></table></div>';
+  } catch (e) { box.innerHTML = '<div class="muted">Could not load requests: ' + ae(e.message) + '</div>'; }
+}
+function arOpenApprove(id) {
+  const row = document.getElementById('ar-approve-' + id), r = AR_ROWS.find(x => x.id === id);
+  if (row.style.display === '') { row.style.display = 'none'; return; }
+  const dash = (typeof DASH_ACCESS_ALL !== 'undefined' && DASH_ACCESS_ALL.length) ? DASH_ACCESS_ALL : [];
+  row.firstElementChild.innerHTML = `<div style="font-size:12px;font-weight:700;margin:4px 0 8px">Dashboards for ${ae(r.name)}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 16px">${dash.map(([k, label]) => `<label style="font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" class="ar-perm-${id}" value="${ae(k)}"> ${label}</label>`).join('')}</div>
+    <div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-green" onclick="arApprove(${id})">Approve with these dashboards</button><button class="btn" onclick="arOpenApprove(${id})">Cancel</button></div>`;
+  row.style.display = '';
+}
+async function arApprove(id) {
+  const perms = {}; document.querySelectorAll('.ar-perm-' + id).forEach(c => { perms[c.value] = c.checked; });
+  if (!Object.values(perms).some(Boolean) && !confirm('No dashboards ticked. Approve anyway? They will be able to log in but see no dashboards.')) return;
+  try { await arpc('decide_access_request', { p_id: id, p_approve: true, p_permissions: perms }); showToast('Approved. They can sign in now and set their password.'); loadAccessRequests(); loadUsers(); }
+  catch (e) { showToast('Could not approve: ' + e.message, 'err'); }
+}
+async function arReject(id) {
+  const r = AR_ROWS.find(x => x.id === id);
+  const reason = prompt('Reject the request from ' + r.name + '?\nOptional: a short reason they will see.', '');
+  if (reason === null) return;
+  try { await arpc('decide_access_request', { p_id: id, p_approve: false, p_permissions: {}, p_reason: reason }); showToast('Request rejected.'); loadAccessRequests(); }
+  catch (e) { showToast('Could not reject: ' + e.message, 'err'); }
+}
+
 async function loadPagesForAdmin() {
   try { PAGES_ADMIN = await get('portal_pages?select=*&order=sort_order.asc'); } catch(e) { PAGES_ADMIN = []; }
   if (!PAGES_ADMIN.length) return;
