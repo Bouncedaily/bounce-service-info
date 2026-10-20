@@ -67,6 +67,9 @@ textarea{min-height:52px;resize:vertical}
   <div id="err" class="err"></div>
   <div class="card"><div class="filters"><div style="flex:1;min-width:130px"><label>City</label><select id="f-city"></select></div><div style="flex:1;min-width:170px"><label>Hub</label><select id="f-hub"></select></div><button class="btn btn-ghost" id="f-clear" style="align-self:flex-end">Clear</button></div></div>
   <div class="kpis" id="kpis"></div>
+  <div class="card" id="due-card"><h3 style="display:flex;align-items:center;gap:8px">Hubs due for audit <span id="due-count" class="pill" style="background:#fef2f2;color:#dc2626;display:none"></span></h3>
+    <div class="muted" style="font-size:12px;margin:-2px 0 8px">Hubs past their audit frequency, most overdue first. Follows the city / hub filter.</div>
+    <div id="due-list" class="muted"><span class="spin"></span>Loading…</div></div>
   <div class="card">
     <div class="htabs" role="tablist"><button class="htab on" id="htab-score" role="tab" aria-selected="true" onclick="switchHubTab('score')">Hub audit score</button><button class="htab" id="htab-trend" role="tab" aria-selected="false" onclick="switchHubTab('trend')">Hub audit trend</button></div>
     <div id="hpane-score"><div id="scorecards" class="muted"><span class="spin"></span>Loading…</div></div>
@@ -149,7 +152,7 @@ async function load(){
 }
 function fillHubFilter(){const hs=HUBS.filter(h=>!FILTER.city||h.city===FILTER.city);document.getElementById('f-hub').innerHTML='<option value="">All hubs</option>'+hs.map(h=>`<option value="${h.id}"${FILTER.hub===h.id?' selected':''}>${esc(h.name)}</option>`).join('');}
 
-function renderAll(){renderKpis();renderScorecards();renderTrend();renderCapa();renderFlagged();renderRecent();}
+function renderAll(){renderKpis();renderDue();renderScorecards();renderTrend();renderCapa();renderFlagged();renderRecent();}
 
 // ── HUB AUDIT TREND ──
 var TREND_N=6;   // how many of the latest audits each hub shows
@@ -224,6 +227,25 @@ function renderKpis(){
     ['Open CAPAs',openCapas.length,overdue.length+' overdue'],
     ['Audits submitted',AUDITS.filter(a=>inFilter(a.hub_id)).length,'filtered']
   ].map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div><div class="l" style="color:#94a3b8">${k[2]}</div></div>`).join('');
+}
+// ── HUBS DUE FOR AUDIT ──
+function renderDue(){
+  const latest=latestByHub();
+  const rows=HUBS.filter(h=>h.is_active!==false&&inFilter(h.id)).map(h=>{
+    const a=latest[h.id], cad=h.audit_cadence_days||30;
+    if(!a) return {h,a:null,cad,late:Infinity};
+    const late=daysAgo(a.audit_date)-cad;
+    return {h,a,cad,late};
+  }).filter(r=>r.late>0).sort((x,y)=>y.late-x.late||x.h.name.localeCompare(y.h.name));
+  const badge=document.getElementById('due-count');
+  badge.style.display=rows.length?'':'none'; badge.textContent=rows.length+(rows.length===1?' hub':' hubs');
+  if(!rows.length){document.getElementById('due-list').innerHTML='<span style="color:#16a34a;font-weight:600">All hubs are within their audit frequency.</span>';return;}
+  const never=rows.filter(r=>!r.a).length;
+  document.getElementById('due-list').innerHTML=`<table><thead><tr><th>Hub</th><th>City</th><th>Last audit</th><th>Audit every</th><th>Status</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr${r.a?` style="cursor:pointer" onclick="openAudit('${r.a.id}')"`:''}><td><b>${esc(r.h.name)}</b></td><td>${esc(r.h.city)}</td>
+      <td>${r.a?fmtDate(r.a.audit_date):'—'}</td><td>${r.cad} days</td>
+      <td>${r.a?`<span class="pill" style="background:#fef2f2;color:#dc2626">${r.late} day${r.late===1?'':'s'} overdue</span>`:'<span class="pill" style="background:#fee2e2;color:#991b1b">Never audited</span>'}</td></tr>`).join('')+
+    `</tbody></table>`+(never?`<div class="muted" style="font-size:12px;margin-top:6px">${never} hub${never===1?' has':'s have'} never been audited.</div>`:'');
 }
 function renderScorecards(){
   const latest=latestByHub();const activeHubs=HUBS.filter(h=>h.is_active!==false&&inFilter(h.id));
