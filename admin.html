@@ -519,7 +519,7 @@ async function resetPassword(email) {
   try {
     const res = await fetch(AUTH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + sessionToken() },   // the server checks this login is an admin
       body: JSON.stringify({ action: 'reset_user_password', email })
     });
     const r = await res.json();
