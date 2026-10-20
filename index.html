@@ -283,6 +283,9 @@ input[type=date] { min-width: 130px; }
 .login-btn:hover { opacity: .9; }
 .login-btn:disabled { opacity: .5; cursor: not-allowed; }
 .login-msg { font-size: 12px; border-radius: 8px; padding: 10px 14px; margin-top: 12px; display: none; }
+.li-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.li-chip { font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid #475569; background:rgba(255,255,255,.04); color:#e2e8f0; cursor:pointer; font-family:inherit; }
+.li-chip.on { background:#dc2626; border-color:#dc2626; color:#fff; }
 .login-msg.ok  { background: #052e16; border: 1px solid #166534; color: #4ade80; display: block; }
 .login-msg.err { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; display: block; }
 .login-footer { text-align: center; font-size: 11px; color: #334155; margin-top: 20px; }
@@ -402,6 +405,22 @@ input[type=date] { min-width: 130px; }
       </div>
       <div class="login-footer" style="margin-top:10px"><a href="#" onclick="liBackToSignIn();return false" style="color:var(--muted);font-size:11px">← Back to sign in</a></div>
     </div>
+    <!-- Step 2d: Request access (new users) -->
+    <div id="ls-request" style="display:none">
+      <div class="login-title" id="li-req-title">Request Access</div>
+      <div class="login-sub" id="li-req-sub">You don't have access yet. Send a request and the admin will approve it.</div>
+      <div id="li-req-form">
+        <label class="login-label">Your Full Name</label>
+        <input type="text" class="login-input" id="li-req-name" placeholder="e.g. Ravi Kumar" maxlength="80">
+        <label class="login-label" style="margin-top:10px">City <span style="font-weight:400;text-transform:none;letter-spacing:0">(choose one or more)</span></label>
+        <div id="li-req-cities" class="li-chips"></div>
+        <label class="login-label" style="margin-top:10px">Hub <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional; leave empty for all hubs)</span></label>
+        <div id="li-req-hubs" class="li-chips"><span style="font-size:12px;color:var(--muted)">Choose a city first</span></div>
+        <div class="login-msg" id="li-msg-request"></div>
+        <button class="login-btn" id="li-btn-request" onclick="liSubmitRequest()">Send Request</button>
+      </div>
+      <div class="login-footer" style="margin-top:10px"><a href="#" onclick="liShowEmail();return false" style="color:var(--muted);font-size:11px">← Use different email</a></div>
+    </div>
     <!-- Step 2b: Create password -->
     <div id="ls-create" style="display:none">
       <div class="login-title">Create Password</div>
@@ -426,6 +445,7 @@ function liShowEmail() {
   document.getElementById('ls-signin').style.display='none';
   document.getElementById('ls-create').style.display='none';
   document.getElementById('ls-forgot').style.display='none';
+  document.getElementById('ls-request').style.display='none';
   document.getElementById('li-msg-email').textContent='';
   document.getElementById('li-msg-email').className='login-msg';
 }
@@ -474,7 +494,7 @@ function liCheckEmailAttempt(attemptNum) {
     return r.json();
   }).then(function(d){
     liSetBusy('li-btn-email', false, 'Continue');
-    if (!d.allowed) { liMsg('li-msg-email','Your email is not authorized. Contact admin.','err'); return; }
+    if (!d.allowed) { liShowRequest(d.request); return; }
     liRole = d.role || 'viewer'; liPerms = d.permissions || {};
     if (d.has_password) {
       document.getElementById('li-sub-signin').textContent = liEmail;
@@ -523,6 +543,67 @@ function liSignInAttempt(pw, attemptNum) {
     }
     liSetBusy('li-btn-signin',false,'Sign In'); liMsg('li-msg-signin','Network error. Try again.','err');
   });
+}
+
+// ── Request access: new users choose cities (or All cities) and hubs; the admin approves in Admin ──
+var liReq = { opts: null, cities: [], hubs: [] };
+function liShowRequest(rq) {
+  document.getElementById('ls-email').style.display='none';
+  document.getElementById('ls-request').style.display='';
+  var form = document.getElementById('li-req-form'), sub = document.getElementById('li-req-sub'), title = document.getElementById('li-req-title');
+  liMsg('li-msg-request','','');
+  if (rq && rq.status === 'pending') {
+    title.textContent = 'Request Pending'; form.style.display='none';
+    sub.textContent = 'Your access request for ' + liEmail + ' is waiting for the admin to approve it. You can sign in once it is approved.';
+    return;
+  }
+  title.textContent = 'Request Access'; form.style.display='';
+  sub.textContent = (rq && rq.status === 'rejected')
+    ? 'Your last request was not approved' + (rq.reason ? ': ' + rq.reason : '') + '. You can send a new one.'
+    : "You don't have access yet. Send a request and the admin will approve it.";
+  if (liReq.opts) { liRenderReq(); return; }
+  fetch(SB_URL + '/rest/v1/rpc/get_access_request_options', { method:'POST', headers:{ 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY, 'Content-Type':'application/json' }, body:'{}' })
+  .then(function(r){ return r.json(); }).then(function(o){ liReq.opts = o || { cities: [], hubs: [] }; liRenderReq(); })
+  .catch(function(){ liMsg('li-msg-request','Could not load the city list. Refresh and try again.','err'); });
+}
+function liChip(label, on, onclick) {
+  var b = document.createElement('button'); b.type = 'button'; b.className = 'li-chip' + (on ? ' on' : ''); b.textContent = label; b.onclick = onclick; return b;
+}
+function liRenderReq() {
+  var o = liReq.opts, cWrap = document.getElementById('li-req-cities'), hWrap = document.getElementById('li-req-hubs');
+  var all = liReq.cities.indexOf('All cities') >= 0;
+  cWrap.innerHTML = '';
+  cWrap.appendChild(liChip('All cities', all, function(){ liReq.cities = all ? [] : ['All cities']; liReq.hubs = []; liRenderReq(); }));
+  o.cities.forEach(function(c){
+    var on = !all && liReq.cities.indexOf(c) >= 0;
+    cWrap.appendChild(liChip(c, on, function(){
+      liReq.cities = liReq.cities.filter(function(x){ return x !== 'All cities'; });
+      liReq.cities = on ? liReq.cities.filter(function(x){ return x !== c; }) : liReq.cities.concat([c]);
+      var keep = {}; o.hubs.forEach(function(h){ if (liReq.cities.indexOf(h.city) >= 0) keep[h.hub] = 1; });
+      liReq.hubs = liReq.hubs.filter(function(h){ return keep[h]; });
+      liRenderReq();
+    }));
+  });
+  hWrap.innerHTML = '';
+  var hubs = all ? [] : o.hubs.filter(function(h){ return liReq.cities.indexOf(h.city) >= 0; });
+  if (all) { hWrap.innerHTML = '<span style="font-size:12px;color:var(--muted)">All hubs in all cities</span>'; return; }
+  if (!hubs.length) { hWrap.innerHTML = '<span style="font-size:12px;color:var(--muted)">' + (liReq.cities.length ? 'No hubs listed for this city: all hubs' : 'Choose a city first') + '</span>'; return; }
+  hubs.forEach(function(h){
+    var on = liReq.hubs.indexOf(h.hub) >= 0;
+    hWrap.appendChild(liChip(h.hub, on, function(){ liReq.hubs = on ? liReq.hubs.filter(function(x){ return x !== h.hub; }) : liReq.hubs.concat([h.hub]); liRenderReq(); }));
+  });
+}
+function liSubmitRequest() {
+  var name = document.getElementById('li-req-name').value.trim();
+  if (name.length < 2) { liMsg('li-msg-request','Enter your full name.','err'); return; }
+  if (!liReq.cities.length) { liMsg('li-msg-request','Choose at least one city.','err'); return; }
+  liSetBusy('li-btn-request', true, 'Sending...');
+  fetch(EDGE_FN, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'request_access', email: liEmail, name: name, cities: liReq.cities, hubs: liReq.hubs }) })
+  .then(function(r){ return r.json(); }).then(function(d){
+    liSetBusy('li-btn-request', false, 'Send Request');
+    if (d.error) { liMsg('li-msg-request', d.error, 'err'); return; }
+    liShowRequest({ status: 'pending' });
+  }).catch(function(){ liSetBusy('li-btn-request', false, 'Send Request'); liMsg('li-msg-request','Network error. Try again.','err'); });
 }
 
 // ── Forgot password: a 6-digit code goes to the user's work email, then they set a new password ──
