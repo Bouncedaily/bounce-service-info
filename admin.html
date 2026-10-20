@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="error-log.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -166,6 +167,9 @@
           <button class="btn" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="loadCronHealth()">↻ Refresh</button>
         </div>
         <div id="fresh-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Page errors · last 7 days</div>
+        <div class="adm-help" style="margin:0 0 8px">Errors people hit on any portal page (page crashes and failed data loads), with who saw them and when. Use it to spot a broken dashboard before someone reports it.</div>
+        <div class="tbl" style="margin-bottom:16px"><table><thead><tr><th>Last seen</th><th>Page</th><th>Type</th><th>Error</th><th>Times</th><th>People</th><th>Last user</th></tr></thead><tbody id="err-tbody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody></table></div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Data freshness</div>
         <div class="tbl" style="margin-bottom:16px">
           <table>
@@ -864,7 +868,18 @@ function cronHuman(c) {
   return `${c} (UTC)`;
 }
 let JOBS = [];
+async function loadClientErrors() {
+  const tb = document.getElementById('err-tbody'); if (!tb) return;
+  try {
+    const rows = await arpc('get_client_errors', { p_days: 7 }) || [];
+    const esc2 = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const kind = { script: 'Page crash', promise: 'Page crash', data: 'Data load failed' };
+    tb.innerHTML = rows.length ? rows.map(r => `<tr><td style="white-space:nowrap">${new Date(r.last_seen).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td>${esc2(r.page)}</td><td>${kind[r.kind] || esc2(r.kind)}</td><td title="${esc2(r.last_detail)}" style="max-width:420px;white-space:normal">${esc2(r.message)}</td><td>${r.times}</td><td>${r.people}</td><td>${esc2(r.last_email || '—')}</td></tr>`).join('')
+      : '<tr><td colspan="7" class="muted">No page errors in the last 7 days.</td></tr>';
+  } catch (e) { tb.innerHTML = `<tr><td colspan="7" class="muted">Could not load errors: ${e.message}</td></tr>`; }
+}
 async function loadCronHealth() {
+  loadClientErrors();
   loadFlowGaps();
   loadFreshness();
   loadFreshnessChecks();
