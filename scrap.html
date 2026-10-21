@@ -1207,6 +1207,32 @@ async function loadApprovals() {
       <td class="num">${inr(sum(b, x => x.total_value))}</td><td class="num"><b>${inr(sum(b, x => x.payment_received))}</b></td></tr>`;
   }).join('') : '<tr><td colspan="6" class="muted">No payments confirmed yet.</td></tr>';
 }
+// System vs actual for the pickup being paid: job-card scrap in the window it cleared vs what was picked up
+async function loadSysAct(b) {
+  const box = $('#pf-sys'); if (!box) return;
+  const r = b[0];
+  let d; try { d = await cached('sysact|' + r.hub_name + '|' + r.pickup_date, () => rpc('get_scrap_pickup_expected', { p_hub: r.hub_name, p_pickup_date: r.pickup_date })); }
+  catch (e) { box.innerHTML = '<span class="muted small">Could not load system vs actual.</span>'; return; }
+  if (!d || !$('#pf-sys')) return;
+  const cats = ['Iron', 'Plastic', 'Aluminium'];
+  const pick = {}, val = {};
+  b.forEach(x => { pick[x.category] = (pick[x.category] || 0) + (+x.qty || 0); val[x.category] = (val[x.category] || 0) + (+x.amount || 0); });
+  const exp = d.cats || {};
+  const rows = cats.filter(c => (exp[c] || 0) > 0 || (pick[c] || 0) > 0).map(c => {
+    const e = +exp[c] || 0, p = +pick[c] || 0, rate = p > 0 ? val[c] / p : null, pct = e > 0 ? Math.round(p / e * 100) : null;
+    const cls = pct == null ? 'grey' : pct < 70 ? 'red' : pct > 130 ? 'amber' : 'green';
+    return { c, e, p, pct, cls, ev: rate != null ? e * rate : null, pv: val[c] || 0 };
+  });
+  const te = sum(rows, x => x.e), tp = sum(rows, x => x.p), tpct = te > 0 ? Math.round(tp / te * 100) : null;
+  const tev = rows.every(x => x.ev != null) ? sum(rows, x => x.ev) : null, tpv = sum(rows, x => x.pv);
+  const tcls = tpct == null ? 'grey' : tpct < 70 ? 'red' : tpct > 130 ? 'amber' : 'green';
+  $('#pf-sys').innerHTML = `<div class="small" style="font-weight:700;margin-bottom:4px">System vs actual <span class="muted" style="font-weight:400">· scrap the job cards say was generated ${dshort(d.win_from)} – ${dshort(d.win_to)} vs what was picked up</span></div>
+    <div class="scroll"><table style="min-width:560px"><thead><tr><th>Category</th><th class="num">System (job cards)</th><th class="num">Actual (picked up)</th><th class="num">Actual vs system</th><th class="num">System value</th><th class="num">Sale value</th></tr></thead><tbody>
+    ${rows.map(x => `<tr><td>${esc(x.c)}</td><td class="num">${kg(x.e)}</td><td class="num">${kg(x.p)}</td><td class="num"><span class="pill ${x.cls}">${x.pct == null ? '—' : x.pct + '%'}</span></td><td class="num">${x.ev == null ? '—' : inr(x.ev)}</td><td class="num">${inr(x.pv)}</td></tr>`).join('')}
+    <tr style="font-weight:700"><td>Total</td><td class="num">${kg(te)}</td><td class="num">${kg(tp)}</td><td class="num"><span class="pill ${tcls}">${tpct == null ? '—' : tpct + '%'}</span></td><td class="num">${tev == null ? '—' : inr(tev)}</td><td class="num">${inr(tpv)}</td></tr></tbody></table></div>
+    <div class="muted small" style="margin-top:4px">Iron, plastic and aluminium. Below 70% or above 130% is flagged. System value = system kg × this sale's rate.</div>`;
+}
+
 function drawMoney() {
   const money = S.apMoney || [];
   const vendors = S.vendors.filter(v => v.approved);
@@ -1223,7 +1249,7 @@ function drawMoney() {
       <td class="num">${S.perms.paid ? `<button class="btn ${open ? 'primary' : ''}" type="button" data-pay="${i}">Mark paid</button>` : ''}</td></tr>`;
     if (open) {
       const kgTot = sum(b, x => x.qty);
-      html += `<tr class="formrow"><td colspan="7"><div class="payform">
+      html += `<tr class="formrow"><td colspan="7"><div id="pf-sys" style="margin:4px 0 10px"><span class="muted small">Loading system vs actual…</span></div><div class="payform">
         <label class="fl">Amount received (₹)<input type="number" id="pf-amt" min="0" step="1" value="${Math.round(val)}"></label>
         <label class="fl">Received on<input type="date" id="pf-date" value="${todayIST()}" max="${todayIST()}"></label>
         <label class="fl">Mode<select id="pf-mode"><option>Bank transfer</option><option>UPI</option><option>Cash</option><option>Cheque</option></select></label>
@@ -1235,6 +1261,7 @@ function drawMoney() {
     }
     return html;
   }).join('') : '<tr><td colspan="7" class="muted">No sales waiting for payment.</td></tr>';
+  if (AP.open != null && money[AP.open]) loadSysAct(money[AP.open]);
   const amt = $('#pf-amt');
   if (amt) {
     const b = money[AP.open], val = Math.round(sum(b, x => x.amount));
