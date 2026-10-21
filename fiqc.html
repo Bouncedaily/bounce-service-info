@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="error-log.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIQC · Bounce Service Info</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="auth-guard.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--red:#dc2626;--red-bg:#fef2f2;--red-line:#fecaca;--green:#16a34a;--green-bg:#dcfce7;--amber-bg:#fef3c7;--amber:#92400e;--blue-bg:#dbeafe;--blue:#1e40af;--dark:#111827}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:14px}
+button,input,select,textarea{font-family:inherit;font-size:14px}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px}
+h1{margin:0;font-size:22px}
+.sub{color:var(--muted);font-size:13px;margin-top:3px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;font-weight:600;color:var(--muted);cursor:pointer}
+.tab.on{color:var(--red);border-color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px}
+.pad{padding:14px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.p-red{background:#fee2e2;color:#991b1b}.p-green{background:var(--green-bg);color:#166534}.p-amber{background:var(--amber-bg);color:var(--amber)}.p-blue{background:var(--blue-bg);color:var(--blue)}.p-grey{background:#f1f5f9;color:#334155}.p-indigo{background:#e0e7ff;color:#3730a3}
+.cat{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:4px}
+.cat-A{background:var(--blue-bg);color:var(--blue)}.cat-P{background:var(--amber-bg);color:var(--amber)}.cat-W{background:#ede9fe;color:#5b21b6}.cat-F{background:#ecfccb;color:#3f6212}
+.btn{height:44px;padding:0 16px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff}
+.btn-dark{background:var(--dark);border-color:var(--dark);color:#fff}
+.btn-sm{height:36px;padding:0 12px;font-size:13px}
+.seg{display:inline-flex;gap:6px}
+.seg button{height:36px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;cursor:pointer}
+.seg button.ok-on{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+.seg button.bad-on{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{height:44px;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px;background:#fff;width:100%}
+textarea.inp{height:auto;min-height:60px;padding:10px}
+.list{display:flex;flex-direction:column;gap:10px}
+.jc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;cursor:pointer;text-align:left;width:100%}
+.jc:hover{border-color:#cbd5e1}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:38px;padding:0 14px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:600;font-size:13px;cursor:pointer}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.grp{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+.pt{padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:8px}
+.pt:last-child{border-bottom:0}
+.fail{background:var(--red-bg)}
+.alert{background:var(--red-bg);border:1px solid var(--red-line);border-radius:10px;padding:10px 12px;color:#7f1d1d;font-size:13px}
+.info{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;color:#1e3a8a;font-size:13px}
+.photo-btn{height:40px;border-radius:8px;border:1px dashed #94a3b8;background:#fff;color:#334155;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
+.photo-btn.req{border-color:#f87171;color:#b91c1c}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.thumb{width:72px;height:54px;border-radius:8px;object-fit:cover;border:1px solid var(--line);background:#f1f5f9;cursor:pointer}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi .v{font-size:24px;font-weight:700}.kpi .l{font-size:13px;font-weight:600}.kpi .s{font-size:12px;color:var(--muted)}
+.kpi.bad{background:var(--red-bg);border-color:var(--red-line)}
+.blk-h{padding:11px 14px;background:var(--dark);color:#fff;font-weight:700;font-size:14px;border-radius:12px 12px 0 0}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.lbl{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8fafc;color:var(--muted);text-align:left;padding:9px 12px;font-size:12px;white-space:nowrap}
+td{padding:9px 12px;border-top:1px solid #f1f5f9;vertical-align:top}
+.num{text-align:right}
+.bar{height:10px;background:#f1f5f9;border-radius:999px}.bar>div{height:10px;background:var(--red);border-radius:999px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:var(--red);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err{color:#b91c1c}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:50;display:none;max-width:90vw}
+.sticky-foot{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:16px 0 4px}
+.phone{max-width:560px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.filters .field{min-width:140px}
+.hidden{display:none!important}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.8);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+.overlay img{max-width:100%;max-height:90vh;border-radius:8px}
+.picker{border:1px solid var(--line);border-radius:10px;margin-top:6px;max-height:240px;overflow:auto;background:#fff}
+.picker button{display:flex;justify-content:space-between;width:100%;border:0;border-bottom:1px solid #f1f5f9;background:#fff;padding:10px 12px;text-align:left;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>FIQC</h1><div class="sub" id="who">Final inspection quality check</div></div>
+    <div class="small muted" id="stamp"></div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="view"><span class="spin"></span>Loading…</div>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
+
+<script>
+const SB_URL = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+const POINTS = [
+  ['Brakes & wheels', [['brake','Brake / brake sensor'],['tyre','Tyre pressure / condition'],['axle','Front & rear axle bolt'],['cone','Cone set / handle movement']]],
+  ['Suspension & frame', [['susp','Front & rear suspension, no oil leak'],['stand','Side stand / main stand'],['damper','Rubber damper (battery stopper)']]],
+  ['Electricals & controls', [['horn','Horn'],['lh','LH switch assembly'],['rh','RH switch assembly'],['throttle','Throttle assembly'],['motor','Motor / motor cable']]],
+  ['Body & papers', [['plates','Number plates available'],['body','Body parts fitted properly']]]
+];
+const NOTFIT_REASONS = ['Old part still on the bike','Part not available in store','Entered by mistake','Part fitted on another bike','Other'];
+const EXTRA_REASONS = ['Job card not updated','Part taken from another bike','Warranty / free replacement','Other'];
+const CAT_NAME = {A:'Wear & tear',P:'Rider-payable',W:'Warranty',F:'Free'};
+
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => n == null || n === '' ? '—' : '₹' + Math.round(+n).toLocaleString('en-IN');
+const tFmt = d => d ? new Date(d).toLocaleString('en-IN', {timeZone:'Asia/Kolkata', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '—';
+const hm = d => d ? new Date(d).toLocaleTimeString('en-IN', {timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit'}) : '';
+const catBadge = c => c ? `<span class="cat cat-${esc(c)}" title="${esc(CAT_NAME[c] || c)}">${esc(c)}</span>` : '';
+function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 3500); }
+
+async function token() { return (window.authGetValidToken ? await window.authGetValidToken() : '') || (window.authGetToken ? window.authGetToken() : ''); }
+async function rpc(fn, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: ANON, Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const t = await r.text(); let d = null; try { d = t ? JSON.parse(t) : null; } catch (e) {}
+  if (!r.ok) throw new Error((d && (d.message || d.hint)) || ('HTTP ' + r.status));
+  return d;
+}
+
+// ── Photos: compress on the phone, upload to private storage, view by signed link ──
+function pickPhoto() {
+  return new Promise(res => { const inp = $('#cam'); inp.value = ''; inp.onchange = () => res(inp.files && inp.files[0]); inp.click(); });
+}
+async function compress(file) {
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  const s = Math.min(1, 1280 / Math.max(img.width, img.height)); const c = document.createElement('canvas');
+  c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.72));
+}
+async function uploadPhoto(prefix) {
+  const f = await pickPhoto(); if (!f) return null;
+  toast('Uploading photo…');
+  const blob = await compress(f);
+  const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const r = await fetch(`${SB_URL}/storage/v1/object/fiqc-photos/${path}`, { method: 'POST', headers: { apikey: ANON, Authorization: 'Bearer ' + await token(), 'Content-Type': 'image/jpeg' }, body: blob });
+  if (!r.ok) { toast('Photo upload failed. Try again.'); return null; }
+  PREVIEW[path] = URL.createObjectURL(blob); toast('Photo added');
+  return path;
+}
+const PREVIEW = {}, SIGNED = {};
+async function signed(path) {
+  if (!path) return '';
+  if (PREVIEW[path]) return PREVIEW[path];
+  if (SIGNED[path]) return SIGNED[path];
+  try {
+    const r = await fetch(`${SB_URL}/storage/v1/object/sign/fiqc-photos/${path}`, { method: 'POST', headers: { apikey: ANON, Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: 3600 }) });
+    const d = await r.json(); SIGNED[path] = d.signedURL ? SB_URL + '/storage/v1' + d.signedURL : ''; return SIGNED[path];
+  } catch (e) { return ''; }
+}
+async function fillThumbs(root) {
+  for (const im of (root || document).querySelectorAll('img[data-photo]')) { if (!im.src) im.src = await signed(im.dataset.photo); }
+}
+function openPhoto(path) { signed(path).then(u => { if (!u) return; const o = document.createElement('div'); o.className = 'overlay'; o.innerHTML = `<img src="${u}" alt="Photo">`; o.onclick = () => o.remove(); document.body.appendChild(o); }); }
+const thumb = p => p ? `<img class="thumb" data-photo="${esc(p)}" alt="Photo" onclick="openPhoto('${esc(p)}')">` : '';
+
+// ── State ──
+const S = { me: null, tab: null, home: null, sub: 'stage1', job: null, form: null, dash: null, df: null, hub: null };
+
+function setTabs() {
+  const m = S.me, tabs = [];
+  if (m.check) tabs.push(['checks', 'Checks']);
+  if (m.hub) tabs.push(['hub', 'Hub team']);
+  if (m.dash || m.check) tabs.push(['dash', 'Dashboard']);
+  if (!S.tab || !tabs.some(t => t[0] === S.tab)) S.tab = tabs[0] ? tabs[0][0] : null;
+  $('#tabs').innerHTML = tabs.map(([k, l]) => `<button class="tab ${S.tab === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('');
+}
+function go(t) { S.tab = t; S.job = null; setTabs(); render(); }
+
+async function boot() {
+  try {
+    S.home = await rpc('fiqc_home');
+    S.me = S.home.me;
+    $('#who').textContent = `${S.me.name} · ${S.me.hubs && S.me.hubs.length ? S.me.hubs.join(', ') : (S.me.cities && S.me.cities.length ? S.me.cities.join(', ') : 'All hubs')}`;
+    setTabs(); render();
+  } catch (e) {
+    $('#view').innerHTML = `<div class="card pad"><b>No FIQC access</b><div class="muted" style="margin-top:6px">Ask the admin to give you FIQC access (checker, hub team or dashboard) in Admin → Allowed users.</div><div class="small err" style="margin-top:6px">${esc(e.message)}</div></div>`;
+  }
+}
+function render() {
+  $('#stamp').textContent = 'Updated ' + hm(new Date());
+  if (S.tab === 'checks') return S.job ? renderJob() : renderHome();
+  if (S.tab === 'hub') return renderHub();
+  if (S.tab === 'dash') return renderDash();
+  $('#view').innerHTML = '<div class="card pad">No FIQC access.</div>';
+}
+
+// ════════════ CHECKS: home ════════════
+async function reloadHome() { try { S.home = await rpc('fiqc_home'); } catch (e) { toast(e.message); } render(); }
+function renderHome() {
+  const h = S.home, cnt = { stage1: h.stage1.length, recheck: h.recheck.length, stage2: h.stage2.length, done: h.done.length };
+  const subs = [['stage1', 'Stage 1'], ['recheck', 'Re-check'], ['stage2', 'Stage 2 (billed)'], ['done', 'Done today']];
+  const alerts = h.rfd_alerts || [];
+  let list = '';
+  if (S.sub === 'stage1') list = h.stage1.map(j => card(j.id, j.reg_number, `JC ${j.job_card_number} · Closed ${tFmt(j.closed_at)} · ${j.technician || '—'} · ${j.parts} part${j.parts === 1 ? '' : 's'}`, j.hub_name,
+      j.jc_status === 'Closed - Waiting for Approval' ? '<span class="pill p-green">Waiting for approval</span>' : `<span class="pill p-amber">Approved before FIQC</span>`,
+      j.jc_status !== 'Closed - Waiting for Approval' ? `Now: ${esc(j.jc_status || '')}` : '')).join('');
+  if (S.sub === 'recheck') list = h.recheck.map(j => card(j.id, j.reg_number, `JC ${j.job_card_number} · Rejected ${tFmt(j.last_rejected_at)}${j.failed ? ' (' + esc(j.failed) + ')' : ''} · ${esc(j.technician || '—')}`, j.hub_name,
+      `<span class="pill ${j.stage1_state === 'ready' ? 'p-blue' : 'p-red'}">${j.stage1_state === 'ready' ? 'Ready for re-check' : 'Waiting for fix'} · attempt ${j.stage1_attempts + 1}</span>`,
+      j.stage1_state === 'ready' ? (j.ready_reason === 'jc_reclosed' ? `Ready: job card re-closed in DMS ${tFmt(j.ready_at)}` : `Ready: marked fixed by ${esc(j.ready_by)} ${tFmt(j.ready_at)}`) : 'Not fixed yet: you can still re-check if it is fixed')).join('');
+  if (S.sub === 'stage2') list = h.stage2.map(j => card(j.id, j.reg_number, `JC ${j.job_card_number} · Billed ${tFmt(j.billed_at)} · ${esc(j.technician || '—')}`, j.hub_name,
+      '<span class="pill p-indigo">Billed, check parts</span>', j.stage1_state !== 'approved' ? 'Stage 1 not approved' : '')).join('');
+  if (S.sub === 'done') list = h.done.map(c => `<div class="jc" style="cursor:default"><div class="row"><b>${esc(c.reg_number)}</b><span class="pill ${c.result === 'approved' ? 'p-green' : 'p-red'}">${c.result === 'approved' ? 'Approved' : 'Rejected'}</span></div><div class="small muted">Stage ${c.stage}${c.attempt > 1 ? ' · attempt ' + c.attempt : ''} · JC ${esc(c.job_card_number)} · ${esc(c.hub_name)} · ${hm(c.checked_at)} by ${esc(c.checked_by_name)}</div></div>`).join('');
+  $('#view').innerHTML = `<div class="phone">
+    <div class="field"><label for="reg">Vehicle number</label><div style="display:flex;gap:8px"><input id="reg" class="inp" placeholder="e.g. UP32QC1456" autocomplete="off" onkeydown="if(event.key==='Enter')findReg()"><button class="btn btn-dark" onclick="findReg()">Open</button></div></div>
+    ${alerts.length ? `<div class="alert" style="margin-top:10px"><b><i class="ti ti-alert-triangle"></i> ${alerts.length} bike${alerts.length === 1 ? '' : 's'} moved to RFD before FIQC approval</b><div>${alerts.slice(0, 5).map(a => `${esc(a.reg_number)} (${esc(a.fiqc_at_time === 'Not checked' ? 'not checked' : a.fiqc_at_time.toLowerCase())}, ${tFmt(a.moved_at)})`).join(' · ')}. Check them before deployment.</div></div>` : ''}
+    <div class="chips" style="margin:12px 0">${subs.map(([k, l]) => `<button class="chip ${S.sub === k ? 'on' : ''}" onclick="S.sub='${k}';render()">${l} · ${cnt[k]}</button>`).join('')}</div>
+    <div class="small muted" style="margin-bottom:8px">${{stage1: 'Job cards closed, waiting for hub manager approval (last 7 days). Oldest first.', recheck: 'Bikes rejected by FIQC. Ready ones are at the top.', stage2: 'Billed job cards: check billed parts against the bike.', done: 'Checks submitted today.'}[S.sub]}</div>
+    <div class="list">${list || '<div class="card pad muted">Nothing here right now.</div>'}</div>
+    <div style="margin-top:12px"><button class="btn btn-sm" onclick="reloadHome()"><i class="ti ti-refresh"></i>Refresh</button></div></div>`;
+}
+function card(id, reg, line, hub, pill, extra) {
+  return `<button class="jc" onclick="openJob(${id})"><div class="row"><b style="font-size:15px">${esc(reg)}</b>${pill}</div><div class="small muted">${line} · ${esc(hub || '')}</div>${extra ? `<div class="small" style="color:#92400e">${extra}</div>` : ''}</button>`;
+}
+async function findReg() {
+  const reg = ($('#reg').value || '').trim(); if (!reg) return;
+  try {
+    const d = await rpc('fiqc_job', { p_reg: reg });
+    if (!d.found) { const f = d.fleet; toast(f ? `${f.reg_number}: no closed job card for FIQC. Fleet status ${f.status}${f.oos_sub_status ? ' (' + f.oos_sub_status + ')' : ''}, ${f.hub_name}.` : 'Vehicle not found. Check the number.'); return; }
+    startJob(d);
+  } catch (e) { toast(e.message); }
+}
+async function openJob(id) { try { startJob(await rpc('fiqc_job', { p_job_id: id })); } catch (e) { toast(e.message); } }
+
+// ════════════ CHECKS: one job card ════════════
+function startJob(d) {
+  const j = d.job;
+  let mode = 'stage1';
+  if (j.stage1_state === 'approved' && j.stage2_state === 'pending') mode = 'stage2';
+  else if (j.stage1_state === 'rejected' || j.stage1_state === 'ready') mode = 'recheck';
+  else if (j.stage1_state === 'approved') mode = 'done';
+  if (S.sub === 'stage2' && j.stage2_state === 'pending') mode = 'stage2';
+  const lastS1 = [...(d.checks || [])].filter(c => c.stage === 1).pop();
+  const failedKeys = lastS1 && lastS1.result === 'rejected' ? (lastS1.failed || []).map(f => f.key) : [];
+  const parts = (mode === 'stage2' ? d.billed : d.items).map(p => ({ kind: 'on_jc', code: p.code || null, name: p.name, cat: p.cat, qty: +p.qty || 1, unit_price: p.unit_price, fitted: true, reason: '', photo: null }));
+  S.job = d;
+  S.form = { mode, scope: mode === 'recheck' && failedKeys.length ? 'failed' : 'all', failedKeys, lastS1, points: {}, parts, extra: [], vehicle_photo: null, note: '', lat: null, lng: null };
+  if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p => { if (S.form) { S.form.lat = p.coords.latitude; S.form.lng = p.coords.longitude; } }, () => {}, { timeout: 8000 });
+  render(); window.scrollTo(0, 0);
+}
+function pointsInScope() {
+  const all = POINTS.flatMap(([g, ps]) => ps.map(([k, l]) => ({ key: k, label: l, grp: g })));
+  return S.form.scope === 'failed' ? all.filter(p => S.form.failedKeys.includes(p.key)) : all;
+}
+function renderJob() {
+  const d = S.job, j = d.job, f = S.form, fl = d.fleet || {};
+  const statusPill = j.jc_status === 'Closed - Waiting for Approval' ? 'p-green' : j.jc_status === 'Billed' ? 'p-indigo' : 'p-amber';
+  const moves = (d.rfd_moves || []).filter(m => !j.stage1_approved_at || new Date(m.moved_at) < new Date(j.stage1_approved_at));
+  const lastFail = f.lastS1 && f.lastS1.result === 'rejected' ? f.lastS1 : null;
+  const prev = d.prev_vehicle_check;
+  // changes on the job card since the last rejection
+  let changes = '';
+  if (f.mode === 'recheck' && d.items_at_rejection && d.items_at_rejection.length) {
+    const was = {}; d.items_at_rejection.forEach(i => was[i.name] = (was[i.name] || 0) + (+i.qty || 0));
+    const now = {}; d.items.forEach(i => now[i.name] = (now[i.name] || 0) + (+i.qty || 0));
+    const add = Object.keys(now).filter(k => (now[k] || 0) > (was[k] || 0)).map(k => '+ ' + k), rem = Object.keys(was).filter(k => (was[k] || 0) > (now[k] || 0)).map(k => '− ' + k);
+    if (add.length || rem.length) changes = `<div class="info" style="margin-top:10px"><b>Job card changed since rejection</b><div>${esc([...add, ...rem].join(' · '))}</div></div>`;
+  }
+  const title = { stage1: 'Stage 1 check', recheck: 'Re-check · attempt ' + (j.stage1_attempts + 1), stage2: 'Stage 2 · billed parts', done: 'Already approved' }[f.mode];
+  let body = `<div class="phone">
+    <button class="btn btn-sm" onclick="S.job=null;S.form=null;reloadHome()"><i class="ti ti-arrow-left"></i>Back</button>
+    <div class="card pad" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+      <div class="row"><b style="font-size:20px">${esc(j.reg_number)}</b><span class="small muted">${esc(fl.model_name || j.bike_model || '')} · ${esc(j.hub_name || '')}</span></div>
+      <div class="chips"><span class="pill ${statusPill}">${esc(j.jc_status || '')}</span>${fl.status ? `<span class="pill p-indigo">Fleet: ${esc(fl.status)}${fl.oos_sub_status ? ' · ' + esc(fl.oos_sub_status) : ''}${fl.oos_age != null && fl.status === 'OOS' ? ' · ' + esc(fl.oos_age) + ' d' : ''}</span>` : ''}<span class="pill p-grey">${title}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px" class="small">
+        <div><div class="muted">Job card</div><b>${esc(j.job_card_number)}</b></div><div><div class="muted">Technician</div><b>${esc(j.technician || '—')}</b></div>
+        <div><div class="muted">Closed at</div><b>${tFmt(j.closed_at)}</b></div><div><div class="muted">Odometer</div><b>${fl.current_odometer != null ? Math.round(fl.current_odometer).toLocaleString('en-IN') + ' km' : '—'}</b></div>
+      </div>
+      ${prev ? `<div class="small" style="background:#fff7ed;color:#9a3412;border-radius:8px;padding:8px 10px">Last FIQC on this bike: ${prev.result === 'approved' ? 'Approved' : 'Rejected'} on ${tFmt(prev.checked_at)}${prev.failed ? ' (' + esc(prev.failed) + ')' : ''}</div>` : ''}
+      ${moves.length ? `<div class="alert"><b>Moved to RFD before FIQC approval</b> · ${tFmt(moves[0].moved_at)}${moves[0].moved_by ? ' by ' + esc(moves[0].moved_by) : ''}</div>` : ''}
+    </div>`;
+  if (f.mode === 'done') {
+    body += `<div class="card pad" style="margin-top:12px">Stage 1 is approved${j.stage2_state === 'done' ? ' and Stage 2 is done' : (j.billed_at ? '' : '. Stage 2 opens once the job card is billed')}.</div>${historyHtml(d)}</div>`;
+    $('#view').innerHTML = body; fillThumbs(); return;
+  }
+  if (f.mode === 'recheck' && lastFail) {
+    body += `<div class="alert" style="margin-top:12px"><div class="row"><b>Rejected · ${tFmt(lastFail.checked_at)}</b><span class="small">by ${esc(lastFail.by || '')}</span></div>
+      <div style="margin-top:6px">${(lastFail.failed || []).map(x => `<div>• <b>${esc(x.label)}</b>${x.note ? ': ' + esc(x.note) : ''}</div>`).join('')}${(lastFail.mismatch || []).map(x => `<div>• ${esc(x.name)}: ${x.kind === 'extra' ? 'fitted, not on job card' : 'on job card, not fitted'}${x.reason ? ' (' + esc(x.reason) + ')' : ''}</div>`).join('')}</div>
+      <div class="thumbs" style="margin-top:6px">${(lastFail.failed || []).map(x => thumb(x.photo)).join('')}</div></div>
+      ${j.stage1_state === 'ready' ? `<div class="info" style="margin-top:8px">${j.ready_reason === 'jc_reclosed' ? 'Ready: job card re-closed in DMS ' + tFmt(j.ready_at) : 'Ready: marked fixed by ' + esc(j.ready_by) + ' ' + tFmt(j.ready_at)}</div>` : '<div class="info" style="margin-top:8px">Not marked fixed yet. Re-check only if the bike is fixed.</div>'}${changes}`;
+  }
+  if (f.mode !== 'stage2') {
+    const pts = pointsInScope();
+    const recheck = f.mode === 'recheck' && f.scope === 'failed';
+    body += `<div class="row" style="margin-top:16px"><b style="font-size:15px">${recheck ? 'Re-check what failed' : '14-point check'}</b>
+      ${f.mode === 'recheck' && f.failedKeys.length ? `<button class="btn btn-sm" onclick="S.form.scope=S.form.scope==='failed'?'all':'failed';S.form.points={};render()">${f.scope === 'failed' ? 'Re-check all 14 points' : 'Only what failed'}</button>` : `<span class="small muted">Tap OK or Not OK</span>`}</div>`;
+    const groups = {}; pts.forEach(p => (groups[p.grp] = groups[p.grp] || []).push(p));
+    for (const g of Object.keys(groups)) {
+      body += `<div class="grp">${esc(g)}</div><div class="card">` + groups[g].map(p => {
+        const st = f.points[p.key] || {}; const bad = st.ok === false;
+        return `<div class="pt ${bad ? 'fail' : ''}"><div class="row"><span>${esc(p.label)}</span><div class="seg">
+          <button class="${st.ok === true ? 'ok-on' : ''}" onclick="setPt('${p.key}',true)">${recheck ? 'Fixed' : 'OK'}</button>
+          <button class="${bad ? 'bad-on' : ''}" onclick="setPt('${p.key}',false)">${recheck ? 'Still Not OK' : 'Not OK'}</button></div></div>
+          ${bad || (recheck && st.ok === true) ? `${bad ? `<input class="inp" placeholder="What is wrong? (required)" value="${esc(st.note || '')}" oninput="S.form.points['${p.key}'].note=this.value">` : ''}
+            <div class="thumbs">${thumb(st.photo)}</div>
+            <button class="photo-btn ${st.photo ? '' : 'req'}" onclick="ptPhoto('${p.key}')"><i class="ti ti-camera"></i>${st.photo ? 'Retake photo' : (bad ? 'Add photo (required)' : 'Add after-fix photo (required)')}</button>` : ''}
+        </div>`; }).join('') + '</div>';
+    }
+  }
+  // parts check
+  body += `<div style="margin-top:18px"><b style="font-size:15px">${f.mode === 'stage2' ? 'Billed parts' : 'Parts on the job card'}</b><div class="small muted">${f.mode === 'stage2' ? 'Is each billed part actually fitted on the bike?' : 'Is each part actually fitted on the bike?'}</div></div>
+    <div class="card" style="margin-top:8px">${f.parts.length ? f.parts.map((p, i) => `<div class="pt ${p.fitted ? '' : 'fail'}"><div class="row"><div><div>${esc(p.name)}</div><div class="small muted">${catBadge(p.cat)}${esc(CAT_NAME[p.cat] || '')} · Qty ${p.qty} · ${p.unit_price ? inr(p.unit_price) : 'price not known'}</div></div>
+      <div class="seg"><button class="${p.fitted ? 'ok-on' : ''}" onclick="S.form.parts[${i}].fitted=true;render()">Fitted</button><button class="${!p.fitted ? 'bad-on' : ''}" onclick="S.form.parts[${i}].fitted=false;render()">Not fitted</button></div></div>
+      ${!p.fitted ? `<select class="inp" onchange="S.form.parts[${i}].reason=this.value"><option value="">Reason (required)</option>${NOTFIT_REASONS.map(r => `<option ${p.reason === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <div class="thumbs">${thumb(p.photo)}</div><button class="photo-btn ${p.photo ? '' : 'req'}" onclick="partPhoto(${i})"><i class="ti ti-camera"></i>${p.photo ? 'Retake photo' : 'Add photo (required)'}</button>` : ''}</div>`).join('') : '<div class="pad muted small">No parts on this job card.</div>'}</div>
+    <div style="margin-top:16px"><b style="font-size:15px">Fitted but not on the job card</b><div class="small muted">Any part changed on the bike that the job card does not show?</div></div>
+    <div class="card pad" style="margin-top:8px;display:flex;flex-direction:column;gap:10px">
+      ${f.extra.map((p, i) => `<div style="background:#fff7ed;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px"><div class="row"><div><b>${esc(p.name)}</b><div class="small" style="color:#9a3412">${catBadge(p.cat)}${p.unit_price ? inr(p.unit_price) + ' each' : 'price not known'}</div></div><button class="btn btn-sm" aria-label="Remove" onclick="S.form.extra.splice(${i},1);render()"><i class="ti ti-x"></i></button></div>
+        <div style="display:flex;gap:8px"><input class="inp" style="width:90px" type="number" min="1" value="${p.qty}" aria-label="Quantity" oninput="S.form.extra[${i}].qty=+this.value||1"><select class="inp" onchange="S.form.extra[${i}].reason=this.value"><option value="">Reason (required)</option>${EXTRA_REASONS.map(r => `<option ${p.reason === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div></div>`).join('')}
+      <div><input class="inp" id="psearch" placeholder="+ Add part: type at least 2 letters" oninput="searchParts(this.value)" autocomplete="off"><div id="presults"></div></div>
+    </div>
+    <div style="margin-top:16px"><b style="font-size:15px">Vehicle photo</b></div>
+    <div class="card pad" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;align-items:flex-start">${f.vehicle_photo ? thumb(f.vehicle_photo) : ''}
+      <button class="photo-btn ${f.vehicle_photo ? '' : 'req'}" onclick="vehPhoto()"><i class="ti ti-camera"></i>${f.vehicle_photo ? 'Retake vehicle photo' : 'Take vehicle photo (required)'}</button>
+      <textarea class="inp" placeholder="Note (optional)" oninput="S.form.note=this.value">${esc(f.note)}</textarea></div>`;
+  // result preview
+  const pts = f.mode === 'stage2' ? [] : pointsInScope();
+  const answered = pts.filter(p => f.points[p.key] && f.points[p.key].ok != null).length;
+  const badPts = pts.filter(p => f.points[p.key] && f.points[p.key].ok === false);
+  const nf = f.parts.filter(p => !p.fitted), ex = f.extra;
+  const rejected = badPts.length + nf.length + ex.length > 0;
+  const why = [badPts.length ? `${badPts.length} point${badPts.length === 1 ? '' : 's'} Not OK (${badPts.map(p => p.label).join(', ')})` : '',
+    nf.length ? `${nf.length} part${nf.length === 1 ? '' : 's'} not fitted (${inr(nf.reduce((s, p) => s + (p.unit_price || 0) * p.qty, 0))})` : '',
+    ex.length ? `${ex.length} part${ex.length === 1 ? '' : 's'} not on job card (${inr(ex.reduce((s, p) => s + (p.unit_price || 0) * p.qty, 0))})` : ''].filter(Boolean).join(' · ');
+  body += `<div class="sticky-foot">${f.mode !== 'stage2' ? `<div class="small muted" style="text-align:center;margin-bottom:6px">${answered} of ${pts.length} points answered</div>` : ''}
+    <div class="card pad" style="margin-bottom:10px;${rejected ? 'background:#fef2f2;border-color:#fecaca' : 'background:#f0fdf4;border-color:#bbf7d0'}"><b style="color:${rejected ? '#991b1b' : '#166534'}">Result: ${rejected ? 'Rejected' : (f.mode === 'recheck' ? 'Approved after re-check' : 'Approved')}</b>${why ? `<div class="small" style="margin-top:3px">${esc(why)}</div>` : ''}</div>
+    <button class="btn btn-red" style="width:100%;height:50px" id="submitBtn" onclick="submitCheck()">${f.mode === 'recheck' ? 'Submit re-check' : 'Submit FIQC'}</button></div>`;
+  body += historyHtml(d) + '</div>';
+  $('#view').innerHTML = body; fillThumbs();
+}
+function historyHtml(d) {
+  if (!d.checks || !d.checks.length) return '';
+  return `<div style="margin-top:18px"><b style="font-size:15px">History</b></div><div class="card pad small" style="margin-top:8px;display:flex;flex-direction:column;gap:8px">` +
+    d.checks.map(c => `<div><b>Stage ${c.stage}${c.attempt > 1 ? ' · attempt ' + c.attempt : ''} · ${c.result === 'approved' ? 'Approved' : 'Rejected'}</b> <span class="muted">${tFmt(c.checked_at)} · ${esc(c.by || '')}</span>${(c.failed || []).length ? `<div class="muted">${c.failed.map(x => esc(x.label)).join(', ')}</div>` : ''}</div>`).join('') + '</div>';
+}
+function setPt(k, ok) { const p = S.form.points[k] || (S.form.points[k] = {}); p.ok = ok; if (ok) p.note = p.note || ''; render(); }
+async function ptPhoto(k) { const path = await uploadPhoto(S.job.job.id + '/pt'); if (path) { S.form.points[k].photo = path; render(); } }
+async function partPhoto(i) { const path = await uploadPhoto(S.job.job.id + '/part'); if (path) { S.form.parts[i].photo = path; render(); } }
+async function vehPhoto() { const path = await uploadPhoto(S.job.job.id + '/vehicle'); if (path) { S.form.vehicle_photo = path; render(); } }
+let _ps = 0;
+async function searchParts(q) {
+  const box = $('#presults'); const n = ++_ps;
+  if ((q || '').trim().length < 2) { box.innerHTML = ''; return; }
+  try { const r = await rpc('fiqc_parts_search', { q: q.trim() }); if (n !== _ps) return;
+    window._pr = r || [];
+    box.innerHTML = window._pr.length ? `<div class="picker">${window._pr.map((p, i) => `<button onclick="addExtra(${i})"><span>${esc(p.name)}</span><span class="small muted">${catBadge(p.cat)}${p.unit_price ? inr(p.unit_price) : ''}</span></button>`).join('')}</div>` : '<div class="small muted" style="margin-top:6px">No matching part.</div>';
+  } catch (e) { box.innerHTML = `<div class="small err">${esc(e.message)}</div>`; }
+}
+function addExtra(i) { const p = window._pr[i]; S.form.extra.push({ kind: 'extra', name: p.name, cat: p.cat, qty: 1, unit_price: p.unit_price, fitted: true, reason: '' }); render(); }
+async function submitCheck() {
+  const f = S.form, j = S.job.job, pts = f.mode === 'stage2' ? [] : pointsInScope();
+  const recheck = f.mode === 'recheck' && f.scope === 'failed';
+  for (const p of pts) { const s = f.points[p.key]; if (!s || s.ok == null) return toast('Answer every point: ' + p.label);
+    if (s.ok === false && (!s.note || !s.photo)) return toast('Add a note and a photo for: ' + p.label);
+    if (recheck && s.ok === true && !s.photo) return toast('Add the after-fix photo for: ' + p.label); }
+  for (const p of f.parts) if (!p.fitted && (!p.reason || !p.photo)) return toast('Add a reason and a photo for: ' + p.name);
+  for (const p of f.extra) if (!p.reason) return toast('Choose a reason for: ' + p.name);
+  if (!f.vehicle_photo) return toast('Take the vehicle photo');
+  const btn = $('#submitBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const r = await rpc('fiqc_submit', { p: { job_id: j.id, stage: f.mode === 'stage2' ? 2 : 1, scope: f.mode === 'stage2' ? 'parts' : (recheck ? 'failed' : 'all'),
+      items: pts.map(p => ({ key: p.key, label: p.label, grp: p.grp, ok: f.points[p.key].ok, note: f.points[p.key].note || null, photo: f.points[p.key].photo || null })),
+      parts: [...f.parts, ...f.extra].map(p => ({ kind: p.kind, code: p.code || null, name: p.name, cat: p.cat || null, qty: p.qty, unit_price: p.unit_price || null, fitted: p.fitted, reason: p.reason || null, photo: p.photo || null })),
+      vehicle_photo: f.vehicle_photo, lat: f.lat, lng: f.lng, note: f.note } });
+    toast(`${j.reg_number}: ${r.result === 'approved' ? 'Approved' : 'Rejected'}`);
+    S.job = null; S.form = null; await reloadHome(); window.scrollTo(0, 0);
+  } catch (e) { toast(e.message); btn.disabled = false; btn.textContent = 'Submit'; }
+}
+
+// ════════════ HUB TEAM ════════════
+async function renderHub() {
+  $('#view').innerHTML = '<div class="phone"><span class="spin"></span>Loading…</div>';
+  try { S.hub = await rpc('fiqc_hub_list'); } catch (e) { $('#view').innerHTML = `<div class="card pad err">${esc(e.message)}</div>`; return; }
+  const wait = S.hub.filter(x => x.stage1_state === 'rejected'), ready = S.hub.filter(x => x.stage1_state === 'ready');
+  const failTxt = x => [...(x.failed || []).map(f => f.label + (f.note ? ': ' + f.note : '')), ...(x.mismatch || []).map(m => m.name + (m.kind === 'extra' ? ' fitted, not on JC' : ' on JC, not fitted'))].join(' · ');
+  $('#view').innerHTML = `<div class="phone">
+    <div class="card pad small" style="line-height:1.5">Get these fixed, then either <b>re-open and close the job card in DMS</b>, or tap <b>Fixed, ready for re-check</b> for small fixes. The hub manager, service manager or city head can send it. FIQC will re-check the bike.</div>
+    <div style="margin:16px 0 8px"><b style="font-size:15px">Waiting for fix · ${wait.length}</b></div>
+    <div class="list">${wait.map(x => `<div class="card pad" style="border-color:#fecaca;display:flex;flex-direction:column;gap:6px"><div class="row"><b style="font-size:15px">${esc(x.reg_number)}</b><span class="small muted">Rejected ${tFmt(x.last_rejected_at)}</span></div>
+      <div style="color:#991b1b">${esc(failTxt(x))}</div><div class="small muted">JC ${esc(x.job_card_number)} · ${esc(x.technician || '—')} · ${esc(x.hub_name)}${x.stage1_attempts > 1 ? ' · rejected ' + x.stage1_attempts + ' times' : ''}</div>
+      ${S.me.hub ? `<button class="btn btn-green" onclick="markFixed(${x.id},this)">Fixed, ready for re-check</button>` : ''}</div>`).join('') || '<div class="card pad muted">No bikes waiting for a fix.</div>'}</div>
+    <div style="margin:18px 0 8px"><b style="font-size:15px">Ready for re-check · ${ready.length}</b></div>
+    <div class="list">${ready.map(x => `<div class="card pad" style="display:flex;flex-direction:column;gap:5px"><div class="row"><b style="font-size:15px">${esc(x.reg_number)}</b><span class="pill ${x.ready_reason === 'jc_reclosed' ? 'p-blue' : 'p-green'}">${x.ready_reason === 'jc_reclosed' ? 'Job card re-closed ' + hm(x.ready_at) : 'Marked fixed ' + hm(x.ready_at)}</span></div>
+      <div class="small muted">${x.ready_reason === 'marked_fixed' ? 'By ' + esc(x.ready_by) + ' · ' : ''}Waiting for FIQC re-check · ${esc(x.hub_name)}</div></div>`).join('') || '<div class="card pad muted">None.</div>'}</div>
+    <div class="alert" style="margin-top:16px"><b>Do not move to RFD before FIQC approval.</b> Bikes moved to RFD while rejected or not yet checked are flagged on the FIQC dashboard.</div></div>`;
+}
+async function markFixed(id, btn) {
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try { await rpc('fiqc_mark_fixed', { p_job_id: id }); toast('Sent for re-check'); renderHub(); } catch (e) { toast(e.message); btn.disabled = false; btn.textContent = 'Fixed, ready for re-check'; }
+}
+
+// ════════════ DASHBOARD ════════════
+function istToday() { return new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10); }
+function addDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+async function renderDash() {
+  if (!S.df) { const t = istToday(); S.df = { period: 'today', from: t, to: t, city: '', hub: '', tech: '' }; }
+  const f = S.df;
+  $('#view').innerHTML = `<div class="card pad" style="margin-bottom:14px"><div class="filters">
+      <div class="field"><label for="dp">Period</label><select id="dp" class="inp" onchange="setPeriod(this.value)">${[['today','Today'],['7d','Last 7 days'],['month','This month'],['custom','Custom']].map(([k, l]) => `<option value="${k}" ${f.period === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field ${f.period === 'custom' ? '' : 'hidden'}"><label for="dfrom">From</label><input id="dfrom" type="date" class="inp" value="${f.from}" onchange="S.df.from=this.value;loadDash()"></div>
+      <div class="field ${f.period === 'custom' ? '' : 'hidden'}"><label for="dto">To</label><input id="dto" type="date" class="inp" value="${f.to}" onchange="S.df.to=this.value;loadDash()"></div>
+      <div class="field"><label for="dcity">City</label><select id="dcity" class="inp" onchange="S.df.city=this.value;S.df.hub='';loadDash()"><option value="">All cities</option></select></div>
+      <div class="field"><label for="dhub">Hub</label><select id="dhub" class="inp" onchange="S.df.hub=this.value;loadDash()"><option value="">All hubs</option></select></div>
+      <div class="field"><label for="dtech">Technician</label><select id="dtech" class="inp" onchange="S.df.tech=this.value;loadDash()"><option value="">All</option></select></div>
+    </div></div><div id="dash"><span class="spin"></span>Loading…</div>`;
+  loadDash();
+}
+function setPeriod(p) { const t = istToday(); S.df.period = p; if (p === 'today') { S.df.from = t; S.df.to = t; } if (p === '7d') { S.df.from = addDays(t, -6); S.df.to = t; } if (p === 'month') { S.df.from = t.slice(0, 8) + '01'; S.df.to = t; } renderDash(); }
+async function loadDash() {
+  const f = S.df, box = $('#dash'); box.innerHTML = '<span class="spin"></span>Loading…';
+  let d; try { d = await rpc('fiqc_dashboard', { p_from: f.from, p_to: f.to, p_city: f.city || null, p_hub: f.hub || null, p_tech: f.tech || null }); } catch (e) { box.innerHTML = `<div class="card pad err">${esc(e.message)}</div>`; return; }
+  S.dash = d;
+  const cities = [...new Set((d.hub_list || []).map(h => h.city).filter(Boolean))].sort();
+  $('#dcity').innerHTML = '<option value="">All cities</option>' + cities.map(c => `<option ${c === f.city ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  $('#dhub').innerHTML = '<option value="">All hubs</option>' + (d.hub_list || []).filter(h => !f.city || h.city === f.city).map(h => h.hub).filter(Boolean).sort().map(h => `<option ${h === f.hub ? 'selected' : ''}>${esc(h)}</option>`).join('');
+  $('#dtech').innerHTML = '<option value="">All</option>' + (d.tech_list || []).sort().map(t => `<option ${t === f.tech ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  const k = d.kpi, r = d.rfd, jp = d.jc_vs_physical;
+  const fix = r.avg_fix_mins == null ? '—' : (r.avg_fix_mins >= 60 ? Math.floor(r.avg_fix_mins / 60) + ' h ' + (r.avg_fix_mins % 60) + ' m' : r.avg_fix_mins + ' m');
+  const maxFail = Math.max(1, ...(d.failed_checks || []).map(x => x.n));
+  box.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="v">${k.checked}</div><div class="l">Vehicles checked</div><div class="s">${k.approved} approved · ${k.rejected_first} rejected first time</div></div>
+    <div class="kpi"><div class="v">${k.first_time_pct == null ? '—' : k.first_time_pct + '%'}</div><div class="l">Approved first time</div><div class="s">Stage 1, first check</div></div>
+    <div class="kpi"><div class="v" style="color:#92400e">${inr(k.billed_not_fitted)}</div><div class="l">On JC / billed, not fitted</div><div class="s">${k.billed_not_fitted_n} parts on ${k.billed_not_fitted_bikes} bikes</div></div>
+    <div class="kpi"><div class="v" style="color:#92400e">${inr(k.fitted_not_billed)}</div><div class="l">Fitted, not on JC</div><div class="s">${k.fitted_not_billed_n} parts on ${k.fitted_not_billed_bikes} bikes</div></div>
+    <div class="kpi"><div class="v">${k.before_approval_pct == null ? '—' : k.before_approval_pct + '%'}</div><div class="l">Stage 1 before approval</div><div class="s">${k.approved_before_fiqc} approved by hub manager before FIQC</div></div>
+    <div class="kpi ${k.rfd_before ? 'bad' : ''}"><div class="v" style="color:${k.rfd_before ? '#991b1b' : 'inherit'}">${k.rfd_before}</div><div class="l">Moved to RFD before approval</div><div class="s">${k.rfd_while_rejected} while rejected · ${k.deployed} deployed</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="blk-h">Hub RFD validation</div><div class="pad" style="padding-top:4px">
+      <div class="kv"><span>Total vehicles approached</span><b>${r.approached}</b></div>
+      <div class="kv"><span>Rejected (first check)</span><b style="color:#991b1b">${r.rejected_first}</b></div>
+      <div class="kv"><span>Approved first time</span><b style="color:#166534">${r.approved_first}</b></div>
+      <div class="kv"><span>Approved after re-check</span><b style="color:#166534">${r.approved_after}</b></div>
+      <div class="kv"><span>Waiting for re-check (now)</span><b style="color:#92400e">${r.waiting}</b></div>
+      <div class="kv"><span>Re-check rejected again</span><b style="color:#991b1b">${r.rejected_again}</b></div>
+      <div class="kv"><span>Average time to fix (rejected → approved)</span><b>${fix}</b></div>
+      <div class="lbl">Rejection remarks</div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:13px">${(r.remarks || []).slice(0, 12).map(x => `<b>${esc(x.reg)}</b><span>${esc(x.text || '')}${x.attempt > 1 ? ' <span class="pill p-grey">attempt ' + x.attempt + '</span>' : ''}</span>`).join('') || '<span class="muted">None</span>'}</div>
+      ${(r.remarks || []).length > 12 ? `<div class="small muted" style="margin-top:6px">+ ${r.remarks.length - 12} more</div>` : ''}
+    </div></div>
+    <div class="card"><div class="blk-h">JC vs physical consumption</div><div class="pad" style="padding-top:4px">
+      <table><thead><tr><th>Parts consumed as per JC</th><th class="num">Total bikes</th><th class="num">Price</th></tr></thead><tbody>
+        <tr><td>Billed parts (on JC and fitted)</td><td class="num">${jp.billed_bikes}</td><td class="num">${inr(jp.billed_value)}</td></tr>
+        <tr><td>Unbilled parts (fitted, not on JC)</td><td class="num">${jp.unbilled_bikes}</td><td class="num" style="color:#92400e;font-weight:600">${inr(jp.unbilled_value)}</td></tr>
+        <tr><td>On JC / billed but not fitted</td><td class="num">${jp.notfitted_bikes}</td><td class="num" style="color:#92400e;font-weight:600">${inr(jp.notfitted_value)}</td></tr></tbody></table>
+      <div class="lbl">Reason for difference</div>
+      ${(jp.reasons || []).map(x => `<div class="kv" style="border:0;padding:4px 0"><span>${esc(x.reason)}</span><b>${x.n}</b></div>`).join('') || '<div class="muted small">No differences</div>'}
+    </div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="pad row" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">Moved to RFD before FIQC approval</b><span class="small muted">OOS → RFD moves compared with the FIQC result at that time</span></div>
+    <div class="tbl"><table style="min-width:820px"><thead><tr><th>Vehicle · JC</th><th>Hub</th><th>Moved to RFD</th><th>Marked by</th><th>FIQC at that time</th><th>FIQC approved</th><th>Flag</th></tr></thead><tbody>
+    ${(d.rfd_flags || []).map(x => `<tr><td><b>${esc(x.reg_number)}</b> · ${esc(x.job_card_number)}</td><td>${esc(x.hub_name)}</td><td>${tFmt(x.moved_at)}</td><td>${esc(x.moved_by || '—')}</td><td>${esc(x.fiqc_at_time)}</td><td>${x.approved_at ? tFmt(x.approved_at) : 'Not yet'}</td><td><span class="pill ${x.flag === 'RFD before FIQC' ? 'p-amber' : 'p-red'}">${esc(x.flag)}</span></td></tr>`).join('') || '<tr><td colspan="7" class="muted">None in this period.</td></tr>'}
+    </tbody></table></div></div>
+  <div class="card" style="margin-top:14px"><div class="pad row" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">Parts mismatches</b><span class="small muted">Every part where the job card and the bike do not match</span></div>
+    <div class="tbl"><table style="min-width:900px"><thead><tr><th>Vehicle · JC</th><th>Stage</th><th>Part</th><th>Type</th><th>Reason</th><th>Technician</th><th class="num">₹</th><th>Photo</th></tr></thead><tbody>
+    ${(d.mismatches || []).map(x => `<tr><td><b>${esc(x.reg)}</b> · ${esc(x.jc)}</td><td>${x.stage}</td><td>${catBadge(x.cat)}${esc(x.part)}${+x.qty > 1 ? ' ×' + x.qty : ''}</td><td><span class="pill ${x.type === 'Fitted, not on JC' ? 'p-amber' : 'p-red'}">${esc(x.type)}</span></td><td>${esc(x.reason || '—')}</td><td>${esc(x.technician || '—')}</td><td class="num">${x.value ? inr(x.value) : '—'}</td><td>${x.photo ? `<a href="#" onclick="openPhoto('${esc(x.photo)}');return false">View</a>` : '—'}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">No mismatches in this period.</td></tr>'}
+    </tbody></table></div></div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><div class="pad" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">By technician</b></div><div class="tbl"><table><thead><tr><th>Technician</th><th class="num">Checked</th><th class="num">Approved first time</th><th>Most failed check</th></tr></thead><tbody>
+      ${(d.technicians || []).map(t => `<tr><td>${esc(t.technician)}</td><td class="num">${t.checked}</td><td class="num">${t.first_time_pct == null ? '—' : t.first_time_pct + '%'}</td><td>${esc(t.top_fail || '—')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No checks in this period.</td></tr>'}
+    </tbody></table></div></div>
+    <div class="card"><div class="pad" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">Most failed checks</b></div><div class="pad" style="display:flex;flex-direction:column;gap:10px">
+      ${(d.failed_checks || []).map(x => `<div style="display:grid;grid-template-columns:minmax(120px,200px) 1fr 30px;align-items:center;gap:10px"><span>${esc(x.label)}</span><div class="bar"><div style="width:${Math.round(x.n / maxFail * 100)}%"></div></div><b>${x.n}</b></div>`).join('') || '<span class="muted">No failed checks in this period.</span>'}
+    </div></div>
+  </div>`;
+}
+
+let _booted = false;
+function bootOnce() { if (_booted) return; _booted = true; boot(); }
+window.addEventListener('auth-ready', bootOnce);
+if (window.authGetValidToken) bootOnce();
+</script>
+</body>
+</html>
