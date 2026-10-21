@@ -887,7 +887,7 @@ function renderWhy(lineEl) {
 function wireLogForm() {
   const box = $('#lp-left');
   $$('.seg button', box).forEach(b => b.onclick = () => { if (LP.type === b.dataset.type) return; LP.type = b.dataset.type; LP.lines = {}; LP.showAll = false; LP.query = ''; LP.fromManual = null; LP.problems = []; renderLogForm(); });
-  $('#lp-hub').onchange = e => { LP.hub = e.target.value || null; LP.lines = {}; LP.fromManual = null; LP.problems = []; renderLogForm(); };
+  $('#lp-hub').onchange = e => { LP.hub = e.target.value || null; LP.lines = {}; LP.fromManual = null; LP.problems = []; renderLogForm(); loadRecent(); };
   $('#lp-date').onchange = e => { const v = e.target.value; if (!v || v > todayIST()) { e.target.value = LP.date; return; } LP.date = v; renderLogForm(); };
   const fr = $('#lp-from'); if (fr) fr.onchange = e => { if (!e.target.value) return; LP.fromManual = e.target.value; renderLogForm(); };
   const vs = $('#lp-vendor'); if (vs) vs.onchange = e => {
@@ -1102,7 +1102,8 @@ async function loadRecent() {
   const f = F();
   let q = 'scrap_sales?select=id,batch_id,hub_name,city,movement_type,category,part_name,qty_or_weight,actual_weight_kg,actual_qty_nos,rate,total_value,pickup_date,period_from,period_to,vendor_id,status,ho_ack_status,paid_at,payment_received,photo_url,variance_reason,variance_remark,system_calculated,cancellation_reason&order=created_at.desc&limit=400';
   if (f.city) q += `&city=eq.${encodeURIComponent(f.city)}`;
-  const hub = S.restrictedHub || f.hub;
+  // follow the hub chosen in the pickup form; else the page's hub filter
+  const hub = S.restrictedHub || LP.hub || f.hub;
   if (hub) q += `&hub_name=eq.${encodeURIComponent(hub)}`;
   const rows = await sbGet(q);
   const tb = $('#lp-recent'); if (!tb) return;
