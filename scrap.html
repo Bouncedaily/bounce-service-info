@@ -546,14 +546,17 @@ async function loadOverview() {
     <div class="kpis" id="ov-kpis">${Array.from({ length: 5 }, () => '<div class="kpi"><div class="kpi-val"><span class="skel" style="width:90px;height:20px"></span></div><div class="kpi-lbl">&nbsp;</div></div>').join('')}</div>
     <div class="card"><div class="card-hd"><h2>Needs action</h2><span class="note">Each row is something a hub or head office has to do.</span></div>
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Hub</th><th>What</th><th>Detail</th><th>Since</th><th class="num">Action</th></tr></thead><tbody id="ov-actions">${skelRows(5, 4)}</tbody></table></div></div>
+    <div class="card"><div class="card-hd"><h2>Pickup check</h2><span class="note">Each pickup vs the scrap the job cards say was generated in the period it cleared (from the hub's previous pickup to the day before). Iron, plastic and aluminium. Below 70% or above 130% is flagged.</span></div>
+      <div class="scroll"><table style="min-width:820px"><thead><tr><th>Hub</th><th>Pickup</th><th>Period cleared</th><th>Vendor</th><th class="num">Expected</th><th class="num">Picked up</th><th class="num">% of expected</th></tr></thead><tbody id="ov-pcheck">${skelRows(4, 7)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Hubs</h2><span class="note">Outstanding = scrap generated since the 31 Aug clean-out (or the hub's clean-out pickup) minus what was picked up since. Iron, plastic and aluminium.</span>
       <button class="btn" type="button" id="ov-csv"><i class="ti ti-download"></i>Export CSV</button></div>
       <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
 
-  const [ov, trig, queue, transfers] = await Promise.all([
+  const [ov, trig, queue, transfers, pcheck] = await Promise.all([
     cached('ov|' + fkey(), () => rpc('get_scrap_overview', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
     cached('trig|' + f.city + '|' + f.hub, () => rpc('get_hub_scrap_trigger_status', { p_city: f.city, p_hub: f.hub })),
-    loadQueue(), loadTransfers()
+    loadQueue(), loadTransfers(),
+    cached('pc|' + fkey(), () => rpc('get_scrap_pickup_check', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub }))
   ]);
   if (S.tab !== 'overview') return;
   const o = ov || { hubs: [], counted: [] };
@@ -561,12 +564,26 @@ async function loadOverview() {
   const due = triggers.filter(t => t.over_threshold);
   const countedLeft = sum(o.counted || [], c => Math.max(c.generated - c.picked, 0));
   const recvTxt = o.received > 0 ? `<span class="ok">${inr(o.received)} confirmed received</span>` : `<span class="err" style="font-weight:600">₹0 confirmed received</span>`;
+  // At hubs now: scrap since each hub's last clean-out, minus pickups since (today, not the period)
+  const atHubs = sum(triggers, t => Math.max(+t.outstanding_kg || 0, 0)), atHubsN = triggers.filter(t => (+t.outstanding_kg || 0) > 0).length;
+  // Picked vs expected: pickups in the period vs the scrap generated in the windows they cleared
+  const pc = pcheck || [], pcExp = sum(pc, p => +p.expected_kg || 0), pcPick = sum(pc, p => +p.picked_kg || 0);
+  const pcPct = pcExp > 0 ? Math.round(pcPick / pcExp * 100) : null;
   $('#ov-kpis').innerHTML = `
-    <div class="kpi"><div class="kpi-val">${kg(o.generated_kg)}</div><div class="kpi-lbl">Scrap generated</div><div class="kpi-sub">Iron, plastic and aluminium from job cards, ${esc(periodLabel())}</div></div>
-    <div class="kpi"><div class="kpi-val">${kg(o.picked_kg)}</div><div class="kpi-lbl">Picked up</div><div class="kpi-sub">${num(o.pickups)} pickup${o.pickups === 1 ? '' : 's'} at ${num(o.pickup_hubs)} hub${o.pickup_hubs === 1 ? '' : 's'}</div></div>
+    <div class="kpi"><div class="kpi-val">${kg(atHubs)}</div><div class="kpi-lbl">At hubs now</div><div class="kpi-sub">Iron, plastic and aluminium waiting at ${num(atHubsN)} hub${atHubsN === 1 ? '' : 's'}, counted from each hub's last clean-out</div></div>
+    <div class="kpi ${pcPct != null && (pcPct < 70 || pcPct > 130) ? 'watch' : ''}"><div class="kpi-val">${pcPct == null ? '—' : pcPct + '%'}</div><div class="kpi-lbl">Picked up vs expected</div><div class="kpi-sub">${kg(pcPick)} picked of ${kg(pcExp)} expected, ${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} in ${esc(periodLabel())}</div></div>
     <div class="kpi"><div class="kpi-val">${inr(o.sale_value)}</div><div class="kpi-lbl">Sales value</div><div class="kpi-sub">${recvTxt}</div></div>
     <div class="kpi ${due.length ? 'bad' : ''}"><div class="kpi-val">${num(due.length)} hub${due.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Need a pickup</div><div class="kpi-sub">Over their kg threshold today</div></div>
     <div class="kpi ${countedLeft ? 'watch' : ''}"><div class="kpi-val">${num(countedLeft)}</div><div class="kpi-lbl">Counted items not picked up</div><div class="kpi-sub">Electronics, lighting, battery, controller since 1 Sep</div></div>`;
+
+  // Pickup check table
+  const pcRows = pc.map(p => {
+    const pct = p.pct == null ? null : +p.pct, flag = pct != null && (pct < 70 || pct > 130);
+    const pill = pct == null ? '<span class="muted">no estimate</span>' : `<span class="pill ${flag ? (pct < 70 ? 'red' : 'amber') : 'green'}">${pct}%</span>`;
+    return `<tr><td><b>${esc(p.hub_name)}</b> <span class="muted">${esc(p.city || '')}</span></td><td>${dshort(p.pickup_date)}</td><td>${dshort(p.win_from)} – ${dshort(p.win_to)}</td><td>${esc(p.vendor || '—')}</td><td class="num">${kg(p.expected_kg)}</td><td class="num">${kg(p.picked_kg)}</td><td class="num">${pill}</td></tr>`;
+  });
+  $('#ov-pcheck').innerHTML = pcRows.length ? pcRows.join('') + `<tr style="font-weight:700"><td>Total</td><td></td><td></td><td></td><td class="num">${kg(pcExp)}</td><td class="num">${kg(pcPick)}</td><td class="num">${pcPct == null ? '—' : pcPct + '%'}</td></tr>`
+    : '<tr><td colspan="7" class="muted">No pickups in this period.</td></tr>';
 
   // Needs action
   const hubInfo = Object.fromEntries((o.hubs || []).map(h => [h.hub_name, h]));
