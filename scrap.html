@@ -215,7 +215,7 @@ dialog::backdrop{background:rgba(15,23,42,.45)}
 
   <div class="foot">
     <span>Scrap weights come from the part weights in Manage Parts. Outstanding scrap counts from the 31 Aug clean-out.</span>
-    <a href="scrap-v1.html" target="_blank" rel="noopener">Open the old version</a>
+    <a href="#" onclick="openSettings('parts');return false">Edit part weights</a>
   </div>
 </div>
 
@@ -450,6 +450,11 @@ function skelRows(cols, rows) {
 }
 function groupBy(arr, keyFn) { const m = new Map(); for (const x of arr) { const k = keyFn(x); if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return m; }
 function sum(arr, f) { return arr.reduce((s, x) => s + (Number(f(x)) || 0), 0); }
+function toast(msg) {   // short confirmation at the bottom of the screen
+  let t = document.getElementById('bb-toast');
+  if (!t) { t = document.createElement('div'); t.id = 'bb-toast'; t.setAttribute('role', 'status'); t.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999;display:none'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
 function setBanner(html, kind) { $('#global-banner').innerHTML = html ? `<div class="banner ${kind || 'err'}">${html}</div>` : ''; }
 
 // ───────────────────────── Filters ─────────────────────────
@@ -1444,6 +1449,101 @@ async function loadTrends() {
 }
 
 // ───────────────────────── Settings (Nithish, Chandra) ─────────────────────────
+
+// ── Settings → Part weights: the part list (pattern, type, category, kg or count, weight) that classifies job card lines ──
+const JCC = ['A', 'P', 'F', 'W'];
+const JCC_HELP = 'Which job card categories count: A = wear & tear · P = rider-payable · F = free · W = warranty';
+const jccDefault = t => t === 'Scrap' ? ['A', 'P', 'F'] : ['A', 'P', 'F', 'W'];
+const jccStr = list => JCC.filter(c => list.indexOf(c) >= 0).sort().join(',');
+const MP = { rows: null, q: '', type: '', inactive: false, edit: null, add: false };
+async function renderPartsSettings(body) {
+  if (!MP.rows) MP.rows = await sbGet('managed_parts?select=*&order=part_type.asc,category.asc,priority.desc') || [];
+  const cats = (S.cats || []).map(c => c.category).filter(c => c !== 'Other/Uncategorized');
+  const canEdit = !!S.perms.weightAdmin;
+  const q = MP.q.toLowerCase();
+  const rows = MP.rows.filter(p => (MP.inactive || p.active) && (!MP.type || p.part_type === MP.type) && (!q || (p.match_pattern || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q)));
+  const form = (p, id) => {
+    const t = p.part_type || 'Scrap', tr = p.tracking_type || 'kg', jc = p.categories ? p.categories.split(',') : jccDefault(t);
+    return `<div class="mpform" data-mpform="${id}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px;background:var(--bg,#f6f7f9);border-radius:10px;margin:6px 0">
+      <label class="fl" style="grid-column:span 2">Part name pattern<input type="text" data-f="match_pattern" value="${esc(p.match_pattern || '')}" placeholder="e.g. FRONT FORK SUB ASSEMBLY*"></label>
+      <label class="fl">Type<select data-f="part_type">${['Scrap', 'Refurb', 'Tyre'].map(x => `<option ${x === t ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label class="fl">Scrap category<select data-f="category" ${t !== 'Scrap' ? 'disabled' : ''}>${cats.map(c => `<option ${c === p.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="fl">Counted by<select data-f="tracking_type"><option value="kg" ${tr === 'kg' ? 'selected' : ''}>Weight (kg)</option><option value="qty" ${tr === 'qty' ? 'selected' : ''}>Count (nos)</option></select></label>
+      <label class="fl">Weight per piece (kg)<input type="number" step="0.001" min="0" data-f="weight_kg" value="${p.weight_kg ?? ''}" ${tr !== 'kg' ? 'disabled' : ''}></label>
+      <label class="fl">City<select data-f="city_override">${['', 'Bangalore', 'NCR', 'Hyderabad', 'Mumbai'].map(c => `<option value="${c}" ${c === (p.city_override || '') ? 'selected' : ''}>${c || 'All cities'}</option>`).join('')}</select></label>
+      <label class="fl">Priority<input type="number" data-f="priority" value="${p.priority ?? 0}"></label>
+      <div class="fl" title="${JCC_HELP}">Job card categories counted<div style="display:flex;gap:10px;margin-top:6px">${JCC.map(c => `<label style="display:flex;gap:4px;align-items:center;font-weight:600"><input type="checkbox" data-jc="${c}" ${jc.indexOf(c) >= 0 ? 'checked' : ''}>${c}</label>`).join('')}</div></div>
+      <label class="fl" style="grid-column:span 2">Notes<input type="text" data-f="notes" value="${esc(p.notes || '')}"></label>
+      <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn primary" type="button" data-mpsave="${id}">${id === 'new' ? 'Add part' : 'Save'}</button>
+        ${id !== 'new' ? (p.active ? `<button class="btn" type="button" data-mpact="${id}" data-on="0" style="color:#b91c1c">Deactivate</button>` : `<button class="btn" type="button" data-mpact="${id}" data-on="1" style="color:#15803d">Reactivate</button>`) : ''}
+        <button class="btn" type="button" data-mpcancel>Cancel</button>
+        <span class="err small" data-mperr></span></div></div>`;
+  };
+  body.innerHTML = `<p class="muted" style="margin-top:0">How job card parts are classified for Scrap, Refurb and Tyres, and the scrap weight per piece. Changes apply straight away; a weight change keeps the old weight for past job cards and asks for a reason.${canEdit ? '' : ' Only weight admins can change these.'}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <input type="search" id="mp-q" placeholder="Search part name or notes" value="${esc(MP.q)}" style="flex:1;min-width:200px">
+      <select id="mp-type"><option value="">All types</option>${['Scrap', 'Refurb', 'Tyre'].map(x => `<option ${x === MP.type ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="mp-inactive" ${MP.inactive ? 'checked' : ''}>Show inactive</label>
+      <span class="muted small">${rows.length} of ${MP.rows.length}</span>
+      ${canEdit ? `<button class="btn" type="button" id="mp-addbtn"><i class="ti ti-plus"></i>Add part</button>` : ''}</div>
+    ${MP.add ? form({ part_type: 'Scrap', tracking_type: 'kg', active: true, priority: 0 }, 'new') : ''}
+    <div class="scroll" style="max-height:60vh"><table><thead><tr><th>Part name pattern</th><th>Type</th><th>Category</th><th class="num">Weight (kg)</th><th>City</th><th title="${JCC_HELP}">Job card cat.</th><th></th></tr></thead><tbody>
+    ${rows.map(p => `<tr style="${p.active ? '' : 'opacity:.55'}"><td><b>${esc(p.match_pattern)}</b>${p.notes ? `<div class="muted small">${esc(p.notes)}</div>` : ''}</td><td>${esc(p.part_type)}</td><td>${esc(p.part_type === 'Scrap' ? (p.category || '—') : '—')}</td>
+      <td class="num">${p.tracking_type === 'kg' ? (p.weight_kg ?? '—') : '<span class="muted small">count</span>'}</td><td>${esc(p.city_override || 'All')}</td><td>${esc(p.categories || jccDefault(p.part_type).join(','))}</td>
+      <td class="num">${canEdit ? `<button class="btn link" type="button" data-mpedit="${p.id}">${MP.edit === p.id ? 'Close' : 'Edit'}</button>` : ''}${p.active ? '' : ' <span class="pill grey">Inactive</span>'}</td></tr>
+      ${MP.edit === p.id ? `<tr><td colspan="7">${form(p, p.id)}</td></tr>` : ''}`).join('') || '<tr><td colspan="7" class="muted">No parts match.</td></tr>'}
+    </tbody></table></div>`;
+  const rerender = () => renderPartsSettings(body);
+  $('#mp-q').oninput = e => { MP.q = e.target.value; clearTimeout(MP._t); MP._t = setTimeout(() => { rerender().then(() => { const i = $('#mp-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 250); };
+  $('#mp-type').onchange = e => { MP.type = e.target.value; rerender(); };
+  $('#mp-inactive').onchange = e => { MP.inactive = e.target.checked; rerender(); };
+  if ($('#mp-addbtn')) $('#mp-addbtn').onclick = () => { MP.add = !MP.add; MP.edit = null; rerender(); };
+  body.onchange = e => {   // keep the form consistent: category only for Scrap, weight only for kg
+    const f = e.target.closest('[data-mpform]'); if (!f) return;
+    if (e.target.dataset.f === 'part_type') f.querySelector('[data-f="category"]').disabled = e.target.value !== 'Scrap';
+    if (e.target.dataset.f === 'tracking_type') f.querySelector('[data-f="weight_kg"]').disabled = e.target.value !== 'kg';
+  };
+  body.onclick = async e => {
+    const t = e.target;
+    if (t.closest('[data-mpedit]')) { const id = +t.closest('[data-mpedit]').dataset.mpedit; MP.edit = MP.edit === id ? null : id; MP.add = false; rerender(); return; }
+    if (t.closest('[data-mpcancel]')) { MP.edit = null; MP.add = false; rerender(); return; }
+    if (t.closest('[data-mpact]')) {
+      const b = t.closest('[data-mpact]'), on = b.dataset.on === '1';
+      if (!on && !confirm('Deactivate this part rule? It stops matching new job card lines straight away; past records are kept.')) return;
+      const r = await call('set_managed_part_active', { p_id: +b.dataset.mpact, p_active: on });
+      if (!r.ok) { b.closest('[data-mpform]').querySelector('[data-mperr]').textContent = r.error; return; }
+      MP.rows = null; MP.edit = null; S.cache = {}; toast(on ? 'Part reactivated' : 'Part deactivated'); rerender(); return;
+    }
+    if (t.closest('[data-mpsave]')) {
+      const id = t.closest('[data-mpsave]').dataset.mpsave, f = t.closest('[data-mpform]'), err = f.querySelector('[data-mperr]');
+      const v = k => f.querySelector(`[data-f="${k}"]`).value;
+      const part_type = v('part_type'), tracking_type = v('tracking_type');
+      const jc = JCC.filter(c => f.querySelector(`[data-jc="${c}"]`).checked);
+      const p = { match_pattern: v('match_pattern').trim(), part_type, category: part_type === 'Scrap' ? v('category') : null, tracking_type,
+                  unit: tracking_type === 'kg' ? 'kg' : 'nos', weight_kg: tracking_type === 'kg' && v('weight_kg') !== '' ? parseFloat(v('weight_kg')) : null,
+                  city_override: v('city_override') || null, priority: parseInt(v('priority'), 10) || 0, notes: v('notes').trim() || null, categories: jccStr(jc) };
+      if (!p.match_pattern) { err.textContent = 'Enter the part name pattern.'; return; }
+      if (!jc.length) { err.textContent = 'Tick at least one job card category.'; return; }
+      if (tracking_type === 'kg' && (p.weight_kg == null || isNaN(p.weight_kg))) { err.textContent = 'Counted by weight: enter the weight per piece.'; return; }
+      let r;
+      if (id === 'new') r = await call('add_managed_part', { p });
+      else {
+        const old = MP.rows.find(x => x.id === +id);
+        if (old && old.categories && old.categories !== p.categories && !confirm(`This changes which job card categories count for "${p.match_pattern}": ${old.categories} → ${p.categories}.${part_type === 'Scrap' ? ' The scrap list is rebuilt every 3 hours with the new rule.' : ''} Save?`)) return;
+        let reason = null;
+        if (old && tracking_type === 'kg' && old.weight_kg != null && Number(old.weight_kg) !== p.weight_kg) {
+          reason = prompt(`Weight changes from ${old.weight_kg} kg to ${p.weight_kg} kg for "${p.match_pattern}". Past job cards keep the old weight.\n\nReason for this change (kept for audit):`);
+          if (reason === null) return;
+        }
+        r = await call('save_managed_part', { p_id: +id, p, p_reason: reason || null });
+      }
+      if (!r.ok) { err.textContent = 'Not saved: ' + r.error; return; }
+      MP.rows = null; MP.edit = null; MP.add = false; S.cache = {}; toast(id === 'new' ? 'Part added' : 'Part saved'); rerender();
+    }
+  };
+}
+
 async function openSettings(which) {
   const dlg = $('#settings');
   if (!dlg.open) dlg.showModal();
@@ -1451,10 +1551,7 @@ async function openSettings(which) {
   $$('#set-switch button').forEach(b => b.classList.toggle('on', b.dataset.set === which));
   const body = $('#set-body');
   body.innerHTML = '<span class="skel" style="width:50%"></span>';
-  if (which === 'parts') {
-    body.innerHTML = `<p style="line-height:1.6;margin:0">Part weights and the part list are still edited in the old version for now. Changes there apply here straight away.</p><p><a class="btn" href="scrap-v1.html" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Open Manage Parts</a></p>`;
-    return;
-  }
+  if (which === 'parts') { await renderPartsSettings(body); return; }
   if (which === 'thresholds') {
     const rows = await sbGet('hub_scrap_triggers?select=*&order=city.asc,hub_name.asc');
     body.innerHTML = `<p class="muted" style="margin-top:0">A hub shows as "Pickup due" once its outstanding iron, plastic and aluminium reaches this weight.</p>
