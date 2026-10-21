@@ -553,9 +553,9 @@ async function loadOverview() {
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Hub</th><th>What</th><th>Detail</th><th>Since</th><th class="num">Action</th></tr></thead><tbody id="ov-actions">${skelRows(5, 4)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Pickup check</h2><span class="note">Each pickup vs the scrap the job cards say was generated in the period it cleared (from the hub's previous pickup to the day before). Iron, plastic and aluminium. Below 70% or above 130% is flagged.</span></div>
       <div class="scroll"><table style="min-width:820px"><thead><tr><th>Hub</th><th>Pickup</th><th>Period cleared</th><th>Vendor</th><th class="num">Expected</th><th class="num">Picked up</th><th class="num">% of expected</th></tr></thead><tbody id="ov-pcheck">${skelRows(4, 7)}</tbody></table></div></div>
-    <div class="card"><div class="card-hd"><h2>Hubs</h2><span class="note">Outstanding = scrap generated since the hub's last pickup, plus anything left behind at earlier pickups. A vendor taking more than expected does not count against new scrap. Iron, plastic and aluminium; counting starts at the 31 Aug clean-out.</span>
+    <div class="card"><div class="card-hd"><h2>Hubs</h2><span class="note">Outstanding = scrap generated since the hub's last pickup. Missing = at each pickup since 31 Aug, what the job cards say was generated but was not picked up (per category). Iron, plastic and aluminium.</span>
       <button class="btn" type="button" id="ov-csv"><i class="ti ti-download"></i>Export CSV</button></div>
-      <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
+      <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th class="num" title="At each pickup since 31 Aug: expected (job cards) minus picked up, per category, when the vendor took less">Missing since 31 Aug</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
 
   const [ov, trig, queue, transfers, pcheck] = await Promise.all([
     cached('ov|' + fkey(), () => rpc('get_scrap_overview', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
@@ -571,13 +571,15 @@ async function loadOverview() {
   const recvTxt = o.received > 0 ? `<span class="ok">${inr(o.received)} confirmed received</span>` : `<span class="err" style="font-weight:600">₹0 confirmed received</span>`;
   // At hubs now: scrap since each hub's last clean-out, minus pickups since (today, not the period)
   const atHubs = sum(triggers, t => Math.max(+t.outstanding_kg || 0, 0)), atHubsN = triggers.filter(t => (+t.outstanding_kg || 0) > 0).length;
+  const missKg = sum(triggers, t => +t.missing_kg || 0), missVal = sum(triggers, t => +t.missing_value || 0), missTop = [...triggers].sort((x, y) => (+y.missing_value || 0) - (+x.missing_value || 0))[0];
   // Picked vs expected: pickups in the period vs the scrap generated in the windows they cleared
   const pc = pcheck || [], pcExp = sum(pc, p => +p.expected_kg || 0), pcPick = sum(pc, p => +p.picked_kg || 0);
   const pcPct = pcExp > 0 ? Math.round(pcPick / pcExp * 100) : null;
   $('#ov-kpis').innerHTML = `
-    <div class="kpi"><div class="kpi-val">${kg(atHubs)}</div><div class="kpi-lbl">At hubs now</div><div class="kpi-sub">Iron, plastic and aluminium waiting at ${num(atHubsN)} hub${atHubsN === 1 ? '' : 's'}, since each hub's last pickup, plus anything left behind</div></div>
+    <div class="kpi"><div class="kpi-val">${kg(atHubs)}</div><div class="kpi-lbl">At hubs now</div><div class="kpi-sub">Iron, plastic and aluminium waiting at ${num(atHubsN)} hub${atHubsN === 1 ? '' : 's'}, generated since each hub's last pickup</div></div>
     <div class="kpi"><div class="kpi-val">${kg(pcExp)}</div><div class="kpi-lbl">Expected</div><div class="kpi-sub">Scrap the job cards say was generated in the periods these ${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} cleared</div></div>
     <div class="kpi ${pcPct != null && (pcPct < 70 || pcPct > 130) ? 'watch' : ''}"><div class="kpi-val">${kg(pcPick)}</div><div class="kpi-lbl">Picked up</div><div class="kpi-sub">${pcPct == null ? '' : '<b>' + pcPct + '% of expected</b> · '}${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} in ${esc(periodLabel())}</div></div>
+    <div class="kpi ${missKg >= 1 ? 'watch' : ''}"><div class="kpi-val ${missKg >= 1 ? 'err' : ''}">${kg(missKg)}</div><div class="kpi-lbl">Missing at pickups</div><div class="kpi-sub">${missKg >= 1 ? `${inr(missVal)} · ` : ''}Generated but not picked up, since 31 Aug${missTop ? ` · most at ${esc(hubLabel(missTop.hub_name))}` : ''}</div></div>
     <div class="kpi"><div class="kpi-val">${inr(o.sale_value)}</div><div class="kpi-lbl">Sales value</div><div class="kpi-sub">${recvTxt}</div></div>
     <div class="kpi ${due.length ? 'bad' : ''}"><div class="kpi-val">${num(due.length)} hub${due.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Need a pickup</div><div class="kpi-sub">Over their kg threshold today</div></div>`;
 
@@ -657,11 +659,11 @@ async function loadOverview() {
     if (t) {
       const r = Math.max(0, t.outstanding_kg) / (t.threshold_kg || 1);
       const col = r >= 1 ? 'var(--red)' : r >= 0.6 ? 'var(--amber)' : 'var(--green)';
-      meter = `<div class="meter"><div class="track"><div class="fill" style="width:${Math.min(100, r * 100).toFixed(0)}%;background:${col}"></div></div><b>${num(Math.max(0, t.outstanding_kg))} / ${num(t.threshold_kg)} kg</b></div>${(+t.left_behind_kg || 0) >= 1 ? `<div class="muted small" style="margin-top:2px">incl. ${kg(t.left_behind_kg)} left behind at earlier pickups</div>` : ''}`;
+      meter = `<div class="meter"><div class="track"><div class="fill" style="width:${Math.min(100, r * 100).toFixed(0)}%;background:${col}"></div></div><b>${num(Math.max(0, t.outstanding_kg))} / ${num(t.threshold_kg)} kg</b></div>`;
     }
     const pay = h.pending_amount > 0 ? `<span class="pill amber">${inr(h.pending_amount)} pending</span>` : (h.sale_value > 0 ? '<span class="pill green">Paid</span>' : '<span class="muted">—</span>');
-    return `<tr><td>${hubCell(n, (t && t.city) || h.city)}</td><td>${meter}</td><td class="num">${h.generated_kg != null ? kg(h.generated_kg) : '—'}</td><td class="num ${h.picked_kg ? '' : 'muted'}">${kg(h.picked_kg || 0)}</td><td>${h.last_pickup ? dshort(h.last_pickup) + (h.last_vendor ? ` <span class="muted">· ${esc(h.last_vendor)}</span>` : '') : '<span class="muted">—</span>'}</td><td class="num">${pay}</td></tr>`;
-  }).join('') : '<tr><td colspan="6" class="muted">No hubs match these filters.</td></tr>';
+    return `<tr><td>${hubCell(n, (t && t.city) || h.city)}</td><td>${meter}</td><td class="num">${h.generated_kg != null ? kg(h.generated_kg) : '—'}</td><td class="num ${h.picked_kg ? '' : 'muted'}">${kg(h.picked_kg || 0)}</td><td class="num">${missCell(t)}</td><td>${h.last_pickup ? dshort(h.last_pickup) + (h.last_vendor ? ` <span class="muted">· ${esc(h.last_vendor)}</span>` : '') : '<span class="muted">—</span>'}</td><td class="num">${pay}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="muted">No hubs match these filters.</td></tr>';
   $('#ov-csv').onclick = exportOverviewCSV;
 }
 // Part-by-part breakup of expected kg (shared by Overview and Log pickup)
@@ -683,10 +685,15 @@ function breakupTable(rows, compact) {
     <tr><td><b>Total</b></td><td class="num">${num(sum(w, r => r.qty))}</td><td></td><td class="num"><b>${num(total, 1)} kg</b></td></tr>
     ${nw.length ? `<tr><td colspan="4" class="warn small"><b>No weight set (counted as 0 kg):</b> ${nw.map(r => `${esc(r.part_name)} ×${num(r.qty)}`).join(', ')}</td></tr>` : ''}</tbody></table></div>`;
 }
+function missCell(t) {
+  if (!t || !(+t.missing_kg >= 1)) return '<span class="muted">—</span>';
+  const by = t.missing_by_cat || {}, tip = Object.keys(by).map(c => `${c} ${num(by[c], 1)} kg`).join(', ');
+  return `<span title="${esc(tip)}"><b class="err">${kg(t.missing_kg)}</b><div class="muted small">${inr(t.missing_value)}${tip ? ' · ' + esc(Object.keys(by).sort((a, b) => by[b] - by[a])[0]) : ''}</div></span>`;
+}
 function exportOverviewCSV() {
   const rows = S.ovRows || [];
-  const head = ['City', 'Hub', 'Outstanding kg', 'Threshold kg', `Generated kg (${periodLabel()})`, `Picked up kg (${periodLabel()})`, 'Last pickup', 'Last vendor', 'Payment pending (Rs)'];
-  const lines = rows.map(({ n, t, h }) => [(t && t.city) || h.city || '', hubLabel(n), t ? t.outstanding_kg : '', t ? t.threshold_kg : '', h.generated_kg ?? '', h.picked_kg ?? '', h.last_pickup || '', h.last_vendor || '', h.pending_amount || 0]);
+  const head = ['City', 'Hub', 'Outstanding kg', 'Threshold kg', `Generated kg (${periodLabel()})`, `Picked up kg (${periodLabel()})`, 'Missing since 31 Aug kg', 'Missing value (Rs)', 'Missing by category', 'Last pickup', 'Last vendor', 'Payment pending (Rs)'];
+  const lines = rows.map(({ n, t, h }) => [(t && t.city) || h.city || '', hubLabel(n), t ? t.outstanding_kg : '', t ? t.threshold_kg : '', h.generated_kg ?? '', h.picked_kg ?? '', t ? t.missing_kg : '', t ? t.missing_value : '', t && t.missing_by_cat ? Object.entries(t.missing_by_cat).map(([c, v]) => c + ' ' + v).join('; ') : '', h.last_pickup || '', h.last_vendor || '', h.pending_amount || 0]);
   const csv = [head, ...lines].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
