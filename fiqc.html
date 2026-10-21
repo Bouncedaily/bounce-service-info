@@ -90,10 +90,10 @@ td{padding:9px 12px;border-top:1px solid #f1f5f9;vertical-align:top}
 <body>
 <div class="wrap">
   <div class="top">
-    <div><h1>FIQC</h1><div class="sub" id="who">Final inspection quality check</div></div>
-    <div class="small muted" id="stamp"></div>
+    <div><h1 id="title">FIQC Dashboard</h1><div class="sub" id="who">Final inspection quality check</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="actions"></div>
   </div>
-  <div class="tabs" id="tabs"></div>
+  <div class="small muted" id="stamp" style="margin:-6px 0 10px"></div>
   <div id="view"><span class="spin"></span>Loading…</div>
 </div>
 <div class="toast" id="toast"></div>
@@ -167,15 +167,18 @@ const thumb = p => p ? `<img class="thumb" data-photo="${esc(p)}" alt="Photo" on
 // ── State ──
 const S = { me: null, tab: null, home: null, sub: 'stage1', job: null, form: null, dash: null, df: null, hub: null };
 
+// The dashboard is the main view. Checks and Hub team open only for people with that access.
 function setTabs() {
-  const m = S.me, tabs = [];
-  if (m.check) tabs.push(['checks', 'Checks']);
-  if (m.hub) tabs.push(['hub', 'Hub team']);
-  if (m.dash || m.check) tabs.push(['dash', 'Dashboard']);
-  if (!S.tab || !tabs.some(t => t[0] === S.tab)) S.tab = tabs[0] ? tabs[0][0] : null;
-  $('#tabs').innerHTML = tabs.map(([k, l]) => `<button class="tab ${S.tab === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('');
+  const m = S.me;
+  if (!S.tab || (S.tab === 'checks' && !m.check) || (S.tab === 'hub' && !m.hub)) S.tab = 'dash';
+  $('#title').textContent = { dash: 'FIQC Dashboard', checks: 'FIQC checks', hub: 'Hub team: re-check requests' }[S.tab];
+  const b = [];
+  if (S.tab !== 'dash') b.push(`<button class="btn btn-sm" onclick="go('dash')"><i class="ti ti-arrow-left"></i>Back to dashboard</button>`);
+  if (m.check && S.tab !== 'checks') b.push(`<button class="btn btn-sm btn-red" onclick="go('checks')"><i class="ti ti-clipboard-check"></i>Open FIQC checks</button>`);
+  if (m.hub && S.tab !== 'hub') b.push(`<button class="btn btn-sm btn-dark" onclick="go('hub')"><i class="ti ti-tool"></i>Hub team: re-check requests</button>`);
+  $('#actions').innerHTML = b.join('');
 }
-function go(t) { S.tab = t; S.job = null; setTabs(); render(); }
+function go(t) { S.tab = t; S.job = null; S.form = null; setTabs(); render(); window.scrollTo(0, 0); if (t === 'checks') reloadHome(); }
 
 async function boot() {
   try {
@@ -416,10 +419,14 @@ async function renderDash() {
   loadDash();
 }
 function setPeriod(p) { const t = istToday(); S.df.period = p; if (p === 'today') { S.df.from = t; S.df.to = t; } if (p === '7d') { S.df.from = addDays(t, -6); S.df.to = t; } if (p === 'month') { S.df.from = t.slice(0, 8) + '01'; S.df.to = t; } renderDash(); }
+function loadDashRender() { if (S.dash) renderDashData(S.dash); }
 async function loadDash() {
   const f = S.df, box = $('#dash'); box.innerHTML = '<span class="spin"></span>Loading…';
   let d; try { d = await rpc('fiqc_dashboard', { p_from: f.from, p_to: f.to, p_city: f.city || null, p_hub: f.hub || null, p_tech: f.tech || null }); } catch (e) { box.innerHTML = `<div class="card pad err">${esc(e.message)}</div>`; return; }
-  S.dash = d;
+  S.dash = d; renderDashData(d);
+}
+function renderDashData(d) {
+  const f = S.df, box = $('#dash');
   const cities = [...new Set((d.hub_list || []).map(h => h.city).filter(Boolean))].sort();
   $('#dcity').innerHTML = '<option value="">All cities</option>' + cities.map(c => `<option ${c === f.city ? 'selected' : ''}>${esc(c)}</option>`).join('');
   $('#dhub').innerHTML = '<option value="">All hubs</option>' + (d.hub_list || []).filter(h => !f.city || h.city === f.city).map(h => h.hub).filter(Boolean).sort().map(h => `<option ${h === f.hub ? 'selected' : ''}>${esc(h)}</option>`).join('');
@@ -434,7 +441,7 @@ async function loadDash() {
     <div class="kpi"><div class="v" style="color:#92400e">${inr(k.billed_not_fitted)}</div><div class="l">On JC / billed, not fitted</div><div class="s">${k.billed_not_fitted_n} parts on ${k.billed_not_fitted_bikes} bikes</div></div>
     <div class="kpi"><div class="v" style="color:#92400e">${inr(k.fitted_not_billed)}</div><div class="l">Fitted, not on JC</div><div class="s">${k.fitted_not_billed_n} parts on ${k.fitted_not_billed_bikes} bikes</div></div>
     <div class="kpi"><div class="v">${k.before_approval_pct == null ? '—' : k.before_approval_pct + '%'}</div><div class="l">Stage 1 before approval</div><div class="s">${k.approved_before_fiqc} approved by hub manager before FIQC</div></div>
-    <div class="kpi ${k.rfd_before ? 'bad' : ''}"><div class="v" style="color:${k.rfd_before ? '#991b1b' : 'inherit'}">${k.rfd_before}</div><div class="l">Moved to RFD before approval</div><div class="s">${k.rfd_while_rejected} while rejected · ${k.deployed} deployed</div></div>
+    <div class="kpi ${(k.rfd_before + k.rfd_after_reject + k.oos_after_approval) ? 'bad' : ''}"><div class="v" style="color:${(k.rfd_before + k.rfd_after_reject + k.oos_after_approval) ? '#991b1b' : 'inherit'}">${k.rfd_before + k.rfd_after_reject + k.oos_after_approval}</div><div class="l">RFD status issues</div><div class="s">${k.rfd_before} RFD before approval · ${k.rfd_after_reject} RFD after rejection · ${k.oos_after_approval} still in OOS after approval</div></div>
   </div>
   <div class="grid2">
     <div class="card"><div class="blk-h">Hub RFD validation</div><div class="pad" style="padding-top:4px">
@@ -458,9 +465,13 @@ async function loadDash() {
       ${(jp.reasons || []).map(x => `<div class="kv" style="border:0;padding:4px 0"><span>${esc(x.reason)}</span><b>${x.n}</b></div>`).join('') || '<div class="muted small">No differences</div>'}
     </div></div>
   </div>
-  <div class="card" style="margin-top:14px"><div class="pad row" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">Moved to RFD before FIQC approval</b><span class="small muted">OOS → RFD moves compared with the FIQC result at that time</span></div>
-    <div class="tbl"><table style="min-width:820px"><thead><tr><th>Vehicle · JC</th><th>Hub</th><th>Moved to RFD</th><th>Marked by</th><th>FIQC at that time</th><th>FIQC approved</th><th>Flag</th></tr></thead><tbody>
-    ${(d.rfd_flags || []).map(x => `<tr><td><b>${esc(x.reg_number)}</b> · ${esc(x.job_card_number)}</td><td>${esc(x.hub_name)}</td><td>${tFmt(x.moved_at)}</td><td>${esc(x.moved_by || '—')}</td><td>${esc(x.fiqc_at_time)}</td><td>${x.approved_at ? tFmt(x.approved_at) : 'Not yet'}</td><td><span class="pill ${x.flag === 'RFD before FIQC' ? 'p-amber' : 'p-red'}">${esc(x.flag)}</span></td></tr>`).join('') || '<tr><td colspan="7" class="muted">None in this period.</td></tr>'}
+  <div class="card" style="margin-top:14px"><div class="pad row" style="border-bottom:1px solid var(--line);flex-wrap:wrap"><b style="font-size:15px">RFD status vs FIQC</b><span class="small muted">OOS → RFD moves compared with the FIQC result. Counted at hubs where FIQC is live.</span></div>
+    <div class="pad" style="padding-bottom:0"><div class="chips">${[['', 'All'], ['Moved to RFD before FIQC approval', 'RFD before approval · ' + k.rfd_before], ['Moved to RFD after FIQC rejection', 'RFD after rejection · ' + k.rfd_after_reject], ['Still in OOS after FIQC approval', 'Still in OOS after approval · ' + k.oos_after_approval]].map(([v, l]) => `<button class="chip ${(S.rs || '') === v ? 'on' : ''}" onclick="S.rs='${v}';loadDashRender()">${l}</button>`).join('')}</div></div>
+    <div class="tbl" style="margin-top:10px"><table style="min-width:960px"><thead><tr><th>Vehicle · JC</th><th>Hub</th><th>Status</th><th>When</th><th>Marked by</th><th>FIQC at that time</th><th>FIQC approved</th><th>Technician</th></tr></thead><tbody>
+    ${(d.rfd_status || []).filter(x => !S.rs || x.status === S.rs).map(x => `<tr><td><b>${esc(x.reg_number)}</b> · ${esc(x.job_card_number)}</td><td>${esc(x.hub_name)}</td>
+      <td><span class="pill ${x.status === 'Moved to RFD before FIQC approval' ? 'p-amber' : x.status === 'Moved to RFD after FIQC rejection' ? 'p-red' : 'p-blue'}">${esc(x.status)}</span>${x.deployed ? ' <span class="pill p-red">Deployed</span>' : ''}</td>
+      <td>${x.status === 'Still in OOS after FIQC approval' ? 'Approved ' + tFmt(x.event_at) + (x.hours_waiting != null ? `<div class="small muted">${x.hours_waiting >= 24 ? Math.floor(x.hours_waiting / 24) + ' d ' + Math.round(x.hours_waiting % 24) + ' h' : Math.round(x.hours_waiting) + ' h'} in OOS since</div>` : '') : 'Moved to RFD ' + tFmt(x.event_at)}</td>
+      <td>${esc(x.moved_by || '—')}</td><td>${esc(x.fiqc_at_time)}</td><td>${x.approved_at ? tFmt(x.approved_at) : 'Not yet'}</td><td>${esc(x.technician || '—')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">None in this period.</td></tr>'}
     </tbody></table></div></div>
   <div class="card" style="margin-top:14px"><div class="pad row" style="border-bottom:1px solid var(--line)"><b style="font-size:15px">Parts mismatches</b><span class="small muted">Every part where the job card and the bike do not match</span></div>
     <div class="tbl"><table style="min-width:900px"><thead><tr><th>Vehicle · JC</th><th>Stage</th><th>Part</th><th>Type</th><th>Reason</th><th>Technician</th><th class="num">₹</th><th>Photo</th></tr></thead><tbody>
