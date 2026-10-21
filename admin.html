@@ -719,7 +719,7 @@ const btn = (label, fn, cls) => `<button class="btn ${cls || 'btn-ghost'}" oncli
 function closeForm(id) { const f = document.getElementById(id); if (f) { f.style.display = 'none'; f.innerHTML = ''; } }
 
 // ── Permission keys for the user checkboxes come from the pages list ──
-const PERM_LABEL_OVERRIDES = { tools_audit: 'Tools Audit (can submit)', brake_campaign: 'Brake Campaign (sees rider phones)' };
+const PERM_LABEL_OVERRIDES = { tools_audit: 'Tools Audit (can submit)', brake_campaign: 'Brake Campaign (sees rider phones)', fiqc: 'FIQC: checker (does the checks)', fiqc_hub: 'FIQC: hub team (sends for re-check)', fiqc_dashboard: 'FIQC: dashboard (view only)' };
 let PAGES_ADMIN = [];
 // ── ACCESS REQUESTS ──
 let AR_ROWS = [];
