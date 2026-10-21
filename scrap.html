@@ -571,10 +571,10 @@ async function loadOverview() {
   const pcPct = pcExp > 0 ? Math.round(pcPick / pcExp * 100) : null;
   $('#ov-kpis').innerHTML = `
     <div class="kpi"><div class="kpi-val">${kg(atHubs)}</div><div class="kpi-lbl">At hubs now</div><div class="kpi-sub">Iron, plastic and aluminium waiting at ${num(atHubsN)} hub${atHubsN === 1 ? '' : 's'}, counted from each hub's last clean-out</div></div>
-    <div class="kpi ${pcPct != null && (pcPct < 70 || pcPct > 130) ? 'watch' : ''}"><div class="kpi-val">${pcPct == null ? '—' : pcPct + '%'}</div><div class="kpi-lbl">Picked up vs expected</div><div class="kpi-sub">${kg(pcPick)} picked of ${kg(pcExp)} expected, ${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} in ${esc(periodLabel())}</div></div>
+    <div class="kpi"><div class="kpi-val">${kg(pcExp)}</div><div class="kpi-lbl">Expected</div><div class="kpi-sub">Scrap the job cards say was generated in the periods these ${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} cleared</div></div>
+    <div class="kpi ${pcPct != null && (pcPct < 70 || pcPct > 130) ? 'watch' : ''}"><div class="kpi-val">${kg(pcPick)}</div><div class="kpi-lbl">Picked up</div><div class="kpi-sub">${pcPct == null ? '' : '<b>' + pcPct + '% of expected</b> · '}${num(pc.length)} pickup${pc.length === 1 ? '' : 's'} in ${esc(periodLabel())}</div></div>
     <div class="kpi"><div class="kpi-val">${inr(o.sale_value)}</div><div class="kpi-lbl">Sales value</div><div class="kpi-sub">${recvTxt}</div></div>
-    <div class="kpi ${due.length ? 'bad' : ''}"><div class="kpi-val">${num(due.length)} hub${due.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Need a pickup</div><div class="kpi-sub">Over their kg threshold today</div></div>
-    <div class="kpi ${countedLeft ? 'watch' : ''}"><div class="kpi-val">${num(countedLeft)}</div><div class="kpi-lbl">Counted items not picked up</div><div class="kpi-sub">Electronics, lighting, battery, controller since 1 Sep</div></div>`;
+    <div class="kpi ${due.length ? 'bad' : ''}"><div class="kpi-val">${num(due.length)} hub${due.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Need a pickup</div><div class="kpi-sub">Over their kg threshold today</div></div>`;
 
   // Pickup check table
   const pcRows = pc.map(p => {
