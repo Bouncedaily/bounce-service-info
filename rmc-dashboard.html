@@ -516,30 +516,7 @@ function driversHtml(city, ms, model){
   rows.forEach(function(r){ h+='<tr'+(r[1]==='bikes'?' style="border-top:2px solid #e5e7eb"':'')+'><td'+(r[1]==='bikes'||r[1]==='jcs'?' style="color:#6b7280"':'')+'>'+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
-  if(bad.length) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 and these months are left out of the comparison below.</p>';
-  // bridge: consecutive full months with good counts, the last 3 changes
-  var good=ms.map(function(m,i){ return (V[i].ok && !isPartialMonth(m) && V[i].pb!=null)?i:null; }).filter(function(i){return i!=null;});
-  var pairs=[]; for(var i=1;i<good.length;i++) pairs.push([good[i-1],good[i]]);
-  pairs=pairs.slice(-3);
-  if(!pairs.length && good.length<2) h+='<p class="sub" style="margin-top:10px">Pick at least two full months with job card data in the month filter to see what moved the cost.</p>';
-  if(pairs.length){
-    var lm=function(a,b){ return (a>0&&b>0)?(Math.abs(a-b)<1e-9?a:(b-a)/Math.log(b/a)):null; };
-    var lnr=function(a,b){ return (a>0&&b>0)?Math.log(b/a):null; };
-    var B=pairs.map(function(p){ var a=V[p[0]], b=V[p[1]], L=lm(a.pb,b.pb);
-      var vol=(L!=null&&lnr(a.visits,b.visits)!=null)?L*lnr(a.visits,b.visits):null, use=(L!=null&&lnr(a.ppj,b.ppj)!=null)?L*lnr(a.ppj,b.ppj):null, pr=(L!=null&&lnr(a.cpp,b.cpp)!=null)?L*lnr(a.cpp,b.cpp):null;
-      var parts=(a.pb!=null&&b.pb!=null)?b.pb-a.pb:null, lab=(a.lb!=null&&b.lb!=null)?b.lb-a.lb:null, oth=(a.ob!=null&&b.ob!=null)?b.ob-a.ob:null;
-      return {vol:vol,use:use,pr:pr,parts:parts,lab:lab,oth:oth,tot:(parts!=null&&lab!=null&&oth!=null)?parts+lab+oth:null}; });
-    var sg=function(v){ if(v==null) return '<td>\u2013</td>'; var r=Math.round(v); return '<td class="'+(r>0?'up':r<0?'dn':'')+'" style="font-weight:600">'+(r>0?'+':'')+r+'</td>'; };
-    h+='<h3 style="margin-top:14px">What moved the cost (\u20b9 per bike)</h3><div class="tw"><table><tr><th></th>'+pairs.map(function(p){return '<th>'+lbl(ms[p[0]])+' \u2192 '+lbl(ms[p[1]])+'</th>';}).join('')+'</tr>';
-    [['Parts: more / fewer bikes serviced and visits','vol'],['Parts: parts used per job card','use'],['Parts: price / mix of parts used','pr'],['Parts change (A + P + C)','parts',1],['Labour: in-house','lab'],['Other maintenance','oth'],['Total change per bike','tot',1]].forEach(function(r){
-      h+='<tr'+(r[2]?' class="tot"':'')+'><td>'+r[0]+'</td>'+B.map(function(b){return sg(b[r[1]]);}).join('')+'</tr>'; });
-    var NM={vol:'more / fewer bikes and visits',use:'parts used per job card',pr:'price / mix of parts',lab:'labour',oth:'other maintenance'};
-    h+='</table></div><div style="margin-top:8px;font-size:13px;line-height:1.6">'+pairs.map(function(p,j){ var b=B[j]; if(b.tot==null&&b.parts==null) return '';
-        var tot=b.tot!=null?b.tot:b.parts, items=['vol','use','pr','lab','oth'].map(function(k){return [k,b[k]];}).filter(function(x){return x[1]!=null&&Math.abs(x[1])>=1;}).sort(function(x,y){return Math.abs(y[1])-Math.abs(x[1]);}).slice(0,2);
-        var sgn=function(v){ var r=Math.round(v); return (r>0?'+':r<0?'\u2212':'')+'\u20b9'+Math.abs(r); };
-        return '<div>\u2022 <b>'+lbl(ms[p[0]])+' \u2192 '+lbl(ms[p[1]])+':</b> '+sgn(tot)+' per bike'+(b.tot==null?' (parts only)':'')+(items.length?', mostly '+items.map(function(x){return NM[x[0]]+' ('+sgn(x[1])+')';}).join(' and '):'')+'.</div>'; }).join('')+'</div>';
-    h+='<p class="sub">Parts change is split into visits (service rate \u00d7 job cards per bike), parts per job card and price / mix per part (log-mean split, adds up exactly), then labour and other maintenance. Green = cost fell. Shows the last 3 changes between full months in the month filter.'+(ms.some(isPartialMonth)?' The current month (*) is left out because it is not complete yet; its drivers above are for the days so far.':'')+'</p>';
-  }
+  if(bad.length) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
 }
 
