@@ -476,7 +476,7 @@ function filterBar(){
   h+='<div class="grp"><label>Month</label>'+ms.map(function(m){ var on=!state.F.months.length||state.F.months.indexOf(m)>=0; return '<span class="chip'+(on?' on':'')+'" data-a="month" data-v="'+m+'">'+C.monthLabel(m)+'</span>'; }).join('')+'</div>';
   // no hub-level view (decision 16 Oct 2026)
   var md=modelsOf(); if(md.length) h+='<div class="grp"><label>Model</label><select data-a="model"><option value="">All models</option>'+md.map(function(x){return '<option'+(state.F.model===x?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select></div>';
-  h+='<div class="grp"><label>Deployed year</label><select data-a="dyear"><option value="">All years</option>'+((state.cohort&&state.cohort.years)||[2025,2026]).map(function(y){return '<option value="'+y+'"'+(String(state.F.dyear)===String(y)?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
+  h+='<div class="grp"><label>Deployed year</label><select data-a="fdyear"><option value="">All years</option>'+((state.cohort&&state.cohort.years)||[2025,2026]).map(function(y){return '<option value="'+y+'"'+(String(state.F.dyear)===String(y)?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
   h+='<div class="grp"><label>Show</label>'+[['bike','\u20b9 / bike'],['km','\u20b9 / km'],['rs','\u20b9 total']].map(function(u){ return '<span class="chip'+(state.unit===u[0]?' on':'')+'" data-a="unit" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')+'</div></div>';
   if(state.F.dyear && !state.cohort) h+='<div class="note" style="margin:8px 22px">Loading deployed-year data\u2026</div>';
   else if(state.F.dyear) h+='<div class="note" style="margin:8px 22px">Deployed year '+esc(state.F.dyear)+': parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on bikes deployed in '+esc(state.F.dyear)+' (reg number \u2192 deployed year). Per km uses those bikes\' km; per bike uses the city\'s average deployed bikes \u00d7 their share of running bikes. Labour, other maintenance, revenue, insurance and scrap are city-level amounts split by that year\'s share of running bikes, so their per-bike value is the same for every year; only parts differ. Job card drivers are city-level and show as a dash.</div>';
@@ -721,7 +721,7 @@ root.addEventListener('change',function(e){
   if(a==='opscity'){ state.opsCity=el.value; render(); return; }
   if(a==='opsin'){ var k=el.getAttribute('data-k'), c=el.getAttribute('data-c'), m=el.getAttribute('data-m'), rupees=el.value===''?null:Math.round(parseFloat(el.value)*100000); var o=((state.ops[c]=state.ops[c]||{})[m]=(state.ops[c]||{})[m]||{month:m,city:CITY_FULL[c]}); o[k]=rupees; var vv={}; vv[k]=rupees==null?'':rupees; rpc('rmc_save_ops',{p_month:m,p_city:CITY_FULL[c],p_vals:vv}).then(function(r){ toast(r.ok?'Saved '+k.replace('_',' ')+' · '+CITY_FULL[c]+' '+C.monthLabel(m):'Could not save: '+r.msg); }); return; }
   if(!a) return;
-  if(a==='dyear'){ state.F.dyear=el.value; if(el.value && !state.cohort){ loadCohort(); } }
+  if(a==='fdyear'){ state.F.dyear=el.value; if(el.value && !state.cohort){ loadCohort(); } }
   else if(a==='hub') state.F.hub=el.value; else if(a==='model') state.F.model=el.value;
   else if(a==='pcity') state.parts.city=el.value; else if(a==='ptop') state.parts.top=+el.value;
   else if(a==='mcity') state.mv.city=el.value; else if(a==='mb') state.mv.bucket=el.value; else if(a==='mx') state.mv.x=el.value; else if(a==='my') state.mv.y=el.value;
