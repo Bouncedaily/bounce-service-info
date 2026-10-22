@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <script src="error-log.js"></script>
+<script src="auth-guard.js"></script>
   <meta charset="UTF-8"><style>
 /* ── BOUNCE SERVICE INFO — BASE THEME ── */
 :root {
@@ -380,6 +381,22 @@ body { overflow:auto!important; }
           <div class="fg"><label>Deployed Year</label><select id="cons-year" onchange="loadConsumption()"></select></div>
         </div>
         <div class="tbl-wrap"><div id="consumption-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
+
+      <!-- Km since last change: parts x km buckets for one replaced month; click a number for the bikes -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-hd"><h2>Km Since Last Change</h2><span class="sub" id="kmb-updated">—</span>
+          <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="exportKmbCSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
+        <div class="tbl-filter-bar">
+          <div class="fg"><label>Replaced month</label><select id="kmb-month" onchange="loadKmb()"></select></div>
+          <div class="fg"><label>City</label><select id="kmb-city" onchange="loadKmb()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
+          <div class="fg"><label>Deployed Year</label><select id="kmb-year" onchange="loadKmb()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option><option value="unknown">Unknown</option></select></div>
+          <div class="fg"><label>Show</label><div class="seg" id="kmb-show"><button class="on" data-v="n" onclick="setKmbShow(this)">Count</button><button data-v="pct" onclick="setKmbShow(this)">% of part</button></div></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Km between this change and the previous change of the same part on the same bike. <b>First change</b> = no earlier change since data starts (Jan 2026). <b>Odometer error</b> = this or the previous job card odometer is flagged, so the km can't be trusted. Click any number to see the bikes.</div>
+        <div class="tbl-wrap"><div id="kmb-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        <div id="kmb-list"></div>
       </div>
 
       <!-- Replacement Intervals: 1st vs 2nd (next consecutive) vs overall,
@@ -950,6 +967,78 @@ let _consSeq = 0;
   sel.innerHTML = html;
 })();
 function consSeg(id) { const b = document.querySelector('#' + id + ' button.on'); return b ? b.dataset.v : null; }
+
+// ── Km since last change (parts x km buckets) ──
+const KMB_COLS = [['b0','Under 1,000'],['b1','1,000–2,000'],['b2','2,000–3,000'],['b3','3,000–4,000'],['b4','4,000–5,000'],['b5','5,000–8,000'],['b8','8,000–12,000'],['b12','12,000+'],['first','First change'],['odo','Odometer error']];
+const KMB_TINT = { b0:'#fee2e2', b1:'#fee2e2', b2:'#fef3c7', b3:'#fef3c7', b4:'#fef3c7' };
+const KMB_NAME = { 'Fr Brake Shoe Set - Drum':'Front Brake Shoe', 'Rr Brake Shoe Set - Drum':'Rear Brake Shoe', 'Rear Tyre (Energy Ride / 12Inch)':'Rear Tyre (Energy Ride / 12 Inch)' };
+const KMB = { data: null, show: 'n', sel: null, list: null };
+async function rpcU(fn, body) {   // with the signed-in user's token
+  const tok = (window.authGetValidToken ? await window.authGetValidToken() : '') || ANON_KEY;
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function kmbInitMonths() {
+  const sel = document.getElementById('kmb-month'); if (!sel || sel.options.length) return;
+  const now = new Date(Date.now() + 5.5 * 3600e3); const out = [];
+  for (let i = 0; i < 10; i++) { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)); if (d < new Date(Date.UTC(2026, 0, 1))) break;
+    out.push(`<option value="${d.toISOString().slice(0, 7)}">${d.toLocaleString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })}${i === 0 ? ' (so far)' : ''}</option>`); }
+  sel.innerHTML = out.join('');
+}
+function setKmbShow(btn) { document.querySelectorAll('#kmb-show button').forEach(b => b.classList.toggle('on', b === btn)); KMB.show = btn.dataset.v; renderKmb(); }
+async function loadKmb() {
+  kmbInitMonths();
+  const body = document.getElementById('kmb-body');
+  body.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
+  document.getElementById('kmb-list').innerHTML = ''; KMB.sel = null;
+  try { KMB.data = await rpcU('wear_tear_km_buckets', { p_month: document.getElementById('kmb-month').value, p_city: document.getElementById('kmb-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
+  catch (e) { body.innerHTML = `<div class="error-msg">Could not load (${e.message}). Refresh the page.</div>`; return; }
+  const d = KMB.data.data_as_of; document.getElementById('kmb-updated').textContent = d ? 'Data as of ' + new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  renderKmb();
+}
+function renderKmb() {
+  const rows = (KMB.data && KMB.data.rows) || [];
+  const cell = (r, k) => { const v = +r[k] || 0; if (!v) return '<span style="color:#cbd5e1">0</span>';
+    const pct = r.total ? Math.round(v / r.total * 100) : 0; const txt = KMB.show === 'pct' ? pct + '%' : v.toLocaleString('en-IN');
+    const on = KMB.sel && KMB.sel.part === r.part && KMB.sel.b === k;
+    return `<a href="#" onclick="openKmb('${r.part.replace(/'/g, "\\'")}','${k}');return false" style="font-weight:${on ? 800 : 600};color:inherit;text-decoration:${on ? 'underline' : 'none'}" title="${v} replacements · ${pct}% of this part">${txt}</a>`; };
+  document.getElementById('kmb-body').innerHTML = `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th>${KMB_COLS.map(([k, l]) => `<th style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] : ''}">${l}</th>`).join('')}<th style="text-align:right">Total</th><th style="text-align:right">Median km</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[r.part] || r.part}</td>${KMB_COLS.map(([k]) => `<td style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] + '55' : ''}">${cell(r, k)}</td>`).join('')}
+      <td style="text-align:right"><a href="#" onclick="openKmb('${r.part.replace(/'/g, "\\'")}','all');return false" style="font-weight:700;color:inherit;text-decoration:none">${(+r.total || 0).toLocaleString('en-IN')}</a></td><td style="text-align:right">${r.median_km != null ? (+r.median_km).toLocaleString('en-IN') : '—'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function openKmb(part, b) {
+  KMB.sel = { part, b }; renderKmb();
+  const box = document.getElementById('kmb-list');
+  const lbl = b === 'all' ? 'All changes' : (KMB_COLS.find(c => c[0] === b) || [, b])[1];
+  box.innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
+  try { KMB.list = await rpcU('wear_tear_km_bucket_list', { p_month: document.getElementById('kmb-month').value, p_part: part, p_bucket: b, p_city: document.getElementById('kmb-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
+  catch (e) { box.innerHTML = `<div class="error-msg">Could not load the bikes (${e.message}).</div>`; return; }
+  const L = KMB.list || [], f = n => n == null ? '—' : Math.round(+n).toLocaleString('en-IN'), dt = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—';
+  const clsLbl = { first: 'First change', odo: 'Odometer error' };
+  // which hubs and technicians have most of these
+  const top = key => Object.entries(L.reduce((a, x) => { const k = x[key] || '—'; a[k] = (a[k] || 0) + 1; return a; }, {})).sort((p, q) => q[1] - p[1]).slice(0, 5).map(([k, n]) => `${k} <b>${n}</b>`).join(' · ');
+  box.innerHTML = `<div style="border-top:1px solid var(--border,#e2e8f0);padding:12px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><b>${KMB_NAME[part] || part} · ${lbl} · ${L.length} bike${L.length === 1 ? '' : 's'}</b>
+      <span style="display:flex;gap:6px"><button class="btn-export" onclick="exportKmbList()"><i class="ti ti-table-export"></i> CSV</button><button class="btn-sm" onclick="KMB.sel=null;renderKmb();document.getElementById('kmb-list').innerHTML=''">Close</button></span></div>
+    ${L.length ? `<div style="font-size:12px;color:var(--muted,#64748b);margin:6px 0 8px">Most at hubs: ${top('hub')}<br>Most by technician: ${top('technician')}</div>` : ''}
+    <div style="max-height:420px;overflow:auto"><table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Bike</th><th style="text-align:left">Replaced</th><th style="text-align:left">Hub</th><th style="text-align:left">Technician</th><th style="text-align:left">JC</th><th style="text-align:right">Odometer</th><th style="text-align:left">Previous change</th><th style="text-align:right">Previous odometer</th><th style="text-align:right">Km since last change</th></tr></thead>
+    <tbody>${L.map(x => `<tr><td style="text-align:left;font-weight:600">${x.reg}</td><td style="text-align:left">${dt(x.date)}</td><td style="text-align:left">${x.hub || '—'}</td><td style="text-align:left">${x.technician || '—'}</td><td style="text-align:left">${x.jc || '—'}</td><td style="text-align:right">${f(x.odo)}</td><td style="text-align:left">${dt(x.prev_date)}</td><td style="text-align:right">${f(x.prev_odo)}</td><td style="text-align:right;font-weight:700">${x.km != null ? f(x.km) : (clsLbl[x.cls] || '—')}</td></tr>`).join('') || '<tr><td colspan="9">No bikes.</td></tr>'}</tbody></table></div></div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function kmbDownload(name, rows) {
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = name; a.click();
+}
+function exportKmbCSV() {
+  const rows = (KMB.data && KMB.data.rows) || [];
+  kmbDownload(`km-since-last-change-${document.getElementById('kmb-month').value}.csv`, [['Part', ...KMB_COLS.map(c => c[1]), 'Total', 'Median km'], ...rows.map(r => [KMB_NAME[r.part] || r.part, ...KMB_COLS.map(c => r[c[0]]), r.total, r.median_km])]);
+}
+function exportKmbList() {
+  const L = KMB.list || [];
+  kmbDownload(`bikes-${(KMB.sel && KMB.sel.part || '').replace(/\W+/g, '-')}-${KMB.sel && KMB.sel.b}.csv`, [['Bike', 'City', 'Hub', 'Technician', 'Replaced', 'JC', 'Odometer', 'Previous change', 'Previous odometer', 'Km since last change', 'Type'], ...L.map(x => [x.reg, x.city, x.hub, x.technician, x.date, x.jc, x.odo, x.prev_date, x.prev_odo, x.km, x.cls])]);
+}
+
 function setConsSeg(id, btn) {
   document.querySelectorAll('#' + id + ' button').forEach(b => b.classList.toggle('on', b === btn));
   if (id === 'cons-stat') renderConsumption(); else loadConsumption();
@@ -1257,6 +1346,7 @@ function applyBikeClientFilters() {
     loadBikeSummary();
     loadConsumption();
     loadIntervals();
+    (window.authGetValidToken ? Promise.resolve() : new Promise(r => { window.addEventListener('auth-ready', r, { once: true }); setTimeout(r, 5000); })).then(loadKmb);
   } catch(e) {
     console.error('Auto-load error:', e);
   }
