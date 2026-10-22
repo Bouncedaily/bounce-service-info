@@ -370,11 +370,16 @@ async function loadCohort(){
   (D.parts||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var v=+x[5]||0; if(v<=0) return;
     add(L3,c+'|'+x[0]+'|'+x[2]+'|'+x[3],x[4],v); add(L2,c+'|'+x[0]+'|'+x[2],x[4],v); add(L1,c+'|'+x[0],x[4],v); });
   var fleet={}; (D.fleet||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=fleet[k]||(fleet[k]={bikes:0,km:0,yr:{}}); e.bikes+=+x[4]||0; e.km+=+x[3]||0; e.yr[x[2]]={km:+x[3]||0,bikes:+x[4]||0}; });
-  state.cohort={L3:L3,L2:L2,L1:L1,fleet:fleet,years:(D.years||[]).filter(function(y){return y;})};
+  var jcy={}; (D.jcs||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=jcy[k]||(jcy[k]={t:0,yr:{}}); e.t+=+x[3]||0; e.yr[x[2]]=(e.yr[x[2]]||0)+(+x[3]||0); });
+  state.cohort={L3:L3,L2:L2,L1:L1,fleet:fleet,jc:jcy,years:(D.years||[]).filter(function(y){return y;})};
   render();
 }
 function bikeShare(city, m){   // chosen deployed year's share of the city's running bikes in that month
   var fc=state.cohort&&state.cohort.fleet[city+'|'+m]; if(!fc||!fc.bikes) return null; var cy=fc.yr[state.F.dyear]; return cy?cy.bikes/fc.bikes:0; }
+function jcShare(city, m){   // chosen deployed year's share of the city's job cards in that month (fallback: share of bikes)
+  var e=state.cohort&&state.cohort.jc[city+'|'+m]; if(!e||!e.t) return bikeShare(city,m); return (e.yr[state.F.dyear]||0)/e.t; }
+function partsShare(city, m){   // share of the city's job card parts cost (fallback: share of bikes)
+  var e=state.cohort&&state.cohort.L1[city+'|'+m]; if(!e||!e.t) return bikeShare(city,m); return (e.y[state.F.dyear]||0)/e.t; }
 function cohortShare(r){
   var C2=state.cohort, y=state.F.dyear; if(!C2) return 0;
   var e=C2.L3[r.city+'|'+r.month+'|'+r.issue+'|'+r.pn]||C2.L2[r.city+'|'+r.month+'|'+r.issue]||C2.L1[r.city+'|'+r.month];
@@ -388,7 +393,7 @@ function opsVal(kind, city, m, d){
   if(kind==='warr_claim') return (!filt && o.warr_claim!=null) ? +o.warr_claim : (d?d.W:null);
   if(filt) return null;
   var v=o[kind]!=null ? +o[kind] : null;
-  if(v!=null && state.F.dyear){ var sh=bikeShare(city,m); v=sh==null?null:v*sh; }   // deployed-year filter: split by share of bikes
+  if(v!=null && state.F.dyear){ var sh=jcShare(city,m); v=sh==null?null:v*sh; }   // deployed-year filter: split by share of job cards
   return v;
 }
 function opsAmt(kind, city, m){ return opsVal(kind, city, m, lastModel[city]&&lastModel[city][m]); }
@@ -479,7 +484,7 @@ function filterBar(){
   h+='<div class="grp"><label>Deployed year</label><select data-a="fdyear"><option value="">All years</option>'+((state.cohort&&state.cohort.years)||[2025,2026]).map(function(y){return '<option value="'+y+'"'+(String(state.F.dyear)===String(y)?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
   h+='<div class="grp"><label>Show</label>'+[['bike','\u20b9 / bike'],['km','\u20b9 / km'],['rs','\u20b9 total']].map(function(u){ return '<span class="chip'+(state.unit===u[0]?' on':'')+'" data-a="unit" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')+'</div></div>';
   if(state.F.dyear && !state.cohort) h+='<div class="note" style="margin:8px 22px">Loading deployed-year data\u2026</div>';
-  else if(state.F.dyear) h+='<div class="note" style="margin:8px 22px">Deployed year '+esc(state.F.dyear)+': parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on bikes deployed in '+esc(state.F.dyear)+' (reg number \u2192 deployed year). Per km uses those bikes\' km; per bike uses the city\'s average deployed bikes \u00d7 their share of running bikes. Labour, other maintenance, revenue, insurance and scrap are city-level amounts split by that year\'s share of running bikes, so their per-bike value is the same for every year; only parts differ. Job card drivers are city-level and show as a dash.</div>';
+  else if(state.F.dyear) h+='<div class="note" style="margin:8px 22px">Deployed year '+esc(state.F.dyear)+': parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on bikes deployed in '+esc(state.F.dyear)+' (reg number \u2192 deployed year). Per km uses those bikes\' km; per bike uses the city\'s average deployed bikes \u00d7 their share of running bikes. Labour, other maintenance, revenue and insurance are split by that year\'s share of job cards (older bikes come in more often), scrap by its share of parts cost. Job card drivers show as a dash.</div>';
   if(state.F.model) h+='<div class="note" style="margin:8px 22px">Model filter is on: per-bike and per-km need fleet and km by model, which are not available, so values show as a dash. Use "\u20b9 total".</div>';
   else if(state.F.hub) h+='<div class="note" style="margin:8px 22px">Hub filter is on: per-bike uses the hub\'s current fleet from the fleet/km file (a snapshot, same for every month).</div>';
   return h;
@@ -532,7 +537,7 @@ function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0
     if(v==null && (kind==='rev_damage_fee'||kind==='scrap')){ var p=((state.recov[c]||{})[m]||{})[kind==='rev_damage_fee'?'rider':'scrap']; if(p!=null){ v=p; fb=true; } }
     if(v==null && kind==='rev_recovery' && m<='2026-09') return;   // up to Sep, recovery is inside the old AD recovery figure (now revenue damage fee)
     if(v==null){ miss=true; v=0; }
-    if(state.F.dyear){ var sh=bikeShare(c,m); v=sh==null?0:v*sh; }
+    if(state.F.dyear){ var sh=kind==='scrap'?partsShare(c,m):jcShare(c,m); v=sh==null?0:v*sh; }   // scrap by parts cost, the rest by job cards
     t+=v; any=true; });
   return {v:any?t:null, fb:fb, miss:miss}; }
 function isPartialMonth(m){ var n=new Date(Date.now()+5.5*3600e3); return m===n.toISOString().slice(0,7); }
@@ -564,7 +569,7 @@ function driversHtml(city, ms, model){
     h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+'><td'+(grey||less?' style="color:#6b7280'+(less?';padding-left:18px':'')+'"':'')+'>'+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total (labour + A + P + C + other) \u2212 revenue damage fee \u2212 revenue recovery \u2212 insurance claims \u2212 scrap sales, from the monthly inputs under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Bounce Back sale value). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
-  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue, insurance and scrap are split by share of running bikes; job card drivers are city totals, so they show \u2013.</p>';
+  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost; job card drivers are city totals, so they show \u2013.</p>';
   if(bad.length && !state.F.dyear) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
 }
