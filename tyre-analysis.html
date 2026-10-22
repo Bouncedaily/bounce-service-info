@@ -359,6 +359,13 @@ body { overflow:auto!important; }
     <div class="wrap">
       <div class="page-title">Wear &amp; Tear Deep Dive</div>
       <div class="page-sub">All tyre replacements from JC details — count, cost, repeat replacements, hub & city breakdown</div>
+      <div class="wt-tabs" style="display:flex;gap:4px;margin:14px 0 16px;border-bottom:1px solid var(--border,#e2e8f0)">
+        <button class="wt-tab on" data-t="analysis" onclick="wtTab('analysis')">Analysis</button>
+        <button class="wt-tab" data-t="forecast" onclick="wtTab('forecast')">Forecast</button>
+      </div>
+      <style>.wt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 14px;font-size:13px;font-weight:600;color:var(--muted,#64748b);cursor:pointer;margin-bottom:-1px}.wt-tab.on{color:var(--text,#0f172a);border-bottom-color:var(--red,#dc2626)}
+      .fc-err-pos{color:#b45309;font-weight:600}.fc-err-neg{color:#2563eb;font-weight:600}.fc-flag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}.fc-over{background:#fde2e2;color:#b91c1c}.fc-under{background:#dbeafe;color:#1d4ed8}</style>
+      <div id="tab-analysis">
 
 
       <!-- TOP FILTER BAR -->
@@ -575,6 +582,30 @@ body { overflow:auto!important; }
           <button class="pg-btn" id="pg-next" onclick="changePage(1)">Next <i class="ti ti-chevron-right" style="font-size:11px;vertical-align:-1px"></i></button>
         </div>
       </div>
+
+      </div><!-- /tab-analysis -->
+      <div id="tab-forecast" style="display:none">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hd"><h2>Forecast vs Actual</h2><span class="sub" id="fc-sub">—</span>
+            <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="fcCSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
+          <div class="tbl-filter-bar">
+            <div class="fg"><label>Forecast</label><select id="fc-run" onchange="fcLoad()"></select></div>
+            <div class="fg"><label>City</label><select id="fc-city" onchange="fcRender()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px" id="fc-note"></div>
+          <div class="tbl-wrap"><div id="fc-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        </div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hd"><h2>Hub Replacement Check</h2><span class="sub">Actual vs what each hub's own bikes were expected to need</span></div>
+          <div class="tbl-filter-bar">
+            <div class="fg"><label>Show</label><div class="seg" id="hc-flag"><button class="on" data-v="flag" onclick="hcSeg(this)">Flagged</button><button data-v="all" onclick="hcSeg(this)">All hubs</button></div></div>
+            <div class="fg"><label>Part</label><select id="hc-type" onchange="hcRender()"><option value="">All</option><option>Pads</option><option>Shoes</option><option>Tyres</option></select></div>
+            <div class="fg"><label>City</label><select id="hc-city" onchange="hcRender()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Expected = what the forecast says this hub's bikes needed (from km run and part age), adjusted to the city's overall level so a city-wide change does not flag every hub. <b>Over</b> = at least 1.3× expected, <b>Under</b> = at most 0.77× expected, and only when the gap is too big to be chance (2+ standard deviations). Hubs with fewer than 10 expected are left out.</div>
+          <div class="tbl-wrap"><div id="hc-body"></div></div>
+        </div>
+      </div><!-- /tab-forecast -->
 
     </div>
   </div>
@@ -1037,6 +1068,64 @@ function exportKmbCSV() {
 function exportKmbList() {
   const L = KMB.list || [];
   kmbDownload(`bikes-${(KMB.sel && KMB.sel.part || '').replace(/\W+/g, '-')}-${KMB.sel && KMB.sel.b}.csv`, [['Bike', 'City', 'Hub', 'Technician', 'Replaced', 'JC', 'Odometer', 'Previous change', 'Previous odometer', 'Km since last change', 'Type'], ...L.map(x => [x.reg, x.city, x.hub, x.technician, x.date, x.jc, x.odo, x.prev_date, x.prev_odo, x.km, x.cls])]);
+}
+
+
+// ── Forecast tab ──
+const FC = { runs: null, data: null, hub: null, flag: 'flag' };
+const FC_PARTS = ['Front pad','Rear pad','Front shoe','Rear shoe','Front tyre','Rear tyre'];
+function wtTab(t) {
+  document.querySelectorAll('.wt-tab').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  document.getElementById('tab-analysis').style.display = t === 'analysis' ? '' : 'none';
+  document.getElementById('tab-forecast').style.display = t === 'forecast' ? '' : 'none';
+  if (t === 'forecast' && !FC.runs) fcInit();
+}
+async function fcInit() {
+  try { FC.runs = await rpcU('wt_forecast_runs', {}); } catch (e) { document.getElementById('fc-body').innerHTML = `<div class="error-msg">Could not load (${e.message}).</div>`; return; }
+  const sel = document.getElementById('fc-run');
+  sel.innerHTML = (FC.runs || []).map(r => `<option value="${r.tag}">${r.label}</option>`).join('') || '<option value="">No forecasts yet</option>';
+  fcLoad();
+}
+async function fcLoad() {
+  const tag = document.getElementById('fc-run').value; if (!tag) { document.getElementById('fc-body').innerHTML = '<div class="empty" style="padding:20px">No forecasts yet.</div>'; return; }
+  document.getElementById('fc-body').innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
+  try { [FC.data, FC.hub] = await Promise.all([rpcU('wt_forecast_vs_actual', { p_tag: tag }), rpcU('wt_hub_check', { p_tag: tag })]); }
+  catch (e) { document.getElementById('fc-body').innerHTML = `<div class="error-msg">Could not load (${e.message}).</div>`; return; }
+  const r = FC.data.run || {}, dt = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+  const partial = FC.data.share_of_window < 1;
+  document.getElementById('fc-sub').textContent = `${dt(r.win_start)} – ${dt(r.win_end)} · made with data up to ${dt(r.cutoff)}` + (partial ? ` · actual through ${dt(FC.data.through)} (forecast scaled to the same days)` : '');
+  document.getElementById('fc-note').innerHTML = `Actual = Wear &amp; Tear replacements (categories A and F, by replacement date). Error = actual vs forecast: <span class="fc-err-pos">+ more replaced than forecast</span>, <span class="fc-err-neg">− fewer</span>. Mumbai is left out because the Wear &amp; Tear data has no Mumbai replacements yet.` + (r.notes ? ` <br>${r.notes}` : '');
+  fcRender(); hcRender();
+}
+function fcErr(f, a) { if (!f) return '<span style="color:#94a3b8">–</span>'; const e = Math.round((a / f - 1) * 100); return `<span class="${e > 0 ? 'fc-err-pos' : e < 0 ? 'fc-err-neg' : ''}">${e > 0 ? '+' : ''}${e}%</span>`; }
+function fcRender() {
+  const city = document.getElementById('fc-city').value, rows = ((FC.data && FC.data.rows) || []).filter(x => !city || x.city === city);
+  const n = v => (+v || 0).toLocaleString('en-IN');
+  let h = '<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th><th style="text-align:left">City</th><th style="text-align:right">Forecast</th><th style="text-align:right">Actual</th><th style="text-align:right">Difference</th><th style="text-align:right">Error</th></tr></thead><tbody>';
+  let gf = 0, ga = 0;
+  FC_PARTS.forEach(p => {
+    const pr = rows.filter(x => x.part === p).sort((a, b) => b.forecast - a.forecast); if (!pr.length) return;
+    let tf = 0, ta = 0;
+    pr.forEach((x, i) => { tf += +x.forecast; ta += +x.actual;
+      h += `<tr${i === 0 ? ' style="border-top:2px solid #e5e7eb"' : ''}><td style="text-align:left;font-weight:600">${i === 0 ? p : ''}</td><td style="text-align:left">${x.city}</td><td style="text-align:right">${n(x.forecast)}</td><td style="text-align:right">${n(x.actual)}</td><td style="text-align:right">${(x.actual - x.forecast > 0 ? '+' : '') + n(x.actual - x.forecast)}</td><td style="text-align:right">${x.forecast >= 10 ? fcErr(x.forecast, x.actual) : '<span style="color:#94a3b8" title="Too few to compare">–</span>'}</td></tr>`; });
+    if (!city) h += `<tr style="background:#f8fafc;font-weight:700"><td></td><td style="text-align:left">Total</td><td style="text-align:right">${n(tf)}</td><td style="text-align:right">${n(ta)}</td><td style="text-align:right">${(ta - tf > 0 ? '+' : '') + n(ta - tf)}</td><td style="text-align:right">${fcErr(tf, ta)}</td></tr>`;
+    gf += tf; ga += ta;
+  });
+  h += `<tr style="background:#eef2ff;font-weight:800;border-top:2px solid #cbd5e1"><td style="text-align:left">All parts</td><td></td><td style="text-align:right">${n(gf)}</td><td style="text-align:right">${n(ga)}</td><td style="text-align:right">${(ga - gf > 0 ? '+' : '') + n(ga - gf)}</td><td style="text-align:right">${fcErr(gf, ga)}</td></tr></tbody></table>`;
+  document.getElementById('fc-body').innerHTML = rows.length ? h : '<div class="empty" style="padding:20px">No data.</div>';
+}
+function hcSeg(btn) { document.querySelectorAll('#hc-flag button').forEach(b => b.classList.toggle('on', b === btn)); FC.flag = btn.dataset.v; hcRender(); }
+function hcRender() {
+  const t = document.getElementById('hc-type').value, c = document.getElementById('hc-city').value;
+  const L = (FC.hub || []).filter(x => (!t || x.type === t) && (!c || x.city === c) && (FC.flag === 'all' || x.flag));
+  const tag = f => f === 'Over' ? '<span class="fc-flag fc-over">Over</span>' : f === 'Under' ? '<span class="fc-flag fc-under">Under</span>' : '';
+  document.getElementById('hc-body').innerHTML = L.length ? `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Hub</th><th style="text-align:left">City</th><th style="text-align:left">Part</th><th style="text-align:right">Expected</th><th style="text-align:right">Actual</th><th style="text-align:right">Actual ÷ expected</th><th style="text-align:left">Flag</th></tr></thead><tbody>${
+    L.map(x => `<tr><td style="text-align:left;font-weight:600">${x.hub || '—'}</td><td style="text-align:left">${x.city}</td><td style="text-align:left">${x.type}</td><td style="text-align:right">${x.expected}</td><td style="text-align:right">${x.actual}</td><td style="text-align:right;font-weight:700">${(+x.ratio).toFixed(2)}×</td><td style="text-align:left">${tag(x.flag)}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty" style="padding:20px">${FC.flag === 'flag' ? 'No hubs flagged for these filters.' : 'No data.'}</div>`;
+}
+function fcCSV() {
+  const rows = (FC.data && FC.data.rows) || [];
+  kmbDownload(`forecast-vs-actual-${document.getElementById('fc-run').value}.csv`, [['Part', 'City', 'Forecast', 'Actual', 'Error %'], ...rows.map(x => [x.part, x.city, x.forecast, x.actual, x.forecast ? Math.round((x.actual / x.forecast - 1) * 100) : ''])]);
 }
 
 function setConsSeg(id, btn) {
