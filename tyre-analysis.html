@@ -391,7 +391,7 @@ body { overflow:auto!important; }
         <div class="tbl-filter-bar">
           <div class="fg"><label>Replaced month</label><select id="kmb-month" onchange="loadKmb()"></select></div>
           <div class="fg"><label>City</label><select id="kmb-city" onchange="loadKmb()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
-          <div class="fg"><label>Deployed Year</label><select id="kmb-year" onchange="loadKmb()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option><option value="unknown">Unknown</option></select></div>
+          <div class="fg"><label>Deployed Year</label><select id="kmb-year" onchange="loadKmb()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option></select></div>
           <div class="fg"><label>Show</label><div class="seg" id="kmb-show"><button class="on" data-v="n" onclick="setKmbShow(this)">Count</button><button data-v="pct" onclick="setKmbShow(this)">% of part</button></div></div>
         </div>
         <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Km between this change and the previous change of the same part on the same bike. <b>First change</b> = no earlier change since data starts (Jan 2026). <b>Odometer error</b> = this or the previous job card odometer is flagged, so the km can't be trusted. Click any number to see the bikes.</div>
