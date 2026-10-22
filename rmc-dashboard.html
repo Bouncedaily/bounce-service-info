@@ -315,6 +315,7 @@ async function loadAll(){
     else { var e=jcHub[k]||(jcHub[k]={p:0,t:null,b:null}); e.p+=+x[3]||0; if(x[4]!=null) e.t=(e.t||0)+(+x[4]); } });
   st.jcAll={}; st.bikes={};
   Object.keys(Object.assign({},jcHub,jcCity)).forEach(function(k){ var e=jcCity[k]||jcHub[k]; st.jc[k]=e.p; if(e.t!=null) st.jcAll[k]=e.t; if(e.b!=null) st.bikes[k]=e.b; });
+  state.recov={}; (D.recov||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.recov[c]=state.recov[c]||{})[x[0]]={rider:x[2]==null?null:+x[2],scrap:x[3]==null?null:+x[3]}; });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
   (D.smm||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; // [month, city, hub, scope, bikes, km]
@@ -492,6 +493,13 @@ function refurbAmt(city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any
 // part units on A and P lines, leaving out items under Rs 10 a unit (screws, clips, cable ties: ~55% of units, ~1.4% of cost)
 function partUnits(city, m){ var cs=city==='ALL'?state.F.cities:[city], u=0;
   state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || (r.issue!=='A'&&r.issue!=='P') || !(r.qty>0)) return; if(r.amt/r.qty>=10) u+=r.qty; }); return u||null; }
+// Money that comes back: monthly input first (Rules & settings), else the portal figure (rider: damage fee collected; scrap: Bounce Back sale value).
+// Insurance claim has no portal source. Returns {v, fb (any city used the portal figure), miss (any city has nothing)}.
+function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false, fb=false, miss=false;
+  cs.forEach(function(c){ if(!(lastModel[c]&&lastModel[c][m])) return; var o=(state.ops[c]||{})[m]||{}, v=o[kind]!=null?+o[kind]:null;
+    if(v==null && kind!=='ins_claim'){ var p=((state.recov[c]||{})[m]||{})[kind==='ad_recovery'?'rider':'scrap']; if(p!=null){ v=p; fb=true; } }
+    if(v==null){ miss=true; v=0; } t+=v; any=true; });
+  return {v:any?t:null, fb:fb, miss:miss}; }
 function isPartialMonth(m){ var n=new Date(Date.now()+5.5*3600e3); return m===n.toISOString().slice(0,7); }
 function driverVals(city, m, d){
   var fleet=den(city,m,'bike'), jcs=sumC(city,state.store.jcAll,m), bikes=sumC(city,state.store.bikes,m), units=partUnits(city,m), parts=d?d.A+d.P+d.C:null,
@@ -499,7 +507,9 @@ function driverVals(city, m, d){
   var q=function(a,b){ return (a!=null&&b)?a/b:null; };
   var jp=sumC(city,state.store.jc,m), ok=jcs!=null&&bikes!=null&&jcs>=bikes&&(jp==null||jcs>=jp);
   if(!ok){ jcs=null; bikes=null; }   // impossible counts (fewer job cards than bikes or than job cards with parts): incomplete data
-  return { ok:ok, fleet:fleet, jcs:jcs, bikes:bikes, units:units, parts:parts, lab:lab, oth:oth,
+  var tot=(d&&lab!=null&&oth!=null)?d.A+d.P+d.C+lab+oth:null, rr=recovAmt('ad_recovery',city,m), ic=recovAmt('ins_claim',city,m), sc=recovAmt('scrap',city,m);
+  var net=(tot!=null)?tot-(rr.v||0)-(ic.v||0)-(sc.v||0):null;
+  return { ok:ok, fleet:fleet, totb:q(tot,fleet), rrb:q(rr.v,fleet), icb:q(ic.v,fleet), scb:q(sc.v,fleet), netb:q(net,fleet), rrFb:rr.fb, icMiss:ic.miss, scFb:sc.fb, rrMiss:rr.miss&&!rr.fb, scMiss:sc.miss&&!sc.fb, jcs:jcs, bikes:bikes, units:units, parts:parts, lab:lab, oth:oth,
     sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
     visits:q(jcs,fleet), pb:q(parts,fleet), lb:q(lab,fleet), ob:q(oth,fleet) };
 }
@@ -511,10 +521,12 @@ function driversHtml(city, ms, model){
   var avg=function(k){ var xs=full.map(function(i){return V[i][k];}).filter(function(x){return x!=null&&isFinite(x);}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; };
   var lbl=function(m){ return C.monthLabel(m)+(isPartialMonth(m)?'*':''); };
   var f2=function(v){return v==null?'\u2013':v.toFixed(2);}, f0=function(v){return v==null?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null?'\u2013':Math.round(v*100)+'%';}, f1=function(v){return v==null?'\u2013':v.toFixed(1);};
-  var rows=[['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Labour cost per job card (\u20b9)','lcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Bikes serviced','bikes',f0],['Job cards','jcs',f0]];
+  var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: paid by riders (AD recovery)','rrb',f0,'rr'],['Less: insurance claims','icb',f0,'ic'],['Less: scrap sales','scb',f0,'sc'],['Net service cost (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Labour cost per job card (\u20b9)','lcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Bikes serviced','bikes',f0],['Job cards','jcs',f0]];
   var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 cost drivers</h3><div class="tw"><table><tr><th>Driver</th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+(full.length>1?'<th>Avg '+C.monthLabel(ms[full[0]])+'\u2013'+C.monthLabel(ms[full[full.length-1]])+'</th>':'')+'</tr>';
-  rows.forEach(function(r){ h+='<tr'+(r[1]==='bikes'?' style="border-top:2px solid #e5e7eb"':'')+'><td'+(r[1]==='bikes'||r[1]==='jcs'?' style="color:#6b7280"':'')+'>'+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
-  h+='</table></div>';
+  var mark=function(r,v){ if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='net') return (v.rrFb||v.scFb)?'\u2020':((v.icMiss||v.rrMiss||v.scMiss)?'*':''); return ''; };
+  rows.forEach(function(r){ var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb', grey=r[1]==='bikes'||r[1]==='jcs', less=String(r[0]).indexOf('Less:')===0;
+    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+'><td'+(grey||less?' style="color:#6b7280'+(less?';padding-left:18px':'')+'"':'')+'>'+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
+  h+='</table></div><p class="sub">Net service cost = Total (labour + A + P + C + other) \u2212 money paid by riders \u2212 insurance claims \u2212 scrap sales, from the monthly inputs under Rules & settings. \u2020 = input blank, so the portal figure is used (rider: damage fees collected; scrap: Bounce Back sale value). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
   if(bad.length) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
