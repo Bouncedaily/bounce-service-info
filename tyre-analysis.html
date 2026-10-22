@@ -602,7 +602,7 @@ body { overflow:auto!important; }
             <div class="fg"><label>Part</label><select id="hc-type" onchange="hcRender()"><option value="">All</option><option>Pads</option><option>Shoes</option><option>Tyres</option></select></div>
             <div class="fg"><label>City</label><select id="hc-city" onchange="hcRender()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
           </div>
-          <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Expected = what the forecast says this hub's bikes needed (from km run and part age), adjusted to the city's overall level so a city-wide change does not flag every hub. <b>Over</b> = at least 1.3× expected, <b>Under</b> = at most 0.77× expected, and only when the gap is too big to be chance (2+ standard deviations). Hubs with fewer than 10 expected are left out.</div>
+          <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Expected = what the forecast says this hub's bikes needed (from km run and part age), adjusted to the city's overall level so a city-wide change does not flag every hub. <b>Over</b> = at least 1.3× expected, <b>Under</b> = at most 0.77× expected, and only when the gap is too big to be chance (2+ standard deviations). Hubs with fewer than 10 expected are left out. <b>Replaced / Came, not replaced / Didn't come</b> = what happened to this hub's forecast bucket (its most likely bikes, as many as its forecast).</div>
           <div class="tbl-wrap"><div id="hc-body"></div></div>
         </div>
       </div><!-- /tab-forecast -->
@@ -1094,24 +1094,29 @@ async function fcLoad() {
   const r = FC.data.run || {}, dt = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
   const partial = FC.data.share_of_window < 1;
   document.getElementById('fc-sub').textContent = `${dt(r.win_start)} – ${dt(r.win_end)} · made with data up to ${dt(r.cutoff)}` + (partial ? ` · actual through ${dt(FC.data.through)} (forecast scaled to the same days)` : '');
-  document.getElementById('fc-note').innerHTML = `Actual = Wear &amp; Tear replacements (categories A and F, by replacement date). Error = actual vs forecast: <span class="fc-err-pos">+ more replaced than forecast</span>, <span class="fc-err-neg">− fewer</span>. Mumbai is left out because the Wear &amp; Tear data has no Mumbai replacements yet.` + (r.notes ? ` <br>${r.notes}` : '');
+  document.getElementById('fc-note').innerHTML = `Actual = Wear &amp; Tear replacements (categories A and F, by replacement date). Error = actual vs forecast: <span class="fc-err-pos">+ more replaced than forecast</span>, <span class="fc-err-neg">− fewer</span>. Mumbai is left out because the Wear &amp; Tear data has no Mumbai replacements yet.<br><b>Replaced / Came, not replaced / Didn\'t come</b> = what happened to the <b>forecast bucket</b>: the bikes the forecast rated most likely, as many as the forecast. Came = had a job card in the period. Actual can be higher than Replaced because it also counts replacements on bikes outside the bucket.` + (r.notes ? ` <br>${r.notes}` : '');
   fcRender(); hcRender();
+}
+function b3(x) {
+  const r = +x.b_rep || 0, c = +x.b_came || 0, d = +x.b_none || 0, t = r + c + d;
+  const cell = (v, col) => `<td style="text-align:right;color:${col}">${v.toLocaleString('en-IN')}${t ? `<span style="color:#94a3b8;font-size:10.5px"> ${Math.round(v / t * 100)}%</span>` : ''}</td>`;
+  return cell(r, '#15803d') + cell(c, '#b45309') + cell(d, '#64748b');
 }
 function fcErr(f, a) { if (!f) return '<span style="color:#94a3b8">–</span>'; const e = Math.round((a / f - 1) * 100); return `<span class="${e > 0 ? 'fc-err-pos' : e < 0 ? 'fc-err-neg' : ''}">${e > 0 ? '+' : ''}${e}%</span>`; }
 function fcRender() {
   const city = document.getElementById('fc-city').value, rows = ((FC.data && FC.data.rows) || []).filter(x => !city || x.city === city);
   const n = v => (+v || 0).toLocaleString('en-IN');
-  let h = '<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th><th style="text-align:left">City</th><th style="text-align:right">Forecast</th><th style="text-align:right">Actual</th><th style="text-align:right">Difference</th><th style="text-align:right">Error</th></tr></thead><tbody>';
-  let gf = 0, ga = 0;
+  let h = '<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th><th style="text-align:left">City</th><th style="text-align:right">Forecast</th><th style="text-align:right" title="Bikes in the forecast bucket whose part was replaced">Replaced</th><th style="text-align:right" title="Bucket bikes that had a job card in the period, but the part was not replaced">Came, not replaced</th><th style="text-align:right" title="Bucket bikes with no job card in the period">Didn\'t come</th><th style="text-align:right">Actual</th><th style="text-align:right">Difference</th><th style="text-align:right">Error</th></tr></thead><tbody>';
+  let gf = 0, ga = 0, g3 = { b_rep: 0, b_came: 0, b_none: 0 };
   FC_PARTS.forEach(p => {
     const pr = rows.filter(x => x.part === p).sort((a, b) => b.forecast - a.forecast); if (!pr.length) return;
-    let tf = 0, ta = 0;
-    pr.forEach((x, i) => { tf += +x.forecast; ta += +x.actual;
-      h += `<tr${i === 0 ? ' style="border-top:2px solid #e5e7eb"' : ''}><td style="text-align:left;font-weight:600">${i === 0 ? p : ''}</td><td style="text-align:left">${x.city}</td><td style="text-align:right">${n(x.forecast)}</td><td style="text-align:right">${n(x.actual)}</td><td style="text-align:right">${(x.actual - x.forecast > 0 ? '+' : '') + n(x.actual - x.forecast)}</td><td style="text-align:right">${x.forecast >= 10 ? fcErr(x.forecast, x.actual) : '<span style="color:#94a3b8" title="Too few to compare">–</span>'}</td></tr>`; });
-    if (!city) h += `<tr style="background:#f8fafc;font-weight:700"><td></td><td style="text-align:left">Total</td><td style="text-align:right">${n(tf)}</td><td style="text-align:right">${n(ta)}</td><td style="text-align:right">${(ta - tf > 0 ? '+' : '') + n(ta - tf)}</td><td style="text-align:right">${fcErr(tf, ta)}</td></tr>`;
-    gf += tf; ga += ta;
+    let tf = 0, ta = 0, t3 = { b_rep: 0, b_came: 0, b_none: 0 };
+    pr.forEach((x, i) => { tf += +x.forecast; ta += +x.actual; t3.b_rep += +x.b_rep || 0; t3.b_came += +x.b_came || 0; t3.b_none += +x.b_none || 0;
+      h += `<tr${i === 0 ? ' style="border-top:2px solid #e5e7eb"' : ''}><td style="text-align:left;font-weight:600">${i === 0 ? p : ''}</td><td style="text-align:left">${x.city}</td><td style="text-align:right">${n(x.forecast)}</td>${b3(x)}<td style="text-align:right">${n(x.actual)}</td><td style="text-align:right">${(x.actual - x.forecast > 0 ? '+' : '') + n(x.actual - x.forecast)}</td><td style="text-align:right">${x.forecast >= 10 ? fcErr(x.forecast, x.actual) : '<span style="color:#94a3b8" title="Too few to compare">–</span>'}</td></tr>`; });
+    if (!city) h += `<tr style="background:#f8fafc;font-weight:700"><td></td><td style="text-align:left">Total</td><td style="text-align:right">${n(tf)}</td>${b3(t3)}<td style="text-align:right">${n(ta)}</td><td style="text-align:right">${(ta - tf > 0 ? '+' : '') + n(ta - tf)}</td><td style="text-align:right">${fcErr(tf, ta)}</td></tr>`;
+    gf += tf; ga += ta; g3.b_rep += t3.b_rep; g3.b_came += t3.b_came; g3.b_none += t3.b_none;
   });
-  h += `<tr style="background:#eef2ff;font-weight:800;border-top:2px solid #cbd5e1"><td style="text-align:left">All parts</td><td></td><td style="text-align:right">${n(gf)}</td><td style="text-align:right">${n(ga)}</td><td style="text-align:right">${(ga - gf > 0 ? '+' : '') + n(ga - gf)}</td><td style="text-align:right">${fcErr(gf, ga)}</td></tr></tbody></table>`;
+  h += `<tr style="background:#eef2ff;font-weight:800;border-top:2px solid #cbd5e1"><td style="text-align:left">All parts</td><td></td><td style="text-align:right">${n(gf)}</td>${b3(g3)}<td style="text-align:right">${n(ga)}</td><td style="text-align:right">${(ga - gf > 0 ? '+' : '') + n(ga - gf)}</td><td style="text-align:right">${fcErr(gf, ga)}</td></tr></tbody></table>`;
   document.getElementById('fc-body').innerHTML = rows.length ? h : '<div class="empty" style="padding:20px">No data.</div>';
 }
 function hcSeg(btn) { document.querySelectorAll('#hc-flag button').forEach(b => b.classList.toggle('on', b === btn)); FC.flag = btn.dataset.v; hcRender(); }
@@ -1119,13 +1124,13 @@ function hcRender() {
   const t = document.getElementById('hc-type').value, c = document.getElementById('hc-city').value;
   const L = (FC.hub || []).filter(x => (!t || x.type === t) && (!c || x.city === c) && (FC.flag === 'all' || x.flag));
   const tag = f => f === 'Over' ? '<span class="fc-flag fc-over">Over</span>' : f === 'Under' ? '<span class="fc-flag fc-under">Under</span>' : '';
-  document.getElementById('hc-body').innerHTML = L.length ? `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Hub</th><th style="text-align:left">City</th><th style="text-align:left">Part</th><th style="text-align:right">Expected</th><th style="text-align:right">Actual</th><th style="text-align:right">Actual ÷ expected</th><th style="text-align:left">Flag</th></tr></thead><tbody>${
-    L.map(x => `<tr><td style="text-align:left;font-weight:600">${x.hub || '—'}</td><td style="text-align:left">${x.city}</td><td style="text-align:left">${x.type}</td><td style="text-align:right">${x.expected}</td><td style="text-align:right">${x.actual}</td><td style="text-align:right;font-weight:700">${(+x.ratio).toFixed(2)}×</td><td style="text-align:left">${tag(x.flag)}</td></tr>`).join('')}</tbody></table>`
+  document.getElementById('hc-body').innerHTML = L.length ? `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Hub</th><th style="text-align:left">City</th><th style="text-align:left">Part</th><th style="text-align:right">Forecast</th><th style="text-align:right" title="Bikes in the forecast bucket whose part was replaced">Replaced</th><th style="text-align:right" title="Bucket bikes that had a job card in the period, but the part was not replaced">Came, not replaced</th><th style="text-align:right" title="Bucket bikes with no job card in the period">Didn\'t come</th><th style="text-align:right">Actual</th><th style="text-align:right" title="Forecast adjusted to the city's overall level">Expected (city-adjusted)</th><th style="text-align:right">Actual ÷ expected</th><th style="text-align:left">Flag</th></tr></thead><tbody>${
+    L.map(x => `<tr><td style="text-align:left;font-weight:600">${x.hub || '—'}</td><td style="text-align:left">${x.city}</td><td style="text-align:left">${x.type}</td><td style="text-align:right">${x.forecast ?? '–'}</td>${b3(x)}<td style="text-align:right">${x.actual}</td><td style="text-align:right">${x.expected}</td><td style="text-align:right;font-weight:700">${(+x.ratio).toFixed(2)}×</td><td style="text-align:left">${tag(x.flag)}</td></tr>`).join('')}</tbody></table>`
     : `<div class="empty" style="padding:20px">${FC.flag === 'flag' ? 'No hubs flagged for these filters.' : 'No data.'}</div>`;
 }
 function fcCSV() {
   const rows = (FC.data && FC.data.rows) || [];
-  kmbDownload(`forecast-vs-actual-${document.getElementById('fc-run').value}.csv`, [['Part', 'City', 'Forecast', 'Actual', 'Error %'], ...rows.map(x => [x.part, x.city, x.forecast, x.actual, x.forecast ? Math.round((x.actual / x.forecast - 1) * 100) : ''])]);
+  kmbDownload(`forecast-vs-actual-${document.getElementById('fc-run').value}.csv`, [['Part', 'City', 'Forecast', 'Replaced (bucket)', 'Came, not replaced (bucket)', "Didn't come (bucket)", 'Actual', 'Error %'], ...rows.map(x => [x.part, x.city, x.forecast, x.b_rep, x.b_came, x.b_none, x.actual, x.forecast ? Math.round((x.actual / x.forecast - 1) * 100) : ''])]);
 }
 
 function setConsSeg(id, btn) {
