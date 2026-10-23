@@ -365,6 +365,7 @@ async function uploadDMS(buf, name){
 function allMonths(){ var m={}; state.store.rows.forEach(function(r){m[r.month]=1;}); return Object.keys(m).sort(); }
 function allCities(){ var m={}; state.store.rows.forEach(function(r){m[r.city]=1;}); return CITIES.filter(function(c){return m[c];}); }
 function hubsOf(city){ var m={}; state.store.rows.forEach(function(r){ if(r.city===city && r.hub) m[r.hub]=1; }); return Object.keys(m).sort(); }
+function hubsOf(){ var m={}; state.store.rows.forEach(function(r){ if(r.hub && state.F.cities.indexOf(r.city)>=0) m[r.hub]=1; }); return Object.keys(m).sort(); }
 function modelsOf(){ var m={}; state.store.rows.forEach(function(r){ if(r.model) m[r.model]=1; }); return Object.keys(m).sort(); }
 function multi(){ return state.F.cities.length>1; }
 function cityName(c){ return c==='ALL' ? state.F.cities.join(' + ') : c; }
@@ -506,6 +507,8 @@ function filterBar(){
   var allOn=state.F.cities.length===cs.length; var h='<div class="bar"><div class="grp"><label>City</label>'+(cs.length>1?'<span class="chip'+(allOn?' on':'')+'" data-a="city" data-v="ALL">All</span>':'')+cs.map(function(c){ return '<span class="chip'+(!allOn&&state.F.cities.indexOf(c)>=0?' on':'')+'" data-a="city" data-v="'+c+'">'+c+'</span>'; }).join('')+'</div>';
   h+='<div class="grp"><label>Month</label>'+ms.map(function(m){ var on=!state.F.months.length||state.F.months.indexOf(m)>=0; return '<span class="chip'+(on?' on':'')+'" data-a="month" data-v="'+m+'">'+C.monthLabel(m)+'</span>'; }).join('')+'</div>';
   // no hub-level view (decision 16 Oct 2026)
+  var hb=hubsOf(); if(state.F.hub && hb.indexOf(state.F.hub)<0) state.F.hub='';   // hub not in the selected cities
+  if(hb.length) h+='<div class="grp"><label>Hub</label><select data-a="hub"><option value="">All hubs</option>'+hb.map(function(x){return '<option'+(state.F.hub===x?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select></div>';
   var md=modelsOf(); if(md.length) h+='<div class="grp"><label>Model</label><select data-a="model"><option value="">All models</option>'+md.map(function(x){return '<option'+(state.F.model===x?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select></div>';
   h+='<div class="grp"><label>Deployed year</label><select data-a="fdyear"><option value="">All years</option>'+((state.cohort&&state.cohort.years)||[2025,2026]).map(function(y){return '<option value="'+y+'"'+(String(state.F.dyear)===String(y)?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
   h+='<div class="grp"><label>Show</label>'+[['bike','\u20b9 / bike'],['km','\u20b9 / km'],['rs','\u20b9 total']].map(function(u){ return '<span class="chip'+(state.unit===u[0]?' on':'')+'" data-a="unit" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')+'</div></div>';
@@ -513,7 +516,7 @@ function filterBar(){
   if(state.F.dyear && !state.cohort) h+='<div class="note" style="margin:8px 22px">Loading deployed-year data\u2026</div>';
   else if(state.F.dyear) h+='<div class="note" style="margin:8px 22px">Deployed year '+esc(state.F.dyear)+': parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on bikes deployed in '+esc(state.F.dyear)+' (reg number \u2192 deployed year). Per km uses those bikes\' km; per bike uses the city\'s average deployed bikes \u00d7 their share of running bikes. Labour, other maintenance, revenue and insurance are split by that year\'s share of job cards (older bikes come in more often), scrap by its share of parts cost. Job card drivers show as a dash.</div>';
   if(state.F.model) h+='<div class="note" style="margin:8px 22px">Model filter is on: per-bike and per-km need fleet and km by model, which are not available, so values show as a dash. Use "\u20b9 total".</div>';
-  else if(state.F.hub) h+='<div class="note" style="margin:8px 22px">Hub filter is on: per-bike uses the hub\'s current fleet from the fleet/km file (a snapshot, same for every month).</div>';
+  else if(state.F.hub) h+='<div class="note" style="margin:8px 22px">Hub filter is on: per bike uses the hub\'s bikes deployed each month. Labour, other maintenance, revenue and the drivers are city-level, so they show as a dash.</div>';
   return h;
 }
 function stacked(city, months, model){
