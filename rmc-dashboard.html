@@ -384,8 +384,8 @@ async function loadCohort(){
   (D.parts||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var v=+x[5]||0; if(v<=0) return;
     add(L3,c+'|'+x[0]+'|'+x[2]+'|'+x[3],x[4],v); add(L2,c+'|'+x[0]+'|'+x[2],x[4],v); add(L1,c+'|'+x[0],x[4],v); });
   var fleet={}; (D.fleet||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=fleet[k]||(fleet[k]={bikes:0,km:0,yr:{}}); e.bikes+=+x[4]||0; e.km+=+x[3]||0; e.yr[x[2]]={km:+x[3]||0,bikes:+x[4]||0}; });
-  var jcy={}; (D.jcs||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=jcy[k]||(jcy[k]={t:0,yr:{}}); e.t+=+x[3]||0; e.yr[x[2]]=(e.yr[x[2]]||0)+(+x[3]||0); });
-  state.cohort={L3:L3,L2:L2,L1:L1,fleet:fleet,jc:jcy,years:(D.years||[]).filter(function(y){return y;})};
+  var jcy={}, jcb={}; (D.jcs||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=jcy[k]||(jcy[k]={t:0,yr:{}}), eb=jcb[k]||(jcb[k]={t:0,yr:{}}); e.t+=+x[3]||0; e.yr[x[2]]=(e.yr[x[2]]||0)+(+x[3]||0); eb.t+=+x[4]||0; eb.yr[x[2]]=(eb.yr[x[2]]||0)+(+x[4]||0); });
+  state.cohort={L3:L3,L2:L2,L1:L1,fleet:fleet,jc:jcy,jcb:jcb,years:(D.years||[]).filter(function(y){return y;})};
   render();
 }
 function bikeShare(city, m){   // chosen deployed year's share of the city's running bikes in that month
@@ -661,11 +661,13 @@ function viewParts(model){
   var amtRow, totRow;
   if(meas==='p100' || meas==='p100s'){
     // replacement rate: units / (avg deployed bikes, or bikes that came for service) x 100; Total = units over the months / sum of the bikes over the months x 100
-    var dn=ms.map(function(m){ if(meas==='p100') return den(city,m,'bike'); if(state.F.hub||state.F.model||state.F.dyear) return null; return sumC(city,state.store.bikes,m); });
-    var dnAll=dn.every(function(x){return x;}) ? dn.reduce(function(a,b){return a+b;},0) : null;
+    var svc=function(c,m){ if(!state.F.dyear) return (state.store.bikes||{})[c+'|'+m]; if(/p$/.test(m)||!state.cohort) return null; var e=state.cohort.jcb[c+'|'+m]; return e?(e.yr[state.F.dyear]||null):null; };
+    var dn=ms.map(function(m){ if(meas==='p100') return den(city,m,'bike'); if(state.F.hub||state.F.model) return null;
+      var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var v=svc(c,m); if(v!=null){ t+=v; any=true; } }); return any?t:null; });
+    var dnAll=dn.reduce(function(a,b){return a+(b||0);},0)||null;   // Total: only the months that have a denominator
     var r1=function(v){ return v==null||!isFinite(v)?'\u2013':v.toFixed(1); };
     var rateCells=function(qs){ var vals=qs.map(function(q,i){ return dn[i]?q/dn[i]*100:null; }), nums=vals.filter(function(v){return v!=null;}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
-      return vals.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+r1(v)+'</td>'; }).join('')+'<td style="font-weight:600">'+r1(dnAll?qs.reduce(function(a,b){return a+b;},0)/dnAll*100:null)+'</td>'; };
+      return vals.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+r1(v)+'</td>'; }).join('')+'<td style="font-weight:600">'+r1(dnAll?qs.reduce(function(a,q,i){return a+(dn[i]?q:0);},0)/dnAll*100:null)+'</td>'; };
     amtRow=function(getQ){ return rateCells(ms.map(getQ)); };
     totRow=function(){ return rateCells(ms.map(function(m){ var d=model[city][m].parts[P.bucket]; return Object.keys(d).reduce(function(a,k){ return a+(d[k].qty||0); },0); })); };
   } else {
@@ -681,7 +683,8 @@ function viewParts(model){
   shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+amtRow(function(m){ return pick(r.by[m]); })+'</tr>'; });
   if(rest.length) h+='<tr><td>All other '+P.bucket+' parts ('+rest.length+')</td>'+amtRow(function(m){ return rest.reduce(function(a,r){return a+pick(r.by[m]);},0); })+'</tr>';
   h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+totRow()+'</tr></table></div>';
-  if(meas==='p100s' && (state.F.hub||state.F.model||state.F.dyear)) h+='<p class="sub">Serviced bikes are counted per city, so this measure shows a dash with the hub, model or deployed year filter on.</p>';
+  if(meas==='p100s' && (state.F.hub||state.F.model)) h+='<p class="sub">Serviced bikes are counted per city, so this measure shows a dash with the hub or model filter on.</p>';
+  if(meas==='p100s' && state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': serviced bikes = bikes deployed in '+esc(state.F.dyear)+' that had a job card that month. Not available for the same-days column (e.g. Sep 1\u201320).</p>';
   if((meas==='p100'||meas==='p100s') && ms.some(isPartialMonth)) h+='<p class="sub">* Partial months (e.g. Sep 1\u201320, the current month) cover fewer days, so their rates are lower than a full month.</p>';
   h+='</div>';
   return h;
