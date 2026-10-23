@@ -573,13 +573,15 @@ function partUnits(city, m){ var cs=city==='ALL'?state.F.cities:[city], u=0;
   state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || (r.issue!=='A'&&r.issue!=='P') || !(r.qty>0)) return; if(r.amt/r.qty>=10) u+=r.qty; }); return u||null; }
 // Money that comes back: monthly input first (Rules & settings), else the portal figure (rider: damage fee collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city).
 // Revenue recovery and insurance claim have no portal source. Returns {v, fb (any city used the portal figure), miss (any city has nothing)}.
-function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false, fb=false, miss=false;
+function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false, fb=false, miss=false, fbAmt=0;
   cs.forEach(function(c){ if(!(lastModel[c]&&lastModel[c][m])) return; var pf=partFrac(m), bm=baseMonth(m), o=(state.ops[c]||{})[bm]||{}, v=o[kind]!=null?+o[kind]*pf:null;
-    if(v==null && (kind==='rev_damage_fee'||kind==='scrap')){ var p=((state.recov[c]||{})[bm]||{})[kind==='rev_damage_fee'?'rider':'scrap']; if(p!=null){ v=p*pf; fb=true; } }
+    if(v==null && (kind==='rev_damage_fee'||kind==='scrap')){ var p=((state.recov[c]||{})[bm]||{})[kind==='rev_damage_fee'?'rider':'scrap']; if(p!=null){ v=p*pf; fb=true; fbAmt+=v; } }
     if(v==null && kind==='rev_recovery' && bm<='2026-09') return;   // up to Sep, recovery is inside the old AD recovery figure (now revenue damage fee)
     if(v==null){ miss=true; v=0; }
     if(state.F.dyear){ var sh=kind==='scrap'?partsShare(c,bm):jcShare(c,bm); v=sh==null?0:v*sh; }   // scrap by parts cost, the rest by job cards
     t+=v; any=true; });
+  // combined view: flag the portal fallback only when it is a meaningful share (2%+) of the total, e.g. not for a small Mumbai figure
+  if(fb && cs.length>1 && t>0 && fbAmt/t<0.02) fb=false;
   return {v:any?t:null, fb:fb, miss:miss}; }
 function isPartialMonth(m){ if(/p$/.test(m)) return true; var n=new Date(Date.now()+5.5*3600e3); return m===n.toISOString().slice(0,7); }
 function driverVals(city, m, d){
