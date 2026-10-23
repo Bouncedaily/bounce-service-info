@@ -620,7 +620,7 @@ function pSplitHtml(city, ms){
   h+=row('\u26d4 Not collected due to \u20b93,000 cap', function(v){return v.cap_p+v.cap_l;}, {indent:1, of:T});
   h+=row('\u26a0\ufe0f Not charged to rider (ops mistake)', function(v){return v.nc_p+v.nc_l;}, {indent:1, of:T});
   h+=row('\ud83d\udc41\ufe0f Non-visible components', function(v){return v.hid;}, {indent:1, of:T});
-  h+=row('\u2795 Extra fee collected (above repair cost)', function(v){return v.extra;}, {});
+  h+=row('\u2795 Extra fee collected (above repair cost)', function(v){return v.extra;}, {of:T});
   h+='<tr><td style="color:#6b7280">Job cards with P-category lines</td>'+V.map(function(v){return '<td style="color:#6b7280">'+(v?v.jcs.toLocaleString('en-IN'):'\u2013')+'</td>';}).join('')+'</tr>';
   h+='</table></div><p class="sub">Per job card: <b>non-visible</b> = hidden parts behind panels (harnesses, IoT device, power connector, DC-DC converter); the rest is visible cost, capped at \u20b93,000. <b>Revenue</b> = fee collected and <b>charged, not collected</b> = fee raised but not collected, both counted only up to the capped visible cost. <b>Cap</b> = visible cost above \u20b93,000. <b>Not charged</b> = visible cost within the cap that was not raised (ops mistake). The five buckets add up to the P cost (parts + labour). Fee collected above the repair cost (flat fees, penalties) is shown separately as <b>extra fee</b>. These P figures come from job cards, so they can differ slightly from the DMS-based P row above.</p></div>';
   return h;
