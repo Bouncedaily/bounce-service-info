@@ -535,8 +535,10 @@ function filterBar(){
       +'</div></details></div>'; }
   var md=modelsOf(); if(md.length) h+='<div class="grp"><label>Model</label><select data-a="model"><option value="">All models</option>'+md.map(function(x){return '<option'+(state.F.model===x?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select></div>';
   h+='<div class="grp"><label>Deployed year</label><select data-a="fdyear"><option value="">All years</option>'+((state.cohort&&state.cohort.years)||[2025,2026]).map(function(y){return '<option value="'+y+'"'+(String(state.F.dyear)===String(y)?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
-  h+='<div class="grp"><label>Show</label>'+[['bike','\u20b9 / bike'],['km','\u20b9 / km'],['rs','\u20b9 total']].map(function(u){ return '<span class="chip'+(state.unit===u[0]?' on':'')+'" data-a="unit" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')+'</div></div>';
-  h+='<div class="grp"><label>Display</label>'+[['val','Value'],['pct','%'],['both','Value + %']].map(function(u){ return '<span class="chip'+(state.disp===u[0]?' on':'')+'" data-a="disp" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')+'</div>';
+  // one Show control (23 Oct 2026): value units, % share, and an option to add the % beside values
+  h+='<div class="grp"><label>Show</label>'+[['bike','\u20b9 / bike'],['km','\u20b9 / km'],['rs','\u20b9 total']].map(function(u){ return '<span class="chip'+(state.disp!=='pct'&&state.unit===u[0]?' on':'')+'" data-a="unit" data-v="'+u[0]+'">'+u[1]+'</span>'; }).join('')
+    +'<span class="chip'+(state.disp==='pct'?' on':'')+'" data-a="disp" data-v="pct">% share</span>'
+    +'<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#475569;margin-left:8px;cursor:pointer'+(state.disp==='pct'?';opacity:.45':'')+'"><input type="checkbox" data-a="withpct"'+(state.disp==='both'?' checked':'')+(state.disp==='pct'?' disabled':'')+'> add % beside value</label></div></div>';
   if(state.F.dyear && !state.cohort) h+='<div class="note" style="margin:8px 22px">Loading deployed-year data\u2026</div>';
   else if(state.F.dyear) h+='<div class="note" style="margin:8px 22px">Deployed year '+esc(state.F.dyear)+': parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on bikes deployed in '+esc(state.F.dyear)+' (reg number \u2192 deployed year). Per km uses those bikes\' km; per bike uses the city\'s average deployed bikes \u00d7 their share of running bikes. Labour, other maintenance, revenue and insurance are split by that year\'s share of job cards (older bikes come in more often), scrap by its share of parts cost. Job card drivers show as a dash.</div>';
   if(state.F.st) h+='<div class="note" style="margin:8px 22px">Submission type: '+esc(state.F.st)+(state.subtype?'':' (loading\u2026)')+'. Parts cost is the DMS amount \u00d7 the share of that part\'s job card cost on job cards of '+(state.stSel.length===1?'this type':'these types')+' (same city, month and category). Per bike still divides by all deployed bikes. Labour, other maintenance, revenue and the drivers are city-level, so they show as a dash. Jan and Feb shares are less reliable (job card and DMS totals differ more in those months).</div>';
@@ -844,7 +846,7 @@ root.addEventListener('click',function(e){
     state.F.cities=ac.filter(function(c){ return state.F.cities.indexOf(c)>=0; });
     state.parts.city=state.mv.city=state.hubs.city=defCity(); state.F.hub=''; state.F.hubs=[]; }
   else if(a==='month'){ var all=allMonths(); if(!state.F.months.length) state.F.months=all.slice(); toggle(state.F.months,v); if(!state.F.months.length||state.F.months.length===all.length) state.F.months=[]; }
-  else if(a==='unit') state.unit=v;
+  else if(a==='unit'){ state.unit=v; if(state.disp==='pct') state.disp=state.withPct?'both':'val'; }
   else if(a==='psub'){ if(!v) state.psub=[]; else toggle(state.psub, v); }
   else if(a==='disp') state.disp=v;
   else if(a==='pb') state.parts.bucket=v;
@@ -871,6 +873,7 @@ root.addEventListener('change',function(e){
   if(a==='opsin'){ var k=el.getAttribute('data-k'), c=el.getAttribute('data-c'), m=el.getAttribute('data-m'), rupees=el.value===''?null:Math.round(parseFloat(el.value)*100000); var o=((state.ops[c]=state.ops[c]||{})[m]=(state.ops[c]||{})[m]||{month:m,city:CITY_FULL[c]}); o[k]=rupees; var vv={}; vv[k]=rupees==null?'':rupees; rpc('rmc_save_ops',{p_month:m,p_city:CITY_FULL[c],p_vals:vv}).then(function(r){ toast(r.ok?'Saved '+k.replace('_',' ')+' · '+CITY_FULL[c]+' '+C.monthLabel(m):'Could not save: '+r.msg); }); return; }
   if(!a) return;
   if(a==='fdyear'){ state.F.dyear=el.value; if(el.value && !state.cohort){ loadCohort(); } }
+  else if(a==='withpct'){ state.withPct=el.checked; if(state.disp!=='pct') state.disp=el.checked?'both':'val'; }
   else if(a==='stchk'){ if(el.value==='__all') state.stSel=[]; else toggle(state.stSel, el.value); state.F.st=state.stSel.join(', '); state.hubOpen=true; if(state.stSel.length && !state.subtype){ loadSubtype(); } }
   else if(a==='model') state.F.model=el.value;
   else if(a==='pcity') state.parts.city=el.value; else if(a==='ptop') state.parts.top=+el.value;
