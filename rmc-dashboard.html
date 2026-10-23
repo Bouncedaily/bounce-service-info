@@ -555,7 +555,7 @@ function refurbAmt(city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any
 // part units on A and P lines, leaving out items under Rs 10 a unit (screws, clips, cable ties: ~55% of units, ~1.4% of cost)
 function partUnits(city, m){ var cs=city==='ALL'?state.F.cities:[city], u=0;
   state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || (r.issue!=='A'&&r.issue!=='P') || !(r.qty>0)) return; if(r.amt/r.qty>=10) u+=r.qty; }); return u||null; }
-// Money that comes back: monthly input first (Rules & settings), else the portal figure (rider: damage fee collected; scrap: Bounce Back sale value).
+// Money that comes back: monthly input first (Rules & settings), else the portal figure (rider: damage fee collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city).
 // Revenue recovery and insurance claim have no portal source. Returns {v, fb (any city used the portal figure), miss (any city has nothing)}.
 function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false, fb=false, miss=false;
   cs.forEach(function(c){ if(!(lastModel[c]&&lastModel[c][m])) return; var pf=partFrac(m), bm=baseMonth(m), o=(state.ops[c]||{})[bm]||{}, v=o[kind]!=null?+o[kind]*pf:null;
@@ -592,7 +592,7 @@ function driversHtml(city, ms, model){
   var mark=function(r,v){ if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return (v.rrFb||v.scFb)?'\u2020':((v.icMiss||v.rvMiss||v.rrMiss||v.scMiss)?'*':''); return ''; };
   rows.forEach(function(r){ var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb', grey=r[1]==='bikes'||r[1]==='jcs', less=String(r[0]).indexOf('Less:')===0;
     h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+'><td'+(grey||less?' style="color:#6b7280'+(less?';padding-left:18px':'')+'"':'')+'>'+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
-  h+='</table></div><p class="sub">Net service cost = Total (labour + A + P + C + other) \u2212 revenue damage fee \u2212 revenue recovery \u2212 insurance claims \u2212 scrap sales, from the monthly inputs under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Bounce Back sale value). * = not entered for some city, counted as 0.</p>';
+  h+='</table></div><p class="sub">Net service cost = Total (labour + A + P + C + other) \u2212 revenue damage fee \u2212 revenue recovery \u2212 insurance claims \u2212 scrap sales, from the monthly inputs under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
   if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost; job card drivers are city totals, so they show \u2013.</p>';
   if(bad.length && !state.F.dyear) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
@@ -648,11 +648,15 @@ function viewParts(model){
     +'<select data-a="pcity">'+cityOpts(city)+'</select>'
     +'<select data-a="ptop">'+[8,12,20,40].map(function(n){return '<option value="'+n+'"'+(P.top===n?' selected':'')+'>Top '+n+'</option>';}).join('')+'</select>'
     +'<input type="text" data-a="pq" placeholder="Search part..." value="'+esc(P.q)+'"><button class="btn sm" data-a="csv">'+ic('download')+' CSV</button></div>'
-    +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='total'?'total of the months shown':C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+unitName()+'.</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('total','Total')+'</tr>';
+    +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='total'?'total of the months shown':C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. '+(state.disp!=='val'?'% = share of total '+P.bucket+' for that month. ':'')+'Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+unitName()+'.</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('total','Total')+'</tr>';
   var sumV=function(get){ var t=0, any=false; ms.forEach(function(m){ var x=get(m); if(x!=null){ t+=x; any=true; } }); return any?t:null; };
-  shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+rowCells(ms.map(function(m){ return val(r.by[m]?r.by[m].amt:0,city,m); }),true)+'<td style="font-weight:600">'+fmt(sumV(function(m){ return val(r.by[m]?r.by[m].amt:0,city,m); }))+'</td></tr>'; });
-  if(rest.length) h+='<tr><td>All other '+P.bucket+' parts ('+rest.length+')</td>'+rowCells(ms.map(function(m){ return val(rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0),city,m); }),true)+'<td style="font-weight:600">'+fmt(sumV(function(m){ return val(rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0),city,m); }))+'</td></tr>';
-  h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+ms.map(function(m){ return '<td>'+fmt(val(model[city][m][P.bucket],city,m))+'</td>'; }).join('')+'<td>'+fmt(sumV(function(m){ return val(model[city][m][P.bucket],city,m); }))+'</td></tr></table></div></div>';
+  // Display switch: % = the part's share of this category's total for the month (Total column: share of the months shown)
+  var bt=ms.map(function(m){ return model[city][m][P.bucket]||0; }), btAll=bt.reduce(function(a,b){return a+b;},0);
+  var amtRow=function(get){ var amts=ms.map(get); return rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), amts.map(function(a,i){ return bt[i]?a/bt[i]:null; }), true)
+      +dispCell(sumV(function(m){ return val(get(m),city,m); }), btAll?ms.reduce(function(t,m){ return t+get(m); },0)/btAll:null, 'font-weight:600'); };
+  shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+amtRow(function(m){ return r.by[m]?r.by[m].amt:0; })+'</tr>'; });
+  if(rest.length) h+='<tr><td>All other '+P.bucket+' parts ('+rest.length+')</td>'+amtRow(function(m){ return rest.reduce(function(a,r){return a+(r.by[m]?r.by[m].amt:0);},0); })+'</tr>';
+  h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+ms.map(function(m){ return state.disp==='pct'?'<td>100%</td>':'<td>'+fmt(val(model[city][m][P.bucket],city,m))+'</td>'; }).join('')+(state.disp==='pct'?'<td>100%</td>':'<td>'+fmt(sumV(function(m){ return val(model[city][m][P.bucket],city,m); }))+'</td>')+'</tr></table></div></div>';
   return h;
 }
 function viewMovers(model){
