@@ -318,6 +318,9 @@ async function loadAll(){
     else { var e=jcHub[k]||(jcHub[k]={p:0,t:null,b:null}); e.p+=+x[3]||0; if(x[4]!=null) e.t=(e.t||0)+(+x[4]); } });
   st.jcAll={}; st.bikes={};
   Object.keys(Object.assign({},jcHub,jcCity)).forEach(function(k){ var e=jcCity[k]||jcHub[k]; st.jc[k]=e.p; if(e.t!=null) st.jcAll[k]=e.t; if(e.b!=null) st.bikes[k]=e.b; });
+  // P category (rider-payable) breakup per city-month: [month, city, jcs, p_parts, p_labour, hidden, rev_p, rev_l, cnc_p, cnc_l, cap_p, cap_l, nc_p, nc_l, extra]
+  state.psplit={}; (D.psplit||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=['jcs','pp','pl','hid','rev_p','rev_l','cnc_p','cnc_l','cap_p','cap_l','nc_p','nc_l','extra'], o={};
+    k.forEach(function(f,i){ o[f]=+x[i+2]||0; }); (state.psplit[c]=state.psplit[c]||{})[x[0]]=o; });
   state.recov={}; (D.recov||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.recov[c]=state.recov[c]||{})[x[0]]={rider:x[2]==null?null:+x[2],scrap:x[3]==null?null:+x[3]}; });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
@@ -529,7 +532,7 @@ function viewOverview(model){
     h+='<tr class="tot"><td>Total (Labour + A + P + C + Other)</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':fmt(val(n.v,city,m))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
     h+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+ms.map(function(m){ var d=model[city][m]; return '<td style="color:#6b7280">'+fmt(val(d.A+d.P+d.C,city,m))+'</td>'; }).join('')+'</tr>';
     if(!state.F.hub && !state.F.model && !state.F.dyear) h+='<tr><td>Job cards with parts (count)</td>'+ms.map(function(m){ var n=jcCount(city,m); return '<td style="color:#6b7280">'+(n?n.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join('')+'</tr>';
-    h+='</table></div></div>'+driversHtml(city, ms, model)+'<div class="note">Total = Labour (service team) + A + P + C + Other maintenance, the same as the report. Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
+    h+='</table></div></div>'+driversHtml(city, ms, model)+pSplitHtml(city, ms)+'<div class="note">Total = Labour (service team) + A + P + C + Other maintenance, the same as the report. Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
   });
   return h||'<div class="empty">No data for the current filters.</div>';
 }
@@ -582,6 +585,38 @@ function driversHtml(city, ms, model){
   if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost; job card drivers are city totals, so they show \u2013.</p>';
   if(bad.length && !state.F.dyear) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
+}
+
+
+/* ---------- P category (rider-payable): parts & labour breakup (definitions agreed with Nithish, 23 Oct 2026) ---------- */
+function pSplitVal(city, m){ var cs=city==='ALL'?state.F.cities:[city], t=null;
+  cs.forEach(function(c){ var o=(state.psplit[c]||{})[m]; if(!o) return; t=t||{}; Object.keys(o).forEach(function(k){ t[k]=(t[k]||0)+o[k]; }); }); return t; }
+function pSplitHtml(city, ms){
+  if(state.F.hub || state.F.model || state.F.dyear) return '<div class="note">P category breakup is city-level: clear the hub, model and deployed year filters to see it.</div>';
+  var V=ms.map(function(m){ return pSplitVal(city,m); }); if(!V.some(function(v){return v;})) return '';
+  var lbl=function(m){ return C.monthLabel(m)+(isPartialMonth(m)?'*':''); };
+  var cell=function(v,m,bold){ if(v==null) return '<td>\u2013</td>'; var x=val(v,city,m); return '<td'+(bold?' style="font-weight:700"':'')+'>'+fmt(x)+'</td>'; };
+  var pct=function(a,b){ return b?Math.round(a/b*100)+'%':''; };
+  var row=function(label,fn,opt){ opt=opt||{}; return '<tr'+(opt.cls?' class="'+opt.cls+'"':'')+'><td style="'+(opt.indent?'padding-left:20px;color:#475569':'')+(opt.bold?';font-weight:700':'')+'">'+label+'</td>'+
+      V.map(function(v,i){ if(!v) return '<td>\u2013</td>'; var a=fn(v); var t=opt.of?opt.of(v):null; return cell(a,ms[i],opt.bold).replace('</td>', t?'<span style="color:#94a3b8;font-size:10.5px"> '+pct(a,t)+'</span></td>':'</td>'); }).join('')+'</tr>'; };
+  var P=function(v){return v.pp;}, L=function(v){return v.pl;};
+  var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 P category (rider-payable): parts & labour breakup</h3><p class="sub">'+unitName()+' \u00b7 from job cards with P-category lines and the damage fee data</p><div class="tw"><table><tr><th></th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+'</tr>';
+  h+=row('P parts cost', P, {bold:true, cls:'tot'});
+  h+=row('\u2705 Damage fee revenue', function(v){return v.rev_p;}, {indent:1, of:P});
+  h+=row('\ud83d\udcb8 Charged, not collected', function(v){return v.cnc_p;}, {indent:1, of:P});
+  h+=row('\u26d4 Not collected due to \u20b93,000 cap', function(v){return v.cap_p;}, {indent:1, of:P});
+  h+=row('\u26a0\ufe0f Not charged to rider (ops mistake)', function(v){return v.nc_p;}, {indent:1, of:P});
+  h+=row('\ud83d\udc41\ufe0f Non-visible components', function(v){return v.hid;}, {indent:1, of:P});
+  h+=row('P labour cost', L, {bold:true, cls:'tot'});
+  h+=row('\u2705 Damage fee revenue', function(v){return v.rev_l;}, {indent:1, of:L});
+  h+=row('\ud83d\udcb8 Charged, not collected', function(v){return v.cnc_l;}, {indent:1, of:L});
+  h+=row('\u26d4 Not collected due to \u20b93,000 cap', function(v){return v.cap_l;}, {indent:1, of:L});
+  h+=row('\u26a0\ufe0f Not charged to rider (ops mistake)', function(v){return v.nc_l;}, {indent:1, of:L});
+  h+=row('Total P (parts + labour)', function(v){return v.pp+v.pl;}, {bold:true, cls:'tot'});
+  h+=row('\u2795 Extra fee collected (above repair cost)', function(v){return v.extra;}, {});
+  h+='<tr><td style="color:#6b7280">Job cards with P-category lines</td>'+V.map(function(v){return '<td style="color:#6b7280">'+(v?v.jcs.toLocaleString('en-IN'):'\u2013')+'</td>';}).join('')+'</tr>';
+  h+='</table></div><p class="sub">Per job card: <b>non-visible</b> = hidden parts behind panels (harnesses, IoT device, power connector, DC-DC converter); the rest is visible cost, capped at \u20b93,000. <b>Revenue</b> = fee collected and <b>charged, not collected</b> = fee raised but not collected, both counted only up to the capped visible cost. <b>Cap</b> = visible cost above \u20b93,000. <b>Not charged</b> = visible cost within the cap that was not raised (ops mistake). Each is shared between parts and labour by their share of visible cost, so the rows add up to the P parts and P labour cost. Fee collected above the repair cost (flat fees, penalties) is shown separately as <b>extra fee</b>. These P figures come from job cards, so they can differ slightly from the DMS-based P row above.</p></div>';
+  return h;
 }
 
 function partRows(model, city, bucket, months){
