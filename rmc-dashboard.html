@@ -672,7 +672,9 @@ function viewParts(model){
   // sort: click any column header (part name, a month, or Total); default = latest month, highest first
   var sk=P.sortKey||last, sd=P.sortDir||'desc';
   if(sk!=='name' && sk!=='total' && ms.indexOf(sk)<0) { sk=last; sd='desc'; }
-  rows.forEach(function(r){ r.tot=ms.reduce(function(a,m){return a+(r.by[m]?r.by[m].amt:0);},0); r.s= sk==='total' ? r.tot : (r.by[sk]?r.by[sk].amt:0); });
+  var byQty=(P.measure==='p100'||P.measure==='p100s');   // sort by what is shown: units for the rate measures, cost otherwise
+  var fv=function(e){ return e?(byQty?(e.qty||0):e.amt):0; };
+  rows.forEach(function(r){ r.tot=ms.reduce(function(a,m){return a+fv(r.by[m]);},0); r.s= sk==='total' ? r.tot : fv(r.by[sk]); });
   rows.sort(function(a,b){ var c= sk==='name' ? a.label.localeCompare(b.label) : (a.s-b.s); return sd==='asc'?c:-c; });
   var arrow=function(k){ return sk===k ? (sd==='asc'?' \u25b2':' \u25bc') : ''; };
   var thS=function(k,label,left){ return '<th data-a="psort" data-v="'+k+'" style="cursor:pointer;user-select:none'+(left?';text-align:left':'')+'" title="Sort by '+esc(label)+'">'+label+arrow(k)+'</th>'; };
