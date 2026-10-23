@@ -330,7 +330,7 @@ async function loadAll(){
   state.psplit={}; var stTypes={}; (D.psplit||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=['jcs','pp','pl','hid','rev_p','rev_l','cnc_p','cnc_l','cap_p','cap_l','nc_p','nc_l','extra','cap_paid','cap_unpaid'], o={};
     k.forEach(function(f,i){ o[f]=+x[i+2]||0; }); var st=x[17]||'All'; stTypes[st]=(stTypes[st]||0)+(o.pp+o.pl);
     var cm=(state.psplit[c]=state.psplit[c]||{}), mm=(cm[x[0]]=cm[x[0]]||{}); mm[st]=o; });
-  state.stTypes=Object.keys(stTypes).filter(function(t){return t!=='All';}).sort(function(a,b){ return stTypes[b]-stTypes[a]; });
+  state.stTypes=['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC'];   // fixed list and order (23 Oct 2026)
   state.recov={}; (D.recov||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.recov[c]=state.recov[c]||{})[x[0]]={rider:x[2]==null?null:+x[2],scrap:x[3]==null?null:+x[3]}; });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
