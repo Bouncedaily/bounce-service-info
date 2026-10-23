@@ -449,7 +449,8 @@ function den(city, month, unit){
     return (base && fc.bikes) ? base*cy.bikes/fc.bikes : null;
   }
   if(state.F.model) return null;
-  if(state.F.hub){ var t=0, any=false; (state.F.hubs||[]).forEach(function(hb){ var k=city+'|'+hb+'|'+month, v=unit==='km'?state.hubKm[k]:state.hubFleet[k]; if(v){ t+=+v; any=true; } }); return any?t:null; }
+  if(state.F.hub){ var hm=baseMonth(month), t=0, any=false;   // the same-days column (e.g. Sep 1-20) uses that month's hub bikes; km scaled to the days
+    (state.F.hubs||[]).forEach(function(hb){ var k=city+'|'+hb+'|'+hm, v=unit==='km'?(state.hubKm[k]?state.hubKm[k]*partFrac(month):null):state.hubFleet[k]; if(v){ t+=+v; any=true; } }); return any?t:null; }
   if(unit!=='km' && !/p$/.test(month)){ var od=((state.ops[city]||{})[month]||{}).avg_deployed; if(od) return +od; }
   var t=(unit==='km'?state.km:state.fleet)[city]; return (t&&t[month])||null;
 }
