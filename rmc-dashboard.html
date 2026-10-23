@@ -92,7 +92,10 @@ var SVCCore = (function(){
     if ((m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return mk(+m[3], +m[2]);
     return null;
   }
-  function monthLabel(k){ var pt=/p$/.test(k), kk=pt?k.slice(0,-1):k, p=kk.split('-'); return pt ? MON[+p[1]-1]+' 1\u2013'+(window.RMC_PARTIAL_DAYS||'') : MON[+p[1]-1]+'-'+p[0].slice(2); }
+  function monthLabel(k){ var pt=/p$/.test(k), kk=pt?k.slice(0,-1):k, p=kk.split('-');
+    // partial periods: the previous month's same days ('2026-09p') and the latest month itself when its data covers only part of it
+    if(pt || (window.RMC_LATEST_PARTIAL && k===window.RMC_LATEST_PARTIAL)) return MON[+p[1]-1]+' 1\u2013'+(window.RMC_PARTIAL_DAYS||'');
+    return MON[+p[1]-1]+'-'+p[0].slice(2); }
   function titleCase(s){ return String(s).toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,function(a,b,c){return b+c.toUpperCase();}); }
   function newStore(){ return {rows:[], names:{}, jc:{}, files:[]}; }
 
@@ -300,6 +303,7 @@ async function loadAll(){
   if(!r.ok){ state.loading=false; toast(r.status===401||r.status===403||/access/i.test(r.msg||'')?'No access: the RMC Dashboard is admin-only for now.':'Could not load: '+r.msg); render(); return; }
   var D=r.data||{}, L=(D.lines||[]).slice();
   state.partial=D.partial||null; window.RMC_PARTIAL_DAYS=state.partial?state.partial.days:null;
+  window.RMC_LATEST_PARTIAL=null; if(state.partial){ var bp=state.partial.base.split('-'), nx=new Date(Date.UTC(+bp[0], +bp[1], 1)); window.RMC_LATEST_PARTIAL=nx.toISOString().slice(0,7); }   // e.g. '2026-10' when Oct has 1-20
   if(state.partial&&state.partial.lines) L=L.concat(state.partial.lines);   // same days of the previous month, e.g. Sep 1-20 (month key '2026-09p')
   var st=C.newStore(), agg={};
   L.forEach(function(x){ // [month, city, hub, model, issue, category, desc, qty, amount]
