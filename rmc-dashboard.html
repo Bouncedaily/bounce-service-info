@@ -545,10 +545,22 @@ function viewOverview(model){
     var inRow=function(k,label){ var amts=ms.map(function(m){ return opsVal(k,city,m,model[city][m]); }); return '<tr><td>'+label+'</td>'+rowCellsS(amts.map(function(a,i){ return a==null?null:val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
     var pRow=function(k){ var amts=ms.map(function(m){ return model[city][m][k]; }); return '<tr><td>'+NAMES[k]+'</td>'+rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
     h+=inRow('labour','Labour (service team)')+pRow('P')+pRow('A')+inRow('other','Other maintenance')+pRow('C');
-    h+='<tr class="tot"><td>Total (Labour + A + P + C + Other)</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
+    h+='<tr class="tot"><td>Gross cost (Labour + A + P + C + Other)</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
+    // Net service cost = gross - revenue damage fee - revenue recovery (scrap and insurance are already inside Other maintenance)
+    if(!state.F.hub && !state.F.model){
+      var nets=ms.map(function(m,i){ var g=totAmt[i], rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m);
+        return {g:g, rr:rr, rv:rv, net:(g==null)?null:g-(rr.v||0)-(rv.v||0)}; });
+      var mk=function(o){ return o.fb?'\u2020':(o.miss?'*':''); };
+      var lessRow=function(label,key){ return '<tr><td style="color:#6b7280;padding-left:18px">'+label+'</td>'+nets.map(function(x,i){ var o=x[key];
+          if(o.v==null) return '<td style="color:#6b7280">\u2013</td>';
+          var v=val(o.v,city,ms[i]), p=x.g?o.v/x.g:null; return dispCell(v,p,'color:#6b7280').replace('</td>',mk(o)+'</td>'); }).join('')+'</tr>'; };
+      h+=lessRow('Less: revenue damage fee','rr')+lessRow('Less: revenue recovery','rv');
+      h+='<tr class="tot"><td>Net service cost</td>'+nets.map(function(x,i){ if(x.net==null) return '<td>\u2013</td>';
+          var fl=x.rr.fb?'\u2020':((x.rr.miss||x.rv.miss)?'*':''); return dispCell(val(x.net,city,ms[i]), x.g?x.net/x.g:null, 'font-weight:700').replace('</td>',fl+'</td>'); }).join('')+'</tr>';
+    }
     h+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+ms.map(function(m,i){ var d=model[city][m], a=d.A+d.P+d.C; return dispCell(val(a,city,m), totAmt[i]?a/totAmt[i]:null, 'color:#6b7280'); }).join('')+'</tr>';
     if(!state.F.hub && !state.F.model && !state.F.dyear) h+='<tr><td>Job cards with parts (count)</td>'+ms.map(function(m){ var n=jcCount(city,m); return '<td style="color:#6b7280">'+(n?n.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join('')+'</tr>';
-    h+='</table></div></div>'+driversHtml(city, ms, model)+pSplitHtml(city, ms)+'<div class="note">Total = Labour (service team) + A + P + C + Other maintenance, the same as the report. Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
+    h+='</table></div></div>'+driversHtml(city, ms, model)+pSplitHtml(city, ms)+'<div class="note">Gross cost = Labour (service team) + A + P + C + Other maintenance, the same as the report. Net service cost = gross cost \u2212 revenue damage fee \u2212 revenue recovery (scrap and insurance claims are already deducted inside Other maintenance; \u2020 = input blank, portal figure used; * = not entered). Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
   });
   return h||'<div class="empty">No data for the current filters.</div>';
 }
