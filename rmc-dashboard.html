@@ -481,7 +481,7 @@ function dispCell(v, share, style){ var st=style?' style="'+style+'"':'';
   if(v==null) return '<td'+st+'>\u2013</td>';
   var p=(share==null||!isFinite(share))?'':Math.round(share*100)+'%';
   if(state.disp==='pct') return '<td'+st+'>'+(p||'\u2013')+'</td>';
-  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#94a3b8;font-size:10.5px"> '+p+'</span>':'')+'</td>';
+  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#1d4ed8;font-weight:600;font-size:10.5px"> '+p+'</span>':'')+'</td>';
   return '<td'+st+'>'+fmt(v)+'</td>'; }
 function rowCellsS(vals, shares, heatOn){ var base=state.disp==='pct'?shares:vals, nums=base.filter(function(v){return v!=null&&isFinite(v);}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
   return vals.map(function(v,i){ return dispCell(v, shares[i], heatOn?heat(base[i],mn,mx):''); }).join(''); }
