@@ -1046,9 +1046,11 @@ function renderPartSummary(d){
   var td='padding:6px 10px;text-align:right;font-size:12px;border-bottom:1px solid var(--border)';
   var tdL=td.replace('text-align:right','text-align:left');
   var tsum=function(k){return m.reduce(function(a,r){return a+(r[k]||0);},0);};
+  // Total row: click a number for the raw job cards across all hubs (the hub filter at the top still applies)
+  var tl=function(v,cat,per){ return v?'<a href="#" class="tp-cell-link" data-hub="" data-cat="'+cat+'" data-period="'+per+'" style="color:var(--red);text-decoration:none;cursor:pointer">'+v+'</a>':''; };
   var totRow='<tr style="background:var(--bg)"><td style="'+tdL+';font-weight:700">Total</td><td style="'+tdL+'"></td>'+
-    '<td style="'+td+';font-weight:700">'+(tsum("aa")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("ap")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("aw")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("af")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("a_total")||'')+'</td>'+
-    '<td style="'+td+';font-weight:700;border-left:2px solid var(--border)">'+(tsum("ba")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("bp")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("bw")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("bf")||'')+'</td><td style="'+td+';font-weight:700">'+(tsum("b_total")||'')+'</td></tr>';
+    '<td style="'+td+';font-weight:700">'+tl(tsum("aa"),'A','A')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("ap"),'P','A')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("aw"),'W','A')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("af"),'F','A')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("a_total"),'','A')+'</td>'+
+    '<td style="'+td+';font-weight:700;border-left:2px solid var(--border)">'+tl(tsum("ba"),'A','B')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("bp"),'P','B')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("bw"),'W','B')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("bf"),'F','B')+'</td><td style="'+td+';font-weight:700">'+tl(tsum("b_total"),'','B')+'</td></tr>';
   var mtx = m.length ? ('<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'+
     '<thead><tr><th style="'+thL+'" rowspan="2">City</th><th style="'+thL+'" rowspan="2">Hub</th>'+
       '<th style="'+th+';text-align:center" colspan="5">Period A</th><th style="'+th+';text-align:center;border-left:2px solid var(--border)" colspan="5">Period B</th></tr>'+
@@ -1075,21 +1077,21 @@ var CAT_LABEL={A:'Accident/Wear',P:'Paid',W:'Warranty',F:'Free'};
 async function openCellRaw(hub,cat,period){
   var ov=document.getElementById('tpCellOv'); ov.style.display='flex';
   var from=period==='A'?tpVal('tpA1'):tpVal('tpB1'), to=period==='A'?tpVal('tpA2'):tpVal('tpB2');
-  document.getElementById('tpCellTitle').textContent=TP_ITEM+' — '+hub+(cat?' · '+(CAT_LABEL[cat]||cat):' · All categories');
+  document.getElementById('tpCellTitle').textContent=TP_ITEM+' — '+(hub||(TP_SEL.hub.length?TP_SEL.hub.join(', '):'All hubs'))+(cat?' · '+(CAT_LABEL[cat]||cat):' · All categories');
   document.getElementById('tpCellSub').textContent='Period '+period+' · '+from+' to '+to;
   var body=document.getElementById('tpCellBody'); body.innerHTML='<div class="loading-state"><div class="spin"></div>Loading…</div>';
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   try{
     var r=await fetch(INFO_URL+'/rest/v1/rpc/get_part_raw_jcs',{method:'POST',headers:{apikey:INFO_KEY,Authorization:'Bearer '+INFO_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({p_item:TP_ITEM,p_hub:hub,p_dms_cat:cat,p_from:from,p_to:to,p_city:TP_SEL.city.length?TP_SEL.city:null,p_subtype:TP_SEL.sub.length?TP_SEL.sub:null})});
+      body:JSON.stringify({p_item:TP_ITEM,p_hub:hub||null,p_dms_cat:cat,p_from:from,p_to:to,p_city:TP_SEL.city.length?TP_SEL.city:null,p_subtype:TP_SEL.sub.length?TP_SEL.sub:null,p_hubs:(!hub&&TP_SEL.hub.length)?TP_SEL.hub:null,p_limit:hub?500:2000})});
     if(!r.ok){ body.innerHTML='<div class="loading-state">Could not load.</div>'; return; }
     var rows=await r.json();
     if(!rows.length){ body.innerHTML='<div class="loading-state">No matching job cards.</div>'; return; }
     var th='padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap';
     var td='padding:6px 9px;font-size:12px;border-bottom:1px solid var(--border);white-space:nowrap';
     body.innerHTML='<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-      ['Reg Number','DMS JC ID','City','Date','Submission Type','Cat','Qty','Amount','ODO','Avg KM','HO User','HO Approval Remarks'].map(function(h){return '<th style="'+th+'">'+h+'</th>';}).join('')+
-      '</tr></thead><tbody>'+rows.map(function(x){return '<tr><td style="'+td+'">'+esc(x.reg_number)+'</td><td style="'+td+'">'+esc(x.dms_jc_no)+'</td><td style="'+td+'">'+esc(x.city)+'</td><td style="'+td+'">'+esc(x.data_date)+'</td><td style="'+td+'">'+esc(x.submission_type)+'</td><td style="'+td+'">'+esc(x.dms_cat)+'</td><td style="'+td+'">'+esc(x.qty)+'</td><td style="'+td+'">₹'+tpINR(x.amount)+'</td><td style="'+td+'">'+esc(x.bike_odo)+'</td><td style="'+td+'">'+(x.km_gap!=null?tpINR(x.km_gap)+' km':'—')+'</td><td style="'+td+'">'+esc(x.ho_user||'—')+'</td><td style="'+td+'">'+esc(x.ho_approval_remarks||'—')+'</td></tr>';}).join('')+
+      ['Reg Number','DMS JC ID','City','Hub','Date','Submission Type','Cat','Qty','Amount','ODO','Avg KM','HO User','HO Approval Remarks'].map(function(h){return '<th style="'+th+'">'+h+'</th>';}).join('')+
+      '</tr></thead><tbody>'+rows.map(function(x){return '<tr><td style="'+td+'">'+esc(x.reg_number)+'</td><td style="'+td+'">'+esc(x.dms_jc_no)+'</td><td style="'+td+'">'+esc(x.city)+'</td><td style="'+td+'">'+esc(x.hub)+'</td><td style="'+td+'">'+esc(x.data_date)+'</td><td style="'+td+'">'+esc(x.submission_type)+'</td><td style="'+td+'">'+esc(x.dms_cat)+'</td><td style="'+td+'">'+esc(x.qty)+'</td><td style="'+td+'">₹'+tpINR(x.amount)+'</td><td style="'+td+'">'+esc(x.bike_odo)+'</td><td style="'+td+'">'+(x.km_gap!=null?tpINR(x.km_gap)+' km':'—')+'</td><td style="'+td+'">'+esc(x.ho_user||'—')+'</td><td style="'+td+'">'+esc(x.ho_approval_remarks||'—')+'</td></tr>';}).join('')+
       '</tbody></table>';
   }catch(e){ body.innerHTML='<div class="loading-state">Could not load.</div>'; }
 }
