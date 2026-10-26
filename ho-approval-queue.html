@@ -582,9 +582,14 @@ function renderPartsTable(jc, items){
     if(match) usedKeys[match.key]=true;
     var catCell = match ? catChip(match.catg) : '';
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
+    if (isSuspSetPart(jc, p.item)) {
+      var ssr = jc._ss;
+      checkCell = '<span class="bad-life">⚠ All 3 front suspension parts requested \u2014 replace the full Front Fork assembly instead'
+        + (ssr && ssr.refurbStock > 0 ? ' (refurbished one in stock at this hub: ' + ssr.refurbStock + ')' : '') + '</span>';
+    }
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+((earlyRow||isSuspSetPart(jc, p.item))?' class="row-flag"':'')+'><td>'+esc(p.item)+(isSuspSetPart(jc, p.item)?' <span class="chip red" style="font-size:9.5px;padding:1px 6px" title="Part of a full suspension set on this job card">set</span>':'')+'</td><td>'+lastReplaced(p, jc.km_at_jc)+refurbNote(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+((earlyRow||isSuspSetPart(jc, p.item))?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+refurbNote(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
