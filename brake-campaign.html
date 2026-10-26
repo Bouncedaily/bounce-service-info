@@ -66,12 +66,19 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:50;font-weight:600}
 .loading{padding:40px 16px;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.modes{display:flex;gap:6px;margin:6px 0 10px}.mode{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border,#e2e8f0);background:var(--card,#fff);color:var(--muted,#64748b);font-weight:600;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
+.mode.on{background:#0f172a;color:#fff;border-color:#0f172a}
+.pri{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}.pri.P0{background:#fde2e2;color:#b91c1c}.pri.P1{background:#fef3c7;color:#b45309}.pri.P2{background:#dbeafe;color:#1d4ed8}
 </style></head>
 <body>
 <div class="wrap">
   <h1>Brake Campaign</h1>
   <div class="psub" id="sub">Brake-overdue bikes for the WhatsApp blast, refreshed every hour.</div>
 
+  <div class="modes" role="group" aria-label="Campaign type">
+    <button class="mode on" data-mode="brake"><i class="ti ti-disc"></i>Brake</button>
+    <button class="mode" data-mode="pm"><i class="ti ti-tool"></i>PM (service due)</button>
+  </div>
   <div class="tabs" role="tablist" aria-label="Sections">
     <button class="tab active" role="tab" aria-selected="true" data-tab="live">Live list</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="blast">Create blast file</button>
@@ -153,6 +160,69 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
     </div>
     <div id="track-body"></div>
   </section>
+
+  <!-- PM: LIVE LIST -->
+  <section id="pm-live" hidden>
+    <div class="bar" aria-label="PM filters">
+      <label>City<select id="pf-city"><option value="">All cities</option></select></label>
+      <label>Hub<select id="pf-hub"><option value="">All hubs</option></select></label>
+      <label>Priority<select id="pf-pri"><option value="">P0 + P1 + P2</option><option value="P0">P0 · 90+ days or 5,000+ km</option><option value="P1">P1 · 45-89 days or 3,000-4,999 km</option><option value="P2">P2 · 30-44 days or 2,000-2,999 km</option></select></label>
+      <label>Search<input id="pf-q" type="search" placeholder="Reg or rider"></label>
+      <span class="spacer"></span>
+      <button class="btn" id="pdl-live-csv"><i class="ti ti-download"></i>CSV</button>
+      <button class="btn dark" id="pdl-live-xlsx"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+    </div>
+    <div class="kpis" id="pm-kpis"></div>
+    <div class="card">
+      <div class="scroll"><table>
+        <thead><tr><th>Reg number</th><th>City · Hub</th><th>Model</th><th>Priority</th><th class="r">Days since service</th><th class="r">Km since service</th><th>Why</th><th>Last service</th><th>Rider</th></tr></thead>
+        <tbody id="pm-body"><tr><td colspan="9" class="loading">Loading…</td></tr></tbody>
+      </table></div>
+      <div class="pager"><span id="pm-count"></span><span class="steps"><button class="btn sm" id="ppg-prev">Previous</button><button class="btn sm" id="ppg-next">Next</button></span></div>
+    </div>
+    <div class="muted" style="margin:8px 2px">Active rental bikes with a rider. Last service = the later of the bike's last job card and its first deployment date. Priority = whichever is more urgent of days and km since then. Refreshed every morning.</div>
+  </section>
+
+  <!-- PM: CREATE BLAST FILE -->
+  <section id="pm-blast" hidden>
+    <div class="card"><div class="card-bd">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center">
+        <div class="chips" style="margin:0" id="pblast-chips"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Control group
+          <input id="pctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Control group percent">%</label>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-weight:600">
+        <span class="muted">Priorities in this wave:</span>
+        <label><input type="checkbox" id="pb-P0" checked> P0</label><label><input type="checkbox" id="pb-P1"> P1</label><label><input type="checkbox" id="pb-P2"> P2</label>
+      </div>
+      <div class="counts" id="pblast-counts"></div>
+      <div class="steps">
+        <button class="btn primary" id="pb-create">1 · Create wave</button>
+        <button class="btn" id="pb-dl-csv">2 · Download CSV</button>
+        <button class="btn" id="pb-dl-xlsx">2 · Download Excel</button>
+        <button class="btn dark" id="pb-sent">3 · Mark as sent</button>
+      </div>
+      <div class="muted" id="pblast-hint" style="margin-top:10px"></div>
+    </div></div>
+    <div class="card"><div class="card-hd"><h2>Wave by city</h2></div>
+      <div class="scroll"><table><thead><tr><th>City</th><th class="r">P0</th><th class="r">P1</th><th class="r">P2</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">Control</th></tr></thead><tbody id="pblast-city"></tbody></table></div>
+    </div>
+    <div class="card"><div class="card-hd"><h2>PM waves</h2></div>
+      <div class="scroll"><table><thead><tr><th>Wave</th><th>Priorities</th><th>Created</th><th class="r">In blast file</th><th class="r">Control</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="pwaves-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- PM: TRACKING -->
+  <section id="pm-track" hidden>
+    <div class="bar">
+      <label>Wave<select id="pt-wave"></select></label>
+      <label>City<select id="pt-city"><option value="">All cities</option></select></label>
+      <span class="spacer"></span>
+      <button class="btn" id="pup-report" title="Load the delivery / reply report Marketing sends back (CSV or Excel)"><i class="ti ti-upload"></i>Upload WhatsApp report</button>
+      <button class="btn dark" id="pdl-track"><i class="ti ti-download"></i>Download</button>
+    </div>
+    <div id="ptrack-body"></div>
+  </section>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -224,7 +294,7 @@ async function load(){
   var res=await Promise.all([
     getAll('/rest/v1/brake_overdue_live?select='+cols+'&tier=not.is.null&order=max_km.desc'),
     getAll('/rest/v1/rider_contacts?select=reg_number,rider_name,rider_phone'),
-    api('/rest/v1/brake_campaigns?select=*&order=created_at.desc')
+    api('/rest/v1/brake_campaigns?select=*&kind=eq.brake&order=created_at.desc')
   ]);
   if(!res[0].ok){ alertBox('Could not load the live list: '+esc(res[0].msg)); $('live-body').innerHTML=''; return; }
   LIVE=res[0].data||[];
@@ -232,7 +302,7 @@ async function load(){
   if(res[1].ok){ (res[1].data||[]).forEach(function(c){ CONTACTS[c.reg_number]=c; }); CANPHONE=(res[1].data||[]).length>0; }
   WAVES=res[2].ok?(res[2].data||[]):[];
   var ref=LIVE.reduce(function(m,r){ return r.refreshed_at&&r.refreshed_at>m?r.refreshed_at:m; },'');
-  $('sub').textContent='Brake-overdue bikes for the WhatsApp blast · refreshed every hour · last refresh '+fmtWhen(ref)+' IST';
+  $('sub').textContent='Brake-overdue bikes for the WhatsApp blast · refreshed every hour · last refresh '+fmtWhen(ref)+' IST'; BRAKE_SUB=$('sub').textContent;
   fillSelect($('f-city'), uniq(LIVE.map(function(r){return r.city;})), 'All cities');
   fillHubs();
   renderLive(); renderBlast(); renderWaves(); fillTrackWaves();
@@ -359,7 +429,7 @@ async function deleteWave(id){
   toast(w.name+' deleted'); await reloadWaves(true);
 }
 async function reloadWaves(alsoLive){
-  var r=await api('/rest/v1/brake_campaigns?select=*&order=created_at.desc'); WAVES=r.ok?(r.data||[]):WAVES;
+  var r=await api('/rest/v1/brake_campaigns?select=*&kind=eq.brake&order=created_at.desc'); WAVES=r.ok?(r.data||[]):WAVES;
   if(alsoLive){ var l=await getAll('/rest/v1/brake_overdue_live?select=reg_number,blast_status,last_sent_at&tier=not.is.null'); if(l.ok){ var m={}; l.data.forEach(function(x){m[x.reg_number]=x;}); LIVE.forEach(function(x){ var y=m[x.reg_number]; if(y){x.blast_status=y.blast_status;x.last_sent_at=y.last_sent_at;} }); } renderLive(); }
   renderBlast(); renderWaves(); fillTrackWaves();
 }
@@ -557,6 +627,130 @@ function pickCol(headers,keys){
   for(var j=0;j<keys.length;j++){ for(var m=0;m<h.length;m++){ if(h[m].indexOf(keys[j])>=0) return m; } }
   return -1;
 }
+
+/* ══ PM campaign (26 Oct 2026): PM-due active rental bikes, same waves / tracking tables (kind = 'pm') ══ */
+var PML=[], PMWAVES=[], PMPAGE=0, PMLOADED=false, PMTRK=null, BRAKE_SUB='';
+var PRI_TXT={P0:'90+ days or 5,000+ km',P1:'45-89 days or 3,000-4,999 km',P2:'30-44 days or 2,000-2,999 km'};
+function priBadge(p){ return p?'<span class="pri '+p+'">'+p+'</span>':''; }
+function pmSub(){ var ref=PML.reduce(function(m,r){ return r.refreshed_at&&r.refreshed_at>m?r.refreshed_at:m; },''); $('sub').textContent='PM-due active rental bikes for the WhatsApp blast · priority by days and km since last service · refreshed every morning'+(ref?' · last refresh '+fmtWhen(ref)+' IST':''); }
+async function pmLoad(){
+  PMLOADED=true; $('pm-body').innerHTML='<tr><td colspan="9" class="loading">Loading…</td></tr>';
+  var res=await Promise.all([ getAll('/rest/v1/pm_priority?select=*&priority=neq.Not%20due&order=priority.asc,km_since.desc.nullslast'), api('/rest/v1/brake_campaigns?select=*&kind=eq.pm&order=created_at.desc') ]);
+  if(!res[0].ok){ $('pm-body').innerHTML='<tr><td colspan="9" class="msg">Could not load the PM list: '+esc(res[0].msg)+'</td></tr>'; return; }
+  PML=(res[0].data||[]).filter(function(r){ return r.current_rider_id; }); PMWAVES=res[1].ok?(res[1].data||[]):[];
+  pmSub();
+  fillSelect($('pf-city'), uniq(PML.map(function(r){return r.city;})), 'All cities'); pmFillHubs();
+  pmRenderLive(); pmRenderBlast(); pmRenderWaves(); pmFillTrackWaves();
+  if(CURTAB==='track') pmLoadTrack();
+}
+function pmFillHubs(){ var c=$('pf-city').value; fillSelect($('pf-hub'), uniq(PML.filter(function(r){return !c||r.city===c;}).map(function(r){return r.hub_name;})), 'All hubs'); }
+function pmF(){ return {city:$('pf-city').value, hub:$('pf-hub').value, pri:$('pf-pri').value, q:($('pf-q').value||'').trim().toLowerCase()}; }
+function pmRows(f, ignorePri){ return PML.filter(function(r){ var c=CONTACTS[r.reg_number]||{};
+  return (!f.city||r.city===f.city) && (!f.hub||r.hub_name===f.hub) && (ignorePri||!f.pri||r.priority===f.pri)
+    && (!f.q || r.reg_number.toLowerCase().indexOf(f.q)>=0 || String(c.rider_name||r.current_rider_name||'').toLowerCase().indexOf(f.q)>=0); }); }
+function pmRenderLive(){
+  var f=pmF(), all=pmRows(f,true), rows=pmRows(f,false), cnt={P0:0,P1:0,P2:0};
+  all.forEach(function(r){ cnt[r.priority]=(cnt[r.priority]||0)+1; });
+  $('pm-kpis').innerHTML=kpi('PM due (P0-P2)', n(all.length), 'active rental bikes with a rider','')+kpi('P0', n(cnt.P0), PRI_TXT.P0, 'color:#b91c1c')+kpi('P1', n(cnt.P1), PRI_TXT.P1, 'color:#b45309')+kpi('P2', n(cnt.P2), PRI_TXT.P2, 'color:#1d4ed8');
+  var pages=Math.max(1,Math.ceil(rows.length/PAGESZ)); PMPAGE=Math.min(PMPAGE,pages-1);
+  var pg=rows.slice(PMPAGE*PAGESZ,(PMPAGE+1)*PAGESZ);
+  $('pm-body').innerHTML=pg.length?pg.map(function(r){ var c=CONTACTS[r.reg_number]||{};
+    return '<tr><td class="b">'+esc(r.reg_number)+'</td><td>'+esc(r.city)+' · '+esc(r.hub_name||'')+'</td><td>'+esc(r.model_name||'')+'</td><td>'+priBadge(r.priority)+'</td><td class="r">'+n(r.days_since)+'</td><td class="r">'+(r.km_since==null?'<span class="muted">no odo</span>':n(Math.round(r.km_since)))+'</td><td>'+esc(r.priority_reason||'')+'</td><td>'+(r.last_service_date?fmtDate(r.last_service_date):'')+' <span class="muted">'+esc(r.service_basis||'')+'</span></td><td>'+esc(greetName(c.rider_name||r.current_rider_name))+' <span class="muted">'+(CANPHONE?maskPhone(c.rider_phone):'')+'</span></td></tr>'; }).join('')
+    :'<tr><td colspan="9" class="msg">No PM-due bikes for these filters.</td></tr>';
+  $('pm-count').textContent=rows.length?('Showing '+n(PMPAGE*PAGESZ+1)+'-'+n(PMPAGE*PAGESZ+pg.length)+' of '+n(rows.length)):'';
+}
+function pmLiveExport(){ var out=[['reg_number','rider_name','rider_phone','city','hub','model','priority','days_since_service','km_since_service','why','last_service_date','last_service_basis']];
+  pmRows(pmF(),false).forEach(function(r){ var c=CONTACTS[r.reg_number]||{}; out.push([r.reg_number,greetName(c.rider_name||r.current_rider_name),CANPHONE?(c.rider_phone||''):'',r.city,r.hub_name,r.model_name,r.priority,r.days_since,r.km_since==null?'':Math.round(r.km_since),r.priority_reason,r.last_service_date,r.service_basis]); });
+  return out; }
+function pmPris(){ return ['P0','P1','P2'].filter(function(p){ return $('pb-'+p).checked; }); }
+function pmLatestDraft(){ return PMWAVES.filter(function(w){return w.status==='draft';})[0]||null; }
+function pmRenderBlast(){
+  if(!PMLOADED) return;
+  var f=pmF(), pr=pmPris(), pc=Math.max(0,Math.min(50,Number($('pctrl-pct').value)||0))/100;
+  var rows=PML.filter(function(r){ return pr.indexOf(r.priority)>=0 && (!f.city||r.city===f.city) && (!f.hub||r.hub_name===f.hub); });
+  var chips=[f.city||'All cities']; if(f.hub) chips.push(f.hub);
+  $('pblast-chips').innerHTML='<span class="muted" style="font-weight:600">Bikes from Live list:</span>'+chips.map(function(c){return '<span class="fchip">'+esc(c)+'</span>';}).join('')+'<a href="#" class="lnk" id="pchg-f">Change</a>';
+  $('pchg-f').onclick=function(e){ e.preventDefault(); showTab('live'); };
+  var byc={}, tot={P0:0,P1:0,P2:0,n:0,m:0,c:0};
+  rows.forEach(function(r){ var k=byc[r.city]||(byc[r.city]={P0:0,P1:0,P2:0,n:0}); k[r.priority]++; k.n++; });
+  var html=Object.keys(byc).sort(function(a,b){return byc[b].n-byc[a].n;}).map(function(c){ var k=byc[c], ctl=Math.round(k.n*pc), m=k.n-ctl;
+    tot.P0+=k.P0; tot.P1+=k.P1; tot.P2+=k.P2; tot.n+=k.n; tot.m+=m; tot.c+=ctl;
+    return '<tr><td>'+esc(c)+'</td><td class="r">'+n(k.P0)+'</td><td class="r">'+n(k.P1)+'</td><td class="r">'+n(k.P2)+'</td><td class="r">'+n(k.n)+'</td><td class="r" style="color:var(--blue);font-weight:600">'+n(m)+'</td><td class="r" style="color:var(--amber);font-weight:600">'+n(ctl)+'</td></tr>'; }).join('');
+  $('pblast-city').innerHTML=html?html+'<tr class="tot"><td>Total</td><td class="r">'+n(tot.P0)+'</td><td class="r">'+n(tot.P1)+'</td><td class="r">'+n(tot.P2)+'</td><td class="r">'+n(tot.n)+'</td><td class="r">'+n(tot.m)+'</td><td class="r">'+n(tot.c)+'</td></tr>':'<tr><td colspan="7" class="msg">No bikes for these priorities and filters.</td></tr>';
+  $('pblast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Control (not messaged)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
+  var d=pmLatestDraft();
+  $('pb-create').disabled=!IS_ADMIN||!!d||!tot.n||!pr.length;
+  $('pb-dl-csv').disabled=$('pb-dl-xlsx').disabled=!d; $('pb-sent').disabled=!IS_ADMIN||!d;
+  $('pblast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Control bikes are picked at random inside each hub and are not messaged, so the effect of the message can be measured. Bikes already in a PM wave sent in the last 7 days (and not yet serviced) are skipped.';
+}
+async function pmCreateWave(){
+  var f=pmF(), pr=pmPris(); if(!pr.length) return;
+  var name=prompt('Name this PM wave', 'PM wave '+(PMWAVES.length+1)+' · '+pr.join('+')+' · '+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
+  if(!name) return;
+  $('pb-create').disabled=true;
+  var r=await rpc('create_pm_campaign',{p_name:name,p_priorities:pr,p_cities:f.city?[f.city]:null,p_hubs:f.hub?[f.hub]:null,p_control_pct:Number($('pctrl-pct').value)||0});
+  if(!r.ok){ toast('Could not create wave: '+r.msg); pmRenderBlast(); return; }
+  toast(name+' created'); await pmReloadWaves();
+}
+async function pmReloadWaves(){ var r=await api('/rest/v1/brake_campaigns?select=*&kind=eq.pm&order=created_at.desc'); PMWAVES=r.ok?(r.data||[]):PMWAVES; pmRenderBlast(); pmRenderWaves(); pmFillTrackWaves(); }
+async function pmMarkSent(id){ var w=PMWAVES.filter(function(x){return x.id===id;})[0]; if(!w||!confirm('Mark '+w.name+' as sent? Service visits are counted from now.')) return;
+  var r=await rpc('mark_brake_campaign_sent',{p_campaign:id}); if(!r.ok){ toast('Could not mark as sent: '+r.msg); return; } toast(w.name+' marked as sent'); await pmReloadWaves(); }
+async function pmDeleteWave(id){ var w=PMWAVES.filter(function(x){return x.id===id;})[0]; if(!w||!confirm('Delete '+w.name+'? It has not been sent.')) return;
+  var r=await rpc('delete_brake_campaign',{p_campaign:id}); if(!r.ok){ toast('Could not delete: '+r.msg); return; } toast(w.name+' deleted'); await pmReloadWaves(); }
+async function pmRenderWaves(){
+  if(!PMWAVES.length){ $('pwaves-body').innerHTML='<tr><td colspan="8" class="msg">No PM waves yet. Pick priorities above and create PM wave 1.</td></tr>'; return; }
+  var ids=PMWAVES.map(function(w){return w.id;}), r=await getAll('/rest/v1/brake_campaign_targets?select=campaign_id,grp&campaign_id=in.('+ids.join(',')+')'), c={};
+  (r.ok?r.data:[]).forEach(function(t){ var k=c[t.campaign_id]||(c[t.campaign_id]={messaged:0,control:0}); k[t.grp]++; });
+  $('pwaves-body').innerHTML=PMWAVES.map(function(w){ var k=c[w.id]||{messaged:0,control:0}, pr=((w.filters||{}).priorities||[]).join(' + ');
+    var acts='<button class="btn sm" data-dl="'+w.id+'">CSV</button> <button class="btn sm" data-dlx="'+w.id+'">Excel</button>';
+    if(w.status==='draft'&&IS_ADMIN) acts+=' <button class="btn sm dark" data-sent="'+w.id+'">Mark as sent</button> <button class="btn sm" data-del="'+w.id+'">Delete</button>';
+    return '<tr><td class="b">'+esc(w.name)+'</td><td>'+esc(pr)+'</td><td>'+fmtWhen(w.created_at)+'</td><td class="r">'+n(k.messaged)+'</td><td class="r">'+n(k.control)+'</td><td>'+(w.status==='draft'?'Not sent':w.status==='live'?'Sent':'Closed')+'</td><td>'+fmtWhen(w.launched_at)+'</td><td>'+acts+'</td></tr>'; }).join('');
+}
+async function pmDownloadWave(id,fmt){
+  var w=PMWAVES.filter(function(x){return x.id===id;})[0]; if(!w) return;
+  var r=await getAll('/rest/v1/brake_campaign_targets?select=*&campaign_id=eq.'+id+'&grp=eq.messaged&order=city,hub_name'); if(!r.ok){ toast('Could not load the wave: '+r.msg); return; }
+  var out=[['reg_number','rider_name','rider_phone','city','hub','priority','days_since_service','km_since_service','last_service_date','wave_id']];
+  r.data.forEach(function(t){ var c=CONTACTS[t.reg_number]||{}; out.push([t.reg_number,greetName(c.rider_name||t.rider_name_at_send),CANPHONE?(c.rider_phone||''):'',t.city,t.hub_name,t.pm_priority,t.pm_days,t.pm_km==null?'':Math.round(t.pm_km),t.last_service_date,'PM'+id]); });
+  download('pm_blast_'+w.name.replace(/[^A-Za-z0-9]+/g,'_')+'_'+stamp(), out, fmt);
+}
+function pmFillTrackWaves(){ var sent=PMWAVES.filter(function(w){return w.status!=='draft';}), cur=$('pt-wave').value;
+  $('pt-wave').innerHTML=sent.length?sent.map(function(w){return '<option value="'+w.id+'">'+esc(w.name)+'</option>';}).join(''):'<option value="">No sent PM waves yet</option>';
+  if(cur&&sent.some(function(w){return String(w.id)===cur;})) $('pt-wave').value=cur; }
+async function pmLoadTrack(){
+  var id=$('pt-wave').value;
+  if(!id){ $('ptrack-body').innerHTML='<div class="card"><div class="msg">Tracking starts once a PM wave is marked as sent on the Create blast file tab.</div></div>'; return; }
+  $('ptrack-body').innerHTML='<div class="loading">Loading…</div>';
+  var r=await getAll('/rest/v1/brake_campaign_targets?select=*&campaign_id=eq.'+id);
+  if(!r.ok){ $('ptrack-body').innerHTML='<div class="err">Could not load tracking: '+esc(r.msg)+'</div>'; return; }
+  PMTRK={id:Number(id),rows:r.data}; TRK=PMTRK;   // TRK lets the WhatsApp report upload work for PM waves too
+  fillSelect($('pt-city'), uniq(PMTRK.rows.map(function(t){return t.city;})), 'All cities');
+  pmRenderTrack();
+}
+function pmRenderTrack(){
+  var c=$('pt-city').value, rows=PMTRK.rows.filter(function(t){return !c||t.city===c;});
+  var m=rows.filter(function(t){return t.grp==='messaged';}), ct=rows.filter(function(t){return t.grp==='control';});
+  var cntf=function(a,f){ return a.filter(f).length; }, sv=function(t){ return !!t.visited_at; };
+  var ms=cntf(m,sv), cs=cntf(ct,sv), mr=m.length?ms/m.length:0, cr=ct.length?cs/ct.length:0;
+  var h='<div class="kpis">'+kpi('In blast file', n(m.length), 'messaged','')+kpi('Sent', n(cntf(m,function(t){return t.sent_at;})), pct(cntf(m,function(t){return t.sent_at;}),m.length),'')
+    +kpi('Read', n(cntf(m,function(t){return t.read_at;})), pct(cntf(m,function(t){return t.read_at;}),m.length),'')+kpi('Replied', n(cntf(m,function(t){return t.replied_at;})), pct(cntf(m,function(t){return t.replied_at;}),m.length),'')
+    +kpi('Serviced (messaged)', n(ms), pct(ms,m.length)+' had a job card after the message','color:var(--green,#15803d)')
+    +kpi('Serviced (control)', n(cs), pct(cs,ct.length)+' of '+n(ct.length)+' not messaged','color:var(--amber,#b45309)')
+    +kpi('Effect of the message', ct.length?((mr-cr>=0?'+':'')+Math.round((mr-cr)*100)+' pts'):'–', 'serviced rate, messaged vs control','')+'</div>';
+  var byp={}; rows.forEach(function(t){ var k=byp[t.pm_priority||'-']||(byp[t.pm_priority||'-']={m:0,ms:0,c:0,cs:0}); if(t.grp==='messaged'){ k.m++; if(sv(t)) k.ms++; } else { k.c++; if(sv(t)) k.cs++; } });
+  h+='<div class="card"><div class="card-hd"><h2>By priority</h2></div><div class="scroll"><table><thead><tr><th>Priority</th><th class="r">Messaged</th><th class="r">Serviced</th><th class="r">Rate</th><th class="r">Control</th><th class="r">Serviced</th><th class="r">Rate</th></tr></thead><tbody>'
+    +['P0','P1','P2'].filter(function(p){return byp[p];}).map(function(p){ var k=byp[p]; return '<tr><td>'+priBadge(p)+'</td><td class="r">'+n(k.m)+'</td><td class="r">'+n(k.ms)+'</td><td class="r b">'+pct(k.ms,k.m)+'</td><td class="r">'+n(k.c)+'</td><td class="r">'+n(k.cs)+'</td><td class="r">'+pct(k.cs,k.c)+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
+  var st={}; m.forEach(function(t){ st[t.status||'Not sent']=(st[t.status||'Not sent']||0)+1; });
+  h+='<div class="card"><div class="card-hd"><h2>Messaged riders by status</h2></div><div class="chips" style="padding:10px 14px">'+Object.keys(st).sort(function(a,b){return st[b]-st[a];}).map(function(k){ return '<span class="fchip">'+esc(k)+' · '+n(st[k])+'</span>'; }).join('')+'</div>';
+  var list=m.slice().sort(function(a,b){ return (a.pm_priority||'').localeCompare(b.pm_priority||'') || (b.pm_km||0)-(a.pm_km||0); }).slice(0,300);
+  h+='<div class="scroll"><table><thead><tr><th>Reg number</th><th>Rider</th><th>City · Hub</th><th>Priority</th><th class="r">Km since service</th><th>Status</th><th>Serviced on</th><th>Hub visited</th></tr></thead><tbody>'
+    +list.map(function(t){ var cc=CONTACTS[t.reg_number]||{}; return '<tr><td class="b">'+esc(t.reg_number)+'</td><td>'+esc(greetName(cc.rider_name||t.rider_name_at_send))+'</td><td>'+esc(t.city)+' · '+esc(t.hub_name||'')+'</td><td>'+priBadge(t.pm_priority)+'</td><td class="r">'+(t.pm_km==null?'':n(Math.round(t.pm_km)))+'</td><td>'+esc(t.status||'')+'</td><td>'+(t.visited_at?fmtDate(t.visited_at):'')+'</td><td>'+esc(t.visit_hub||'')+'</td></tr>'; }).join('')
+    +'</tbody></table></div>'+(m.length>300?'<div class="muted" style="padding:8px 14px">Showing 300 of '+n(m.length)+'. Download for the full list.</div>':'')+'</div>';
+  $('ptrack-body').innerHTML=h;
+}
+function pmDownloadTrack(){ if(!PMTRK) return; var out=[['reg_number','group','rider_name','city','hub','priority','days_since_service','km_since_service','status','sent','read','replied','serviced_on','hub_visited','job_card']];
+  PMTRK.rows.forEach(function(t){ var c=CONTACTS[t.reg_number]||{}; out.push([t.reg_number,t.grp,greetName(c.rider_name||t.rider_name_at_send),t.city,t.hub_name,t.pm_priority,t.pm_days,t.pm_km==null?'':Math.round(t.pm_km),t.status,t.sent_at||'',t.read_at||'',t.replied_at||'',t.visited_at||'',t.visit_hub||'',t.visit_jc||'']); });
+  download('pm_tracking_'+stamp(), out, 'xlsx'); }
+
 async function uploadReport(file){
   if(!TRK){ toast('Pick a sent wave first'); return; }
   try{ await loadXLSX(); }catch(e){ toast('Could not load the file reader, try again'); return; }
@@ -583,7 +777,7 @@ async function uploadReport(file){
   }
   $('up-report').disabled=false;
   toast(tot.matched+' of '+tot.rows+' rows matched'+(tot.unmatched?' · '+tot.unmatched+' not in this wave (e.g. '+tot.samples.slice(0,3).join(', ')+')':''));
-  await loadTrack();
+  if(MODE==='pm') await pmLoadTrack(); else await loadTrack();
 }
 // Rider responses from the WhatsApp report, by status
 var RESP_ORDER=['Brake replaced','Replaced ✓ (job card found)','Says replaced - no job card','Visited - no brake change','Will visit today','Will visit tomorrow','Will visit','Not interested','Refused','Opted out','Wrong number','Replied','Read','Delivered','Not delivered','Sent'];
@@ -615,11 +809,20 @@ function downloadCalls(){
 }
 
 /* ── wiring ── */
+var MODE='brake', CURTAB='live';
 function showTab(name){
+  CURTAB=name;
   document.querySelectorAll('.tab').forEach(function(b){ var on=b.dataset.tab===name; b.classList.toggle('active',on); b.setAttribute('aria-selected',on); });
-  ['live','blast','track'].forEach(function(t){ $('tab-'+t).hidden=(t!==name); });
+  ['live','blast','track'].forEach(function(t){ $('tab-'+t).hidden=(MODE!=='brake'||t!==name); $('pm-'+t).hidden=(MODE!=='pm'||t!==name); });
+  if(MODE==='pm'){ if(name==='blast') pmRenderBlast(); if(name==='track') pmLoadTrack(); return; }
   if(name==='blast') renderBlast();
   if(name==='track') loadTrack();
+}
+function setMode(m){
+  MODE=m; document.querySelectorAll('.mode').forEach(function(b){ b.classList.toggle('on', b.dataset.mode===m); });
+  document.querySelector('h1').textContent = m==='pm' ? 'PM Campaign' : 'Brake Campaign';
+  if(m==='pm' && !PMLOADED) pmLoad(); else if(m==='pm') pmSub(); else $('sub').textContent=BRAKE_SUB||$('sub').textContent;
+  showTab(CURTAB);
 }
 document.querySelectorAll('.tab').forEach(function(b){ b.onclick=function(){ showTab(b.dataset.tab); }; });
 ['f-hub','f-view','f-flag','f-brake','f-mode'].forEach(function(id){ $(id).onchange=function(){ PAGE=0; renderLive(); }; });
@@ -645,6 +848,24 @@ $('up-report').onclick=function(){ $('up-file').value=''; $('up-file').click(); 
 $('up-file').onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) uploadReport(f); };
 $('track-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) return; if(b.dataset.lvl){ TRKLEVEL=b.dataset.lvl; renderTrack(); } else if(b.id==='dl-calls') downloadCalls(); };
 $('track-body').onchange=function(e){ var s=e.target; if(s.dataset&&s.dataset.out) logOutcome(s.dataset.out,s.value,s); };
+document.querySelectorAll('.mode').forEach(function(b){ b.onclick=function(){ setMode(b.dataset.mode); }; });
+['pf-hub','pf-pri'].forEach(function(id){ $(id).onchange=function(){ PMPAGE=0; pmRenderLive(); pmRenderBlast(); }; });
+$('pf-city').onchange=function(){ pmFillHubs(); PMPAGE=0; pmRenderLive(); pmRenderBlast(); };
+$('pf-q').oninput=function(){ PMPAGE=0; pmRenderLive(); };
+$('ppg-prev').onclick=function(){ PMPAGE=Math.max(0,PMPAGE-1); pmRenderLive(); };
+$('ppg-next').onclick=function(){ PMPAGE++; pmRenderLive(); };
+$('pdl-live-csv').onclick=function(){ download('pm_due_live_'+stamp(), pmLiveExport(), 'csv'); };
+$('pdl-live-xlsx').onclick=function(){ download('pm_due_live_'+stamp(), pmLiveExport(), 'xlsx'); };
+['pb-P0','pb-P1','pb-P2'].forEach(function(id){ $(id).onchange=pmRenderBlast; }); $('pctrl-pct').oninput=pmRenderBlast;
+$('pb-create').onclick=pmCreateWave;
+$('pb-dl-csv').onclick=function(){ var d=pmLatestDraft(); if(d) pmDownloadWave(d.id,'csv'); };
+$('pb-dl-xlsx').onclick=function(){ var d=pmLatestDraft(); if(d) pmDownloadWave(d.id,'xlsx'); };
+$('pb-sent').onclick=function(){ var d=pmLatestDraft(); if(d) pmMarkSent(d.id); };
+$('pwaves-body').onclick=function(e){ var b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.dl) pmDownloadWave(Number(b.dataset.dl),'csv'); else if(b.dataset.dlx) pmDownloadWave(Number(b.dataset.dlx),'xlsx');
+  else if(b.dataset.sent) pmMarkSent(Number(b.dataset.sent)); else if(b.dataset.del) pmDeleteWave(Number(b.dataset.del)); };
+$('pt-wave').onchange=pmLoadTrack; $('pt-city').onchange=pmRenderTrack; $('pdl-track').onclick=pmDownloadTrack;
+$('pup-report').onclick=function(){ $('up-file').value=''; $('up-file').click(); };
 load();
 </script>
 </body></html>
