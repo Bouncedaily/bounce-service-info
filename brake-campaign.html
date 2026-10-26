@@ -121,8 +121,8 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
     <div class="card"><div class="card-bd">
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center">
         <div class="chips" style="margin:0" id="blast-chips"></div>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Control group
-          <input id="ctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Control group percent">%</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Comparison group
+          <input id="ctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Comparison group percent">%</label>
       </div>
       <div class="counts" id="blast-counts"></div>
       <div class="steps">
@@ -134,7 +134,7 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
       <div class="muted" id="blast-hint" style="margin-top:10px"></div>
     </div></div>
     <div class="card"><div class="card-hd"><h2>Wave by city</h2></div>
-      <div class="scroll"><table><thead><tr><th>City</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">of which reminders</th><th class="r">Control</th></tr></thead><tbody id="blast-city"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>City</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">of which reminders</th><th class="r">Not messaged</th></tr></thead><tbody id="blast-city"></tbody></table></div>
     </div>
     <div class="card"><div class="card-hd"><div><h2>Hub load check</h2><div class="muted" style="margin-top:3px">Expected walk-ins per day if this wave goes out, by each bike's hub. Riders can go to any nearby hub, so treat this as a guide.</div></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-weight:600;color:var(--muted)">
@@ -144,7 +144,7 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
       <div class="scroll"><table><thead><tr><th>Hub</th><th>City</th><th class="r">In blast file</th><th class="r">Expected walk-ins / day</th><th>Load</th></tr></thead><tbody id="hub-load"></tbody></table></div>
     </div>
     <div class="card"><div class="card-hd"><h2>Waves</h2></div>
-      <div class="scroll"><table><thead><tr><th>Wave</th><th>Created</th><th class="r">In blast file</th><th class="r">Control</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="waves-body"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Wave</th><th>Created</th><th class="r">In blast file</th><th class="r">Not messaged</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="waves-body"></tbody></table></div>
     </div>
   </section>
 
@@ -188,8 +188,8 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
     <div class="card"><div class="card-bd">
       <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center">
         <div class="chips" style="margin:0" id="pblast-chips"></div>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Control group
-          <input id="pctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Control group percent">%</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)">Comparison group
+          <input id="pctrl-pct" type="number" min="0" max="50" value="15" style="width:70px" aria-label="Comparison group percent">%</label>
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-weight:600">
         <span class="muted">Priorities in this wave:</span>
@@ -205,10 +205,10 @@ a.lnk{color:var(--blue);font-weight:600;text-decoration:none}a.lnk:hover{text-de
       <div class="muted" id="pblast-hint" style="margin-top:10px"></div>
     </div></div>
     <div class="card"><div class="card-hd"><h2>Wave by city</h2></div>
-      <div class="scroll"><table><thead><tr><th>City</th><th class="r">P0</th><th class="r">P1</th><th class="r">P2</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">Control</th></tr></thead><tbody id="pblast-city"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>City</th><th class="r">P0</th><th class="r">P1</th><th class="r">P2</th><th class="r">Bikes</th><th class="r">In blast file</th><th class="r">Not messaged</th></tr></thead><tbody id="pblast-city"></tbody></table></div>
     </div>
     <div class="card"><div class="card-hd"><h2>PM waves</h2></div>
-      <div class="scroll"><table><thead><tr><th>Wave</th><th>Priorities</th><th>Created</th><th class="r">In blast file</th><th class="r">Control</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="pwaves-body"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Wave</th><th>Priorities</th><th>Created</th><th class="r">In blast file</th><th class="r">Not messaged</th><th>Status</th><th>Sent</th><th></th></tr></thead><tbody id="pwaves-body"></tbody></table></div>
     </div>
   </section>
 
@@ -398,13 +398,13 @@ function renderBlast(){
   var html=cities.map(function(c){ var k=byc[c], ctl=Math.round(k.first*pc), m=k.n-ctl; tot.n+=k.n; tot.m+=m; tot.rem+=k.rem; tot.c+=ctl;
     return '<tr><td>'+esc(c)+'</td><td class="r">'+n(k.n)+'</td><td class="r" style="color:var(--blue);font-weight:600">'+n(m)+'</td><td class="r">'+n(k.rem)+'</td><td class="r" style="color:var(--amber);font-weight:600">'+n(ctl)+'</td></tr>'; }).join('');
   $('blast-city').innerHTML=html?html+'<tr class="tot"><td>Total</td><td class="r">'+n(tot.n)+'</td><td class="r">'+n(tot.m)+'</td><td class="r">'+n(tot.rem)+'</td><td class="r">'+n(tot.c)+'</td></tr>':'<tr><td colspan="5" class="msg">No bikes ready for these filters.</td></tr>';
-  $('blast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Control (not messaged)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
+  $('blast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Not messaged (comparison group)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
   renderHubLoad(rows, pc);
   var d=latestDraft();
   $('b-create').disabled=!IS_ADMIN||!!d||!tot.n;
   $('b-dl-csv').disabled=$('b-dl-xlsx').disabled=!d;
   $('b-sent').disabled=!IS_ADMIN||!d;
-  $('blast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Control bikes are picked at random inside each hub and are not messaged. Reminders go only to bikes messaged once, 7+ days ago, with no visit since.';
+  $('blast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Comparison-group bikes (not messaged) are picked at random inside each hub and are not messaged. Reminders go only to bikes messaged once, 7+ days ago, with no visit since.';
 }
 async function createWave(){
   var f=F(), num=WAVES.length+1;
@@ -502,15 +502,15 @@ function renderTrack(){
   if(!TRK) return;
   var rows=trackRows(), a=agg(rows);
   var html='<div class="funnel">'+
-    '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Control: '+n(a.ctl)+' not messaged</div></div>'+
-    '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Control: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
-    '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Control: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
+    '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Not messaged (comparison): '+n(a.ctl)+'</div></div>'+
+    '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Not messaged: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
+    '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Not messaged: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
   html+=responsesCard(rows)+walkinCard(rows)+bannerCard(rows);
   var key=TRKLEVEL==='city'?'city':'hub_name', groups={};
   rows.forEach(function(t){ (groups[t[key]]=groups[t[key]]||[]).push(t); });
   var names=Object.keys(groups).sort(function(x,y){return groups[y].length-groups[x].length;});
   html+='<div class="card"><div class="card-hd"><h2>'+(TRKLEVEL==='city'?'By city':'By hub')+'</h2><div class="seg" role="group" aria-label="Level"><button data-lvl="city" aria-pressed="'+(TRKLEVEL==='city')+'">City</button><button data-lvl="hub" aria-pressed="'+(TRKLEVEL==='hub')+'">Hub</button></div></div>'+
-    '<div class="scroll"><table><thead><tr><th>'+(TRKLEVEL==='city'?'City':'Hub')+'</th><th class="r">Sent</th><th class="r">Visited hub</th><th class="r">Brake replaced</th><th class="r">Visit %</th><th class="r">Control visit %</th></tr></thead><tbody>'+
+    '<div class="scroll"><table><thead><tr><th>'+(TRKLEVEL==='city'?'City':'Hub')+'</th><th class="r">Sent</th><th class="r">Visited hub</th><th class="r">Brake replaced</th><th class="r">Visit %</th><th class="r">Not messaged visit %</th></tr></thead><tbody>'+
     names.map(function(g){ var x=agg(groups[g]); return '<tr><td class="b">'+esc(g)+'</td><td class="r">'+n(x.sent)+'</td><td class="r">'+n(x.mv)+'</td><td class="r">'+n(x.mr)+'</td><td class="r">'+pct(x.mv,x.sent)+'</td><td class="r">'+pct(x.cv,x.ctl)+'</td></tr>'; }).join('')+
     '<tr class="tot"><td>Total</td><td class="r">'+n(a.sent)+'</td><td class="r">'+n(a.mv)+'</td><td class="r">'+n(a.mr)+'</td><td class="r">'+pct(a.mv,a.sent)+'</td><td class="r">'+pct(a.cv,a.ctl)+'</td></tr></tbody></table></div></div>';
   var cutoff=Date.now()-4*86400000;
@@ -677,11 +677,11 @@ function pmRenderBlast(){
     tot.P0+=k.P0; tot.P1+=k.P1; tot.P2+=k.P2; tot.n+=k.n; tot.m+=m; tot.c+=ctl;
     return '<tr><td>'+esc(c)+'</td><td class="r">'+n(k.P0)+'</td><td class="r">'+n(k.P1)+'</td><td class="r">'+n(k.P2)+'</td><td class="r">'+n(k.n)+'</td><td class="r" style="color:var(--blue);font-weight:600">'+n(m)+'</td><td class="r" style="color:var(--amber);font-weight:600">'+n(ctl)+'</td></tr>'; }).join('');
   $('pblast-city').innerHTML=html?html+'<tr class="tot"><td>Total</td><td class="r">'+n(tot.P0)+'</td><td class="r">'+n(tot.P1)+'</td><td class="r">'+n(tot.P2)+'</td><td class="r">'+n(tot.n)+'</td><td class="r">'+n(tot.m)+'</td><td class="r">'+n(tot.c)+'</td></tr>':'<tr><td colspan="7" class="msg">No bikes for these priorities and filters.</td></tr>';
-  $('pblast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Control (not messaged)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
+  $('pblast-counts').innerHTML='<div class="count"><div class="muted">Bikes</div><div class="v">'+n(tot.n)+'</div></div><div class="count"><div class="muted">In blast file</div><div class="v" style="color:var(--blue)">~'+n(tot.m)+'</div></div><div class="count"><div class="muted">Not messaged (comparison group)</div><div class="v" style="color:var(--amber)">~'+n(tot.c)+'</div></div>';
   var d=pmLatestDraft();
   $('pb-create').disabled=!IS_ADMIN||!!d||!tot.n||!pr.length;
   $('pb-dl-csv').disabled=$('pb-dl-xlsx').disabled=!d; $('pb-sent').disabled=!IS_ADMIN||!d;
-  $('pblast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Control bikes are picked at random inside each hub and are not messaged, so the effect of the message can be measured. Bikes already in a PM wave sent in the last 7 days (and not yet serviced) are skipped.';
+  $('pblast-hint').textContent=!IS_ADMIN?'Only portal admins can create waves and mark them as sent.':d?(d.name+' is created and not sent yet. Download the file for the WhatsApp team, then mark it as sent once they confirm.'):'Comparison-group bikes (not messaged) are picked at random inside each hub and are not messaged, so the effect of the message can be measured. Bikes already in a PM wave sent in the last 7 days (and not yet serviced) are skipped.';
 }
 async function pmCreateWave(){
   var f=pmF(), pr=pmPris(); if(!pr.length) return;
@@ -734,10 +734,10 @@ function pmRenderTrack(){
   var h='<div class="kpis">'+kpi('In blast file', n(m.length), 'messaged','')+kpi('Sent', n(cntf(m,function(t){return t.sent_at;})), pct(cntf(m,function(t){return t.sent_at;}),m.length),'')
     +kpi('Read', n(cntf(m,function(t){return t.read_at;})), pct(cntf(m,function(t){return t.read_at;}),m.length),'')+kpi('Replied', n(cntf(m,function(t){return t.replied_at;})), pct(cntf(m,function(t){return t.replied_at;}),m.length),'')
     +kpi('Serviced (messaged)', n(ms), pct(ms,m.length)+' had a job card after the message','color:var(--green,#15803d)')
-    +kpi('Serviced (control)', n(cs), pct(cs,ct.length)+' of '+n(ct.length)+' not messaged','color:var(--amber,#b45309)')
-    +kpi('Effect of the message', ct.length?((mr-cr>=0?'+':'')+Math.round((mr-cr)*100)+' pts'):'–', 'serviced rate, messaged vs control','')+'</div>';
+    +kpi('Serviced (not messaged)', n(cs), pct(cs,ct.length)+' of '+n(ct.length)+' not messaged','color:var(--amber,#b45309)')
+    +kpi('Effect of the message', ct.length?((mr-cr>=0?'+':'')+Math.round((mr-cr)*100)+' pts'):'–', 'serviced rate, messaged vs not messaged','')+'</div>';
   var byp={}; rows.forEach(function(t){ var k=byp[t.pm_priority||'-']||(byp[t.pm_priority||'-']={m:0,ms:0,c:0,cs:0}); if(t.grp==='messaged'){ k.m++; if(sv(t)) k.ms++; } else { k.c++; if(sv(t)) k.cs++; } });
-  h+='<div class="card"><div class="card-hd"><h2>By priority</h2></div><div class="scroll"><table><thead><tr><th>Priority</th><th class="r">Messaged</th><th class="r">Serviced</th><th class="r">Rate</th><th class="r">Control</th><th class="r">Serviced</th><th class="r">Rate</th></tr></thead><tbody>'
+  h+='<div class="card"><div class="card-hd"><h2>By priority</h2></div><div class="scroll"><table><thead><tr><th>Priority</th><th class="r">Messaged</th><th class="r">Serviced</th><th class="r">Rate</th><th class="r">Not messaged</th><th class="r">Serviced</th><th class="r">Rate</th></tr></thead><tbody>'
     +['P0','P1','P2'].filter(function(p){return byp[p];}).map(function(p){ var k=byp[p]; return '<tr><td>'+priBadge(p)+'</td><td class="r">'+n(k.m)+'</td><td class="r">'+n(k.ms)+'</td><td class="r b">'+pct(k.ms,k.m)+'</td><td class="r">'+n(k.c)+'</td><td class="r">'+n(k.cs)+'</td><td class="r">'+pct(k.cs,k.c)+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
   var st={}; m.forEach(function(t){ st[t.status||'Not sent']=(st[t.status||'Not sent']||0)+1; });
   h+='<div class="card"><div class="card-hd"><h2>Messaged riders by status</h2></div><div class="chips" style="padding:10px 14px">'+Object.keys(st).sort(function(a,b){return st[b]-st[a];}).map(function(k){ return '<span class="fchip">'+esc(k)+' · '+n(st[k])+'</span>'; }).join('')+'</div>';
