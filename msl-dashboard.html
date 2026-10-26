@@ -1983,7 +1983,12 @@ function fsnOf(r) { return FMS[(r && r.part_number) || ''] || null; }
 function fsnBadge(num) {
   const f = (FMS[num || ''] || {}).fsn;
   if (!f) return '';
-  const k = f.toLowerCase().startsWith('fast') ? ['F', '#16a34a', 'rgba(22,163,74,.12)'] : f.toLowerCase().startsWith('slow') ? ['S', '#b45309', 'rgba(217,119,6,.12)'] : ['N', '#64748b', 'rgba(100,116,139,.14)'];
+  // FMS: Fast (green) / Medium (amber) / Slow (grey)
+  const t = f.toLowerCase();
+  const k = t.startsWith('fast') ? ['F', '#16a34a', 'rgba(22,163,74,.12)']
+          : t.startsWith('med')  ? ['M', '#b45309', 'rgba(217,119,6,.12)']
+          : t.startsWith('slow') ? ['S', '#64748b', 'rgba(100,116,139,.14)']
+          : [f.charAt(0).toUpperCase(), '#64748b', 'rgba(100,116,139,.14)'];
   return `<span title="${f}-moving (avg ${FMS[num].avg_monthly_qty ?? '—'}/month)" style="display:inline-block;margin-left:6px;font-size:10px;font-weight:700;line-height:16px;min-width:16px;text-align:center;border-radius:4px;color:${k[1]};background:${k[2]}">${k[0]}</span>`;
 }
 
