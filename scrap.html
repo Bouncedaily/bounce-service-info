@@ -893,7 +893,7 @@ function renderWhy(lineEl) {
   const q = v === 'less' ? 'Less than expected. Why?' : 'More than expected. Why?';
   box.hidden = false;
   box.innerHTML = `<div class="why-q">${q}</div><div class="chips">${REASONS.map(r => `<button type="button" class="chip ${st.reason === r ? 'on' : ''}" data-reason="${esc(r)}" aria-pressed="${st.reason === r}">${esc(r)}</button>`).join('')}</div>
-    ${st.reason === 'Other' ? `<input class="note" type="text" placeholder="What happened?" value="${esc(st.note)}" style="min-height:40px">` : ''}`;
+    <input class="note" type="text" placeholder="Remarks (required): what happened? e.g. part sent back to RPDC, scale error" value="${esc(st.note)}" style="min-height:40px">`;
 }
 
 function wireLogForm() {
@@ -1041,7 +1041,7 @@ async function submitPickup() {
     const v = variance(k);
     if (isScrap && !(parseFloat(st.rate) >= 0 && st.rate !== '')) probs.push(`${esc(k)}: enter the rate (0 if the vendor doesn't pay for it).`);
     if (v && !st.reason) probs.push(`${esc(k)}: ${v === 'less' ? 'less' : 'more'} than expected (${num(LP.expected[k])} ${lineUnit(k)}). Pick a reason.`);
-    if (v && st.reason === 'Other' && !st.note.trim()) probs.push(`${esc(k)}: say briefly what happened.`);
+    if (v && st.note.trim().length < 3) probs.push(`${esc(k)}: physical quantity doesn't match the system quantity (${num(LP.expected[k])} ${lineUnit(k)}). Write a remark.`);
     if (!st.file && !st.url) probs.push(`${esc(k)}: add a photo of the scale or the load.`);
   }
   if (probs.length) { showProblems(probs); return; }
