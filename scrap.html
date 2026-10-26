@@ -748,7 +748,8 @@ function lineKeys() {
 function lineState(k) { return LP.lines[k] || (LP.lines[k] = { qty: '', rate: LP.type === 'Scrap' ? vendorRate(k) : null, file: null, fp: null, url: null, preview: null, reason: null, note: '' }); }
 function lineUnit(k) { return LP.type === 'Scrap' ? (catInfo(k).unit || 'kg') : 'nos'; }
 function variance(k) {
-  const e = LP.expected[k], q = parseFloat(lineState(k).qty);
+  const st0 = lineState(k), e = LP.expected[k], q = parseFloat(st0.qty);
+  if (isZeroShortfall(k, st0)) return 'less';
   if (!(e > 0) || !(q > 0)) return null;
   if (q < e * (1 - VARIANCE)) return 'less';
   if (q > e * (1 + VARIANCE)) return 'more';
@@ -958,8 +959,11 @@ function rerenderLines(keepFocus) {
   wireLogForm();
   if (keepFocus) { const q = $('#lp-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
 }
+function isZeroShortfall(k, st) {
+  return !!st && String(st.qty).trim() !== '' && parseFloat(st.qty) === 0 && LP.expected[k] > 0;
+}
 function filledLines() {
-  return lineKeys().map(k => ({ k, st: LP.lines[k] })).filter(x => x.st && parseFloat(x.st.qty) > 0);
+  return lineKeys().map(k => ({ k, st: LP.lines[k] })).filter(x => x.st && (parseFloat(x.st.qty) > 0 || isZeroShortfall(x.k, x.st)));
 }
 function updateTotals() {
   const el = $('#lp-totals'); if (!el) return;
@@ -1039,10 +1043,11 @@ async function submitPickup() {
   if (!f.length) probs.push('Enter a weight or count for at least one line.');
   for (const { k, st } of f) {
     const v = variance(k);
-    if (isScrap && !(parseFloat(st.rate) >= 0 && st.rate !== '')) probs.push(`${esc(k)}: enter the rate (0 if the vendor doesn't pay for it).`);
+    const zero = parseFloat(st.qty) === 0;
+    if (isScrap && !zero && !(parseFloat(st.rate) >= 0 && st.rate !== '')) probs.push(`${esc(k)}: enter the rate (0 if the vendor doesn't pay for it).`);
     if (v && !st.reason) probs.push(`${esc(k)}: ${v === 'less' ? 'less' : 'more'} than expected (${num(LP.expected[k])} ${lineUnit(k)}). Pick a reason.`);
     if (v && st.note.trim().length < 3) probs.push(`${esc(k)}: physical quantity doesn't match the system quantity (${num(LP.expected[k])} ${lineUnit(k)}). Write a remark.`);
-    if (!st.file && !st.url) probs.push(`${esc(k)}: add a photo of the scale or the load.`);
+    if (!zero && !st.file && !st.url) probs.push(`${esc(k)}: add a photo of the scale or the load.`);
   }
   if (probs.length) { showProblems(probs); return; }
   const btn = $('#lp-submit');
@@ -1055,7 +1060,7 @@ async function submitPickup() {
     btn.textContent = 'Uploading photos…';
     const failed = [];
     for (const { k, st } of f) {
-      if (st.url) continue;
+      if (st.url || (parseFloat(st.qty) === 0 && !st.file)) continue;
       st.url = await uploadFile(st.file);
       if (!st.url) failed.push(esc(k));
     }
@@ -1069,11 +1074,11 @@ async function submitPickup() {
         movement_type: LP.type, hub_name: LP.hub, city: city || null,
         category: isScrap ? k : null, part_name: isScrap ? null : k,
         vendor_id: isScrap && LP.vendor ? parseInt(LP.vendor, 10) : null,
-        pickup_date: LP.date, qty_or_weight: q, rate: isScrap ? parseFloat(st.rate) : null,
+        pickup_date: LP.date, qty_or_weight: q, rate: isScrap ? (q === 0 ? (parseFloat(st.rate) >= 0 ? parseFloat(st.rate) : 0) : parseFloat(st.rate)) : null,
         actual_qty_nos: unit === 'kg' ? null : q, actual_weight_kg: unit === 'kg' ? q : null,
         system_calculated: e != null ? e : null,
         variance_reason: v ? st.reason : null, variance_remark: v && st.note.trim() ? st.note.trim() : null,
-        batch_id: batchId, period_from: LP.from, period_to: lpTo(), photo_url: st.url,
+        batch_id: batchId, period_from: LP.from, period_to: lpTo(), photo_url: st.url || null,
         status: 'Created', created_by: S.me || 'unknown'
       };
     });
