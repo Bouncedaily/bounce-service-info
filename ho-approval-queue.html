@@ -584,8 +584,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     if (isSuspSetPart(jc, p.item)) {
       var ssr = jc._ss;
-      checkCell = '<span class="bad-life">⚠ All 3 front suspension parts requested \u2014 replace the full Front Fork assembly instead'
-        + (ssr && ssr.refurbStock > 0 ? ' (refurbished one in stock at this hub: ' + ssr.refurbStock + ')' : '') + '</span>';
+      checkCell = '<span class="bad-life">' + suspSetText(ssr) + '</span>';
     }
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
@@ -756,7 +755,7 @@ function computeVerdict(jc, items){
   if((jc.rejection_count||0)>=2) reasons.push({sev:'bad', text:'Rejected '+jc.rejection_count+' times already \u2014 recheck before approving again'});
   else if((jc.rejection_count||0)===1) reasons.push({sev:'warn', text:'Rejected once before this request'});
   var ssv = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
-  if(ssv) reasons.push({sev:'bad', text:'Suspension set ('+ssv.set+'): LH leg + RH leg + T-Steam all requested \u2014 use the Front Fork Sub assembly instead of 3 child parts'+(ssv.refurbStock>0?' (refurbished fork assembly in stock at this hub: '+ssv.refurbStock+')':'')});
+  if(ssv) reasons.push({sev:'bad', text: suspSetText(ssv).replace(/^\u26a0 /,'')});
   (jc.parts||[]).forEach(function(p){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
@@ -882,7 +881,7 @@ function _unusedDecisionChip(jc){
   return '<span class="chip" style="background:#f1f5f9;color:#64748b">○ Nithish: Not Reviewed</span>';
 }
 // Flags job cards HO can't judge properly: nothing listed, or no end-of-job photos.
-// Suspension set: LH leg + RH leg + T-Steam of the same set (Drum or Disc) on one job card.
+// Suspension set: 2 or 3 of LH leg / RH leg / T-Steam of the same set (Drum or Disc) on one job card.
 // Same rule as the Approval Quality tab's "Suspension Set (3 parts on one JC)" flag: the whole
 // Front Fork Sub assembly (ideally refurbished) should be used instead of three child parts.
 var FORK_SETS = {
@@ -891,15 +890,22 @@ var FORK_SETS = {
 };
 function suspensionSet(jc){
   var names = (jc.parts||[]).map(function(p){ return String(p.item||'').trim().toLowerCase(); });
+  var best = null;
   for (var k in FORK_SETS){
     var fs = FORK_SETS[k];
-    if (fs.parts.every(function(n){ return names.indexOf(n) >= 0; })){
+    var hit = fs.parts.filter(function(n){ return names.indexOf(n) >= 0; });
+    if (hit.length >= 2 && (!best || hit.length > best.n)){
       var stock = 0, refurbName = '';
       Object.keys(jc.hub_refurb||{}).forEach(function(nm){ if (fs.refurb.test(nm)) { stock += +jc.hub_refurb[nm] || 0; refurbName = nm; } });
-      return { set: k, parts: fs.parts, refurbStock: stock, refurbName: refurbName };
+      best = { set: k, parts: hit, n: hit.length, refurbStock: stock, refurbName: refurbName };
     }
   }
-  return null;
+  return best;
+}
+function suspSetText(ss){
+  return '\u26a0 ' + (ss.n === 3 ? 'All 3' : ss.n) + ' child parts requested \u2014 ' +
+    (ss.refurbStock > 0 ? 'replace with the refurbished Front Fork assembly instead (' + ss.refurbStock + ' in stock)'
+                        : 'replace with the Front Fork assembly instead');
 }
 function isSuspSetPart(jc, item){
   var ss = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
@@ -908,7 +914,7 @@ function isSuspSetPart(jc, item){
 function missingInfoChips(jc){
   var out='';
   var ss = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
-  if (ss) out += '<span class="chip red" title="LH leg + RH leg + T-Steam ('+ss.set+') on one job card: use the Front Fork Sub assembly instead">⚠ Suspension set ('+ss.set+')'+(ss.refurbStock>0?' · refurb fork at hub: '+ss.refurbStock:'')+'</span>';
+  if (ss) out += '<span class="chip red" title="'+esc(suspSetText(ss))+'">⚠ Front Fork child parts ('+ss.n+')</span>';
   var hasItems=(jc.part_count||0)>0 || parseItems(jc).length>0;
   if(!hasItems) out+='<span class="chip red" title="No parts or labour lines were sent with this approval request">⚠ No parts listed</span>';
   var photos=['end_front_photo','end_back_photo','end_left_photo','end_right_photo'].filter(function(k){ return jc[k]; }).length;
