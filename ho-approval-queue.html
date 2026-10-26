@@ -569,10 +569,10 @@ function renderPartsTable(jc, items){
     if(qty==null) return '<span class="na-life">—</span>';
     return '<span class="'+(isQtyFlagged(name,qty)?'bad-life':'')+'">'+esc(qty)+'</span>';
   };
-  var amtCell = function(amount, est){
+  var amtCell = function(amount, est, basis){
     if(amount!=null) return '₹'+nf(Math.round(amount));
-    if(est!=null) return '<span title="Estimate: median billed price of this part in the last 120 days × requested qty. Not billed on this job card yet." style="color:var(--muted)">~₹'+nf(Math.round(est))+'</span>';
-    return '<span class="na-life" title="Not billed on this job card yet, and no recent billed price for this part">—</span>';
+    if(est!=null) return '<span title="Estimate (not billed on this job card yet): median price of this part on its last 100 billed lines'+(basis&&basis!=='any'?' in category '+esc(basis):' (any category)')+', × requested qty." style="color:var(--muted)">~₹'+nf(Math.round(est))+'</span>';
+    return '<span class="na-life" title="Not billed on this job card yet, and this part has never been billed with a price">—</span>';
   };
   var usedKeys = {};
   var rows = parts.map(function(p){
@@ -582,7 +582,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
