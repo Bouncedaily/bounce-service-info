@@ -150,7 +150,7 @@ tr[data-drill]:hover,tr.drow:hover{background:#f8fafc}
   </div>
   <div class="col">
     <div class="card">
-      <div class="card-hd"><h2>By hub</h2><span class="sub">gap = raised − collected</span></div>
+      <div class="card-hd"><h2>By hub</h2><span class="sub">collection gap = raised − collected · net loss = repair cost − collected</span></div>
       <div id="l-hub"><div class="empty"><span class="spin"></span></div></div>
     </div>
     <div class="card">
@@ -385,6 +385,7 @@ function render(d){
     ['Damage fee raised',L(t.fee_raised),Math.round(chargedRate)+'% of repair cost',''],
     ['Fee collected',L(t.fee_collected),Math.round(collRate)+'% collection rate','good'],
     ['Uncollected gap (B)',L(t.gap_uncollected),'raised but not recovered','bad'],
+    ['Net loss',L((t.repair_cost||0)-(t.fee_collected||0)),'repair cost − collected','bad'],
     ['Under-raised',L((t.not_raised||0)+(t.under_charged||0)),'fee raised < repair cost','under'],
     ['Over-raised',L(t.over_raised),'fee raised > repair cost','warn']
   ].map(k=>'<div class="kpi '+k[3]+'" onclick="openRaw(null,null,\''+k[0]+'\')"><div class="kl">'+k[0]+'</div><div class="kv">'+k[1]+'</div><div class="ks">'+k[2]+'</div></div>').join('');
@@ -401,27 +402,27 @@ function render(d){
 }
 function renderSubs(rows){
   if(!rows.length){document.getElementById('l-sub').innerHTML='<div class="empty">No data</div>';return;}
-  document.getElementById('l-sub').innerHTML='<table><thead><tr><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
+  document.getElementById('l-sub').innerHTML='<table><thead><tr><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num" title="Raised − collected">Collection gap</th><th class="num" title="Repair cost − collected">Net loss</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
     rows.map(function(r){var rate=r.coll_rate||0;var col=rate>=80?'var(--green)':rate>=40?'var(--amber)':'var(--red)';var k=esc(r.submission_type);
-      return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td>'+
+      return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td>'+'<td class="num clk" style="color:#7f1d1d;font-weight:700" onclick="openRaw(\'submission_type\',\''+k+'\',\''+k+'\')">'+L((r.cost||0)-(r.collected||0))+'</td>'+
       '<td><div class="bar"><i style="width:'+rate+'%;background:'+col+'"></i></div><span style="font-size:10px;color:var(--muted)">'+rate+'%</span></td></tr>';}).join('')+'</tbody></table>';
 }
 function renderSubByCity(rows){
   if(!rows.length){document.getElementById('l-sub-city').innerHTML='<div class="empty">No data</div>';return;}
-  document.getElementById('l-sub-city').innerHTML='<table><thead><tr><th>City</th><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
+  document.getElementById('l-sub-city').innerHTML='<table><thead><tr><th>City</th><th>Type</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num" title="Raised − collected">Collection gap</th><th class="num" title="Repair cost − collected">Net loss</th><th style="width:120px">Collection</th></tr></thead><tbody>'+
     rows.map(function(r){var rate=r.coll_rate||0;var col=rate>=80?'var(--green)':rate>=40?'var(--amber)':'var(--red)';
-      return '<tr><td>'+esc(r.city)+'</td><td>'+esc(r.submission_type)+'</td><td class="num">'+L(r.cost)+'</td><td class="num">'+L(r.raised)+'</td><td class="num">'+L(r.collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+L(r.gap_amt)+'</td>'+
+      return '<tr><td>'+esc(r.city)+'</td><td>'+esc(r.submission_type)+'</td><td class="num">'+L(r.cost)+'</td><td class="num">'+L(r.raised)+'</td><td class="num">'+L(r.collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+L(r.gap_amt)+'</td>'+'<td class="num" style="color:#7f1d1d;font-weight:700">'+L((r.cost||0)-(r.collected||0))+'</td>'+
       '<td><div class="bar"><i style="width:'+rate+'%;background:'+col+'"></i></div><span style="font-size:10px;color:var(--muted)">'+rate+'%</span></td></tr>';}).join('')+'</tbody></table>';
 }
 function renderMini(id,rows){
   if(!rows.length){document.getElementById(id).innerHTML='<div class="empty">No data</div>';return;}
-  document.getElementById(id).innerHTML='<table><thead><tr><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th></tr></thead><tbody>'+
-    rows.map(r=>{var k=esc(r.name);return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.gap)+'</td></tr>';}).join('')+'</tbody></table>';
+  document.getElementById(id).innerHTML='<table><thead><tr><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num" title="Raised − collected">Collection gap</th><th class="num" title="Repair cost − collected">Net loss</th></tr></thead><tbody>'+
+    rows.map(r=>{var k=esc(r.name);return '<tr><td>'+k+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L(r.gap)+'</td><td class="num clk" style="color:#7f1d1d;font-weight:700" onclick="openRaw(\'city\',\''+k+'\',\''+k+'\')">'+L((r.cost||0)-(r.collected||0))+'</td></tr>';}).join('')+'</tbody></table>';
 }
 function renderHub(rows){
   if(!rows.length){document.getElementById('l-hub').innerHTML='<div class="empty">No data</div>';return;}
-  document.getElementById('l-hub').innerHTML='<table><thead><tr><th>Hub</th><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num">Gap</th><th class="num">Under-charged</th></tr></thead><tbody>'+
-    rows.map(r=>{var k=esc(r.hub);return '<tr><td>'+k+'</td><td style="color:var(--muted)">'+esc(r.city||'')+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td><td class="num" style="color:#c2410c">'+L(r.under_amt)+'</td></tr>';}).join('')+'</tbody></table>';
+  document.getElementById('l-hub').innerHTML='<table><thead><tr><th>Hub</th><th>City</th><th class="num">Repair cost</th><th class="num">Raised</th><th class="num">Collected</th><th class="num" title="Raised − collected">Collection gap</th><th class="num" title="Repair cost − collected">Net loss</th><th class="num">Under-charged</th></tr></thead><tbody>'+
+    rows.map(r=>{var k=esc(r.hub);return '<tr><td>'+k+'</td><td style="color:var(--muted)">'+esc(r.city||'')+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.cost)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.raised)+'</td><td class="num clk" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.collected)+'</td><td class="num clk" style="color:var(--red);font-weight:600" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L(r.gap_amt)+'</td><td class="num clk" style="color:#7f1d1d;font-weight:700" onclick="openRaw(\'hub\',\''+k+'\',\''+k+'\')">'+L((r.cost||0)-(r.collected||0))+'</td><td class="num" style="color:#c2410c">'+L(r.under_amt)+'</td></tr>';}).join('')+'</tbody></table>';
 }
 function renderPart(rows){
   if(!rows.length){document.getElementById('l-part').innerHTML='<div class="empty">No data</div>';return;}
@@ -457,8 +458,8 @@ async function openRaw(dim,val,label){
     if(!rows.length){body.innerHTML='<div class="empty">No job cards match.</div>';return;}
     document.getElementById('drill-csv-btn').style.display='inline-block';
     var shownNote=d.total_rows>rows.length?('<div style="padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">Showing top '+rows.length+' of '+nf(d.total_rows)+' job cards by repair cost — CSV export includes all '+nf(d.total_rows)+'</div>'):'';
-    body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Vehicle No</th><th>DMS JC ID</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Repair cost</th><th class="num">Charged</th><th class="num">Collected</th><th class="num">Charging Gap</th><th class="num">Collection Gap</th><th>HO user</th><th>HO remarks</th></tr></thead><tbody>'+
-      rows.map(function(r){return '<tr><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.dms_jc_no||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'')+'</td><td class="num">'+nf(r.jc_cost)+'</td><td class="num">'+nf(r.fee_raised)+'</td><td class="num">'+nf(r.fee_collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.charging_gap)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.collection_gap)+'</td>'+'<td>'+esc(r.ho_user||'—')+'</td><td style="max-width:260px;white-space:normal">'+esc(r.ho_remarks||'—')+'</td></tr>';}).join('')+
+    body.innerHTML=shownNote+'<table><thead><tr><th>JC</th><th>Vehicle No</th><th>DMS JC ID</th><th>Date</th><th>City</th><th>Hub</th><th>Type</th><th>Executive</th><th class="num">Repair cost</th><th class="num">Charged</th><th class="num">Collected</th><th class="num">Charging Gap</th><th class="num">Collection Gap</th><th class="num" title="Repair cost − collected">Net loss</th><th>HO user</th><th>HO remarks</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr><td>'+esc(r.draft_jc_id)+'</td><td>'+esc(r.reg_number||'')+'</td><td>'+esc(r.dms_jc_no||'')+'</td><td>'+esc(r.data_date)+'</td><td>'+esc(r.city||'')+'</td><td>'+esc(r.hub||'')+'</td><td>'+esc(r.submission_type||'')+'</td><td>'+esc(r.executive||'')+'</td><td class="num">'+nf(r.jc_cost)+'</td><td class="num">'+nf(r.fee_raised)+'</td><td class="num">'+nf(r.fee_collected)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.charging_gap)+'</td><td class="num" style="color:var(--red);font-weight:600">'+nf(r.collection_gap)+'</td>'+'<td class="num" style="color:#7f1d1d;font-weight:700">'+nf((r.jc_cost||0)-(r.fee_collected||0))+'</td>'+'<td>'+esc(r.ho_user||'—')+'</td><td style="max-width:260px;white-space:normal">'+esc(r.ho_remarks||'—')+'</td></tr>';}).join('')+
       '</tbody></table>';
   }catch(e){body.innerHTML='<div class="empty">Error loading raw data.</div>';}
 }
@@ -481,8 +482,8 @@ async function downloadRawCSV(){
       var r2=await fetch(SB+'/rest/v1/rpc/get_damage_raw',{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:JSON.stringify(payload2)});
       var d2=await r2.json();
       rows=d2.rows||[];
-      headers=['JC','Vehicle No','DMS JC ID','Date','City','Hub','Type','Executive','Repair cost','Charged','Collected','Charging Gap','Collection Gap','HO user','HO remarks','HO outcome'];
-      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.dms_jc_no||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.charging_gap,r.collection_gap,r.ho_user||'',r.ho_remarks||'',r.ho_outcome||''];};
+      headers=['JC','Vehicle No','DMS JC ID','Date','City','Hub','Type','Executive','Repair cost','Charged','Collected','Charging Gap','Collection Gap','Net loss','HO user','HO remarks','HO outcome'];
+      rowMapper=function(r){return [r.draft_jc_id,r.reg_number||'',r.dms_jc_no||'',r.data_date,r.city||'',r.hub||'',r.submission_type||'',r.executive||'',r.jc_cost,r.fee_raised,r.fee_collected,r.charging_gap,r.collection_gap,(r.jc_cost||0)-(r.fee_collected||0),r.ho_user||'',r.ho_remarks||'',r.ho_outcome||''];};
       labelForFile=RAW_LABEL;
     }
     var csvRows=[headers].concat(rows.map(rowMapper));
