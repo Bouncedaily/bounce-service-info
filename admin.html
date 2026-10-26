@@ -732,18 +732,18 @@ async function loadAccessRequests() {
     const badge = document.getElementById('ar-count'); badge.style.display = pend ? '' : 'none'; badge.textContent = pend;
     if (!AR_ROWS.length) { box.innerHTML = '<div class="muted" style="padding:6px 2px">No ' + (hist ? '' : 'pending ') + 'requests.</div>'; return; }
     const fmt = d => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    box.innerHTML = '<div class="tbl"><table><thead><tr><th>Requested</th><th>Name</th><th>Email</th><th>Cities</th><th>Hubs</th><th>Status</th><th></th></tr></thead><tbody>' +
-      AR_ROWS.map(r => `<tr id="ar-row-${r.id}"><td style="white-space:nowrap">${fmt(r.requested_at)}</td><td><b>${ae(r.name)}</b></td><td>${ae(r.email)}</td><td>${ae((r.cities || []).join(', '))}</td><td>${ae((r.hubs || []).join(', ') || 'All hubs')}</td>
+    box.innerHTML = '<div class="tbl"><table><thead><tr><th>Requested</th><th>Name</th><th>Email</th><th>Role</th><th>Cities</th><th>Hubs</th><th>Status</th><th></th></tr></thead><tbody>' +
+      AR_ROWS.map(r => `<tr id="ar-row-${r.id}"><td style="white-space:nowrap">${fmt(r.requested_at)}</td><td><b>${ae(r.name)}</b></td><td>${ae(r.email)}</td><td>${r.job_role ? ae(r.job_role) : '<span class="muted">—</span>'}</td><td>${ae((r.cities || []).join(', '))}</td><td>${ae((r.hubs || []).join(', ') || 'All hubs')}</td>
         <td>${r.status === 'pending' ? '<span style="color:#b45309;font-weight:600">Pending</span>' : r.status === 'approved' ? '<span style="color:#15803d;font-weight:600">Approved</span>' : '<span style="color:#b91c1c;font-weight:600">Rejected</span>' + (r.reason ? ' · ' + ae(r.reason) : '')}${r.decided_by ? '<div class="muted" style="font-size:11px">' + ae(r.decided_by) + ' · ' + fmt(r.decided_at) + '</div>' : ''}</td>
         <td style="white-space:nowrap">${r.status === 'pending' ? `<button class="btn btn-green" onclick="arOpenApprove(${r.id})">Approve</button> <button class="btn" onclick="arReject(${r.id})">Reject</button>` : ''}</td></tr>
-        <tr id="ar-approve-${r.id}" style="display:none"><td colspan="7" style="background:var(--bg)"></td></tr>`).join('') + '</tbody></table></div>';
+        <tr id="ar-approve-${r.id}" style="display:none"><td colspan="8" style="background:var(--bg)"></td></tr>`).join('') + '</tbody></table></div>';
   } catch (e) { box.innerHTML = '<div class="muted">Could not load requests: ' + ae(e.message) + '</div>'; }
 }
 function arOpenApprove(id) {
   const row = document.getElementById('ar-approve-' + id), r = AR_ROWS.find(x => x.id === id);
   if (row.style.display === '') { row.style.display = 'none'; return; }
   const dash = (typeof DASH_ACCESS_ALL !== 'undefined' && DASH_ACCESS_ALL.length) ? DASH_ACCESS_ALL : [];
-  row.firstElementChild.innerHTML = `<div style="font-size:12px;font-weight:700;margin:4px 0 8px">Dashboards for ${ae(r.name)}</div>
+  row.firstElementChild.innerHTML = `<div style="font-size:12px;font-weight:700;margin:4px 0 8px">Dashboards for ${ae(r.name)}${r.job_role ? ' · ' + ae(r.job_role) : ''}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px 16px">${dash.map(([k, label]) => `<label style="font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" class="ar-perm-${id}" value="${ae(k)}"> ${label}</label>`).join('')}</div>
     <div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-green" onclick="arApprove(${id})">Approve with these dashboards</button><button class="btn" onclick="arOpenApprove(${id})">Cancel</button></div>`;
   row.style.display = '';

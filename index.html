@@ -412,6 +412,14 @@ input[type=date] { min-width: 130px; }
       <div id="li-req-form">
         <label class="login-label">Your Full Name</label>
         <input type="text" class="login-input" id="li-req-name" placeholder="e.g. Ravi Kumar" maxlength="80">
+        <label class="login-label" style="margin-top:10px">Your Role</label>
+        <select class="login-input" id="li-req-role">
+          <option value="">Choose your role…</option>
+          <option>Service Manager</option>
+          <option>City Head</option>
+          <option>Hub Manager</option>
+          <option>Store Incharge</option>
+        </select>
         <label class="login-label" style="margin-top:10px">City <span style="font-weight:400;text-transform:none;letter-spacing:0">(choose one or more)</span></label>
         <div id="li-req-cities" class="li-chips"></div>
         <label class="login-label" style="margin-top:10px">Hub <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional; leave empty for all hubs)</span></label>
@@ -596,9 +604,11 @@ function liRenderReq() {
 function liSubmitRequest() {
   var name = document.getElementById('li-req-name').value.trim();
   if (name.length < 2) { liMsg('li-msg-request','Enter your full name.','err'); return; }
+  var jobRole = document.getElementById('li-req-role').value;
+  if (!jobRole) { liMsg('li-msg-request','Choose your role.','err'); return; }
   if (!liReq.cities.length) { liMsg('li-msg-request','Choose at least one city.','err'); return; }
   liSetBusy('li-btn-request', true, 'Sending...');
-  fetch(EDGE_FN, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'request_access', email: liEmail, name: name, cities: liReq.cities, hubs: liReq.hubs }) })
+  fetch(EDGE_FN, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'request_access', email: liEmail, name: name, job_role: jobRole, cities: liReq.cities, hubs: liReq.hubs }) })
   .then(function(r){ return r.json(); }).then(function(d){
     liSetBusy('li-btn-request', false, 'Send Request');
     if (d.error) { liMsg('li-msg-request', d.error, 'err'); return; }
