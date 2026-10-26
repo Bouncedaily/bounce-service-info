@@ -143,7 +143,7 @@ tr.row-flag:hover{background:#fee2e2}
 <div class="hqtabs">
   <button id="hqtab-queue-btn" class="hqtab-btn active" onclick="hqTab('queue')">Queue</button>
   <button id="hqtab-perf-btn" class="hqtab-btn" onclick="hqTab('perf')">Performance</button>
-  <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')">Approval Quality</button>
+  <button id="hqtab-quality-btn" class="hqtab-btn" onclick="hqTab('quality')" style="display:none">Approval Quality</button>
   <button id="hqtab-nithish-btn" class="hqtab-btn" onclick="hqTab('nithish')">Special Approval</button>
   <button id="hqtab-history-btn" class="hqtab-btn" onclick="hqTab('history')">Service History</button>
   <button id="hqtab-manual-btn" class="hqtab-btn" onclick="hqTab('manual')">Manual JC</button>
@@ -151,7 +151,7 @@ tr.row-flag:hover{background:#fee2e2}
 
 <div id="hqtab-queue">
 <div class="psub">Job cards currently <strong>Open – Waiting for HO Approval</strong>, most-aged first. Record the HO decision and remarks here; the action in DMS still needs to be done separately.</div>
-<div class="note">Verdict rules (SOP norms + cost thresholds) are still being defined. This view surfaces the facts from DMS — parts requested, category (A/P/W) and warranty status per line item, end-of-JC photos, and when each part was last changed on the same bike — and lets HO log a decision + remarks against each job card.</div>
+
 <div class="bar">
   <span class="count" id="count">Loading…</span>
   <span id="syncedAt" style="font-size:11px;color:var(--muted2)"></span>
@@ -569,9 +569,10 @@ function renderPartsTable(jc, items){
     if(qty==null) return '<span class="na-life">—</span>';
     return '<span class="'+(isQtyFlagged(name,qty)?'bad-life':'')+'">'+esc(qty)+'</span>';
   };
-  var amtCell = function(amount){
-    if(amount==null) return '<span class="na-life">—</span>';
-    return '₹'+nf(Math.round(amount));
+  var amtCell = function(amount, est){
+    if(amount!=null) return '₹'+nf(Math.round(amount));
+    if(est!=null) return '<span title="Estimate: median billed price of this part in the last 120 days × requested qty. Not billed on this job card yet." style="color:var(--muted)">~₹'+nf(Math.round(est))+'</span>';
+    return '<span class="na-life" title="Not billed on this job card yet, and no recent billed price for this part">—</span>';
   };
   var usedKeys = {};
   var rows = parts.map(function(p){
@@ -581,7 +582,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
@@ -857,16 +858,29 @@ function decisionRemarkLine(jc){
     '<b>Nithish\u2019s remark ('+label+(jc.decided_by?' by '+esc(jc.decided_by):'')+'):</b> '+esc(jc.remarks)+
   '</div>';
 }
-function decisionChip(jc){
+function decisionChip(jc){ return '';   // decision log not used
+}
+function _unusedDecisionChip(jc){
   if(jc.decision==='approve') return '<span class="chip ok" title="'+(jc.remarks?esc(jc.remarks):'')+(jc.decided_by?' — '+esc(jc.decided_by):'')+'">✓ Nithish: Approved</span>';
   if(jc.decision==='reject') return '<span class="chip red" title="'+(jc.remarks?esc(jc.remarks):'')+(jc.decided_by?' — '+esc(jc.decided_by):'')+'">✕ Nithish: Rejected</span>';
   if(!SPECIAL_APPROVAL_JCS.has(jc.job_card_number)) return '';
   return '<span class="chip" style="background:#f1f5f9;color:#64748b">○ Nithish: Not Reviewed</span>';
 }
+// Flags job cards HO can't judge properly: nothing listed, or no end-of-job photos.
+function missingInfoChips(jc){
+  var out='';
+  var hasItems=(jc.part_count||0)>0 || parseItems(jc).length>0;
+  if(!hasItems) out+='<span class="chip red" title="No parts or labour lines were sent with this approval request">⚠ No parts listed</span>';
+  var photos=['end_front_photo','end_back_photo','end_left_photo','end_right_photo'].filter(function(k){ return jc[k]; }).length;
+  if(photos===0) out+='<span class="chip red" title="No end-of-job photos were uploaded">⚠ No photos</span>';
+  else if(photos<4) out+='<span class="chip amber" title="Only '+photos+' of 4 end-of-job photos uploaded">'+photos+'/4 photos</span>';
+  return out;
+}
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
-    (jc.amount ? '<span class="chip" style="background:#eff6ff;color:#1d4ed8;font-weight:700">₹'+nf(Math.round(jc.amount))+'</span>' : '')+
+    (jc.amount ? '<span class="chip" style="background:#eff6ff;color:#1d4ed8;font-weight:700"'+(jc.amount_has_estimate?' title="Includes estimated amounts (~) for parts not billed on this job card yet"':'')+'>'+(jc.amount_has_estimate?'~':'')+'₹'+nf(Math.round(jc.amount))+'</span>' : '')+
+    missingInfoChips(jc)+
     decisionChip(jc)+
     (jc.jc_status==='Job Re-Open (HO Reject)'?'<span class="chip amber">↺ Re-opened after HO rejection</span>':'')+
     ((jc.rejection_count||0)>0?'<span class="chip red">⚠ Rejected '+jc.rejection_count+'x before this request</span>':'')+
@@ -2408,7 +2422,9 @@ function nithishFlagLabel(reason){
   if(reason==='premature_part') return '<span class="chip amber">↺ Premature part</span>';
   return '';
 }
-function nithishDecisionUI(jc){
+function nithishDecisionUI(jc){ return '';   // decision log not used
+}
+function _unusedNithishDecisionUI(jc){
   var s=sid(jc.job_card_number);
   var d=jc.decision;
   var state = d
