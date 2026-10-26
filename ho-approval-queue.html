@@ -584,7 +584,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+refurbNote(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
@@ -733,6 +733,11 @@ function lastReplaced(p, currOdo){
   var kmpart=(p.km_since!=null && p.km_since>0)?(nf(p.km_since)+' km · '):'';
   return '<span class="'+(recent?'warn':'')+'">'+kmpart+p.days_since+'d ago'+(recent?' ⚠':'')+'</span>';
 }
+// Refurbished version of the requested NEW part is in stock at this hub (MSL sheet, hub_msl)
+function refurbNote(p){
+  if(!p || !p.refurb_stock || p.refurb_stock<=0) return '';
+  return '<div style="margin-top:3px;font-size:11px;font-weight:600;color:#15803d" title="'+esc(p.refurb_name||'Refurbished part')+' — closing stock at this hub, from the MSL sheet">♻ Refurb available at hub: '+nf(p.refurb_stock)+'</div>';
+}
 // Combines every rule signal already on the card into one recommendation,
 // instead of leaving HO to individually cross-check each row themselves.
 // NOTE: cost thresholds aren't wired in here -- ap_total/cost data isn't
@@ -749,6 +754,7 @@ function computeVerdict(jc, items){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
     if(!p.in_ptc) reasons.push({sev:'warn', text:'"'+p.item+'" not added in draft JC'});
+    if(p.refurb_stock>0) reasons.push({sev:'warn', text:'"'+p.item+'": refurbished one available at this hub ('+p.refurb_stock+' in stock) \u2014 use refurb instead of new'});
     if(p.days_since!=null && p.days_since<30) reasons.push({sev:'bad', text:'"'+p.item+'" was replaced only '+p.days_since+'d ago on this bike'});
     var qty = match?match.qty:null;
     if(isQtyFlagged(p.item, qty)) reasons.push({sev:'bad', text:'"'+p.item+'" qty ('+qty+') is unusually high'});
