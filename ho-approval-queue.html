@@ -584,7 +584,7 @@ function renderPartsTable(jc, items){
     var checkCell = match ? (match.catg==='W' ? warrantyCell(jc, match) : lifeCheck(match, p.km_since)) : '<span class="na-life">—</span>';
     var draftCell = p.in_ptc ? '<span class="ok-life">Added in draft JC</span>' : '<span class="bad-life">Not added in draft JC</span>';
     var earlyRow = match && match.catg==='A' && isEarlyReplacement(match.name, p.km_since);
-    return '<tr'+(earlyRow?' class="row-flag"':'')+'><td>'+esc(p.item)+'</td><td>'+lastReplaced(p, jc.km_at_jc)+refurbNote(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
+    return '<tr'+((earlyRow||isSuspSetPart(jc, p.item))?' class="row-flag"':'')+'><td>'+esc(p.item)+(isSuspSetPart(jc, p.item)?' <span class="chip red" style="font-size:9.5px;padding:1px 6px" title="Part of a full suspension set on this job card">set</span>':'')+'</td><td>'+lastReplaced(p, jc.km_at_jc)+refurbNote(p)+'</td><td>'+draftCell+'</td><td>'+catCell+'</td><td>'+qtyCell(p.item, match?match.qty:null)+'</td><td class="num">'+amtCell(p.amount, p.est_amount, p.est_basis)+'</td><td>'+checkCell+'</td></tr>';
   });
   // Line items with genuinely no resolvable name at all (bare code, and no
   // match in part_code_names either) -- can't be looked up in jc_details
@@ -750,6 +750,8 @@ function computeVerdict(jc, items){
   var usedKeys={};
   if((jc.rejection_count||0)>=2) reasons.push({sev:'bad', text:'Rejected '+jc.rejection_count+' times already \u2014 recheck before approving again'});
   else if((jc.rejection_count||0)===1) reasons.push({sev:'warn', text:'Rejected once before this request'});
+  var ssv = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
+  if(ssv) reasons.push({sev:'bad', text:'Suspension set ('+ssv.set+'): LH leg + RH leg + T-Steam all requested \u2014 use the Front Fork Sub assembly instead of 3 child parts'+(ssv.refurbStock>0?' (refurbished fork assembly in stock at this hub: '+ssv.refurbStock+')':'')});
   (jc.parts||[]).forEach(function(p){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
@@ -875,8 +877,33 @@ function _unusedDecisionChip(jc){
   return '<span class="chip" style="background:#f1f5f9;color:#64748b">○ Nithish: Not Reviewed</span>';
 }
 // Flags job cards HO can't judge properly: nothing listed, or no end-of-job photos.
+// Suspension set: LH leg + RH leg + T-Steam of the same set (Drum or Disc) on one job card.
+// Same rule as the Approval Quality tab's "Suspension Set (3 parts on one JC)" flag: the whole
+// Front Fork Sub assembly (ideally refurbished) should be used instead of three child parts.
+var FORK_SETS = {
+  'Drum': { parts: ['fr suspension leg-lh-drum', 'fr suspension leg-rh-drum', 'suspension-t-steam'], refurb: /front fork sub assembly.*drum/i },
+  'Disc': { parts: ['fr suspension leg-lh-disc', 'fr suspension leg-rh-disc', 'suspension-t-steam'], refurb: /front fork sub assembly.*disc/i }
+};
+function suspensionSet(jc){
+  var names = (jc.parts||[]).map(function(p){ return String(p.item||'').trim().toLowerCase(); });
+  for (var k in FORK_SETS){
+    var fs = FORK_SETS[k];
+    if (fs.parts.every(function(n){ return names.indexOf(n) >= 0; })){
+      var stock = 0, refurbName = '';
+      Object.keys(jc.hub_refurb||{}).forEach(function(nm){ if (fs.refurb.test(nm)) { stock += +jc.hub_refurb[nm] || 0; refurbName = nm; } });
+      return { set: k, parts: fs.parts, refurbStock: stock, refurbName: refurbName };
+    }
+  }
+  return null;
+}
+function isSuspSetPart(jc, item){
+  var ss = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
+  return !!ss && ss.parts.indexOf(String(item||'').trim().toLowerCase()) >= 0;
+}
 function missingInfoChips(jc){
   var out='';
+  var ss = jc._ss === undefined ? (jc._ss = suspensionSet(jc)) : jc._ss;
+  if (ss) out += '<span class="chip red" title="LH leg + RH leg + T-Steam ('+ss.set+') on one job card: use the Front Fork Sub assembly instead">⚠ Suspension set ('+ss.set+')'+(ss.refurbStock>0?' · refurb fork at hub: '+ss.refurbStock:'')+'</span>';
   var hasItems=(jc.part_count||0)>0 || parseItems(jc).length>0;
   if(!hasItems) out+='<span class="chip red" title="No parts or labour lines were sent with this approval request">⚠ No parts listed</span>';
   var photos=['end_front_photo','end_back_photo','end_left_photo','end_right_photo'].filter(function(k){ return jc[k]; }).length;
