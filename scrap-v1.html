@@ -609,16 +609,19 @@ function getCurrentUser() {
     return { email: sess.email || '', role: sess.role || '' };
   } catch (e) { return { email: '', role: '' }; }
 }
-const SCRAP_POWER_EMAILS = ['nithish@bounceshare.com', 'chandra.shekar@bounceshare.com'];
-function isScrapPowerUser() {
-  return SCRAP_POWER_EMAILS.includes((getCurrentUser().email || '').toLowerCase());
+// Rights come from Admin -> Roles (same roles the database checks):
+//   scrap_power_user, scrap_weight_admin, scrap_approver
+let SCRAP_ROLES = new Set();
+async function loadScrapRoles() {
+  try {
+    const r = await fetch(SB + '/rest/v1/rpc/my_roles', { method: 'POST', headers: await authHDR({ 'Content-Type': 'application/json' }), body: '{}' });
+    const roles = r.ok ? await r.json() : [];
+    SCRAP_ROLES = new Set(Array.isArray(roles) ? roles : []);
+  } catch (e) { SCRAP_ROLES = new Set(); }
 }
-function isScrapWeightAdmin() {
-  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
-}
-function isScrapApprover() {
-  return (getCurrentUser().email || '').toLowerCase() === 'nithish@bounceshare.com';
-}
+function isScrapPowerUser()   { return SCRAP_ROLES.has('scrap_power_user'); }
+function isScrapWeightAdmin() { return SCRAP_ROLES.has('scrap_weight_admin'); }
+function isScrapApprover()    { return SCRAP_ROLES.has('scrap_approver'); }
 let REFURB_PARTS = [];
 let VENDORS = [];
 let _hadFailure = false;
@@ -3120,10 +3123,15 @@ async function applyHubRestriction() {
   document.getElementById('f-from').value = from;
   document.getElementById('f-to').value = to;
   document.getElementById('s-date').value = to;
-  Promise.all([loadHubs(), loadCategories(), loadRefurbParts(), loadVendors(), ptInit()]).then(async () => {
+  loadScrapRoles().then(() => Promise.all([loadHubs(), loadCategories(), loadRefurbParts(), loadVendors(), ptInit()])).then(async () => {
     await applyHubRestriction();
     onTypeChange();
     loadAll();
+    // Opened from the new Bounce Back's Settings -> Part weights -> "Open Manage Parts"
+    if (location.hash === '#manage-parts') {
+      if (isScrapWeightAdmin()) openPartsManager();
+      else alert('Manage Parts needs the "Bounce Back: weights admin" role. An admin can give it in Admin -> Roles.');
+    }
   });
 })();
 
