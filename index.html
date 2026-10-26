@@ -1277,7 +1277,8 @@ function loadDashboard(key) {
   if (!p || !p.file) { console.warn('Dashboard not found:', key); return; }
   iframe.style.height = '';   // drop any height a previous dashboard set, so every view fills the frame
   // ?v= changes whenever the page's settings are saved in Admin, so browsers fetch a fresh copy
-  iframe.src = p.file + '?v=' + encodeURIComponent(p.updated_at || '1');
+  // version = last Admin edit + a 10-minute bucket, so a GitHub deploy reaches everyone within ~10 min
+  iframe.src = p.file + (p.file.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent((p.updated_at || '1') + '-' + Math.floor(Date.now() / 600000));
   shownDashKey = key;
 }
 
