@@ -531,12 +531,12 @@ body { overflow:auto!important; }
           </select>
         </div>
         <div class="fg">
-          <label>FSN</label>
-          <select id="fsnSel" onchange="render()" title="Fast / Slow / Non-moving, from the Part Details FSN tab (last 3 months' billing)">
+          <label>FMS</label>
+          <select id="fsnSel" onchange="render()" title="Fast / Medium / Slow, from the Part Details FMS tab (last 3 months' billing)">
             <option value="">All</option>
             <option value="Fast">Fast</option>
+            <option value="Medium">Medium</option>
             <option value="Slow">Slow</option>
-            <option value="Non-Moving">Non-moving</option>
           </select>
         </div>
         <div class="fg">
@@ -1225,24 +1225,24 @@ function exportTopPartsCSV(){
 
 let allData = [];
 let showShortOnly = true;
-// Category + FSN per part number, from the sheet's "Part Details FSN" tab (synced with the hub tabs)
-let FSN = {};
-let FSN_MONTHS = '';
+// Category + FMS per part number, from the sheet's "Part Details FMS" tab (synced with the hub tabs)
+let FMS = {};
+let FMS_MONTHS = '';
 let fsnLoaded = false;
 async function loadFsn() {
   if (fsnLoaded) return;
   try {
     const r = await fetch(`${INFO_URL}/rest/v1/part_fsn?select=part_number,part_name,category,fsn,avg_monthly_qty,month_labels&limit=5000`, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
     const rows = r.ok ? await r.json() : [];
-    rows.forEach(x => { FSN[x.part_number] = x; });
+    rows.forEach(x => { FMS[x.part_number] = x; });
     const ml = (rows.find(x => x.month_labels) || {}).month_labels;
-    if (ml) { const p = ml.split(','); FSN_MONTHS = p.length > 1 ? `${p[0]}–${p[p.length - 1]}` : p[0]; }
+    if (ml) { const p = ml.split(','); FMS_MONTHS = p.length > 1 ? `${p[0]}–${p[p.length - 1]}` : p[0]; }
     const cats = [...new Set(rows.map(x => x.category).filter(Boolean))].sort((a, b) => (a.startsWith('Not in') - b.startsWith('Not in')) || a.localeCompare(b));
     const sel = document.getElementById('catSel');
     cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (SAVED_VIEW && SAVED_VIEW.cat && cats.includes(SAVED_VIEW.cat)) sel.value = SAVED_VIEW.cat;
     fsnLoaded = true;
-  } catch (e) { console.error('FSN load failed', e); }
+  } catch (e) { console.error('FMS load failed', e); }
 }
 
 // ─── Summary tables (OOS style) + click-to-drill raw lines ──────────────
@@ -1289,7 +1289,7 @@ const MT_CSS = `
 #mtModal td.r,#mtModal th.r{text-align:right}
 #mtModal button{font:inherit;font-size:13px;font-weight:600;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
 `;
-let MT_ROWS = [];          // lines behind the tables (current city/hub load + category/FSN filters)
+let MT_ROWS = [];          // lines behind the tables (current city/hub load + category/FMS filters)
 let MT_CELLS = [];         // predicate per clickable number
 function mtCity(h) { if (h === 'BLR RPDC') return 'Bangalore'; if (h === 'NCR RPDC') return 'NCR'; for (const c in CITY_HUBS) if (CITY_HUBS[c].includes(h)) return c; return 'Other'; }
 let MSL_MODE = 'hub';
@@ -1314,7 +1314,7 @@ function setMslMode(m) {
   load();
 }
 function mtSt(r) { const s = (r.status || '').toLowerCase(); return s.includes('short') ? 'short' : s.includes('excess') ? 'ex' : s.includes('ok') ? 'ok' : (s.trim() ? 'other' : 'nc'); }
-function mtFsn(r) { const f = (fsnOf(r) || {}).fsn; return f ? (f === 'Non-Moving' ? 'Non-moving' : f) : 'Not in FSN list'; }
+function mtFsn(r) { const f = (fsnOf(r) || {}).fsn; return f ? f : 'Not in FMS list'; }
 function mtCat(r) { return (fsnOf(r) || {}).category || 'Unmapped'; }
 function mtNum(n, label, pred, cls, src) {
   if (!n) return '';
@@ -1338,7 +1338,7 @@ function mtSummaryTable(title, dimLabel, keys, keyOf, withHubs) {
     }).join('')}<td>${mtPct(rows)}</td></tr>`;
   };
   const body = keys.filter(k => MT_ROWS.some(r => keyOf(r) === k)).map(k => line(k, MT_ROWS.filter(r => keyOf(r) === k), false)).join('') + line('Total', MT_ROWS, true);
-  const note = /FSN/.test(title) && FSN_MONTHS ? `<span>FSN from ${FSN_MONTHS} billing · Part Details FSN tab</span>` : '';
+  const note = /FMS/.test(title) && FMS_MONTHS ? `<span>FMS from ${FMS_MONTHS} billing · Part Details FMS tab</span>` : '';
   return `<div class="mt-card"><div class="mt-title">${title}${note}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${withHubs ? '<th>Hubs</th>' : ''}${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Fulfilment</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
@@ -1353,7 +1353,7 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
   const body = keysShown.map(k => `<tr><td>${k}</td>${hubs.map(h => cell(k, h)).join('')}${cell(k, null)}</tr>`).join('')
     + `<tr class="mt-total"><td>Total short</td>${hubs.map(h => cell(null, h)).join('')}${cell(null, null)}</tr>`
     + `<tr class="mt-total"><td>Fulfilment</td>${hubs.map(h => `<td>${mtPct(src.filter(r => r.hub_name === h))}</td>`).join('')}<td style="border-left:1px solid #e5e7eb">${mtPct(src.filter(r => hubs.includes(r.hub_name)))}</td></tr>`;
-  const fnote = sub && /FSN/.test(title) && FSN_MONTHS ? ` · FSN from ${FSN_MONTHS} billing` : '';
+  const fnote = sub && /FMS/.test(title) && FMS_MONTHS ? ` · FMS from ${FMS_MONTHS} billing` : '';
   return `<div class="mt-card"><div class="mt-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${title}${sub || fnote ? `<span>${sub}${fnote}</span>` : ''}${tools ? `<span style="margin-left:14px;display:flex;gap:8px">${tools}</span>` : ''}</div><div class="mt-scroll"><table><thead><tr><th>${dimLabel}</th>${hubs.map(h => `<th>${h}</th>`).join('')}<th style="border-left:1px solid #e5e7eb">Total</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 // Preview: the new summary tables show only for people with the "MSL: new view" role (Admin → Roles);
@@ -1419,7 +1419,7 @@ function renderMslTables() {
   const hubs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort((a, b) => a.localeCompare(b));
   const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
   box.innerHTML = '<div id="mtInsights"></div>' +
-    `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
+    `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FMS', 'FMS', ['Fast', 'Medium', 'Slow', 'Not in FMS list'], mtFsn, false)}</div>` +
     '<div id="cardRunway"></div><div id="cardSF"></div><div id="cardSC"></div>' +
     '<div id="mtOrder"></div>';
   MT_HUBS = hubs; MT_CATS = cats;
@@ -1460,7 +1460,7 @@ function mtRunwayMatrix(hubs, src, tools) {
 }
 
 
-// ─── Key insights: 5 lines written from the current data (follows City / Hub / Category / FSN filters) ─────
+// ─── Key insights: 5 lines written from the current data (follows City / Hub / Category / FMS filters) ─────
 const INS_CSS = `
 #mtInsights .ins{background:#fff;border:1px solid var(--border,#e5e7eb);border-left:4px solid #1e4fd8;border-radius:10px;margin-bottom:16px;overflow:hidden}
 #mtInsights .ins-hd{padding:12px 16px 6px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -1533,13 +1533,13 @@ function openTransferPlan() {
     m.querySelectorAll('#tpView button').forEach(b => { const on = b.dataset.v === view; b.style.background = on ? '#1e4fd8' : '#fff'; b.style.color = on ? '#fff' : '#111827'; });
     let html, head, data;
     if (view === 'summary') {
-      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FSN</th><th ${th}>City</th><th ${th}>Send from (units)</th><th ${th}></th><th ${th}>Send to (units)</th><th ${thr}>Transfers</th><th ${thr}>Units</th></tr></thead><tbody>`;
+      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FMS</th><th ${th}>City</th><th ${th}>Send from (units)</th><th ${th}></th><th ${th}>Send to (units)</th><th ${thr}>Transfers</th><th ${thr}>Units</th></tr></thead><tbody>`;
       summary.forEach(r => { html += `<tr><td ${td}><b>${esc(r.part)}</b></td><td ${td}><span style="color:#64748b">${esc(r.pn)}</span></td><td ${td}>${esc(r.fsn)}</td><td ${td}>${esc(r.city)}</td><td ${tdw}>${hubs(r.from, '#64748b')}</td><td ${td}><span style="color:#94a3b8">→</span></td><td ${tdw}>${hubs(r.to, '#1e4fd8')}</td><td ${tdr}>${r.n}</td><td ${tdr}><b style="color:#1e4fd8">${r.units}</b></td></tr>`; });
       html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${plan.length}</b></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
-      head = ['Part', 'Part no.', 'FSN', 'City', 'Send from (hub: units)', 'Send to (hub: units)', 'Transfers', 'Units'];
+      head = ['Part', 'Part no.', 'FMS', 'City', 'Send from (hub: units)', 'Send to (hub: units)', 'Transfers', 'Units'];
       data = summary.map(r => [r.part, r.pn, r.fsn, r.city, r.from.map(([h, q]) => `${h}: ${q}`).join(', '), r.to.map(([h, q]) => `${h}: ${q}`).join(', '), r.n, r.units]);
     } else {
-      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FSN</th><th ${th}>City</th><th ${th}>From hub</th><th ${thr}>From stock / MSL</th><th ${th}></th><th ${th}>To hub</th><th ${thr}>To stock / MSL</th><th ${thr}>Qty to send</th></tr></thead><tbody>`;
+      html = `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th ${th}>Part</th><th ${th}>Part no.</th><th ${th}>FMS</th><th ${th}>City</th><th ${th}>From hub</th><th ${thr}>From stock / MSL</th><th ${th}></th><th ${th}>To hub</th><th ${thr}>To stock / MSL</th><th ${thr}>Qty to send</th></tr></thead><tbody>`;
       order.forEach((p, pi) => {
         byPart[p].slice().sort((a, b) => a.from.localeCompare(b.from) || b.qty - a.qty).forEach((t, ri) => {
           const sep = ri === 0 && pi > 0 ? ' style="padding:7px 10px;border-top:2px solid #e2e8f0;white-space:nowrap"' : ` ${td}`;
@@ -1548,7 +1548,7 @@ function openTransferPlan() {
         });
       });
       html += `<tr data-keep><td ${td} style="font-weight:700">Total</td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${td}></td><td ${tdr}><b>${units.toLocaleString('en-IN')}</b></td></tr></tbody></table>`;
-      head = ['Part', 'Part no.', 'FSN', 'City', 'From hub', 'From stock', 'From MSL', 'To hub', 'To stock', 'To MSL', 'Qty to send'];
+      head = ['Part', 'Part no.', 'FMS', 'City', 'From hub', 'From stock', 'From MSL', 'To hub', 'To stock', 'To MSL', 'Qty to send'];
       data = order.flatMap(p => byPart[p]).map(t => [t.part, t.pn, t.fsn, t.city, t.from, t.fromStock, t.fromMsl, t.to, t.toStock, t.toMsl, t.qty]);
     }
     m.querySelector('#tpBody').innerHTML = html;
@@ -1726,20 +1726,20 @@ async function renderInsights() {
 // ─── Filters on individual tables (on top of the filters at the top of the page) ─────
 let MT_HUBS = [], MT_CATS = [];
 const CARD_F = { rwCat: '', rwFsn: '', sfCat: '', scFsn: '' };
-const FSN_OPTS = ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'];
+const FMS_OPTS = ['Fast', 'Medium', 'Slow', 'Not in FMS list'];
 function cardSel(key, label, opts) {
   if (CARD_F[key] && !opts.includes(CARD_F[key])) CARD_F[key] = '';
-  return `<select data-cardf="${key}" aria-label="${label}" style="font:inherit;font-size:12px;font-weight:500;min-height:30px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px;background:#fff;color:#111827"><option value="">All ${label === 'FSN' ? 'FSN' : label.toLowerCase()}</option>${opts.map(o => `<option${o === CARD_F[key] ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
+  return `<select data-cardf="${key}" aria-label="${label}" style="font:inherit;font-size:12px;font-weight:500;min-height:30px;border:1px solid #d1d5db;border-radius:6px;padding:0 8px;background:#fff;color:#111827"><option value="">All ${label === 'FMS' ? 'FMS' : label.toLowerCase()}</option>${opts.map(o => `<option${o === CARD_F[key] ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
 }
 function renderCardTables() {
   const rw = document.getElementById('cardRunway'), sf = document.getElementById('cardSF'), sc = document.getElementById('cardSC');
   if (!rw) return;
   const rwSrc = MT_ROWS.filter(r => (!CARD_F.rwCat || mtCat(r) === CARD_F.rwCat) && (!CARD_F.rwFsn || mtFsn(r) === CARD_F.rwFsn));
-  rw.innerHTML = mtRunwayMatrix(MT_HUBS, rwSrc, cardSel('rwCat', 'Categories', MT_CATS) + cardSel('rwFsn', 'FSN', FSN_OPTS));
+  rw.innerHTML = mtRunwayMatrix(MT_HUBS, rwSrc, cardSel('rwCat', 'Categories', MT_CATS) + cardSel('rwFsn', 'FMS', FMS_OPTS));
   const sfSrc = MT_ROWS.filter(r => !CARD_F.sfCat || mtCat(r) === CARD_F.sfCat);
-  sf.innerHTML = mtMatrix('Short parts by FSN', '', 'FSN', FSN_OPTS, mtFsn, MT_HUBS, sfSrc, cardSel('sfCat', 'Categories', MT_CATS));
+  sf.innerHTML = mtMatrix('Short parts by FMS', '', 'FMS', FMS_OPTS, mtFsn, MT_HUBS, sfSrc, cardSel('sfCat', 'Categories', MT_CATS));
   const scSrc = MT_ROWS.filter(r => !CARD_F.scFsn || mtFsn(r) === CARD_F.scFsn);
-  sc.innerHTML = mtMatrix('Short parts by Category', 'Category × Hub', 'Category', MT_CATS, mtCat, MT_HUBS, scSrc, cardSel('scFsn', 'FSN', FSN_OPTS));
+  sc.innerHTML = mtMatrix('Short parts by Category', 'Category × Hub', 'Category', MT_CATS, mtCat, MT_HUBS, scSrc, cardSel('scFsn', 'FMS', FMS_OPTS));
   const box = document.getElementById('mslTables');
   if (box && !box.dataset.cardWired) {
     box.dataset.cardWired = '1';
@@ -1784,10 +1784,10 @@ function renderRpdcTables(box) {
   const coverColor = c => c === 'Can cover' ? '#15803d' : c === 'Partly' ? '#b45309' : '#b91c1c';
   const sumCell = (rp, c) => { const rs = coverRows.filter(x => (rp === null || x.rp === rp) && x.cover === c); const hubLines = rs.flatMap(x => x.rows); return `<td>${mtNum(rs.length, `${rp || 'All RPDCs'} · ${c} (hub short lines)`, () => true, '', hubLines)}</td>`; };
   const coverSummary = `<div class="mt-card"><div class="mt-title">Can RPDC cover hub shortages?<span>parts short at the hubs each RPDC supplies, vs RPDC stock</span></div><div class="mt-scroll"><table><thead><tr><th>Cover</th>${rpdcs.map(h => `<th>${h}</th>`).join('')}<th>Total</th></tr></thead><tbody>${COVER_ORDER.map(c => `<tr><td style="color:${coverColor(c)};font-weight:600">${c}</td>${rpdcs.map(h => sumCell(h, c)).join('')}${sumCell(null, c)}</tr>`).join('')}</tbody></table></div></div>`;
-  const coverList = `<div class="mt-card"><div class="mt-title">Hub shortages vs RPDC stock<span>${coverRows.length} parts · BLR RPDC supplies Bangalore, Hyderabad and Mumbai; NCR RPDC supplies NCR</span></div><div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">${rowSearchHtml('cvSearch', 'Search part, RPDC, FSN, cover…')}<span id="cvShown" style="font-size:12px;color:#64748b"></span></div><div class="mt-scroll" id="cvTable" style="max-height:520px;overflow:auto"><table><thead><tr><th>Part</th><th>RPDC</th><th style="text-align:left">FSN</th><th>Hubs short</th><th>Units short at hubs</th><th>RPDC stock</th><th style="text-align:left">Cover</th></tr></thead><tbody>${coverRows.map(x => `<tr><td>${x.name || x.pn}</td><td>${x.rp}</td><td style="text-align:left">${x.fsn}</td><td>${mtNum(x.hubs, `${x.name} · hubs short (${x.rp})`, () => true, 'mt-short', x.rows)}</td><td class="mt-short">${x.units.toLocaleString('en-IN')}</td><td>${x.stock.toLocaleString('en-IN')}</td><td style="text-align:left;color:${coverColor(x.cover)};font-weight:600">${x.cover}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const coverList = `<div class="mt-card"><div class="mt-title">Hub shortages vs RPDC stock<span>${coverRows.length} parts · BLR RPDC supplies Bangalore, Hyderabad and Mumbai; NCR RPDC supplies NCR</span></div><div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">${rowSearchHtml('cvSearch', 'Search part, RPDC, FMS, cover…')}<span id="cvShown" style="font-size:12px;color:#64748b"></span></div><div class="mt-scroll" id="cvTable" style="max-height:520px;overflow:auto"><table><thead><tr><th>Part</th><th>RPDC</th><th style="text-align:left">FMS</th><th>Hubs short</th><th>Units short at hubs</th><th>RPDC stock</th><th style="text-align:left">Cover</th></tr></thead><tbody>${coverRows.map(x => `<tr><td>${x.name || x.pn}</td><td>${x.rp}</td><td style="text-align:left">${x.fsn}</td><td>${mtNum(x.hubs, `${x.name} · hubs short (${x.rp})`, () => true, 'mt-short', x.rows)}</td><td class="mt-short">${x.units.toLocaleString('en-IN')}</td><td>${x.stock.toLocaleString('en-IN')}</td><td style="text-align:left;color:${coverColor(x.cover)};font-weight:600">${x.cover}</td></tr>`).join('')}</tbody></table></div></div>`;
 
   box.innerHTML =
-    `<div class="mt-row">${mtSummaryTable('MSL by RPDC', 'RPDC', rpdcs, r => r.hub_name, false)}${mtSummaryTable('MSL by FSN', 'FSN', ['Fast', 'Slow', 'Non-moving', 'Not in FSN list'], mtFsn, false)}</div>` +
+    `<div class="mt-row">${mtSummaryTable('MSL by RPDC', 'RPDC', rpdcs, r => r.hub_name, false)}${mtSummaryTable('MSL by FMS', 'FMS', ['Fast', 'Medium', 'Slow', 'Not in FMS list'], mtFsn, false)}</div>` +
     `<div class="mt-row">${runway}${coverSummary}</div>` +
     coverList +
     mtMatrix('Short parts by Category', 'Category × RPDC', 'Category', [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b)), mtCat, rpdcs);
@@ -1854,7 +1854,7 @@ async function renderOrderList() {
         <button type="button" id="ordCsv" style="font:inherit;font-size:12px;font-weight:600;min-height:32px;padding:0 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">Export CSV</button>
       </div></div>
     <div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">${rowSearchHtml('ordSearch', 'Search part, part no., category…')}<span id="ordShown" style="font-size:12px;color:#64748b"></span></div>
-    <div class="mt-scroll" id="ordTable" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FSN</th><th>MSL</th><th>Closing stock</th><th>Runway (days)</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
+    <div class="mt-scroll" id="ordTable" style="max-height:560px;overflow:auto"><table><thead><tr><th>Part</th><th style="text-align:left">Part no.</th><th style="text-align:left">Category</th><th style="text-align:left">FMS</th><th>MSL</th><th>Closing stock</th><th>Runway (days)</th><th>Order up to</th><th>Qty to order</th>${rp ? `<th title="Closing stock at ${rp}">${rp} stock count</th>` : ''}</tr></thead><tbody>${
       list.map(x => { const sd = sendable(x); return `<tr><td>${esc(x.r.part_name)}${fsnBadge(x.r.part_number)}</td><td style="text-align:left;color:#64748b">${esc(x.r.part_number)}</td><td style="text-align:left">${esc(mtCat(x.r))}</td><td style="text-align:left">${mtFsn(x.r)}</td><td>${x.r.msl_qty}</td><td>${x.r.closing_stock ?? 0}</td><td style="${x.r.runway_days != null && x.r.runway_days <= 0 ? 'color:#b91c1c;font-weight:700' : ''}">${x.r.runway_days == null ? '—' : Math.max(0, x.r.runway_days)}</td><td>${x.target}</td><td style="font-weight:700;color:#b91c1c">${x.qty.toLocaleString('en-IN')}</td>${rp ? `<td style="color:${sd == null ? '#64748b' : sd >= x.qty ? '#15803d' : sd > 0 ? '#b45309' : '#b91c1c'}">${sd == null ? 'not stocked' : sd.toLocaleString('en-IN')}</td>` : ''}</tr>`; }).join('')
       || '<tr><td colspan="9" style="color:#15803d">Nothing to order: every part is at or above the target.</td></tr>'
     }</tbody>${list.length ? `<tbody><tr class="mt-total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>${units.toLocaleString('en-IN')}</td>${rp ? '<td></td>' : ''}</tr></tbody>` : ''}</table></div></div>`;
@@ -1862,7 +1862,7 @@ async function renderOrderList() {
   box.querySelector('#ordHub').onchange = e => { ORDER_HUB = e.target.value; renderOrderList(); };
   wireRowSearch('ordSearch', 'ordTable', 'ordShown');
   box.querySelector('#ordCsv').onclick = () => {
-    const head = ['Hub', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
+    const head = ['Hub', 'Part', 'Part no.', 'Category', 'FMS', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
     const rows = list.map(x => [hub, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.r.runway_days == null ? '' : Math.max(0, x.r.runway_days), x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
     const csv = [head, ...rows].map(z => z.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `order_${hub.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -1870,7 +1870,7 @@ async function renderOrderList() {
   box.querySelector('#ordCopy').onclick = async e => {
     // Copy as a real table (tab-separated + HTML), so it pastes into Excel / Sheets as columns
     const title = `${hub} – parts to order (${ORDER_BUFFER ? `MSL + ${ORDER_BUFFER}%` : 'to match MSL'}), ${new Date().toLocaleDateString('en-IN')}`;
-    const head = ['S.No', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
+    const head = ['S.No', 'Part', 'Part no.', 'Category', 'FMS', 'MSL', 'Closing stock', 'Runway (days)', 'Order up to', 'Qty to order'].concat(rp ? [rp + ' stock count'] : []);
     const rows = list.map((x, i) => [i + 1, x.r.part_name, x.r.part_number, mtCat(x.r), mtFsn(x.r), x.r.msl_qty, x.r.closing_stock ?? 0, x.r.runway_days == null ? '' : Math.max(0, x.r.runway_days), x.target, x.qty].concat(rp ? [sendable(x) ?? 'not stocked'] : []));
     const total = ['', 'Total', '', '', '', '', '', '', '', units].concat(rp ? [''] : []);
     const all = [[title], head, ...rows, total];
@@ -1925,7 +1925,7 @@ let MT_OPEN = [];
 let MT_VIEW = { q: '', key: 'hub', dir: 1, label: '' };
 const MT_COLS = [
   ['hub', 'Hub', r => r.hub_name], ['city', 'City', r => mtCity(r.hub_name)], ['part', 'Part', r => r.part_name || ''],
-  ['pn', 'Part no.', r => r.part_number || ''], ['cat', 'Category', r => mtCat(r)], ['fsn', 'FSN', r => mtFsn(r)],
+  ['pn', 'Part no.', r => r.part_number || ''], ['cat', 'Category', r => mtCat(r)], ['fsn', 'FMS', r => mtFsn(r)],
   ['msl', 'MSL', r => r.msl_qty ?? -1e9, 1], ['stock', 'Closing stock', r => r.closing_stock ?? -1e9, 1],
   ['diff', 'Difference', r => (r.closing_stock != null && r.msl_qty != null) ? r.closing_stock - r.msl_qty : -1e9, 1],
   ['runway', 'Runway (days)', r => r.runway_days ?? -1e9, 1],
@@ -1972,19 +1972,19 @@ function mtDraw() {
   }).join('') || '<tr><td colspan="11" style="color:#64748b">No lines match the search.</td></tr>'}</tbody></table>`;
 }
 function mtCsv() {
-  const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FSN', 'MSL', 'Closing stock', 'Runway (days)', 'Status'];
+  const head = ['Hub', 'City', 'Part', 'Part no.', 'Category', 'FMS', 'MSL', 'Closing stock', 'Runway (days)', 'Status'];
   const rows = mtVisible().map(r => [r.hub_name, mtCity(r.hub_name), r.part_name, r.part_number, mtCat(r), mtFsn(r), r.msl_qty, r.closing_stock, r.runway_days == null ? '' : Math.max(0, r.runway_days), r.status || 'Not counted']);
   const csv = [head, ...rows].map(x => x.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `msl_lines_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = document.getElementById('mtModal'); if (m) m.style.display = 'none'; } });
 
-function fsnOf(r) { return FSN[(r && r.part_number) || ''] || null; }
+function fsnOf(r) { return FMS[(r && r.part_number) || ''] || null; }
 function fsnBadge(num) {
-  const f = (FSN[num || ''] || {}).fsn;
+  const f = (FMS[num || ''] || {}).fsn;
   if (!f) return '';
   const k = f.toLowerCase().startsWith('fast') ? ['F', '#16a34a', 'rgba(22,163,74,.12)'] : f.toLowerCase().startsWith('slow') ? ['S', '#b45309', 'rgba(217,119,6,.12)'] : ['N', '#64748b', 'rgba(100,116,139,.14)'];
-  return `<span title="${f}-moving (avg ${FSN[num].avg_monthly_qty ?? '—'}/month)" style="display:inline-block;margin-left:6px;font-size:10px;font-weight:700;line-height:16px;min-width:16px;text-align:center;border-radius:4px;color:${k[1]};background:${k[2]}">${k[0]}</span>`;
+  return `<span title="${f}-moving (avg ${FMS[num].avg_monthly_qty ?? '—'}/month)" style="display:inline-block;margin-left:6px;font-size:10px;font-weight:700;line-height:16px;min-width:16px;text-align:center;border-radius:4px;color:${k[1]};background:${k[2]}">${k[0]}</span>`;
 }
 
 const CITY_HUBS = {
@@ -2290,7 +2290,7 @@ function render() {
       </div>`).join('');
 }
 
-// Load on page open (the new view restores your last City / Hub / Category / FSN / view)
+// Load on page open (the new view restores your last City / Hub / Category / FMS / view)
 restoreSavedView();
 try{ if(localStorage.getItem('msl_tab')==='parts') setTimeout(function(){ mslTab('parts'); }, 0); }catch(e){}
   
