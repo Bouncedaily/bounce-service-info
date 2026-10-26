@@ -176,6 +176,8 @@ tr.row-flag:hover{background:#fee2e2}
   <input type="date" id="pf-from" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
   <span style="color:var(--muted)">to</span>
   <input type="date" id="pf-to" onchange="perfDraw()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfDay(0)">Today</button>
+  <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfDay(1)">Yesterday</button>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(0,this)">This wk</button>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(1,this)">Last wk</button>
   <button class="btn" style="padding:6px 12px;font-size:12px" onclick="perfPreset(2,this)">2 wks</button>
@@ -1151,6 +1153,14 @@ function perfPreset(w,btn){
   let f=pfFmtD(mon), t=(w===0)?PFD.dmax:pfFmtD(sun);
   if(f<PFD.dmin) f=PFD.dmin; if(t>PFD.dmax) t=PFD.dmax;
   pfFrom=f; pfTo=t; document.getElementById('pf-from').value=f; document.getElementById('pf-to').value=t; perfDraw();
+}
+// Today / Yesterday (IST). Not clamped to the latest loaded date, so an empty "today" shows as empty rather than silently showing yesterday.
+function perfDay(daysAgo){
+  const d=new Date(Date.now()+5.5*3600*1000 - daysAgo*864e5).toISOString().slice(0,10);
+  pfFrom=d; pfTo=d;
+  const f=document.getElementById('pf-from'), t=document.getElementById('pf-to');
+  [f,t].forEach(function(el){ if(el.max && el.max<d) el.max=d; el.value=d; });
+  perfDraw();
 }
 function perfReset(){
   pfFrom=PFD.dmin; pfTo=PFD.dmax;
