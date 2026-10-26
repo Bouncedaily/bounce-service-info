@@ -1358,7 +1358,11 @@ function mtMatrix(title, sub, dimLabel, keys, keyOf, hubs, src, tools) {
 }
 // Preview: the new summary tables show only for people with the "MSL: new view" role (Admin → Roles);
 // everyone else sees the page as before. The last answer is cached so the page doesn't flicker on load.
-let MT_PREVIEW_USERS = (function(){ try { const c = JSON.parse(localStorage.getItem('msl_new_view_for') || 'null'); return c ? [c] : []; } catch (e) { return []; } })();
+// New view: everyone with the "MSL: new view" role (Admin -> Roles) - today that's every user.
+// The page starts in the new layout straight away (no flash of the old one) and only switches back
+// if the role check says this person doesn't have it. The last answer is remembered per browser.
+let MT_NEW_VIEW = (function(){ try { return localStorage.getItem('msl_new_view') !== '0'; } catch (e) { return true; } })();
+(function(){ const tm = document.getElementById('tab-msl'); if (tm) tm.classList.toggle('mt-preview', MT_NEW_VIEW); })();
 (async function loadMslPreviewRole() {
   try {
     const tok = (JSON.parse(localStorage.getItem('sb_session') || '{}').access_token) || '';
@@ -1366,12 +1370,13 @@ let MT_PREVIEW_USERS = (function(){ try { const c = JSON.parse(localStorage.getI
     const r = await fetch(INFO_URL + '/rest/v1/rpc/my_roles', { method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: '{}' });
     if (!r.ok) return;
     const roles = await r.json();
-    const me = mtViewer();
-    const was = MT_PREVIEW_USERS.includes(me);
-    const now = Array.isArray(roles) && roles.includes('msl_new_view');
-    MT_PREVIEW_USERS = now ? [me] : [];
-    try { if (now) localStorage.setItem('msl_new_view_for', JSON.stringify(me)); else localStorage.removeItem('msl_new_view_for'); } catch (e) {}
-    if (was !== now && typeof renderMslTables === 'function') { try { renderMslTables(); } catch (e) {} }
+    const was = MT_NEW_VIEW;
+    MT_NEW_VIEW = Array.isArray(roles) && roles.includes('msl_new_view');
+    try { localStorage.setItem('msl_new_view', MT_NEW_VIEW ? '1' : '0'); localStorage.removeItem('msl_new_view_for'); } catch (e) {}
+    if (was !== MT_NEW_VIEW) {
+      const tm = document.getElementById('tab-msl'); if (tm) tm.classList.toggle('mt-preview', MT_NEW_VIEW);
+      if (typeof renderMslTables === 'function') { try { renderMslTables(); } catch (e) {} }
+    }
   } catch (e) {}
 })();
 function mtViewer() {
@@ -1384,7 +1389,7 @@ function mtViewer() {
 }
 function renderMslTables() {
   const box = document.getElementById('mslTables'); if (!box) return;
-  if (!MT_PREVIEW_USERS.includes(mtViewer())) { box.innerHTML = ''; return; }
+  if (!MT_NEW_VIEW) { box.innerHTML = ''; const t0 = document.getElementById('tab-msl'); if (t0) t0.classList.remove('mt-preview'); return; }
   const tm = document.getElementById('tab-msl'); if (tm) tm.classList.add('mt-preview');
   // "Short only" only filters the Parts × Hub heatmap, so it lives in the heatmap's header in the new view
   const so = document.getElementById('shortOnly'), hh = document.querySelector('#tab-msl .heatmap-header');
@@ -1893,7 +1898,7 @@ async function renderOrderList() {
 // ─── Remember the last filter choice (new view only) ─────
 const VIEW_KEY = 'msl_view_v1';
 function saveView() {
-  if (!MT_PREVIEW_USERS.includes(mtViewer())) return;
+  if (!MT_NEW_VIEW) return;
   try {
     localStorage.setItem(VIEW_KEY, JSON.stringify({
       city: document.getElementById('citySel').value, hub: document.getElementById('hubSel').value,
@@ -1904,7 +1909,7 @@ function saveView() {
 }
 let SAVED_VIEW = null;
 function restoreSavedView() {
-  try { if (MT_PREVIEW_USERS.includes(mtViewer())) SAVED_VIEW = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { SAVED_VIEW = null; }
+  try { if (MT_NEW_VIEW) SAVED_VIEW = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { SAVED_VIEW = null; }
   const v = SAVED_VIEW;
   if (v) {
     const cs = document.getElementById('citySel');
