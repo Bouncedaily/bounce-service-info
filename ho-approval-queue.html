@@ -425,7 +425,19 @@ tr.row-flag:hover{background:#fee2e2}
 <script>
 const SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-const HDR={apikey:ANON,Authorization:'Bearer '+ANON};
+// Requests go out with the signed-in user's login (from the portal session), so the database
+// can tell portal users from the public key. Falls back to the public key only if there's no
+// valid login (e.g. the session expired), so the page keeps working while access is tightened.
+function hoUserToken(){
+  try {
+    var t=(JSON.parse(localStorage.getItem('sb_session')||'{}').access_token)||'';
+    if(!t) return ANON;
+    var exp=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp||0;
+    return exp*1000 > Date.now()+30000 ? t : ANON;
+  } catch(e){ return ANON; }
+}
+const HDR={apikey:ANON};
+Object.defineProperty(HDR,'Authorization',{enumerable:true,get:function(){ return 'Bearer '+hoUserToken(); }});
 let ALL=[];
 let SPECIAL_APPROVAL_JCS=new Set();
 function nf(n){return (n==null?0:Math.round(n)).toLocaleString('en-IN');}
