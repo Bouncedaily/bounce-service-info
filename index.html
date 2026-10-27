@@ -1560,7 +1560,6 @@ initAuth();
     </div>
     <div id="me-hub-block" hidden>
       <div class="me-q"><span class="me-n">3</span>Which hub(s) do you work at? <span class="me-hint">tick all that apply</span></div>
-      <label class="me-opt me-all"><input type="checkbox" id="me-allhubs"> All hubs in this city</label>
       <div id="me-hubs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 10px"></div>
     </div>
     <div id="me-err" class="me-err"></div>
@@ -1597,7 +1596,6 @@ initAuth();
   }
   function drawHubs(){
     document.getElementById('me-hubs').innerHTML=(HUBS[ME.city]||[]).map(function(h){ return '<label class="me-opt"><input type="checkbox" class="me-hub" value="'+esc2(h)+'"> '+esc2(h)+'</label>'; }).join('');
-    document.getElementById('me-allhubs').checked=false;
   }
   window.checkProfilePrompt=function(){
     rpcMe('my_profile_needed').then(function(r){
@@ -1605,15 +1603,14 @@ initAuth();
       draw(); document.getElementById('me-modal').style.display='flex';
     }).catch(function(){});
   };
-  document.getElementById('me-allhubs').onchange=function(){ var on=this.checked; document.querySelectorAll('.me-hub').forEach(function(c){ c.checked=false; c.disabled=on; }); };
   document.getElementById('me-save').onclick=function(){
-    var err=document.getElementById('me-err'), all=document.getElementById('me-allhubs').checked;
+    var err=document.getElementById('me-err');
     var hubs=[].slice.call(document.querySelectorAll('.me-hub:checked')).map(function(c){return c.value;});
     if(!ME.role){ err.textContent='Please choose your role.'; return; }
     if(needCity() && !ME.city){ err.textContent='Please choose your city.'; return; }
-    if(needHub() && !all && !hubs.length){ err.textContent='Please tick your hub(s), or "All hubs in this city".'; return; }
+    if(needHub() && !hubs.length){ err.textContent='Please tick your hub(s).'; return; }
     err.textContent=''; this.disabled=true; var btn=this;
-    var body={p_role:ME.role, p_city:needCity()?ME.city:null, p_hubs:needHub()&&!all?hubs:null, p_all_hubs:needHub()&&all};
+    var body={p_role:ME.role, p_city:needCity()?ME.city:null, p_hubs:needHub()?hubs:null, p_all_hubs:false};
     rpcMe('save_my_profile', body).then(function(r){
       btn.disabled=false;
       if(!r.ok){ err.textContent='Could not save: '+((r.data&&r.data.message)||'please try again'); return; }
