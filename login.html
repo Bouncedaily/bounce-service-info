@@ -3,7 +3,10 @@
 <head>
 <script src="error-log.js"></script>
 <meta http-equiv="refresh" content="0;url=index.html">
-<script>window.location.replace('index.html');</script>
+<script>
+// sessions end at 23:59 IST, like the portal shell (27 Oct 2026)
+function endOfDayIST(){ var now=new Date(), ist=new Date(now.getTime()+5.5*3600000), e=new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), 18, 29, 0)); if(now>e) e.setUTCDate(e.getUTCDate()+1); return e.getTime(); }
+window.location.replace('index.html');</script>
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -154,7 +157,7 @@ function saveSession(tok, ref, em) {
     localStorage.setItem('sb_session', JSON.stringify({
       access_token: tok, refresh_token: ref,
       email: em, role: role, permissions: perms,
-      expires_at: Date.now() + 86400000
+      expires_at: endOfDayIST()
     }));
     window.location.replace('index.html');
   })
@@ -162,7 +165,7 @@ function saveSession(tok, ref, em) {
     localStorage.setItem('sb_session', JSON.stringify({
       access_token: tok, refresh_token: ref,
       email: em, role: 'viewer', permissions: {},
-      expires_at: Date.now() + 86400000
+      expires_at: endOfDayIST()
     }));
     window.location.replace('index.html');
   });
