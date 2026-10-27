@@ -1516,25 +1516,23 @@ initAuth();
 </script>
 
 
-<!-- One-time "about you" questions after login (27 Oct 2026): city, role, hub(s). Self-reported, kept apart from access settings. -->
+<!-- One-time "about you" questions after login (27 Oct 2026, revised): role, then city, then main hub(s).
+     Central Team and HO Approval Team answer only the role; City Head answers role and city. Self-reported, kept apart from access settings. -->
 <div id="me-modal" role="dialog" aria-modal="true" aria-labelledby="me-title"
      style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;color:#0f172a;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px 22px 18px">
     <h2 id="me-title" style="margin:0 0 4px;font-size:18px">Tell us about you</h2>
-    <p style="margin:0 0 16px;color:#64748b;font-size:13px">Three quick questions so we can show you the right numbers. Takes 10 seconds.</p>
-    <div style="font-weight:700;font-size:13px;margin-bottom:6px">1 · Which city do you work in?</div>
-    <div id="me-cities" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"></div>
-    <label for="me-role" style="display:block;font-weight:700;font-size:13px;margin-bottom:6px">2 · What is your role?</label>
-    <select id="me-role" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:6px">
-      <option value="">Choose your role</option>
-      <option>Hub Manager</option><option>Service Manager</option><option>Operations Executive (OE)</option><option>Technician</option>
-      <option>FIQC</option><option>HO / Approvals</option><option>City / Ops Manager</option><option>Central team (analytics, finance, procurement)</option><option>Other</option>
-    </select>
-    <input id="me-role-other" type="text" placeholder="Your role" hidden style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:6px;box-sizing:border-box">
+    <p style="margin:0 0 16px;color:#64748b;font-size:13px">A few quick questions so we can show you the right numbers. Takes 10 seconds.</p>
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px">1 · What is your role?</div>
+    <div id="me-roles" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"></div>
+    <div id="me-city-block" hidden>
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">2 · Which city do you work in?</div>
+      <div id="me-cities" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"></div>
+    </div>
     <div id="me-hub-block" hidden>
-      <div style="font-weight:700;font-size:13px;margin:10px 0 6px">3 · Which hub(s) do you work at? <span style="font-weight:400;color:#64748b">(tick all that apply)</span></div>
+      <div style="font-weight:700;font-size:13px;margin:0 0 6px">3 · Which hub(s) do you work at? <span style="font-weight:400;color:#64748b">(tick all that apply)</span></div>
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid #e5e7eb;margin-bottom:4px"><input type="checkbox" id="me-allhubs"> All hubs in this city</label>
-      <div id="me-hubs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 10px;max-height:220px;overflow:auto"></div>
+      <div id="me-hubs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 10px"></div>
     </div>
     <div id="me-err" style="color:#b91c1c;font-size:13px;min-height:18px;margin-top:10px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:6px"><button id="me-save" style="background:#0f172a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer">Save</button></div>
@@ -1542,41 +1540,51 @@ initAuth();
 </div>
 <script>
 (function(){
-  var ME={city:'', opts:null};
+  var ROLES=['City Head','Service Manager','Hub Manager','Central Team','HO Approval Team','Store Incharge'];
+  var NO_CITY=['Central Team','HO Approval Team'], NO_HUB=['City Head'];
+  var CITIES=['Bangalore','NCR','Hyderabad','Mumbai','Chennai'];
+  var HUBS={   // main hubs only (no sub-hubs, pilots or railway stations)
+    'Bangalore':['Banaswadi','Bellandur','Bilekahalli','Electronic City','Hebbal','Hoodi','HSR Layout','Indiranagar','RR Nagar','Yeshwanthpur'],
+    'NCR':['Gurugram','Indirapuram','Okhla','Rohini'],
+    'Hyderabad':['Fathe nagar','Miyapur','Nagole'],
+    'Mumbai':['Sakinaka'],
+    'Chennai':[] };
+  var ME={role:'', city:''};
   function rpcMe(fn, body){ var s=getSess(); return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':'Bearer '+(s.access_token||ANON_KEY)},body:JSON.stringify(body||{})}).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); }); }
   function esc2(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-  function drawCities(){
-    var list=(ME.opts&&ME.opts.cities||[]).concat(['Central / all cities']);
-    document.getElementById('me-cities').innerHTML=list.map(function(c){ var on=ME.city===c; return '<button type="button" data-city="'+esc2(c)+'" style="border:1px solid '+(on?'#0f172a':'#cbd5e1')+';background:'+(on?'#0f172a':'#fff')+';color:'+(on?'#fff':'#0f172a')+';border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">'+esc2(c)+'</button>'; }).join('');
-    document.querySelectorAll('#me-cities button').forEach(function(b){ b.onclick=function(){ ME.city=b.dataset.city; drawCities(); drawHubs(); }; });
+  function chips(boxId, list, cur, attr, onPick){
+    var box=document.getElementById(boxId);
+    box.innerHTML=list.map(function(c){ var on=cur===c; return '<button type="button" data-v="'+esc2(c)+'" style="border:1px solid '+(on?'#0f172a':'#cbd5e1')+';background:'+(on?'#0f172a':'#fff')+';color:'+(on?'#fff':'#0f172a')+';border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">'+esc2(c)+'</button>'; }).join('');
+    box.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ onPick(b.dataset.v); }; });
+  }
+  function needCity(){ return ME.role && NO_CITY.indexOf(ME.role)<0; }
+  function needHub(){ return needCity() && NO_HUB.indexOf(ME.role)<0 && ME.city && (HUBS[ME.city]||[]).length>0; }
+  function draw(){
+    chips('me-roles', ROLES, ME.role, 'role', function(v){ ME.role=v; document.getElementById('me-err').textContent=''; draw(); });
+    document.getElementById('me-city-block').hidden=!needCity();
+    chips('me-cities', CITIES, ME.city, 'city', function(v){ if(ME.city!==v){ ME.city=v; drawHubs(); } document.getElementById('me-err').textContent=''; draw(); });
+    document.getElementById('me-hub-block').hidden=!needHub();
   }
   function drawHubs(){
-    var blk=document.getElementById('me-hub-block'), central=ME.city==='Central / all cities';
-    blk.hidden=!ME.city||central;
-    var hubs=(ME.opts&&ME.opts.hubs||[]).filter(function(h){ return h.city===ME.city; }).map(function(h){ return h.hub; });
-    document.getElementById('me-hubs').innerHTML=hubs.map(function(h){ return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0"><input type="checkbox" class="me-hub" value="'+esc2(h)+'"> '+esc2(h)+'</label>'; }).join('');
+    document.getElementById('me-hubs').innerHTML=(HUBS[ME.city]||[]).map(function(h){ return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0"><input type="checkbox" class="me-hub" value="'+esc2(h)+'"> '+esc2(h)+'</label>'; }).join('');
     document.getElementById('me-allhubs').checked=false;
   }
   window.checkProfilePrompt=function(){
     rpcMe('my_profile_needed').then(function(r){
       if(!r.ok || r.data!==true) return;
-      return fetch(SB_URL+'/rest/v1/rpc/get_access_request_options',{method:'POST',headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':'Bearer '+ANON_KEY},body:'{}'}).then(function(x){return x.json();}).then(function(o){
-        ME.opts=o||{cities:[],hubs:[]}; drawCities(); drawHubs(); document.getElementById('me-modal').style.display='flex';
-      });
+      draw(); document.getElementById('me-modal').style.display='flex';
     }).catch(function(){});
   };
-  document.getElementById('me-role').onchange=function(){ document.getElementById('me-role-other').hidden=this.value!=='Other'; };
   document.getElementById('me-allhubs').onchange=function(){ var on=this.checked; document.querySelectorAll('.me-hub').forEach(function(c){ c.checked=false; c.disabled=on; }); };
   document.getElementById('me-save').onclick=function(){
-    var role=document.getElementById('me-role').value, other=document.getElementById('me-role-other').value.trim(), err=document.getElementById('me-err');
-    var all=document.getElementById('me-allhubs').checked, hubs=[].slice.call(document.querySelectorAll('.me-hub:checked')).map(function(c){return c.value;});
-    var central=ME.city==='Central / all cities';
-    if(!ME.city){ err.textContent='Please choose your city.'; return; }
-    if(!role){ err.textContent='Please choose your role.'; return; }
-    if(role==='Other' && !other){ err.textContent='Please type your role.'; return; }
-    if(!central && !all && !hubs.length){ err.textContent='Please tick your hub(s), or "All hubs in this city".'; return; }
+    var err=document.getElementById('me-err'), all=document.getElementById('me-allhubs').checked;
+    var hubs=[].slice.call(document.querySelectorAll('.me-hub:checked')).map(function(c){return c.value;});
+    if(!ME.role){ err.textContent='Please choose your role.'; return; }
+    if(needCity() && !ME.city){ err.textContent='Please choose your city.'; return; }
+    if(needHub() && !all && !hubs.length){ err.textContent='Please tick your hub(s), or "All hubs in this city".'; return; }
     err.textContent=''; this.disabled=true; var btn=this;
-    rpcMe('save_my_profile',{p_city:ME.city,p_role:role,p_hubs:central||all?null:hubs,p_all_hubs:central||all,p_role_other:role==='Other'?other:null}).then(function(r){
+    var body={p_role:ME.role, p_city:needCity()?ME.city:null, p_hubs:needHub()&&!all?hubs:null, p_all_hubs:needHub()&&all};
+    rpcMe('save_my_profile', body).then(function(r){
       btn.disabled=false;
       if(!r.ok){ err.textContent='Could not save: '+((r.data&&r.data.message)||'please try again'); return; }
       document.getElementById('me-modal').style.display='none';
