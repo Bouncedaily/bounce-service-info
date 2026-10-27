@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<script src="auth-guard.js"></script><!-- login required: no session -> login page -->
+<script src="error-log.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tyre Photo Review</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1500px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px;max-width:900px;line-height:1.5}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+input,select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text);font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--red)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 14px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;min-height:36px}
+.btn:hover{border-color:var(--border2);background:#f8fafc}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}.btn.primary:hover{background:#b91c1c}
+.btn.ok{background:#16a34a;border-color:#16a34a;color:#fff}.btn.ok:hover{background:#15803d}
+.btn.bad{background:#fff;border-color:#fca5a5;color:#b91c1c}.btn.bad:hover{background:#fef2f2}
+.btn[disabled]{opacity:.55;cursor:default}
+.spacer{flex:1}.muted{color:var(--muted)}.err{color:#b91c1c}
+.guide{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-val{font-size:24px;font-weight:800;line-height:1.15}.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}.kpi-sub{font-size:11.5px;color:var(--muted2);margin-top:2px}
+.kpi.good .kpi-val{color:#15803d}.kpi.watch .kpi-val{color:#a16207}.kpi.bad .kpi-val{color:#b91c1c}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--border);margin:0 0 16px;overflow-x:auto}
+.tab{background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.msg{padding:18px 16px;line-height:1.6}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);font-size:12.5px}
+th{background:#eef2f7;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;vertical-align:bottom}
+td.l,th.l{text-align:left}
+.hubname{font-weight:700;font-size:13px}.citysub{color:var(--muted2);font-size:11px}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
+.pill.ok{background:#dcfce7;color:#15803d}.pill.warn{background:#fef3c7;color:#a16207}.pill.bad{background:#fee2e2;color:#b91c1c}.pill.na{background:#f1f5f9;color:var(--muted)}
+.chip{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#fee2e2;color:#b91c1c;margin:2px 4px 2px 0}
+.chip.amber{background:#fef3c7;color:#a16207}
+/* review cards */
+.rv{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:18px;padding:16px}
+.rv .ph{background:#0f172a;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:240px;overflow:hidden;position:relative}
+.rv .ph img{max-width:100%;max-height:460px;display:block;cursor:zoom-in}
+.rv .ph .fail{color:#e2e8f0;padding:20px;text-align:center;font-size:12.5px;line-height:1.6}
+.rv .ph .fail a{color:#93c5fd}
+.rv .info{display:flex;flex-direction:column;gap:10px;min-width:0}
+.rv .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 14px}
+.rv .meta div{font-size:12.5px}.rv .meta span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px}
+.rv .entered{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:baseline;gap:10px}
+.rv .entered b{font-size:34px;font-weight:800;line-height:1}.rv .entered span{font-size:12px;color:var(--muted)}
+.rv .acts{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.rv .diff{display:none;gap:8px;align-items:center;flex-wrap:wrap}.rv .diff.open{display:flex}
+.rv .diff input{width:90px}
+.rv.done{opacity:.45;pointer-events:none}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
+@media(max-width:760px){.wrap{padding:12px}.rv{grid-template-columns:1fr;padding:12px}.kpi-val{font-size:20px}.rv .acts .btn{flex:1}}
+</style></head>
+<body>
+<div class="wrap">
+  <h1>Tyre Photo Review</h1>
+  <div class="psub">Check that each tyre-pressure photo shows the PSI the OE entered. Photos the automatic checks flagged come first, then a random sample. Each verdict takes a few seconds.</div>
+  <div id="msg"></div>
+  <div id="main" style="display:none">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="review">Review photos</button>
+      <button class="tab" data-tab="summary">Summary by hub</button>
+    </div>
+
+    <div id="tab-review">
+      <div class="guide"><b>How to check:</b> the photo should show the pressure gauge with a lit PSI reading. The <b>large number on top</b> is the measured pressure (the smaller number below is a preset). Tap <b>Matches</b> if it equals the entered PSI, <b>Different</b> if it shows another number (type it in), or <b>Bad photo</b> if it is black, blank, or does not show the gauge with a PSI reading.</div>
+      <div class="bar">
+        <span><label>Hub</label><select id="hubsel"><option value="">All hubs</option></select></span>
+        <span class="muted" id="rstatus"></span>
+        <span class="spacer"></span>
+        <button class="btn" id="more">Load 10 more</button>
+      </div>
+      <div id="rvbody"></div>
+    </div>
+
+    <div id="tab-summary" style="display:none">
+      <div class="bar">
+        <span><label>Period</label><select id="days"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option></select></span>
+        <span class="spacer"></span><span id="sstatus" class="muted"></span>
+        <button class="btn" id="csv">Download CSV</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="card"><div class="card-hd"><span>By hub</span><span class="muted" style="font-weight:400">Sorted with the most problems first</span></div><div class="scroll" id="sumbody"></div></div>
+      <div class="guide" style="margin-bottom:0"><b>Automatic flags:</b> <i>Hold then pass</i> = a held check re-entered as a pass for the same bike within a minute with a 3 PSI or larger change. <i>Reused photo</i> = the identical photo file appears on another check. <i>Old photo</i> = the camera recorded the photo more than 30 minutes before the check was saved. <i>Small file</i> = the photo file is under 60 KB (normal photos are around 300 KB), which is often a dark or blank photo. <i>Blank</i> = the photo file is under 5 KB.</div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var SUM=null, QUEUE=[], HUBS_FILLED=false, LOADED=false;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+/* Session: tokens last about an hour. Refresh before expiry and retry once on 401 (same approach as the other dashboards). */
+function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:localStorage}; }
+function tokenExpMs(jwt){ try{ var p=JSON.parse(atob(jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+var _refreshing=null;
+async function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async function(){
+    var o=readSess(), s=o.s; if(!s.refresh_token) return null;
+    try{
+      var r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token});
+      o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token;
+    }catch(e){ return null; }
+  })();
+  try{ return await _refreshing; } finally { _refreshing=null; }
+}
+async function validToken(){
+  var s=readSess().s; if(!s.access_token) return ANON;
+  var exp=tokenExpMs(s.access_token); if(exp&&exp>Date.now()+30000) return s.access_token;
+  return (await refreshSession())||s.access_token;
+}
+async function rpc(fn,args){
+  try{
+    var call=function(tok){ return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args||{})}); };
+    var r=await call(await validToken());
+    if(r.status===401){ var nt=await refreshSession(); if(nt) r=await call(nt); }
+    if(r.ok) return {ok:true,data:await r.json()};
+    var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
+    if(r.status===401) return {ok:false,status:401,expired:true,msg:'Your session has expired'};
+    return {ok:false,status:r.status,denied:(r.status===403),msg:m||('HTTP '+r.status)};
+  }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
+}
+function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},2600); }
+function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
+function num(v){ return v==null?'':(Math.round(Number(v)*10)/10); }
+function fail(r,what){
+  $('main').style.display='none';
+  if(r.expired) $('msg').innerHTML='<div class="card"><div class="msg"><b>Your session has expired.</b><br>Please sign out and sign in again.</div></div>';
+  else if(r.denied) $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to Tyre Photo Review.</b><br>Ask an admin to switch it on for you.</div></div>';
+  else $('msg').innerHTML='<div class="card"><div class="msg err">Could not load '+esc(what)+' ('+esc(r.msg)+'). Please try again.</div></div>';
+}
+function showTab(t){
+  ['review','summary'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
+  if(t==='summary') loadSummary();
+}
+
+/* ---------- Review ---------- */
+function flagChips(f){
+  var h='';
+  if(f.fast_flip) h+='<span class="chip">Hold then pass within a minute</span>';
+  if(f.dup_photo) h+='<span class="chip">Same photo used on another check</span>';
+  if(f.old_photo) h+='<span class="chip">Photo taken long before the check</span>';
+  if(f.blank_photo) h+='<span class="chip">Photo file is tiny / blank</span>';
+  if(f.small_photo) h+='<span class="chip amber">Very small photo file (may be dark or blank)</span>';
+  return h;
+}
+function cardHtml(it,i){
+  var f=it.flags||{};
+  return '<div class="card rv" id="rv'+i+'" data-i="'+i+'">'+
+    '<div class="ph"><img src="'+esc(it.photo_url)+'" alt="Tyre gauge photo" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;fail&quot;>Photo could not be loaded.<br><a target=&quot;_blank&quot; rel=&quot;noopener&quot; href=&quot;'+esc(it.photo_url)+'&quot;>Open the link</a></div>\'" onclick="window.open(this.src,\'_blank\')"></div>'+
+    '<div class="info">'+
+      '<div>'+flagChips(f)+'</div>'+
+      '<div class="meta"><div><span>Hub</span>'+esc(it.hub_name)+(it.city?' <span class="citysub" style="display:inline;text-transform:none;letter-spacing:0">('+esc(it.city)+')</span>':'')+'</div><div><span>Done by</span>'+esc(it.performed_by_name||'—')+'</div><div><span>Tyre</span>'+(it.side==='front'?'Front':'Rear')+'</div><div><span>Bike</span>'+esc(it.reg_number||'')+'</div><div><span>When</span>'+esc(fmtWhen(it.created_at))+'</div><div><span>Result</span>'+(it.result==='hold'?'<span class="pill warn" style="margin:0">hold</span>':'<span class="pill ok" style="margin:0">pass</span>')+'</div></div>'+
+      '<div class="entered"><b>'+esc(num(it.entered_psi))+'</b><span>PSI entered for the '+(it.side==='front'?'front':'rear')+' tyre</span></div>'+
+      '<div class="acts"><button class="btn ok" data-act="match">Matches</button><button class="btn" data-act="different">Different</button><button class="btn bad" data-act="bad_photo">Bad photo</button></div>'+
+      '<div class="diff"><label class="muted">PSI shown in the photo</label><input type="number" step="0.5" min="0" inputmode="decimal" placeholder="e.g. 27.5"><button class="btn primary" data-act="save_diff">Save</button><button class="btn" data-act="skip_diff">Not readable</button></div>'+
+    '</div></div>';
+}
+async function loadBatch(append){
+  $('rstatus').textContent='Loading…'; $('more').disabled=true;
+  var r=await rpc('tyre_review_next',{p_hub:$('hubsel').value||null,p_n:10});
+  $('more').disabled=false;
+  if(!r.ok){ if(!LOADED) { fail(r,'the review queue'); } else { $('rstatus').innerHTML='<span class="err">Could not load ('+esc(r.msg)+')</span>'; } return; }
+  LOADED=true; $('msg').innerHTML=''; $('main').style.display='';
+  var items=r.data||[];
+  if(!append){ QUEUE=[]; $('rvbody').innerHTML=''; }
+  var base=QUEUE.length; QUEUE=QUEUE.concat(items);
+  if(!items.length && !QUEUE.length){ $('rvbody').innerHTML='<div class="card"><div class="msg">Nothing left to review'+($('hubsel').value?' for this hub':'')+'. Check back after more tyre checks come in.</div></div>'; }
+  else $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join(''));
+  var left=QUEUE.filter(function(x){return !x._done;}).length;
+  $('rstatus').textContent=left+' to review';
+  if(!HUBS_FILLED) fillHubs();
+}
+async function fillHubs(){
+  var r=await rpc('tyre_review_summary',{p_days:30}); if(!r.ok) return;
+  HUBS_FILLED=true; var cur=$('hubsel').value;
+  $('hubsel').innerHTML='<option value="">All hubs</option>'+(r.data.hubs||[]).map(function(h){return '<option value="'+esc(h.hub)+'">'+esc(h.hub)+(h.city?' ('+esc(h.city)+')':'')+'</option>';}).join('');
+  if(cur) $('hubsel').value=cur;
+}
+async function verdict(i,v,seen){
+  var it=QUEUE[i]; if(!it||it._done) return;
+  var card=$('rv'+i); card.classList.add('done');
+  var r=await rpc('tyre_review_submit',{p_check_id:it.check_id,p_side:it.side,p_verdict:v,p_seen_psi:(seen==null?null:seen),p_note:null});
+  if(!r.ok){ card.classList.remove('done'); toast('Could not save ('+r.msg+')'); return; }
+  it._done=true; toast(v==='match'?'Saved: matches':(v==='different'?'Saved: different':'Saved: bad photo'));
+  var left=QUEUE.filter(function(x){return !x._done;}).length;
+  $('rstatus').textContent=left+' to review';
+  setTimeout(function(){ card.style.display='none'; if(left===0) loadBatch(true); },350);
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]'); if(!b) return;
+  var card=b.closest('.rv'); if(!card) return; var i=+card.getAttribute('data-i'), act=b.getAttribute('data-act');
+  if(act==='match') verdict(i,'match');
+  else if(act==='bad_photo') verdict(i,'bad_photo');
+  else if(act==='different'){ var d=card.querySelector('.diff'); d.classList.toggle('open'); var inp=d.querySelector('input'); if(d.classList.contains('open')) inp.focus(); }
+  else if(act==='save_diff'){ var v=card.querySelector('.diff input').value; if(v===''){ toast('Type the PSI you see, or tap Not readable'); return; } verdict(i,'different',parseFloat(v)); }
+  else if(act==='skip_diff') verdict(i,'different',null);
+});
+
+/* ---------- Summary ---------- */
+function pct(a,b){ return b>0?Math.round(100*a/b):null; }
+async function loadSummary(){
+  $('sstatus').textContent='Loading…';
+  var r=await rpc('tyre_review_summary',{p_days:+$('days').value});
+  if(!r.ok){ $('sstatus').innerHTML='<span class="err">Could not load ('+esc(r.msg)+')</span>'; return; }
+  SUM=r.data; renderSummary();
+  $('sstatus').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+function renderSummary(){
+  var t=SUM.totals, rev=t.match+t.different+t.bad_photo, mp=pct(t.match,rev);
+  function kpi(v,l,s,cls){ return '<div class="kpi '+(cls||'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div><div class="kpi-sub">'+(s||'')+'</div></div>'; }
+  $('kpis').innerHTML=
+    kpi(t.checks,'Tyre checks','last '+SUM.days+' days')+
+    kpi(rev,'Photos reviewed','of '+(t.checks*2)+' photos')+
+    kpi(mp==null?'—':mp+'%','Matches the entered PSI','of reviewed photos',mp==null?'':(mp>=95?'good':(mp>=85?'watch':'bad')))+
+    kpi(t.different,'Different PSI','reviewer saw another number',t.different?'bad':'')+
+    kpi(t.bad_photo,'Bad photos','blank, black or no reading',t.bad_photo?'watch':'')+
+    kpi(t.fast_flips,'Hold then pass','within a minute',t.fast_flips?'watch':'')+
+    kpi(t.dup_photos,'Reused photos','identical file elsewhere',t.dup_photos?'bad':'')+
+    kpi(t.small_photos,'Very small photos','may be dark or blank',t.small_photos?'watch':'');
+  var rows=(SUM.hubs||[]).slice().sort(function(a,b){
+    var sa=a.different+a.bad_photo+a.fast_flips+a.dup_photos+a.old_photos+a.blank_photos+a.small_photos, sb=b.different+b.bad_photo+b.fast_flips+b.dup_photos+b.old_photos+b.blank_photos+b.small_photos;
+    return sb-sa || String(a.hub).localeCompare(String(b.hub));
+  });
+  if(!rows.length){ $('sumbody').innerHTML='<div class="msg muted">No tyre checks in this period.</div>'; return; }
+  function cell(n,cls){ return '<td>'+(n? '<span class="pill '+cls+'">'+n+'</span>' : '<span class="muted">0</span>')+'</td>'; }
+  $('sumbody').innerHTML='<table><thead><tr><th class="l">Hub</th><th>Checks</th><th>Reviewed</th><th>Match %</th><th>Different</th><th>Bad photo</th><th>Hold then pass</th><th>Reused photo</th><th>Old photo</th><th>Small file</th><th>Blank</th></tr></thead><tbody>'+
+  rows.map(function(h){
+    var rv=h.match+h.different+h.bad_photo, mp=pct(h.match,rv);
+    var mc=mp==null?'na':(mp>=95?'ok':(mp>=85?'warn':'bad'));
+    return '<tr><td class="l"><span class="hubname">'+esc(h.hub)+'</span>'+(h.city?'<br><span class="citysub">'+esc(h.city)+'</span>':'')+'</td><td>'+h.checks+'</td><td>'+(rv||'<span class="muted">0</span>')+'</td><td>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
+      cell(h.different,'bad')+cell(h.bad_photo,'warn')+cell(h.fast_flips,'warn')+cell(h.dup_photos,'bad')+cell(h.old_photos,'warn')+cell(h.small_photos,'warn')+cell(h.blank_photos,'warn')+'</tr>';
+  }).join('')+'</tbody></table>';
+}
+function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n'); }
+$('csv').onclick=function(){
+  if(!SUM) return;
+  var rows=[['Hub','City','Checks','Reviewed','Match','Different','Bad photo','Hold then pass','Reused photo','Old photo','Small file','Blank']];
+  (SUM.hubs||[]).forEach(function(h){ rows.push([h.hub,h.city||'',h.checks,h.match+h.different+h.bad_photo,h.match,h.different,h.bad_photo,h.fast_flips,h.dup_photos,h.old_photos,h.small_photos,h.blank_photos]); });
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download='tyre-photo-review-'+SUM.days+'d.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
+};
+
+/* ---------- wiring ---------- */
+Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.onclick=function(){ showTab(b.getAttribute('data-tab')); }; });
+$('more').onclick=function(){ loadBatch(true); };
+$('hubsel').onchange=function(){ loadBatch(false); };
+$('days').onchange=loadSummary;
+loadBatch(false);
+</script>
+</body></html>
