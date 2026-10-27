@@ -546,6 +546,9 @@ body { overflow:auto!important; }
         <button class="toggle-btn active" id="shortOnly" onclick="toggleShort()">
           <i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Short only
         </button>
+        <button class="toggle-btn" id="blockedOnly" onclick="toggleBlockedOnly()" title="Only parts where bikes are waiting beyond the hub's stock">
+          <i class="ti ti-motorbike" style="font-size:11px;vertical-align:-1px;margin-right:4px"></i>Blocked only
+        </button>
         <div class="synced-lbl" id="syncedLbl" title="Auto-sync from the Google Sheet at 10:05 AM, 2:30 PM and 6 PM">Auto-sync: 10:05 AM, 2:30 PM, 6 PM</div>
         <button class="toggle-btn" id="mslSyncBtn" style="display:none" onclick="mslSyncNow()" title="Pull the latest MSL data from the Google Sheet now"><i class="ti ti-refresh" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i><span id="mslSyncTxt">Sync now</span></button>
       </div>
@@ -1238,6 +1241,7 @@ function exportTopPartsCSV(){
 
 let allData = [];
 let showShortOnly = true;
+let showBlockedOnly = false;
 // Category + FMS per part number, from the sheet's "Part Details FMS" tab (synced with the hub tabs)
 let FMS = {};
 let FMS_MONTHS = '';
@@ -1414,6 +1418,11 @@ function renderMslTables() {
     if (tg) { tg.parentNode.insertBefore(wrap, tg); wrap.appendChild(tg); }
     else hh.insertBefore(wrap, hh.querySelector('.legend'));
     wrap.appendChild(so);
+  }
+  const bo = document.getElementById('blockedOnly');
+  if (bo && so && so.parentNode && bo.parentNode !== so.parentNode) {
+    Object.assign(bo.style, { marginLeft: '0', alignSelf: 'center', padding: '5px 11px', fontSize: '12px', minHeight: '0', height: 'auto', lineHeight: '1.4', borderRadius: '6px' });
+    so.parentNode.insertBefore(bo, so.nextSibling);
   }
   // Part search also only filters the heatmap: move it next to Short only
   const se = document.getElementById('search'), sw = so && so.parentNode;
@@ -2121,6 +2130,13 @@ function toggleShort() {
   render();
 }
 
+function toggleBlockedOnly() {
+  showBlockedOnly = !showBlockedOnly;
+  const btn = document.getElementById('blockedOnly');
+  btn.classList.toggle('active', showBlockedOnly);
+  render();
+}
+
 function getFiltered() {
   const cat    = document.getElementById('catSel').value;
   const fsn    = document.getElementById('fsnSel').value;
@@ -2135,9 +2151,18 @@ function getFiltered() {
     );
   }
 
+  var blockedPartNames = null;
+  if (showBlockedOnly) {
+    blockedPartNames = new Set(
+      allData.filter(r => { const b = blockedFor(r.hub_name, r.part_number); return b && b.blocked > 0; })
+             .map(r => r.part_name || r.part_number || '—')
+    );
+  }
+
   return allData.filter(r => {
     const partKey = r.part_name || r.part_number || '—';
     if (showShortOnly && !shortPartNames.has(partKey)) return false;
+    if (showBlockedOnly && !blockedPartNames.has(partKey)) return false;
     if (cat && (fsnOf(r) || {}).category !== cat) return false;
     if (fsn && (fsnOf(r) || {}).fsn !== fsn) return false;
     if (search && !(r.part_name || '').toLowerCase().includes(search) && !(r.part_number || '').toLowerCase().includes(search)) return false;
@@ -2269,7 +2294,7 @@ function render() {
 
   const parts = Object.keys(partMap).filter(p => filteredPartNames.has(p)).sort();
   document.getElementById('heatmapSub').textContent =
-    parts.length + ' parts · ' + allHubs.length + ' hubs' + (showShortOnly ? ' · short only' : '');
+    parts.length + ' parts · ' + allHubs.length + ' hubs' + (showShortOnly ? ' · short only' : '') + (showBlockedOnly ? ' · blocked only' : '');
 
   if (parts.length === 0) {
     document.getElementById('heatmapTable').innerHTML = '<div class="loading-state" style="color:var(--muted)">No parts match current filters</div>';
@@ -2289,7 +2314,7 @@ function render() {
             + `<td style="text-align:right"><span class="cell ${statusClass(st)}">${diff}</span></td></tr>`;
       });
       h1 += '</tbody></table>';
-      document.getElementById('heatmapSub').textContent = parts.length + ' parts · ' + oneHub + (showShortOnly ? ' · short only' : '');
+      document.getElementById('heatmapSub').textContent = parts.length + ' parts · ' + oneHub + (showShortOnly ? ' · short only' : '') + (showBlockedOnly ? ' · blocked only' : '');
       document.getElementById('heatmapTable').innerHTML = h1;
     } else {
     let html = '<table><thead><tr><th>Part Name</th>';
