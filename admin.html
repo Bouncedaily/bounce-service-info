@@ -154,7 +154,7 @@
         </div>
         <div class="tbl">
           <table>
-            <thead><tr><th style="width:24px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this)"></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
+            <thead><tr><th style="width:24px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this)"></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th title="What the user told us in the 'Tell us about you' form after login. Information only; does not change access.">About (self-reported) <span id="about-count" style="font-weight:500;color:var(--muted)"></span></th><th>Sidebar Access</th><th>Last Login</th><th>Action</th></tr></thead>
             <tbody id="users-tbody"><tr><td colspan="8" class="empty"><span class="spin"></span>Loading…</td></tr></tbody>
           </table>
         </div>
@@ -457,6 +457,7 @@ function renderUsers(users) {
       <td>${u.email}</td>
       <td class="user-role"><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
       <td><span class="pill ${u.is_active?'p-active':'p-inactive'}">${u.is_active?'Active':'Inactive'}</span></td>
+      <td style="font-size:12px;min-width:150px">${aboutCell(u)}</td>
       <td>${perms}</td>
       <td style="font-size:12px;color:var(--muted)">${fmt(u.last_login)}</td>
       <td class="user-action">${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
@@ -465,8 +466,17 @@ function renderUsers(users) {
           : `<button class="btn btn-green" onclick="restoreUser('${u.email}')">Restore</button>`
       }</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8" class="empty">No users</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="empty">No users</td></tr>';
+  var act=users.filter(function(u){return u.is_active;}), ans=act.filter(function(u){return u.self_answered_at;}).length;
+  var ac=document.getElementById('about-count'); if(ac) ac.textContent='· '+ans+' of '+act.length+' answered';
   updateBulkBar();
+}
+// "Tell us about you" answers (self-reported role, city, hubs), shown next to each user (27 Oct 2026)
+function aboutCell(u){
+  if(!u.self_answered_at) return '<span style="color:var(--muted)">Not answered yet</span>';
+  var e=function(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+  var hubs=u.self_all_hubs?'All hubs':((u.self_hubs||[]).join(', '));
+  return '<div style="font-weight:600">'+e(u.self_role)+'</div>'+(u.self_city?'<div>'+e(u.self_city)+(hubs?' · <span style="color:var(--muted)">'+e(hubs)+'</span>':'')+'</div>':'');
 }
 
 async function addUser() {
