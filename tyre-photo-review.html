@@ -58,6 +58,7 @@ td.l,th.l{text-align:left}
 .rv .diff{display:none;gap:8px;align-items:center;flex-wrap:wrap}.rv .diff.open{display:flex}
 .rv .diff input{width:90px}
 .rv.done{opacity:.45;pointer-events:none}
+.pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}.pg{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px}.pg-top{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:6px}.pg-top span{color:var(--muted)}.pg-bar{height:8px;background:#eef2f7;border-radius:4px;overflow:hidden}.pg-bar i{display:block;height:100%;background:var(--green);transition:width .25s}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
 @media(max-width:760px){.wrap{padding:12px}.rv{grid-template-columns:1fr;padding:12px}.kpi-val{font-size:20px}.rv .acts .btn{flex:1}}
 </style></head>
@@ -74,6 +75,7 @@ td.l,th.l{text-align:left}
 
     <div id="tab-review">
       <div class="guide"><b>How to check:</b> the photo should show the pressure gauge with a lit PSI reading. The <b>large number on top</b> is the measured pressure (the smaller number below is a preset). Tap <b>Matches</b> if it equals the entered PSI, <b>Different</b> if it shows another number (type it in), or <b>Bad photo</b> if it is black, blank, or does not show the gauge with a PSI reading.</div>
+      <div class="pgs" id="prog" style="display:none"></div>
       <div class="bar">
         <span><label>Hub</label><select id="hubsel"><option value="">All hubs</option></select></span>
         <span class="muted" id="rstatus"></span>
@@ -99,7 +101,7 @@ td.l,th.l{text-align:left}
 <script>
 var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
-var SUM=null, QUEUE=[], HUBS_FILLED=false, LOADED=false;
+var SUM=null, QUEUE=[], HUBS_FILLED=false, LOADED=false, PROG=null;
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 /* Session: tokens last about an hour. Refresh before expiry and retry once on 401 (same approach as the other dashboards). */
@@ -173,6 +175,28 @@ function cardHtml(it,i){
     '</div></div>';
 }
 
+
+/* ---------- Daily progress: today and yesterday (India dates). The queue only holds these two days. ---------- */
+function fmtDay(d){ return new Date(d+'T12:00:00Z').toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'UTC'}); }
+function renderProgress(){
+  if(!PROG||!PROG.by_day||!PROG.by_day.length) return;
+  $('prog').style.display='';
+  $('prog').innerHTML=PROG.by_day.map(function(d,i){
+    var pct=d.photos?Math.round(100*d.reviewed/d.photos):0;
+    var name=(i===0?'Today':(i===1?'Yesterday':fmtDay(d.day)))+' ('+fmtDay(d.day)+')';
+    return '<div class="pg"><div class="pg-top"><b>'+name+'</b><span>'+d.reviewed+' of '+d.photos+' photos reviewed</span></div><div class="pg-bar"><i style="width:'+pct+'%"></i></div></div>';
+  }).join('');
+}
+async function loadProgress(){
+  var r=await rpc('tyre_review_progress',{p_hub:$('hubsel').value||null,p_days:2});
+  if(r.ok){ PROG=r.data; renderProgress(); }
+}
+function bumpProgress(it){
+  if(!PROG||!PROG.by_day) return;
+  var day=new Date(it.created_at).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
+  PROG.by_day.forEach(function(d){ if(d.day===day) d.reviewed++; });
+  renderProgress();
+}
 /* The photo links redirect and forbid embedding on other sites, so photos come through a signed-in relay (edge function). */
 function photoFail(i,it,why){
   var el=$('ph'+i); if(!el) return;
@@ -204,6 +228,7 @@ async function loadBatch(append){
   var left=QUEUE.filter(function(x){return !x._done;}).length;
   $('rstatus').textContent=left+' to review';
   if(!HUBS_FILLED) fillHubs();
+  loadProgress();
 }
 async function fillHubs(){
   var r=await rpc('tyre_review_summary',{p_days:30}); if(!r.ok) return;
@@ -216,7 +241,7 @@ async function verdict(i,v,seen){
   var card=$('rv'+i); card.classList.add('done');
   var r=await rpc('tyre_review_submit',{p_check_id:it.check_id,p_side:it.side,p_verdict:v,p_seen_psi:(seen==null?null:seen),p_note:null});
   if(!r.ok){ card.classList.remove('done'); toast('Could not save ('+r.msg+')'); return; }
-  it._done=true; toast(v==='match'?'Saved: matches':(v==='different'?'Saved: different':'Saved: bad photo'));
+  it._done=true; bumpProgress(it); toast(v==='match'?'Saved: matches':(v==='different'?'Saved: different':'Saved: bad photo'));
   var left=QUEUE.filter(function(x){return !x._done;}).length;
   $('rstatus').textContent=left+' to review';
   setTimeout(function(){ card.style.display='none'; if(left===0) loadBatch(true); },350);
