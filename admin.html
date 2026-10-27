@@ -1240,7 +1240,7 @@ async function rmcUploadFile(){
     status.textContent = `Refreshing dashboard summary cache…`;
     try {
       await fetch(`${SB}/rest/v1/rpc/refresh_rmc_monthly_dim_summary`, {
-        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
+        method: 'POST', headers: { ...HDR, Authorization: 'Bearer ' + sessionToken(), 'Content-Type': 'application/json' }, body: '{}'
       });
     } catch (e) { console.error('summary cache refresh failed', e); }
 
@@ -1373,7 +1373,7 @@ async function deleteRmcBatch(batchId){
     }
     try {
       await fetch(`${SB}/rest/v1/rpc/refresh_rmc_monthly_dim_summary`, {
-        method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' }, body: '{}'
+        method: 'POST', headers: { ...HDR, Authorization: 'Bearer ' + sessionToken(), 'Content-Type': 'application/json' }, body: '{}'
       });
     } catch (e) { console.error('summary cache refresh failed', e); }
     if (statusEl) statusEl.textContent = '';
