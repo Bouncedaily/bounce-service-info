@@ -595,6 +595,7 @@ body { overflow:auto!important; }
               <button id="hm-ful" onclick="setHeatMetric('ful',this)" style="padding:5px 11px;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--red);color:#fff">Fulfillment</button>
               <button id="hm-close" onclick="setHeatMetric('close',this)" style="padding:5px 11px;border:none;border-left:1px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--card);color:var(--text2)">Closing Stock</button>
               <button id="hm-msl" onclick="setHeatMetric('msl',this)" style="padding:5px 11px;border:none;border-left:1px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--card);color:var(--text2)">MSL Qty</button>
+              <button id="hm-blk" onclick="setHeatMetric('blk',this)" style="padding:5px 11px;border:none;border-left:1px solid var(--border2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--card);color:var(--text2)">Blocked vehicles</button>
             </div>
             <div class="legend">
               <div class="leg"><div class="leg-sq" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4)"></div>Short</div>
@@ -606,6 +607,18 @@ body { overflow:auto!important; }
           <div class="heatmap-scroll">
             <div id="heatmapTable" class="loading-state"><div class="spin"></div>Loading…</div>
           </div>
+        </div>
+
+        <!-- SHORTAGES BLOCKING BIKES -->
+        <div class="heatmap-panel" id="blockedPanel" style="grid-column:1/-1;order:1">
+          <div class="heatmap-header">
+            <div>
+              <div class="panel-title">Shortages blocking bikes</div>
+              <div class="panel-sub" id="blockedSub">Loading…</div>
+            </div>
+            <button type="button" onclick="downloadBlocked()" style="padding:5px 11px;border:1px solid var(--border2);border-radius:6px;background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">Download CSV</button>
+          </div>
+          <div class="heatmap-scroll"><div id="blockedTable" class="loading-state"><div class="spin"></div>Loading…</div></div>
         </div>
 
         <!-- RIGHT COL -->
@@ -2024,6 +2037,54 @@ function onCityChange() {
   load();
 }
 
+// ── Bikes waiting for a part (open job cards × MSL sheet), from get_msl_blocked ──
+let BLOCKED = {}, BLOCKED_ROWS = [], BLOCKED_SHOWN = [];
+function blockedFor(hub, pn) { return (hub && pn) ? BLOCKED[hub + '||' + pn] : null; }
+async function loadBlocked() {
+  try {
+    const r = await fetch(INFO_URL + '/rest/v1/rpc/get_msl_blocked', { method: 'POST', headers: { apikey: INFO_KEY, Authorization: 'Bearer ' + INFO_KEY, 'Content-Type': 'application/json' }, body: '{}' });
+    BLOCKED_ROWS = r.ok ? await r.json() : [];
+  } catch (e) { BLOCKED_ROWS = []; }
+  BLOCKED = {}; (BLOCKED_ROWS || []).forEach(b => { BLOCKED[b.hub + '||' + b.part_number] = b; });
+}
+function blkEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function blockedGetFrom(b) {
+  const city = mtCity(b.hub);
+  return allData.filter(r => r.part_number === b.part_number && r.hub_name !== b.hub && (r.closing_stock || 0) > 0 && mtCity(r.hub_name) === city)
+    .sort((x, y) => (/RPDC/.test(y.hub_name) - /RPDC/.test(x.hub_name)) || (y.closing_stock - x.closing_stock))
+    .slice(0, 3).map(r => r.hub_name + ' ' + r.closing_stock).join(' · ') || ('Not in ' + city);
+}
+function renderBlocked(hubsShown) {
+  const box = document.getElementById('blockedTable'); if (!box) return;
+  const hubSet = new Set(hubsShown);
+  BLOCKED_SHOWN = (BLOCKED_ROWS || []).filter(b => b.blocked > 0 && hubSet.has(b.hub)).sort((a, b) => b.blocked - a.blocked || b.needing - a.needing);
+  const bikes = new Set(); BLOCKED_SHOWN.forEach(b => (b.bikes || []).forEach(k => bikes.add(k.reg)));
+  document.getElementById('blockedSub').textContent = BLOCKED_SHOWN.length
+    ? `${bikes.size} bikes blocked · ${BLOCKED_SHOWN.length} part lines · open job cards needing a part beyond the hub's stock`
+    : 'No bikes blocked by a shortage for these filters';
+  if (!BLOCKED_SHOWN.length) { box.innerHTML = '<div class="loading-state" style="color:var(--muted)">Nothing blocked 🎉</div>'.replace(' 🎉', ''); return; }
+  let h = '<table><thead><tr><th>Part Name</th><th>Hub</th><th style="text-align:right">Stock / MSL</th><th style="text-align:right">Bikes needing it</th><th style="text-align:right">Bikes blocked</th><th>Get it from (same city)</th></tr></thead><tbody>';
+  BLOCKED_SHOWN.forEach((b, i) => {
+    h += `<tr><td>${blkEsc(b.part_name)}${fsnBadge(b.part_number)}<span class="pn">${blkEsc(b.part_number)}</span></td><td>${blkEsc(b.hub)}</td>`
+      + `<td style="text-align:right;font-variant-numeric:tabular-nums"><b style="color:var(--red)">${b.stock == null ? '—' : b.stock}</b> / ${b.msl == null ? '—' : b.msl}</td>`
+      + `<td style="text-align:right"><button type="button" onclick="toggleBlockedBikes(${i})" style="border:none;background:none;color:var(--blue,#2563eb);text-decoration:underline;cursor:pointer;font:inherit">${b.needing}</button></td>`
+      + `<td style="text-align:right"><button type="button" onclick="toggleBlockedBikes(${i})" style="border:none;cursor:pointer;background:#dc2626;color:#fff;font-weight:800;border-radius:999px;padding:2px 9px;font:inherit;font-weight:800">${b.blocked}</button></td>`
+      + `<td style="color:var(--text2)">${blkEsc(blockedGetFrom(b))}</td></tr>`
+      + `<tr id="blkBikes${i}" style="display:none"><td colspan="6" style="background:var(--bg)"><table style="width:auto;font-size:12px"><thead><tr><th>Bike (reg no.)</th><th>Stage</th><th style="text-align:right">Days open</th><th>Job card</th></tr></thead><tbody>`
+      + (b.bikes || []).slice().sort((x, y) => (y.days || 0) - (x.days || 0)).map(k => `<tr><td style="font-weight:600">${blkEsc(k.reg)}</td><td>${blkEsc(k.stage)}</td><td style="text-align:right">${k.days == null ? '—' : k.days}</td><td style="color:var(--muted)">${blkEsc(k.jc)}</td></tr>`).join('')
+      + '</tbody></table></td></tr>';
+  });
+  box.innerHTML = h + '</tbody></table>';
+}
+function toggleBlockedBikes(i) { const r = document.getElementById('blkBikes' + i); if (r) r.style.display = r.style.display === 'none' ? '' : 'none'; }
+function downloadBlocked() {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const lines = [['Part', 'Part no.', 'Hub', 'Stock', 'MSL', 'Bikes needing', 'Bikes blocked', 'Get it from', 'Bikes (reg no.)'].map(q).join(',')];
+  BLOCKED_SHOWN.forEach(b => lines.push([b.part_name, b.part_number, b.hub, b.stock, b.msl, b.needing, b.blocked, blockedGetFrom(b), (b.bikes || []).map(k => k.reg).join(' ')].map(q).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+  a.download = 'shortages_blocking_bikes.csv'; a.click();
+}
+
 async function load() {
   await loadFsn();
   await loadHubMeta();
@@ -2043,6 +2104,7 @@ async function load() {
   const url = `${INFO_URL}/rest/v1/hub_msl?${qs}&order=part_name.asc&limit=10000`;
   const res = await fetch(url, { headers: { 'apikey': INFO_KEY, 'Authorization': 'Bearer ' + INFO_KEY } });
   allData = await res.json();
+  await loadBlocked();
   document.getElementById('lastUpd').textContent = 'Last loaded: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const syncedAt = allData.find(r => r.synced_at);
   if (syncedAt) {
@@ -2101,19 +2163,20 @@ function cellNumber(st){
   if(typeof st!=='object') return cellVariance(st);
   if(HEAT_METRIC==='close') return (st.stock==null?'—':st.stock);
   if(HEAT_METRIC==='msl')   return (st.msl==null?'—':st.msl);
+  if(HEAT_METRIC==='blk')   { var b=blockedFor(st.hub, st.pn); return b && b.blocked>0 ? b.blocked : (b ? '0' : '—'); }
   return cellVariance(st);
 }
 function heatCell(part,h,st){
   var cls=statusClass(st), num=cellNumber(st);
   if(typeof st==='object' && st){
     var c=(st.stock==null?'—':st.stock), m=(st.msl==null?'—':st.msl), f=(st.variance==null?'—':(st.variance>0?'+'+st.variance:st.variance));
-    return '<td><span class="cell '+cls+'" data-c="'+c+'" data-m="'+m+'" data-f="'+f+'" data-p="'+heatAttr(part)+'" data-h="'+heatAttr(h)+'">'+num+'</span></td>';
+    return '<td><span class="cell '+cls+'" data-c="'+c+'" data-m="'+m+'" data-f="'+f+'" data-p="'+heatAttr(part)+'" data-h="'+heatAttr(h)+'" data-b="'+((blockedFor(st.hub, st.pn)||{}).blocked||0)+'" data-n="'+((blockedFor(st.hub, st.pn)||{}).needing||0)+'">'+num+'</span></td>';
   }
   return '<td><span class="cell '+cls+'">'+num+'</span></td>';
 }
 function setHeatMetric(m,btn){
   HEAT_METRIC=m;
-  ['hm-ful','hm-close','hm-msl'].forEach(function(id){ var b=document.getElementById(id); if(b){ b.style.background='var(--card)'; b.style.color='var(--text2)'; b.style.fontWeight='500'; } });
+  ['hm-ful','hm-close','hm-msl','hm-blk'].forEach(function(id){ var b=document.getElementById(id); if(b){ b.style.background='var(--card)'; b.style.color='var(--text2)'; b.style.fontWeight='500'; } });
   if(btn){ btn.style.background='var(--red)'; btn.style.color='#fff'; btn.style.fontWeight='600'; }
   render();
 }
@@ -2126,7 +2189,7 @@ function attachHeatTip(){
   document.addEventListener('mousemove',function(e){
     var el=e.target && e.target.closest ? e.target.closest('.cell') : null;
     if(!el || el.dataset.c===undefined){ tip.style.display='none'; return; }
-    tip.innerHTML='<div style="font-weight:600;margin-bottom:5px">'+el.dataset.p+' · '+el.dataset.h+'</div>'+row('Closing stock',el.dataset.c)+row('MSL qty',el.dataset.m)+row('Fulfillment',el.dataset.f);
+    tip.innerHTML='<div style="font-weight:600;margin-bottom:5px">'+el.dataset.p+' · '+el.dataset.h+'</div>'+row('Bikes needing / blocked',el.dataset.n+' / '+el.dataset.b)+row('Closing stock',el.dataset.c)+row('MSL qty',el.dataset.m)+row('Fulfillment',el.dataset.f);
     tip.style.display='block';
     var x=e.clientX+14, y=e.clientY+14;
     if(x+190>window.innerWidth) x=e.clientX-190;
@@ -2196,7 +2259,9 @@ function render() {
         status: r.status,
         variance: (r.closing_stock != null && r.msl_qty != null) ? (r.closing_stock - r.msl_qty) : null,
         stock: r.closing_stock,
-        msl: r.msl_qty
+        msl: r.msl_qty,
+        hub: r.hub_name,
+        pn: r.part_number
       };
   });
   // Which part names to show — from filtered (respects short-only, category, search)
@@ -2243,6 +2308,7 @@ function render() {
     attachHeatTip();
     }
   }
+  renderBlocked(document.getElementById('hubSel').value ? [document.getElementById('hubSel').value] : allHubs);
 
   // ── HUB RANKING (by MSL fulfilment %) ──
   const hubShorts = {};
