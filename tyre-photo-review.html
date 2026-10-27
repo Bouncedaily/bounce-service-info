@@ -163,7 +163,7 @@ function flagChips(f){
 function cardHtml(it,i){
   var f=it.flags||{};
   return '<div class="card rv" id="rv'+i+'" data-i="'+i+'">'+
-    '<div class="ph"><img src="'+esc(it.photo_url)+'" alt="Tyre gauge photo" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;fail&quot;>Photo could not be loaded.<br><a target=&quot;_blank&quot; rel=&quot;noopener&quot; href=&quot;'+esc(it.photo_url)+'&quot;>Open the link</a></div>\'" onclick="window.open(this.src,\'_blank\')"></div>'+
+    '<div class="ph" id="ph'+i+'"><div class="fail">Loading photo…</div></div>'+
     '<div class="info">'+
       '<div>'+flagChips(f)+'</div>'+
       '<div class="meta"><div><span>Hub</span>'+esc(it.hub_name)+(it.city?' <span class="citysub" style="display:inline;text-transform:none;letter-spacing:0">('+esc(it.city)+')</span>':'')+'</div><div><span>Done by</span>'+esc(it.performed_by_name||'—')+'</div><div><span>Tyre</span>'+(it.side==='front'?'Front':'Rear')+'</div><div><span>Bike</span>'+esc(it.reg_number||'')+'</div><div><span>When</span>'+esc(fmtWhen(it.created_at))+'</div><div><span>Result</span>'+(it.result==='hold'?'<span class="pill warn" style="margin:0">hold</span>':'<span class="pill ok" style="margin:0">pass</span>')+'</div></div>'+
@@ -171,6 +171,24 @@ function cardHtml(it,i){
       '<div class="acts"><button class="btn ok" data-act="match">Matches</button><button class="btn" data-act="different">Different</button><button class="btn bad" data-act="bad_photo">Bad photo</button></div>'+
       '<div class="diff"><label class="muted">PSI shown in the photo</label><input type="number" step="0.5" min="0" inputmode="decimal" placeholder="e.g. 27.5"><button class="btn primary" data-act="save_diff">Save</button><button class="btn" data-act="skip_diff">Not readable</button></div>'+
     '</div></div>';
+}
+
+/* The photo links redirect and forbid embedding on other sites, so photos come through a signed-in relay (edge function). */
+function photoFail(i,it,why){
+  var el=$('ph'+i); if(!el) return;
+  el.innerHTML='<div class="fail">Photo could not be loaded'+(why?' ('+esc(why)+')':'')+'.<br><a target="_blank" rel="noopener" href="'+esc(it.photo_url)+'">Open the original link</a></div>';
+}
+async function loadPhoto(i,it){
+  try{
+    var tok=await validToken();
+    var r=await fetch(SB+'/functions/v1/tyre-photo-proxy?id='+encodeURIComponent(it.check_id)+'&side='+encodeURIComponent(it.side),{headers:{Authorization:'Bearer '+tok,apikey:ANON}});
+    if(r.status===401||r.status===403){ photoFail(i,it,'no access'); return; }
+    if(!r.ok){ photoFail(i,it,'HTTP '+r.status); return; }
+    var b=await r.blob(); var u=URL.createObjectURL(b); var el=$('ph'+i); if(!el) return;
+    el.innerHTML='<img alt="Tyre gauge photo" src="'+u+'">';
+    el.firstChild.onclick=function(){ window.open(u,'_blank'); };
+    el.firstChild.onerror=function(){ photoFail(i,it,'file is not a readable image'); };
+  }catch(e){ photoFail(i,it,'no connection'); }
 }
 async function loadBatch(append){
   $('rstatus').textContent='Loading…'; $('more').disabled=true;
@@ -182,7 +200,7 @@ async function loadBatch(append){
   if(!append){ QUEUE=[]; $('rvbody').innerHTML=''; }
   var base=QUEUE.length; QUEUE=QUEUE.concat(items);
   if(!items.length && !QUEUE.length){ $('rvbody').innerHTML='<div class="card"><div class="msg">Nothing left to review'+($('hubsel').value?' for this hub':'')+'. Check back after more tyre checks come in.</div></div>'; }
-  else $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join(''));
+  else { $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join('')); items.forEach(function(it,k){ loadPhoto(base+k,it); }); }
   var left=QUEUE.filter(function(x){return !x._done;}).length;
   $('rstatus').textContent=left+' to review';
   if(!HUBS_FILLED) fillHubs();
