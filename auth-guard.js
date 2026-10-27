@@ -9,7 +9,7 @@
   function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
   var refreshing = null;
   async function userToken(){
-    var s = sess(); if (!s.access_token) return null;
+    var s = sess(); if (!s.access_token || !s.expires_at || s.expires_at < Date.now()) return null;
     if (expMs(s.access_token) > Date.now() + 60000) return s.access_token;
     if (!s.refresh_token) return s.access_token;
     if (!refreshing) refreshing = (async function(){
@@ -138,11 +138,9 @@
     if (!sess.access_token) { redirectLogin(); return; }
     // This check is the original end-of-day/24hr force-logout policy — unrelated
     // to the token's own real cryptographic expiry, left exactly as it was.
-    if (sess.expires_at < Date.now()) {
-      if (!sess.refresh_token) { redirectLogin(); return; }
-      sess = await refreshToken(sess.refresh_token);
-      if (!sess) { redirectLogin(); return; }
-    }
+    // Daily sign-in (27 Oct 2026): once the session's end-of-day cut-off has passed, sign in again with the password.
+    // (No silent renewal here any more; the hourly token refresh during the day is unchanged.)
+    if (!sess.expires_at || sess.expires_at < Date.now()) { redirectLogin(); return; }
 
     // Load permissions from allowed_users
     let perms = null;

@@ -11,7 +11,7 @@
   function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
   var refreshing = null;
   async function userToken(){
-    var s = sess(); if (!s.access_token) return null;
+    var s = sess(); if (!s.access_token || !s.expires_at || s.expires_at < Date.now()) return null;
     if (expMs(s.access_token) > Date.now() + 60000) return s.access_token;
     if (!s.refresh_token) return s.access_token;
     if (!refreshing) refreshing = (async function(){
@@ -1099,7 +1099,7 @@ async function initAuth() {
       // ensures admin permission changes take effect on the user's next page load
       // instead of waiting for the cached session to expire at end of day.
       if (sess.email) { refreshPerms(sess.email); } else { permsReady = true; }
-    } else if (sess.refresh_token) {
+    } else if (false && sess.refresh_token) {   // 27 Oct 2026: no silent renewal after the daily cut-off; everyone signs in with a password once a day
       // Try refresh synchronously-ish — show login placeholder while waiting
       fetch('https://fuslpeyhpmofzijrotkb.supabase.co/auth/v1/token?grant_type=refresh_token', {
         method: 'POST',
