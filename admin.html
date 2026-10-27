@@ -1202,7 +1202,7 @@ async function rmcUploadFile(){
         try {
           const r = await fetch(`${SB}/rest/v1/rmc_jc_lines`, {
             method: 'POST',
-            headers: { ...HDR, 'Content-Type': 'application/json' },
+            headers: { ...HDR, Authorization: 'Bearer ' + sessionToken(), 'Content-Type': 'application/json' },   // logged-in token (public writes closed 27 Oct 2026)
             body: JSON.stringify(chunk)
           });
           if (r.ok) { ok = true; }
@@ -1265,7 +1265,7 @@ async function rmcUploadFile(){
     } catch (e) { console.error('date range lookup failed', e); }
 
     await fetch(`${SB}/rest/v1/rmc_jc_upload_batches`, {
-      method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+      method: 'POST', headers: { ...HDR, Authorization: 'Bearer ' + sessionToken(), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: batchId, uploaded_by: currentUser(), source_filename: file.name,
         date_range_start: dateStart, date_range_end: dateEnd,

@@ -150,10 +150,11 @@ document.getElementById('tb').addEventListener('change',function(e){
   MANUAL[hub]=MANUAL[hub]||{}; MANUAL[hub][f]=(f==='reason')?v:(v===''?null:num(v));
   upsert(hub); render();
 });
-function upsert(hub){
+async function upsert(hub){
   var m=MANUAL[hub]||{};
+  var tok=(window.authGetValidToken?await window.authGetValidToken():null)||ANON;   // logged-in token (public writes closed 27 Oct 2026)
   fetch(SB+'/rest/v1/standup_manual',{method:'POST',
-    headers:{...HDR,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+    headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
     body:JSON.stringify({data_date:CUR,hub_name:hub,target_oos_rfd:m.target_oos_rfd??null,technicians:m.technicians??null,b2c:m.b2c??null,productive_hrs:m.productive_hrs??null,reason:m.reason??null,updated_at:new Date().toISOString()})
   }).then(function(r){document.getElementById('status').textContent=r.ok?'Saved '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'Save failed';});
 }
