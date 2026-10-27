@@ -501,10 +501,21 @@ function trackRows(){ var c=$('t-city').value; return TRK.rows.filter(function(t
 function renderTrack(){
   if(!TRK) return;
   var rows=trackRows(), a=agg(rows);
+  // funnel (26 Oct 2026): contacted -> reported to hub -> brake / tyre work done -> pad / shoe / tyre replaced, messaged vs not messaged
+  var M=rows.filter(function(t){return t.grp==='messaged';}), C=rows.filter(function(t){return t.grp==='control';});
+  var cnt=function(arr,f){ return arr.filter(f).length; };
+  var fRep=function(t){return !!t.visited_at;}, fWork=function(t){return !!t.work_at;}, fRpl=function(t){return !!(t.brake_replaced_at||t.tyre_replaced_at);};
+  var mc=M.length, cc=C.length, mRep=cnt(M,fRep), cRep=cnt(C,fRep), mWork=cnt(M,fWork), cWork=cnt(C,fWork), mRpl=cnt(M,fRpl), cRpl=cnt(C,fRpl);
+  var mBr=cnt(M,function(t){return !!t.brake_replaced_at;}), mTy=cnt(M,function(t){return !!t.tyre_replaced_at;});
+  var box=function(title,v,sub,cmp){ return '<div class="fbox"><div class="muted">'+title+'</div><div class="v">'+v+'</div><div class="c">'+sub+'</div>'+(cmp?'<div class="c" style="margin-top:3px">'+cmp+'</div>':'')+'</div>'; };
+  var sp=function(x,d){ return ' <span class="muted" style="font-size:15px;font-weight:600">'+pct(x,d)+'</span>'; };
   var html='<div class="funnel">'+
-    '<div class="fbox"><div class="muted">Sent</div><div class="v">'+n(a.sent)+'</div><div class="c">Not messaged (comparison): '+n(a.ctl)+'</div></div>'+
-    '<div class="fbox"><div class="muted">Visited hub</div><div class="v">'+n(a.mv)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mv,a.sent)+'</span></div><div class="c">Not messaged: '+n(a.cv)+' ('+pct(a.cv,a.ctl)+')</div></div>'+
-    '<div class="fbox"><div class="muted">Brake replaced</div><div class="v">'+n(a.mr)+' <span class="muted" style="font-size:15px;font-weight:600">'+pct(a.mr,a.sent)+'</span></div><div class="c">Not messaged: '+n(a.cr)+' ('+pct(a.cr,a.ctl)+')</div></div></div>';
+    box('Riders contacted (WhatsApp + app home screen)', n(mc), 'Not messaged (comparison): '+n(cc), '')+
+    box('Reported to hub (from that list)', n(mRep)+sp(mRep,mc), 'any job card after the message', 'Not messaged: '+n(cRep)+' ('+pct(cRep,cc)+')')+
+    box('Brake / tyre work done', n(mWork)+sp(mWork,mc), pct(mWork,mRep)+' of those who reported', 'Not messaged: '+n(cWork)+' ('+pct(cWork,cc)+')')+
+    box('Brake pad / shoe / tyre replaced', n(mRpl)+sp(mRpl,mc), pct(mRpl,mRep)+' of those who reported · brake '+n(mBr)+' · tyre '+n(mTy), 'Not messaged: '+n(cRpl)+' ('+pct(cRpl,cc)+')')+
+    '</div>'+
+    '<div class="muted" style="margin:-4px 2px 12px;font-size:12px">Reported to hub = any job card on the bike after the message. Brake / tyre work done = that job card has a brake or tyre line (repair, adjustment or replacement); a check with nothing written on the job card cannot be seen. Replaced = brake pad, brake shoe set or tyre part (tubes, valves and puncture repairs excluded). Not messaged = the comparison group from the same list, to see whether riders come in anyway.</div>';
   html+=responsesCard(rows)+walkinCard(rows)+bannerCard(rows);
   var key=TRKLEVEL==='city'?'city':'hub_name', groups={};
   rows.forEach(function(t){ (groups[t[key]]=groups[t[key]]||[]).push(t); });
