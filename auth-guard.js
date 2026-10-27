@@ -1,4 +1,49 @@
 // auth-guard.js — session check with 1-day expiry + permission-based sidebar
+// 27 Oct 2026 (security): any request to our database that carries the PUBLIC (anon) key is sent with the logged-in
+// user's token instead, so the database can stop answering the public key. Installed first, before any page code runs.
+(function(){
+  if (window.__sbUserTokenFetch) return; window.__sbUserTokenFetch = true;
+  var SBU = 'https://fuslpeyhpmofzijrotkb.supabase.co';
+  function role(t){ try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role; } catch(e){ return null; } }
+  function expMs(t){ try { var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp ? p.exp*1000 : 0; } catch(e){ return 0; } }
+  function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
+  var refreshing = null;
+  async function userToken(){
+    var s = sess(); if (!s.access_token) return null;
+    if (expMs(s.access_token) > Date.now() + 60000) return s.access_token;
+    if (!s.refresh_token) return s.access_token;
+    if (!refreshing) refreshing = (async function(){
+      try {
+        var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method:'POST', headers:{ apikey: anonKey || '', 'Content-Type':'application/json' }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+        if (!r.ok) return s.access_token;
+        var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token });
+        localStorage.setItem('sb_session', JSON.stringify(ns)); return d.access_token;
+      } catch(e){ return s.access_token; } finally { setTimeout(function(){ refreshing = null; }, 0); }
+    })();
+    return refreshing;
+  }
+  var origFetch = window.fetch.bind(window), anonKey = null;
+  window.fetch = async function(input, init){
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.indexOf(SBU + '/rest/v1/') === 0 || url.indexOf(SBU + '/functions/v1/') === 0) {
+        var h = new Headers((init && init.headers) || (input && input.headers) || {});
+        var a = h.get('Authorization') || h.get('authorization') || '';
+        var tok = a.replace(/^Bearer\s+/i, '');
+        if (tok && role(tok) === 'anon') {
+          anonKey = anonKey || h.get('apikey') || tok;
+          var ut = await userToken();
+          if (ut && role(ut) !== 'anon') {
+            h.set('Authorization', 'Bearer ' + ut);
+            if (typeof input === 'string') init = Object.assign({}, init || {}, { headers: h });
+            else input = new Request(input, { headers: h });
+          }
+        }
+      }
+    } catch(e) {}
+    return origFetch(input, init);
+  };
+})();
 (function() {
   // One-time cleanup: an earlier version of hub-audit.html registered its
   // service worker with no explicit scope, which defaults to the site root —

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="auth-guard.js"></script><!-- first: login required + user token on database calls (27 Oct 2026) -->
 <script src="error-log.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -166,7 +167,6 @@ tr:hover td { background: var(--bg); }
 <body>
 <div class="sb-overlay" style="display:none" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
 <button class="sb-hamburger" id="sb-hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar" onclick="openSidebar()">☰</button>
-<script src="auth-guard.js?v=1780722254"></script>
 
 
 
