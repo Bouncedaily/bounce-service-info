@@ -1227,7 +1227,7 @@ async function rmcUploadFile(){
       if (attempt > 0) { await sleep(3000 * attempt); status.textContent = `Reconcile hit a DB hiccup, retrying (attempt ${attempt+1}/4)…`; }
       try {
         const reconcileRes = await fetch(`${SB}/rest/v1/rpc/reconcile_rmc_upload`, {
-          method: 'POST', headers: { ...HDR, 'Content-Type': 'application/json' },
+          method: 'POST', headers: { ...HDR, Authorization: 'Bearer ' + sessionToken(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ p_batch_id: batchId })
         });
         if (reconcileRes.ok) deletedCount = await reconcileRes.json();
