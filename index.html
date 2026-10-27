@@ -1349,6 +1349,33 @@ function closeSidebar() {
 
 <!-- Dashboards load from their own .html files (see the portal_pages table, editable in Admin -> Pages & sidebar). -->
 <script>
+// Keep the database login token fresh. The portal session lasts the day, but the Supabase access
+// token inside it expires after 1 hour; dashboards read it from sb_session, so renew it in the
+// background whenever less than 10 minutes are left (checked every 5 minutes and on load).
+function jwtExpMs(t){ try { return (JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp || 0) * 1000; } catch(e){ return 0; } }
+var _tokRefreshing = false;
+function keepTokenFresh(){
+  if (_tokRefreshing) return;
+  var sess; try { sess = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return; }
+  if (!sess.access_token || !sess.refresh_token) return;
+  if (jwtExpMs(sess.access_token) - Date.now() > 10 * 60 * 1000) return;
+  _tokRefreshing = true;
+  fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST', headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: sess.refresh_token })
+  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    if (d && d.access_token) {
+      var cur; try { cur = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ cur = {}; }
+      if (!cur.access_token) return;                 // signed out meanwhile
+      cur.access_token = d.access_token; if (d.refresh_token) cur.refresh_token = d.refresh_token;
+      localStorage.setItem('sb_session', JSON.stringify(cur));
+      try { sessionStorage.setItem('sb_session_bak', JSON.stringify(cur)); } catch(e) {}
+    }
+  }).catch(function(){}).then(function(){ _tokRefreshing = false; });
+}
+setInterval(keepTokenFresh, 5 * 60 * 1000);
+setTimeout(keepTokenFresh, 3000);
+
 initAuth();
 </script>
 
