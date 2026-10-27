@@ -771,7 +771,7 @@ function computeVerdict(jc, items){
   (jc.parts||[]).forEach(function(p){
     var match=items.find(function(it){ return !usedKeys[it.key] && it.name && norm(it.name)===norm(p.item); });
     if(match) usedKeys[match.key]=true;
-    if(!p.in_ptc) reasons.push({sev:'warn', text:'"'+p.item+'" not added in draft JC'});
+    // "not added in draft JC" is shown in the parts table only (removed from the Recommend box)
     if(p.refurb_stock>0) reasons.push({sev:'warn', text:'"'+p.item+'": refurbished one available at this hub ('+p.refurb_stock+' in stock) \u2014 use refurb instead of new'});
     if(p.days_since!=null && p.days_since<30) reasons.push({sev:'bad', text:'"'+p.item+'" was replaced only '+p.days_since+'d ago on this bike'});
     var qty = match?match.qty:null;
@@ -782,16 +782,16 @@ function computeVerdict(jc, items){
     }
     if(match && match.catg==='W'){
       var dec=WARRANTY_MAP[jc.job_card_number+'||'+match.key];
-      if(!dec) reasons.push({sev:'bad', text:'Check mail approval for "'+p.item+'" to punch under warranty'});
-      else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+p.item+'" warranty was rejected'});
+      // warranty "check mail approval" is shown in the parts table only (removed from the Recommend box)
+      if(dec && dec.decision==='reject') reasons.push({sev:'bad', text:'"'+p.item+'" warranty was rejected'});
     }
   });
   items.filter(function(it){ return !usedKeys[it.key]; }).forEach(function(it){
     if(isQtyFlagged(it.name, it.qty)) reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" qty ('+it.qty+') is unusually high'});
     if(it.catg==='W'){
       var dec=WARRANTY_MAP[jc.job_card_number+'||'+it.key];
-      if(!dec) reasons.push({sev:'bad', text:'Check mail approval for "'+(it.name||it.code)+'" to punch under warranty'});
-      else if(dec.decision==='reject') reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty was rejected'});
+      // (labour) warranty "check mail approval" shown in the table only
+      if(dec && dec.decision==='reject') reasons.push({sev:'bad', text:'"'+(it.name||it.code)+'" warranty was rejected'});
     }
   });
   var hasBad = reasons.some(function(r){ return r.sev==='bad'; });
