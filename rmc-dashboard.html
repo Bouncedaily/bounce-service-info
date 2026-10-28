@@ -358,10 +358,18 @@ async function loadAll(){
 async function uploadDMS(buf, name){
   var s=readSheet(buf), tmp=C.newStore(), res=C.ingest(s.rows, s.header, tmp, name);
   var months=res.months; if(!months.length){ toast('No usable lines found in '+name); return; }
+  // Summary files without job numbers carry job-card counts in a "Job cards" sheet (City, Month, Job Cards (with parts))
+  var jcSheet={};
+  var jsh=s.wb && s.wb.Sheets[s.wb.SheetNames.filter(function(n){return n.trim().toLowerCase()==='job cards';})[0]];
+  if(jsh) XLSX.utils.sheet_to_json(jsh,{header:1,raw:true,defval:null}).slice(1).forEach(function(r){
+    if(!r) return; var c=C.CITY[String(r[0]==null?'':r[0]).trim().toUpperCase()], mm=C.parseMonth(r[1]), n=+r[2];
+    if(c && mm && n>0) (jcSheet[mm]=jcSheet[mm]||[]).push({city:CITY_FULL[c],hub:'',total:null,parts:n,bikes:null});
+  });
   for(var i=0;i<months.length;i++){
     var m=months[i];
     var lines=tmp.rows.filter(function(r){return r.month===m;}).map(function(r){ return {city:CITY_FULL[r.city],hub:r.hub,model:r.model,issue:r.issue,cat:r.cat,desc:r.cat==='Part'?(tmp.names[r.pn]||r.pn):'Labour',qty:r.qty,amt:Math.round(r.amt*100)/100,lines:1}; });
     var jc=Object.keys(tmp.jc).filter(function(k){return k.split('|')[1]===m;}).map(function(k){ return {city:CITY_FULL[k.split('|')[0]],hub:'',total:(tmp.jcAll||{})[k]||null,parts:tmp.jc[k],bikes:(tmp.bikes||{})[k]||null}; });
+    if(!jc.length && jcSheet[m]) jc=jcSheet[m];
     toast('Saving '+C.monthLabel(m)+' ('+lines.length.toLocaleString('en-IN')+' grouped lines)…');
     var r=await rpc('rmc_load_month',{p_month:m,p_lines:lines,p_jc:jc,p_source:name});
     if(!r.ok){ toast('Upload failed for '+C.monthLabel(m)+': '+r.msg); return; }
