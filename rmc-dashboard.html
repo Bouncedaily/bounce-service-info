@@ -185,7 +185,7 @@ var SVCCore = (function(){
       if(F.model && r.model!==F.model) continue;
       var w=F.shareFn?F.shareFn(r):1; if(!w) continue;   // deployed-year filter: this row's share for the chosen year
       var b;
-      if(r.cat==='Labour') b='L'; else if(r.issue==='P') b=ctx.rule(r.pn,r.month,'P'); else if(r.issue==='A') b=ctx.rule(r.pn,r.month,'A'); else if(r.issue==='W') b='W'; else if(r.issue==='F') b='F'; else continue;
+      if(r.cat==='Labour') b='L'; else if(r.issue==='P') b=ctx.rule(r.pn,r.month,'P'); else if(r.issue==='A') b=ctx.rule(r.pn,r.month,'A'); else if(r.issue==='W') b='W'; else if(r.issue==='F') b='F'; else if(r.issue==='C') b='C'; else continue;
       var o=out[r.city]||(out[r.city]={}), m=o[r.month]||(o[r.month]={A:0,P:0,C:0,L:0,W:0,F:0,parts:{A:{},P:{},C:{}}});
       m[b]+=r.amt*w;
       if(b!=='L' && b!=='W' && b!=='F'){
