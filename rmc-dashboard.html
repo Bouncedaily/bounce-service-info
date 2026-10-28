@@ -565,8 +565,41 @@ function stacked(city, months, model){
     s+='<text x="'+(x+bw/2)+'" y="'+(H-10)+'" font-size="10.5" text-anchor="middle" fill="#6b7280">'+C.monthLabel(m)+'</text>'; });
   return s+'</svg><div class="sub" style="margin-top:2px"><span style="color:'+COLORS.A+'">&#9632;</span> A &nbsp;<span style="color:'+COLORS.P+'">&#9632;</span> P &nbsp;<span style="color:'+COLORS.C+'">&#9632;</span> C &nbsp; (stacked, '+unitName()+')</div>';
 }
+// City comparison: cities side by side, each with the last two full months and the partial-month pair (e.g. Sep 1-27 vs Oct 1-27).
+// Same numbers as each city's own table: it reuses opsVal / netInfo / recovAmt / val.
+function cityCompareHtml(model){
+  var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
+  var all={}; cities.forEach(function(c){ Object.keys(model[c]).forEach(function(m){ all[m]=1; }); });
+  var ms=selMonths().filter(function(m){ return all[m]; }); if(!ms.length) return '';
+  var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0];
+  var full=ms.filter(function(m){ return !/p$/.test(m) && !isPartialMonth(m); });
+  var cols=full.slice(-2); if(pk) cols.push(pk); if(isPartialMonth(latest)) cols.push(latest); else if(cols.indexOf(latest)<0) cols.push(latest);
+  var f1=function(v){ return v==null?'\u2013':(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}); };
+  var cell=function(city,m,fn){ if(!model[city][m]) return '\u2013'; var v=fn(city,m,model[city][m]); return v==null?'\u2013':f1(val(v,city,m)); };
+  var rows=[
+    ['Labour (as per payroll)',function(c,m,d){ return opsVal('labour',c,m,d); }],
+    ['P: Rider-payable',function(c,m,d){ return d.P; }],
+    ['A: Wear & Tear',function(c,m,d){ return d.A; }],
+    ['Other maintenance',function(c,m,d){ return opsVal('other',c,m,d); }],
+    ['C: Cost to company',function(c,m,d){ return d.C; }],
+    ['Gross cost (Labour + A + P + C + Other)',function(c,m,d){ return netInfo(d,c,m).v; },'tot'],
+    ['Less: revenue damage fee',function(c,m,d){ return recovAmt('rev_damage_fee',c,m).v; },'less'],
+    ['Net service cost (less damage fee)',function(c,m,d){ var g=netInfo(d,c,m).v; return g==null?null:g-(recovAmt('rev_damage_fee',c,m).v||0); },'tot'],
+    ['Less: revenue recovery',function(c,m,d){ return recovAmt('rev_recovery',c,m).v; },'less'],
+    ['Net service cost (less damage fee + recovery)',function(c,m,d){ var g=netInfo(d,c,m).v; return g==null?null:g-(recovAmt('rev_damage_fee',c,m).v||0)-(recovAmt('rev_recovery',c,m).v||0); },'tot'],
+    ['Parts total (A+P+C)',function(c,m,d){ return d.A+d.P+d.C; },'grey']];
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair, side by side. Same figures as each city\u2019s table below.</p><div class="tw"><table>';
+  h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;border-left:2px solid #e5e7eb">'+cityName(c)+'</th>'; }).join('')+'</tr>';
+  h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th'+(i===0?' style="border-left:2px solid #e5e7eb"':'')+'>'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
+  rows.forEach(function(r){
+    var cls=r[2]==='tot'?' class="tot"':'', st=r[2]==='less'?'color:#6b7280;padding-left:18px':(r[2]==='grey'?'color:#6b7280':'');
+    h+='<tr'+cls+'><td'+(st?' style="'+st+'"':'')+'>'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ return '<td style="'+(i===0?'border-left:2px solid #e5e7eb;':'')+(st&&r[2]!=='less'?st:(r[2]==='less'?'color:#6b7280':''))+'">'+cell(c,m,r[1])+'</td>'; }).join(''); }).join('')+'</tr>';
+  });
+  h+='<tr><td style="color:#6b7280">Job cards with parts (count)</td>'+cities.map(function(c){ return cols.map(function(m,i){ var n=sumC(c,state.store.jc,m); return '<td style="color:#6b7280;'+(i===0?'border-left:2px solid #e5e7eb':'')+'">'+(n==null?'\u2013':Math.round(n).toLocaleString('en-IN'))+'</td>'; }).join(''); }).join('')+'</tr>';
+  return h+'</table></div></div>';
+}
 function viewOverview(model){
-  var months=selMonths(), h='';
+  var months=selMonths(), h=multi()?cityCompareHtml(model):'';
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
