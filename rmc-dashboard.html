@@ -596,7 +596,32 @@ function cityCompareHtml(model){
     h+='<tr'+cls+'><td'+(st?' style="'+st+'"':'')+'>'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ return '<td style="'+(i===0?'border-left:2px solid #e5e7eb;':'')+(st&&r[2]!=='less'?st:(r[2]==='less'?'color:#6b7280':''))+'">'+cell(c,m,r[1])+'</td>'; }).join(''); }).join('')+'</tr>';
   });
   h+='<tr><td style="color:#6b7280">Job cards with parts (count)</td>'+cities.map(function(c){ return cols.map(function(m,i){ var n=sumC(c,state.store.jc,m); return '<td style="color:#6b7280;'+(i===0?'border-left:2px solid #e5e7eb':'')+'">'+(n==null?'\u2013':Math.round(n).toLocaleString('en-IN'))+'</td>'; }).join(''); }).join('')+'</tr>';
-  return h+'</table></div></div>';
+  var nCols=1+cities.length*cols.length;
+  var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#1F3864;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
+  var bd=function(i){ return i===0?'border-left:2px solid #e5e7eb;':''; };
+  // cost drivers: same values as each city's "cost drivers" card (driverVals); ratios / per-bike already, so no unit conversion
+  var f2=function(v){return v==null||!isFinite(v)?'\u2013':v.toFixed(2);}, f0=function(v){return v==null||!isFinite(v)?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null||!isFinite(v)?'\u2013':Math.round(v*100)+'%';}, f1d=function(v){return v==null||!isFinite(v)?'\u2013':v.toFixed(1);};
+  var DV={}; cities.forEach(function(c){ cols.forEach(function(m){ DV[c+'|'+m]=model[c][m]?driverVals(c,m,model[c][m]):null; }); });
+  h+=sec('Cost drivers');
+  [['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Cost per part (\u20b9, A+P+C)','cpp',f1d],['Parts cost per job card (\u20b9)','pcj',f0],['Labour cost per job card (\u20b9)','lcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Bikes serviced','bikes',f0,1],['Job cards','jcs',f0,1]].forEach(function(r){
+    h+='<tr><td'+(r[3]?' style="color:#6b7280"':'')+'>'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=DV[c+'|'+m]; return '<td style="'+bd(i)+(r[3]?'color:#6b7280':'')+'">'+r[2](v?v[r[1]]:null)+'</td>'; }).join(''); }).join('')+'</tr>';
+  });
+  // P category (rider-payable) breakup: same values as each city's P breakup card (pSplitVal), shown in the selected unit
+  var PV={}; cities.forEach(function(c){ cols.forEach(function(m){ PV[c+'|'+m]=pSplitVal(c,m); }); });
+  h+=sec('P category (rider-payable) breakup');
+  [['P cost (parts + labour (as per DMS))',function(v){return v.pp+v.pl;},'tot'],
+   ['Damage fee revenue',function(v){return v.rev_p+v.rev_l;}],
+   ['Charged, not collected',function(v){return v.cnc_p+v.cnc_l;}],
+   ['Above \u20b93,000 cap \u00b7 rider paid in full',function(v){return v.cap_paid;}],
+   ['Above \u20b93,000 cap \u00b7 rider not paid in full',function(v){return v.cap_unpaid;}],
+   ['Not charged to rider (visible damage missed at inspection)',function(v){return v.nc_p+v.nc_l;}],
+   ['Non-visible components',function(v){return v.hid;}],
+   ['Extra fee collected (not part of P cost)',function(v){return v.extra;},'grey']].forEach(function(r){
+    var tot=r[2]==='tot', grey=r[2]==='grey';
+    h+='<tr'+(tot?' class="tot"':'')+'><td style="'+(tot?'':(grey?'color:#6b7280':'padding-left:18px;color:#475569'))+'">'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=PV[c+'|'+m]; return '<td style="'+bd(i)+(grey?'color:#6b7280':'')+'">'+(v?f1(val(r[1](v),c,m)):'\u2013')+'</td>'; }).join(''); }).join('')+'</tr>';
+  });
+  h+='<tr><td style="color:#6b7280">Job cards with P-category lines</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=PV[c+'|'+m]; return '<td style="'+bd(i)+'color:#6b7280">'+(v?v.jcs.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join(''); }).join('')+'</tr>';
+  return h+'</table></div><p class="sub">Drivers and P breakup use the same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
 }
 function viewOverview(model){
   var months=selMonths(), h=multi()?cityCompareHtml(model):'';
