@@ -639,10 +639,10 @@ function cityCompareHtml(model){
   h+=tog('labour','Labour (as per payroll)',u(comp.labour),1);
   h+=tog('P','P: Rider-payable',u(comp.P),1);
   h+=tog('A','A: Wear & Tear',u(comp.A),1);
-  h+=tog('other','Other maintenance',u(comp.other),1);
   h+=tog('C','C: Cost to company',u(comp.C),1);
   h+=tog('W','W: Warranty',u(comp.W),1);
   h+=tog('F','F: Free of cost',u(comp.F),1);
+  h+=tog('other','Other maintenance',u(comp.other),1);
   h+=line(ccGrossLabel(),u(gross),F1,1,'tot');
   h+=tog('dmg','Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),-1,'less');
   h+=line('Net service cost ('+(on('dmg')?'less damage fee':'damage fee hidden')+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0); }),F1,1,'tot');
@@ -698,7 +698,7 @@ function viewOverview(model){
     var pRow=function(k){ var amts=ms.map(function(m){ return model[city][m][k]; }); return '<tr><td>'+NAMES[k]+'</td>'+rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
     inRow=(function(f){ return function(k,label){ return ccOn(k)?f(k,ccBtn(k)+label):''; }; })(inRow);
     pRow=(function(f){ return function(k){ if(!ccOn(k)) return ''; var r=f(k); return r.replace('<td>'+NAMES[k]+'</td>','<td>'+ccBtn(k)+NAMES[k]+'</td>'); }; })(pRow);
-    h+=inRow('labour','Labour (as per payroll)')+pRow('P')+pRow('A')+inRow('other','Other maintenance')+pRow('C')+pRow('W')+pRow('F');
+    h+=inRow('labour','Labour (as per payroll)')+pRow('P')+pRow('A')+pRow('C')+pRow('W')+pRow('F')+inRow('other','Other maintenance');
     h+='<tr class="tot"><td>'+ccGrossLabel()+'</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
     // Net service cost = gross - revenue damage fee - revenue recovery (scrap and insurance are already inside Other maintenance)
     if(!state.F.hub && !state.F.model && !state.F.st){
