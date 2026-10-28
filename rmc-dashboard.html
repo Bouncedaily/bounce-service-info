@@ -863,10 +863,13 @@ function viewParts(model){
   var city=P.city, ms=months.filter(function(m){return model[city]&&model[city][m];}), last=ms[ms.length-1], rows=partRows(model,city,P.bucket,ms);
   // sort: click any column header (part name, a month, or Total); default = latest month, highest first
   var sk=P.sortKey||last, sd=P.sortDir||'desc';
-  if(sk!=='name' && sk!=='total' && ms.indexOf(sk)<0) { sk=last; sd='desc'; }
+  var refM=ms.filter(function(m){return /p$/.test(m);})[0]||ms[ms.length-2], iA=ms.indexOf(refM), iB=ms.length-1;
+  var diffLbl='\u0394 '+(refM?C.monthLabel(last)+' vs '+C.monthLabel(refM):'');
+  if(sk==='total') sk='diff';
+  if(sk!=='name' && sk!=='diff' && ms.indexOf(sk)<0) { sk=last; sd='desc'; }
   var byQty=(P.measure==='p100'||P.measure==='p100s');   // sort by what is shown: units for the rate measures, cost otherwise
   var fv=function(e){ return e?(byQty?(e.qty||0):e.amt):0; };
-  rows.forEach(function(r){ r.tot=ms.reduce(function(a,m){return a+fv(r.by[m]);},0); r.s= sk==='total' ? r.tot : fv(r.by[sk]); });
+  rows.forEach(function(r){ r.tot=ms.reduce(function(a,m){return a+fv(r.by[m]);},0); r.s= sk==='diff' ? (fv(r.by[last])-fv(r.by[refM])) : fv(r.by[sk]); });
   rows.sort(function(a,b){ var c= sk==='name' ? a.label.localeCompare(b.label) : (a.s-b.s); return sd==='asc'?c:-c; });
   var arrow=function(k){ return sk===k ? (sd==='asc'?' \u25b2':' \u25bc') : ''; };
   var thS=function(k,label,left){ return '<th data-a="psort" data-v="'+k+'" style="cursor:pointer;user-select:none'+(left?';text-align:left':'')+'" title="Sort by '+esc(label)+'">'+label+arrow(k)+'</th>'; };
@@ -877,7 +880,10 @@ function viewParts(model){
     +'<select data-a="ptop">'+[8,12,20,40].map(function(n){return '<option value="'+n+'"'+(P.top===n?' selected':'')+'>Top '+n+'</option>';}).join('')+'</select>'
     +'<input type="text" data-a="pq" placeholder="Search part..." value="'+esc(P.q)+'"><button class="btn sm" data-a="csv">'+ic('download')+' CSV</button></div>'
     +'<div class="row" style="margin-top:6px"><span style="font-size:12px;color:#64748b;margin-right:4px">Measure</span>'+[['val','\u20b9 value'],['pct','% of category'],['p100','Qty per 100 bikes'],['p100s','Qty per 100 serviced bikes']].map(function(o){ return '<span class="chip'+((P.measure||'val')===o[0]?' on':'')+'" data-a="pmeas" data-v="'+o[0]+'">'+o[1]+'</span>'; }).join('')+'</div>'
-    +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='total'?'total of the months shown':C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. '+({pct:'% = share of total '+P.bucket+' cost for that month. ',p100:'Units replaced per 100 deployed bikes (Total = over the months shown). ',p100s:'Units replaced per 100 bikes that came for service (Total = over the months shown). '}[P.measure||'val']||(state.disp!=='val'?'% = share of total '+P.bucket+' for that month. ':''))+'Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+(((P.measure||'val')==='val')?unitName()+'.':'')+'</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('total','Total')+'</tr>';
+    +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='diff'?'the change '+diffLbl.replace('\u0394 ',''):C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. '+({pct:'% = share of total '+P.bucket+' cost for that month. ',p100:'Units replaced per 100 deployed bikes (Total = over the months shown). ',p100s:'Units replaced per 100 bikes that came for service (Total = over the months shown). '}[P.measure||'val']||(state.disp!=='val'?'% = share of total '+P.bucket+' for that month. ':''))+'Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+(((P.measure||'val')==='val')?unitName()+'.':'')+'</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('diff',diffLbl)+'</tr>';
+  var diffCell=function(vals, f, unit){ var a=vals[iA], b=vals[iB]; if(iA<0||a==null||b==null||!isFinite(a)||!isFinite(b)) return '<td style="font-weight:600">\u2013</td>';
+    var d=b-a, pc=a?d/Math.abs(a)*100:null, col=Math.abs(d)<1e-9?'#64748b':(d>0?'#b91c1c':'#15803d');
+    return '<td style="font-weight:600;color:'+col+'">'+(d>0?'+':(d<0?'\u2212':''))+f(Math.abs(d))+(unit||'')+(pc!=null&&isFinite(pc)?' <span style="font-size:11px;font-weight:400">('+(pc>0?'+':'')+Math.round(pc)+'%)</span>':'')+'</td>'; };
   var sumV=function(get){ var t=0, any=false; ms.forEach(function(m){ var x=get(m); if(x!=null){ t+=x; any=true; } }); return any?t:null; };
   // Display switch: % = the part's share of this category's total for the month (Total column: share of the months shown)
   var bt=ms.map(function(m){ return model[city][m][P.bucket]||0; }), btAll=bt.reduce(function(a,b){return a+b;},0);
@@ -891,17 +897,17 @@ function viewParts(model){
     var dnAll=dn.reduce(function(a,b){return a+(b||0);},0)||null;   // Total: only the months that have a denominator
     var r1=function(v){ return v==null||!isFinite(v)?'\u2013':v.toFixed(1); };
     var rateCells=function(qs){ var vals=qs.map(function(q,i){ return dn[i]?q/dn[i]*100:null; }), nums=vals.filter(function(v){return v!=null;}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
-      return vals.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+r1(v)+'</td>'; }).join('')+'<td style="font-weight:600">'+r1(dnAll?qs.reduce(function(a,q,i){return a+(dn[i]?q:0);},0)/dnAll*100:null)+'</td>'; };
+      return vals.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+r1(v)+'</td>'; }).join('')+diffCell(vals, r1); };
     amtRow=function(getQ){ return rateCells(ms.map(getQ)); };
     totRow=function(){ return rateCells(ms.map(function(m){ var d=model[city][m].parts[P.bucket]; return Object.keys(d).reduce(function(a,k){ return a+(d[k].qty||0); },0); })); };
   } else {
     var asPct=meas==='pct';
     amtRow=function(getA){ var amts=ms.map(getA), sh=amts.map(function(a,i){ return bt[i]?a/bt[i]:null; });
       if(asPct){ var nums=sh.filter(function(v){return v!=null;}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
-        return sh.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+(v==null?'\u2013':(v*100).toFixed(1)+'%')+'</td>'; }).join('')+'<td style="font-weight:600">'+(btAll?(ms.reduce(function(t,m,i){ return t+amts[i]; },0)/btAll*100).toFixed(1)+'%':'\u2013')+'</td>'; }
-      return rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), sh, true)
-        +dispCell(sumV(function(m,i){ return val(getA(m),city,m); }), btAll?ms.reduce(function(t,m){ return t+getA(m); },0)/btAll:null, 'font-weight:600'); };
-    totRow=function(){ var pctMode=asPct||state.disp==='pct'; return ms.map(function(m){ return pctMode?'<td>100%</td>':'<td>'+fmt(val(model[city][m][P.bucket],city,m))+'</td>'; }).join('')+(pctMode?'<td>100%</td>':'<td>'+fmt(sumV(function(m){ return val(model[city][m][P.bucket],city,m); }))+'</td>'); };
+        return sh.map(function(v){ return '<td style="'+heat(v,mn,mx)+'">'+(v==null?'\u2013':(v*100).toFixed(1)+'%')+'</td>'; }).join('')+diffCell(sh.map(function(v){return v==null?null:v*100;}), function(x){return x.toFixed(1);}, ' pp'); }
+      var vv=amts.map(function(a,i){ return val(a,city,ms[i]); });
+      return rowCellsS(vv, sh, true)+diffCell(vv, function(x){ return fmt(x); }); };
+    totRow=function(){ var pctMode=asPct||state.disp==='pct', tv=ms.map(function(m){ return val(model[city][m][P.bucket],city,m); }); return ms.map(function(m,i){ return pctMode?'<td>100%</td>':'<td>'+fmt(tv[i])+'</td>'; }).join('')+(pctMode?'<td>\u2013</td>':diffCell(tv, function(x){ return fmt(x); })); };
   }
   var pick=(meas==='p100'||meas==='p100s') ? function(e){ return e?e.qty:0; } : function(e){ return e?e.amt:0; };
   shown.forEach(function(r){ h+='<tr><td>'+esc(r.label)+'</td>'+amtRow(function(m){ return pick(r.by[m]); })+'</tr>'; });
