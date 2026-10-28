@@ -361,10 +361,14 @@ async function uploadDMS(buf, name){
   // Summary files without job numbers carry job-card counts in a "Job cards" sheet (City, Month, Job Cards (with parts))
   var jcSheet={};
   var jsh=s.wb && s.wb.Sheets[s.wb.SheetNames.filter(function(n){return n.trim().toLowerCase()==='job cards';})[0]];
-  if(jsh) XLSX.utils.sheet_to_json(jsh,{header:1,raw:true,defval:null}).slice(1).forEach(function(r){
-    if(!r) return; var c=C.CITY[String(r[0]==null?'':r[0]).trim().toUpperCase()], mm=C.parseMonth(r[1]), n=+r[2];
-    if(c && mm && n>0) (jcSheet[mm]=jcSheet[mm]||[]).push({city:CITY_FULL[c],hub:'',total:null,parts:n,bikes:null});
-  });
+  if(jsh){ var jrows=XLSX.utils.sheet_to_json(jsh,{header:1,raw:true,defval:null}), jh=(jrows[0]||[]).map(function(x){ return String(x==null?'':x).toLowerCase(); });
+    // optional columns: "Job Cards (all)" / "Total job cards" and "Bikes serviced"
+    var iAll=jh.findIndex(function(x){ return /job ?cards?/.test(x) && /(all|total)/.test(x); }), iBikes=jh.findIndex(function(x){ return /bikes?/.test(x) && /servic/.test(x); });
+    jrows.slice(1).forEach(function(r){
+      if(!r) return; var c=C.CITY[String(r[0]==null?'':r[0]).trim().toUpperCase()], mm=C.parseMonth(r[1]), n=+r[2];
+      var tot=iAll>=0?(+r[iAll]||null):null, bk=iBikes>=0?(+r[iBikes]||null):null;
+      if(c && mm && n>0) (jcSheet[mm]=jcSheet[mm]||[]).push({city:CITY_FULL[c],hub:'',total:tot,parts:n,bikes:bk});
+    }); }
   for(var i=0;i<months.length;i++){
     var m=months[i];
     var lines=tmp.rows.filter(function(r){return r.month===m;}).map(function(r){ return {city:CITY_FULL[r.city],hub:r.hub,model:r.model,issue:r.issue,cat:r.cat,desc:r.cat==='Part'?(tmp.names[r.pn]||r.pn):'Labour',qty:r.qty,amt:Math.round(r.amt*100)/100,lines:1}; });
