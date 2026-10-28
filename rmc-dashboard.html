@@ -566,62 +566,84 @@ function stacked(city, months, model){
   return s+'</svg><div class="sub" style="margin-top:2px"><span style="color:'+COLORS.A+'">&#9632;</span> A &nbsp;<span style="color:'+COLORS.P+'">&#9632;</span> P &nbsp;<span style="color:'+COLORS.C+'">&#9632;</span> C &nbsp; (stacked, '+unitName()+')</div>';
 }
 // City comparison: cities side by side, each with the last two full months and the partial-month pair (e.g. Sep 1-27 vs Oct 1-27).
-// Same numbers as each city's own table: it reuses opsVal / netInfo / recovAmt / val.
+// Same numbers as each city's own cards: it reuses opsVal / netInfo / recovAmt / driverVals / pSplitVal / val.
+// Colour: within each city, each row is shaded across its periods (green = better, red = worse); the last column
+// also shows the change vs the same days of the previous month (Oct 1-27 vs Sep 1-27).
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
   var all={}; cities.forEach(function(c){ Object.keys(model[c]).forEach(function(m){ all[m]=1; }); });
   var ms=selMonths().filter(function(m){ return all[m]; }); if(!ms.length) return '';
   var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0];
   var full=ms.filter(function(m){ return !/p$/.test(m) && !isPartialMonth(m); });
-  var cols=full.slice(-2); if(pk) cols.push(pk); if(isPartialMonth(latest)) cols.push(latest); else if(cols.indexOf(latest)<0) cols.push(latest);
-  var f1=function(v){ return v==null?'\u2013':(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}); };
-  var cell=function(city,m,fn){ if(!model[city][m]) return '\u2013'; var v=fn(city,m,model[city][m]); return v==null?'\u2013':f1(val(v,city,m)); };
-  var rows=[
-    ['Labour (as per payroll)',function(c,m,d){ return opsVal('labour',c,m,d); }],
-    ['P: Rider-payable',function(c,m,d){ return d.P; }],
-    ['A: Wear & Tear',function(c,m,d){ return d.A; }],
-    ['Other maintenance',function(c,m,d){ return opsVal('other',c,m,d); }],
-    ['C: Cost to company',function(c,m,d){ return d.C; }],
-    ['Gross cost (Labour + A + P + C + Other)',function(c,m,d){ return netInfo(d,c,m).v; },'tot'],
-    ['Less: revenue damage fee',function(c,m,d){ return recovAmt('rev_damage_fee',c,m).v; },'less'],
-    ['Net service cost (less damage fee)',function(c,m,d){ var g=netInfo(d,c,m).v; return g==null?null:g-(recovAmt('rev_damage_fee',c,m).v||0); },'tot'],
-    ['Less: revenue recovery',function(c,m,d){ return recovAmt('rev_recovery',c,m).v; },'less'],
-    ['Net service cost (less damage fee + recovery)',function(c,m,d){ var g=netInfo(d,c,m).v; return g==null?null:g-(recovAmt('rev_damage_fee',c,m).v||0)-(recovAmt('rev_recovery',c,m).v||0); },'tot'],
-    ['Parts total (A+P+C)',function(c,m,d){ return d.A+d.P+d.C; },'grey']];
-  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair, side by side. Same figures as each city\u2019s table below.</p><div class="tw"><table>';
-  h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;border-left:2px solid #e5e7eb">'+cityName(c)+'</th>'; }).join('')+'</tr>';
-  h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th'+(i===0?' style="border-left:2px solid #e5e7eb"':'')+'>'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
-  rows.forEach(function(r){
-    var cls=r[2]==='tot'?' class="tot"':'', st=r[2]==='less'?'color:#6b7280;padding-left:18px':(r[2]==='grey'?'color:#6b7280':'');
-    h+='<tr'+cls+'><td'+(st?' style="'+st+'"':'')+'>'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ return '<td style="'+(i===0?'border-left:2px solid #e5e7eb;':'')+(st&&r[2]!=='less'?st:(r[2]==='less'?'color:#6b7280':''))+'">'+cell(c,m,r[1])+'</td>'; }).join(''); }).join('')+'</tr>';
-  });
-  h+='<tr><td style="color:#6b7280">Job cards with parts (count)</td>'+cities.map(function(c){ return cols.map(function(m,i){ var n=sumC(c,state.store.jc,m); return '<td style="color:#6b7280;'+(i===0?'border-left:2px solid #e5e7eb':'')+'">'+(n==null?'\u2013':Math.round(n).toLocaleString('en-IN'))+'</td>'; }).join(''); }).join('')+'</tr>';
+  var cols=full.slice(-2); if(pk) cols.push(pk); if(cols.indexOf(latest)<0) cols.push(latest);
+  var cmpIdx = (pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
+  var ok=function(v){ return v!=null && isFinite(v); };
+  var F1=function(v){ return ok(v)?(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}):'\u2013'; };
+  var F2=function(v){ return ok(v)?v.toFixed(2):'\u2013'; }, F0=function(v){ return ok(v)?Math.round(v).toLocaleString('en-IN'):'\u2013'; }, FP=function(v){ return ok(v)?Math.round(v*100)+'%':'\u2013'; };
+  // Excel-style 3-colour scale: green #63be7b, yellow #ffeb84, red #f8696b
+  var mix=function(c1,c2,t){ return '#'+[0,2,4].map(function(i){ var x=parseInt(c1.substr(i+1,2),16), y=parseInt(c2.substr(i+1,2),16); return ('0'+Math.round(x+(y-x)*t).toString(16)).slice(-2); }).join(''); };
+  var scale=function(t){ return t<0.5 ? mix('#63be7b','#ffeb84',t*2) : mix('#ffeb84','#f8696b',(t-0.5)*2); };
+  var shade=function(vals,dir){ if(!dir) return vals.map(function(){return '';});
+    var xs=vals.filter(ok); if(xs.length<2) return vals.map(function(){return '';});
+    var lo=Math.min.apply(null,xs), hi=Math.max.apply(null,xs); if(hi===lo) return vals.map(function(v){ return ok(v)?'background:#ffeb84;':''; });
+    return vals.map(function(v){ if(!ok(v)) return ''; var t=(v-lo)/(hi-lo); if(dir<0) t=1-t; return 'background:'+scale(t)+';'; }); };
+  var badge=function(vals,dir){ var a=vals[cmpIdx[0]], b=vals[cmpIdx[1]]; if(!ok(a)||!ok(b)||!a||!dir) return '';
+    var p=(b-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ' <span style="font-size:10px;color:#64748b">0%</span>';
+    var worse=(p>0)===(dir>0); return ' <span style="font-size:10px;font-weight:700;color:'+(worse?'#b91c1c':'#15803d')+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
+  var bd=function(i){ return i===0?'border-left:2px solid #94a3b8;':''; };
   var nCols=1+cities.length*cols.length;
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair. Colour within each city: <span style="background:#63be7b;padding:0 6px;border-radius:3px">better</span> <span style="background:#ffeb84;padding:0 6px;border-radius:3px">middle</span> <span style="background:#f8696b;padding:0 6px;border-radius:3px">worse</span>; \u25b2\u25bc on the last column = change vs the same days of the previous month (green good, red bad).</p><div class="tw"><table>';
+  h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+cityName(c)+'</th>'; }).join('')+'</tr>';
+  h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
   var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#1F3864;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
-  var bd=function(i){ return i===0?'border-left:2px solid #e5e7eb;':''; };
-  // cost drivers: same values as each city's "cost drivers" card (driverVals); ratios / per-bike already, so no unit conversion
-  var f2=function(v){return v==null||!isFinite(v)?'\u2013':v.toFixed(2);}, f0=function(v){return v==null||!isFinite(v)?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null||!isFinite(v)?'\u2013':Math.round(v*100)+'%';}, f1d=function(v){return v==null||!isFinite(v)?'\u2013':v.toFixed(1);};
+  // one table row: getter(city, month) -> number; fmt; dir: +1 higher is worse, -1 higher is better, 0 no colour; kind: tot / less / grey
+  var line=function(label,getter,fmtFn,dir,kind){
+    var lab=kind==='less'?'color:#6b7280;padding-left:18px':(kind==='grey'?'color:#6b7280':(kind==='sub'?'padding-left:18px;color:#475569':''));
+    var out='<tr'+(kind==='tot'?' class="tot"':'')+'><td style="'+lab+'">'+label+'</td>';
+    cities.forEach(function(c){ var vals=cols.map(function(m){ return model[c][m]?getter(c,m):null; }), bg=shade(vals,kind==='grey'?0:dir), bdg=badge(vals,kind==='grey'?0:dir);
+      cols.forEach(function(m,i){ out+='<td style="'+bd(i)+bg[i]+(kind==='grey'?'color:#6b7280;':'')+'">'+fmtFn(vals[i])+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
+    return out+'</tr>'; };
+  var u=function(fn){ return function(c,m){ var v=fn(c,m,model[c][m]); return v==null?null:val(v,c,m); }; };
+  var g=function(c,m,d){ return netInfo(d,c,m).v; }, rr=function(c,m){ return recovAmt('rev_damage_fee',c,m).v; }, rv=function(c,m){ return recovAmt('rev_recovery',c,m).v; };
+  h+=line('Labour (as per payroll)',u(function(c,m,d){ return opsVal('labour',c,m,d); }),F1,1);
+  h+=line('P: Rider-payable',u(function(c,m,d){ return d.P; }),F1,1);
+  h+=line('A: Wear & Tear',u(function(c,m,d){ return d.A; }),F1,1);
+  h+=line('Other maintenance',u(function(c,m,d){ return opsVal('other',c,m,d); }),F1,1);
+  h+=line('C: Cost to company',u(function(c,m,d){ return d.C; }),F1,1);
+  h+=line('Gross cost (Labour + A + P + C + Other)',u(g),F1,1,'tot');
+  h+=line('Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),F1,-1,'less');
+  h+=line('Net service cost (less damage fee)',u(function(c,m,d){ var x=g(c,m,d); return x==null?null:x-(rr(c,m)||0); }),F1,1,'tot');
+  h+=line('Less: revenue recovery',u(function(c,m){ return rv(c,m); }),F1,-1,'less');
+  h+=line('Net service cost (less damage fee + recovery)',u(function(c,m,d){ var x=g(c,m,d); return x==null?null:x-(rr(c,m)||0)-(rv(c,m)||0); }),F1,1,'tot');
+  h+=line('Parts total (A+P+C)',u(function(c,m,d){ return d.A+d.P+d.C; }),F1,1,'grey');
+  h+=line('Job cards with parts (count)',function(c,m){ return sumC(c,state.store.jc,m); },F0,0,'grey');
+  // cost drivers (ratios / per bike already: no unit conversion)
   var DV={}; cities.forEach(function(c){ cols.forEach(function(m){ DV[c+'|'+m]=model[c][m]?driverVals(c,m,model[c][m]):null; }); });
+  var dv=function(k){ return function(c,m){ var v=DV[c+'|'+m]; return v?v[k]:null; }; };
   h+=sec('Cost drivers');
-  [['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Cost per part (\u20b9, A+P+C)','cpp',f1d],['Parts cost per job card (\u20b9)','pcj',f0],['Labour cost per job card (\u20b9)','lcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Bikes serviced','bikes',f0,1],['Job cards','jcs',f0,1]].forEach(function(r){
-    h+='<tr><td'+(r[3]?' style="color:#6b7280"':'')+'>'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=DV[c+'|'+m]; return '<td style="'+bd(i)+(r[3]?'color:#6b7280':'')+'">'+r[2](v?v[r[1]]:null)+'</td>'; }).join(''); }).join('')+'</tr>';
-  });
-  // P category (rider-payable) breakup: same values as each city's P breakup card (pSplitVal), shown in the selected unit
+  h+=line('Service rate (bikes serviced \u00f7 bikes deployed)',dv('sr'),FP,0);
+  h+=line('Job cards per serviced bike',dv('jpb'),F2,1);
+  h+=line('Parts per job card (excl. items under \u20b910)',dv('ppj'),F2,1);
+  h+=line('Cost per part (\u20b9, A+P+C)',dv('cpp'),F1,1);
+  h+=line('Parts cost per job card (\u20b9)',dv('pcj'),F0,1);
+  h+=line('Labour cost per job card (\u20b9)',dv('lcj'),F0,1);
+  h+=line('Refurbishment saving (\u20b9 per bike)',dv('ref'),F0,-1);
+  h+=line('Bikes serviced',dv('bikes'),F0,0,'grey');
+  h+=line('Job cards',dv('jcs'),F0,0,'grey');
+  // P category (rider-payable) breakup, in the selected unit
   var PV={}; cities.forEach(function(c){ cols.forEach(function(m){ PV[c+'|'+m]=pSplitVal(c,m); }); });
+  var pv=function(fn){ return function(c,m){ var v=PV[c+'|'+m]; return v?val(fn(v),c,m):null; }; };
   h+=sec('P category (rider-payable) breakup');
-  [['P cost (parts + labour (as per DMS))',function(v){return v.pp+v.pl;},'tot'],
-   ['Damage fee revenue',function(v){return v.rev_p+v.rev_l;}],
-   ['Charged, not collected',function(v){return v.cnc_p+v.cnc_l;}],
-   ['Above \u20b93,000 cap \u00b7 rider paid in full',function(v){return v.cap_paid;}],
-   ['Above \u20b93,000 cap \u00b7 rider not paid in full',function(v){return v.cap_unpaid;}],
-   ['Not charged to rider (visible damage missed at inspection)',function(v){return v.nc_p+v.nc_l;}],
-   ['Non-visible components',function(v){return v.hid;}],
-   ['Extra fee collected (not part of P cost)',function(v){return v.extra;},'grey']].forEach(function(r){
-    var tot=r[2]==='tot', grey=r[2]==='grey';
-    h+='<tr'+(tot?' class="tot"':'')+'><td style="'+(tot?'':(grey?'color:#6b7280':'padding-left:18px;color:#475569'))+'">'+r[0]+'</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=PV[c+'|'+m]; return '<td style="'+bd(i)+(grey?'color:#6b7280':'')+'">'+(v?f1(val(r[1](v),c,m)):'\u2013')+'</td>'; }).join(''); }).join('')+'</tr>';
-  });
-  h+='<tr><td style="color:#6b7280">Job cards with P-category lines</td>'+cities.map(function(c){ return cols.map(function(m,i){ var v=PV[c+'|'+m]; return '<td style="'+bd(i)+'color:#6b7280">'+(v?v.jcs.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join(''); }).join('')+'</tr>';
-  return h+'</table></div><p class="sub">Drivers and P breakup use the same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
+  h+=line('P cost (parts + labour (as per DMS))',pv(function(v){return v.pp+v.pl;}),F1,1,'tot');
+  h+=line('Damage fee revenue',pv(function(v){return v.rev_p+v.rev_l;}),F1,-1,'sub');
+  h+=line('Charged, not collected',pv(function(v){return v.cnc_p+v.cnc_l;}),F1,1,'sub');
+  h+=line('Above \u20b93,000 cap \u00b7 rider paid in full',pv(function(v){return v.cap_paid;}),F1,1,'sub');
+  h+=line('Above \u20b93,000 cap \u00b7 rider not paid in full',pv(function(v){return v.cap_unpaid;}),F1,1,'sub');
+  h+=line('Not charged to rider (visible damage missed at inspection)',pv(function(v){return v.nc_p+v.nc_l;}),F1,1,'sub');
+  h+=line('Non-visible components',pv(function(v){return v.hid;}),F1,1,'sub');
+  h+=line('Extra fee collected (not part of P cost)',pv(function(v){return v.extra;}),F1,-1,'grey');
+  h+=line('Job cards with P-category lines',function(c,m){ var v=PV[c+'|'+m]; return v?v.jcs:null; },F0,0,'grey');
+  return h+'</table></div><p class="sub">Same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
 }
 function viewOverview(model){
   var months=selMonths(), h=multi()?cityCompareHtml(model):'';
