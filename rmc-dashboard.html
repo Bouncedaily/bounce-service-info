@@ -569,6 +569,7 @@ function stacked(city, months, model){
 // Same numbers as each city's own cards: it reuses opsVal / netInfo / recovAmt / driverVals / pSplitVal / val.
 // Colour: within each city, each row is shaded across its periods (green = better, red = worse); the last column
 // also shows the change vs the same days of the previous month (Oct 1-27 vs Sep 1-27).
+function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; } } return state.ccHide; }
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
   var all={}; cities.forEach(function(c){ Object.keys(model[c]).forEach(function(m){ all[m]=1; }); });
@@ -604,17 +605,28 @@ function cityCompareHtml(model){
       cols.forEach(function(m,i){ out+='<td style="'+bd(i)+bg[i]+(kind==='grey'?'color:#6b7280;':'')+'">'+fmtFn(vals[i])+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
     return out+'</tr>'; };
   var u=function(fn){ return function(c,m){ var v=fn(c,m,model[c][m]); return v==null?null:val(v,c,m); }; };
-  var g=function(c,m,d){ return netInfo(d,c,m).v; }, rr=function(c,m){ return recovAmt('rev_damage_fee',c,m).v; }, rv=function(c,m){ return recovAmt('rev_recovery',c,m).v; };
-  h+=line('Labour (as per payroll)',u(function(c,m,d){ return opsVal('labour',c,m,d); }),F1,1);
-  h+=line('P: Rider-payable',u(function(c,m,d){ return d.P; }),F1,1);
-  h+=line('A: Wear & Tear',u(function(c,m,d){ return d.A; }),F1,1);
-  h+=line('Other maintenance',u(function(c,m,d){ return opsVal('other',c,m,d); }),F1,1);
-  h+=line('C: Cost to company',u(function(c,m,d){ return d.C; }),F1,1);
-  h+=line('Gross cost (Labour + A + P + C + Other)',u(g),F1,1,'tot');
-  h+=line('Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),F1,-1,'less');
-  h+=line('Net service cost (less damage fee)',u(function(c,m,d){ var x=g(c,m,d); return x==null?null:x-(rr(c,m)||0); }),F1,1,'tot');
-  h+=line('Less: revenue recovery',u(function(c,m){ return rv(c,m); }),F1,-1,'less');
-  h+=line('Net service cost (less damage fee + recovery)',u(function(c,m,d){ var x=g(c,m,d); return x==null?null:x-(rr(c,m)||0)-(rv(c,m)||0); }),F1,1,'tot');
+  // +/- on each cost line: a hidden line is greyed out and left out of Gross and Net (choice remembered in this browser)
+  var HD=ccHidden(), on=function(k){ return !HD[k]; };
+  var comp={ labour:function(c,m,d){ return opsVal('labour',c,m,d); }, P:function(c,m,d){ return d.P; }, A:function(c,m,d){ return d.A; },
+             other:function(c,m,d){ return opsVal('other',c,m,d); }, C:function(c,m,d){ return d.C; } };
+  var rr=function(c,m){ return recovAmt('rev_damage_fee',c,m).v; }, rv=function(c,m){ return recovAmt('rev_recovery',c,m).v; };
+  var gross=function(c,m,d){ var t=0, miss=false; ['labour','P','A','other','C'].forEach(function(k){ if(!on(k)) return; var v=comp[k](c,m,d); if(v==null){ if(k==='labour'||k==='other') miss=true; } else t+=v; }); return miss?null:t; };
+  var tog=function(k,label,getter,dir,kind){
+    if(on(k)) return line('<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'+label, getter, F1, dir, kind);
+    var out='<tr style="opacity:.45"><td style="'+(kind==='less'?'padding-left:18px;':'')+'color:#6b7280"><span data-a="cchide" data-v="'+k+'" title="Show this line and add it back to the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">+</span><s>'+label+'</s> <i style="font-size:11px">(hidden, not in totals)</i></td>';
+    cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#9ca3af"><s>'+F1(v)+'</s></td>'; }); });
+    return out+'</tr>'; };
+  var names={labour:'Labour',A:'A',P:'P',C:'C',other:'Other'}, shown=['labour','A','P','C','other'].filter(on).map(function(k){ return names[k]; });
+  h+=tog('labour','Labour (as per payroll)',u(comp.labour),1);
+  h+=tog('P','P: Rider-payable',u(comp.P),1);
+  h+=tog('A','A: Wear & Tear',u(comp.A),1);
+  h+=tog('other','Other maintenance',u(comp.other),1);
+  h+=tog('C','C: Cost to company',u(comp.C),1);
+  h+=line('Gross cost ('+(shown.length?shown.join(' + '):'nothing selected')+')',u(gross),F1,1,'tot');
+  h+=tog('dmg','Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),-1,'less');
+  h+=line('Net service cost ('+(on('dmg')?'less damage fee':'damage fee hidden')+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0); }),F1,1,'tot');
+  h+=tog('rec','Less: revenue recovery',u(function(c,m){ return rv(c,m); }),-1,'less');
+  h+=line('Net service cost ('+[on('dmg')?'less damage fee':null, on('rec')?'recovery':null].filter(Boolean).join(' + ').replace(/^$/,'nothing deducted')+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0)-(on('rec')?(rv(c,m)||0):0); }),F1,1,'tot');
   h+=line('Parts total (A+P+C)',u(function(c,m,d){ return d.A+d.P+d.C; }),F1,1,'grey');
   h+=line('Job cards with parts (count)',function(c,m){ return sumC(c,state.store.jc,m); },F0,0,'grey');
   // cost drivers (ratios / per bike already: no unit conversion)
@@ -937,6 +949,7 @@ root.addEventListener('click',function(e){
   else if(a==='month'){ var all=allMonths(); if(!state.F.months.length) state.F.months=all.slice(); toggle(state.F.months,v); if(!state.F.months.length||state.F.months.length===all.length) state.F.months=[]; }
   else if(a==='unit'){ state.unit=v; if(state.disp==='pct') state.disp=state.withPct?'both':'val'; }
   else if(a==='psub'){ if(!v) state.psub=[]; else toggle(state.psub, v); }
+  else if(a==='cchide'){ var hd=ccHidden(); hd[v]=!hd[v]; try{ localStorage.setItem('rmc_cc_hide', JSON.stringify(hd)); }catch(e2){} }
   else if(a==='disp') state.disp=v;
   else if(a==='pb') state.parts.bucket=v;
   else if(a==='pmeas') state.parts.measure=v;
