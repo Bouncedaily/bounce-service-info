@@ -248,7 +248,7 @@ var state = {
   F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:'overview', msg:'',
   parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:''}
 };
-var CITIES=['BLR','NCR','HYD','MUM'], COLORS={A:'#2A78D6',P:'#EB6834',C:'#7A5CC7',L:'#9aa3b2'}, NAMES={A:'A: Wear & Tear',P:'P: Rider-payable',C:'C: Cost to company'};
+var CITIES=['BLR','NCR','HYD','MUM'], COLORS={A:'#2A78D6',P:'#EB6834',C:'#7A5CC7',L:'#9aa3b2'}, NAMES={A:'A: Wear & Tear',P:'P: Rider-payable',C:'C: Cost to company',W:'W: Warranty',F:'F: Free of cost'};
 
 var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
@@ -450,8 +450,9 @@ function opsAmt(kind, city, m){ return opsVal(kind, city, m, lastModel[city]&&la
 // Total (report structure) = Labour (as per payroll) + A + P + C + Other maintenance. Labour and Other are city-level monthly inputs.
 function netInfo(d, city, m){
   if(!d || state.F.hub || state.F.model || state.F.st) return {v:null, missing:[]};
-  var v=d.A+d.P+d.C, missing=[];
-  [['labour','Labour'],['other','Other maintenance']].forEach(function(f){ var x=opsVal(f[0],city,m,d); if(x==null) missing.push(f[1]); else v+=x; });
+  var v=0, missing=[];
+  ['A','P','C','W','F'].forEach(function(k){ if(ccOn(k)) v+=(d[k]||0); });
+  [['labour','Labour'],['other','Other maintenance']].forEach(function(f){ if(!ccOn(f[0])) return; var x=opsVal(f[0],city,m,d); if(x==null) missing.push(f[1]); else v+=x; });
   return {v:v, missing:missing};
 }
 function totalAmt(d, city, m){ var n=netInfo(d,city,m); return n.missing.length?null:n.v; }
@@ -573,6 +574,12 @@ function stacked(city, months, model){
 // Same numbers as each city's own cards: it reuses opsVal / netInfo / recovAmt / driverVals / pSplitVal / val.
 // Colour: within each city, each row is shaded across its periods (green = better, red = worse); the last column
 // also shows the change vs the same days of the previous month (Oct 1-27 vs Sep 1-27).
+var CC_LABELS={labour:'Labour',P:'P: Rider-payable',A:'A: Wear & Tear',other:'Other maintenance',C:'C: Cost to company',W:'W: Warranty',F:'F: Free of cost',dmg:'Revenue damage fee',rec:'Revenue recovery'};
+function ccOn(k){ return !ccHidden()[k]; }
+function ccBtn(k){ return '<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'; }
+function ccGrossLabel(){ var nm={labour:'Labour',A:'A',P:'P',C:'C',W:'W',F:'F',other:'Other'}, on=['labour','A','P','C','W','F','other'].filter(ccOn).map(function(k){return nm[k];}); return 'Gross cost ('+(on.length?on.join(' + '):'nothing selected')+')'; }
+function ccHiddenBar(){ var hd=ccHidden(), ks=Object.keys(CC_LABELS).filter(function(k){ return hd[k]; }); if(!ks.length) return '';
+  return '<div style="margin:2px 0 10px;font-size:12px;color:#64748b">Hidden from the tables and totals: '+ks.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+CC_LABELS[k]+'</span>'; }).join('')+'</div>'; }
 function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; } } return state.ccHide; }
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
@@ -603,7 +610,7 @@ function cityCompareHtml(model){
   var HDtop=ccHidden(), hlabels={labour:'Labour',P:'P: Rider-payable',A:'A: Wear & Tear',other:'Other maintenance',C:'C: Cost to company',dmg:'Revenue damage fee',rec:'Revenue recovery'};
   var hk=Object.keys(hlabels).filter(function(k){ return HDtop[k]; });
   var hiddenBar=hk.length?'<div style="margin:2px 0 8px;font-size:12px;color:#64748b">Hidden from the table and totals: '+hk.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+hlabels[k]+'</span>'; }).join('')+'</div>':'';
-  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p>'+hiddenBar+'<div class="tw"><table>';
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p><div class="tw"><table>';
   h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+cityName(c)+'</th>'; }).join('')+'</tr>';
   h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
   var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#1F3864;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
@@ -618,9 +625,10 @@ function cityCompareHtml(model){
   // +/- on each cost line: a hidden line is greyed out and left out of Gross and Net (choice remembered in this browser)
   var HD=ccHidden(), on=function(k){ return !HD[k]; };
   var comp={ labour:function(c,m,d){ return opsVal('labour',c,m,d); }, P:function(c,m,d){ return d.P; }, A:function(c,m,d){ return d.A; },
-             other:function(c,m,d){ return opsVal('other',c,m,d); }, C:function(c,m,d){ return d.C; } };
+             other:function(c,m,d){ return opsVal('other',c,m,d); }, C:function(c,m,d){ return d.C; },
+             W:function(c,m,d){ return d.W||0; }, F:function(c,m,d){ return d.F||0; } };
   var rr=function(c,m){ return recovAmt('rev_damage_fee',c,m).v; }, rv=function(c,m){ return recovAmt('rev_recovery',c,m).v; };
-  var gross=function(c,m,d){ var t=0, miss=false; ['labour','P','A','other','C'].forEach(function(k){ if(!on(k)) return; var v=comp[k](c,m,d); if(v==null){ if(k==='labour'||k==='other') miss=true; } else t+=v; }); return miss?null:t; };
+  var gross=function(c,m,d){ var n=netInfo(d,c,m); return n.missing.length?null:n.v; };
   var tog=function(k,label,getter,dir,kind){
     if(!on(k)) return '';
     if(on(k)) return line('<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'+label, getter, F1, dir, kind);
@@ -633,7 +641,9 @@ function cityCompareHtml(model){
   h+=tog('A','A: Wear & Tear',u(comp.A),1);
   h+=tog('other','Other maintenance',u(comp.other),1);
   h+=tog('C','C: Cost to company',u(comp.C),1);
-  h+=line('Gross cost ('+(shown.length?shown.join(' + '):'nothing selected')+')',u(gross),F1,1,'tot');
+  h+=tog('W','W: Warranty',u(comp.W),1);
+  h+=tog('F','F: Free of cost',u(comp.F),1);
+  h+=line(ccGrossLabel(),u(gross),F1,1,'tot');
   h+=tog('dmg','Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),-1,'less');
   h+=line('Net service cost ('+(on('dmg')?'less damage fee':'damage fee hidden')+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0); }),F1,1,'tot');
   h+=tog('rec','Less: revenue recovery',u(function(c,m){ return rv(c,m); }),-1,'less');
@@ -669,7 +679,7 @@ function cityCompareHtml(model){
   return h+'</table></div><p class="sub">Same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
 }
 function viewOverview(model){
-  var months=selMonths(), h=multi()?cityCompareHtml(model):'';
+  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model):'');
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
@@ -679,29 +689,32 @@ function viewOverview(model){
         var d=(pv!=null&&cur!=null)?cur-pv:null, cls=d==null?'':(d>0?'up':'dn');
         return '<div class="kpi" style="border-left-color:'+(k==='T'?'#1F3864':COLORS[k])+'"><div class="l">'+(k==='T'?'Parts total (A+P+C)':NAMES[k])+' \u00b7 '+C.monthLabel(last)+'</div><div class="v">'+fmt(cur)+'</div><div class="d '+cls+'">'+(d==null?'':(d>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(d))+' vs '+C.monthLabel(prev))+'</div></div>'; }).join('');
       var tm=ms.filter(function(m){ return totalAmt(model[city][m],city,m)!=null; }), tl=tm[tm.length-1], tq=tm[tm.length-2], tc=tl?totalAmt(model[city][tl],city,tl):null, tp=tq?totalAmt(model[city][tq],city,tq):null, tcv=tc==null?null:val(tc,city,tl), tpv=tp==null?null:val(tp,city,tq), td=(tcv!=null&&tpv!=null)?tcv-tpv:null;
-      kp+='<div class="kpi" style="border-left-color:#111827"><div class="l">Total (Labour+A+P+C+Other) \u00b7 '+(tl?C.monthLabel(tl):'')+'</div><div class="v">'+fmt(tcv)+'</div><div class="d '+(td==null?'':(td>0?'up':'dn'))+'">'+(td==null?'':(td>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(td))+' vs '+C.monthLabel(tq))+'</div></div>';
+      kp+='<div class="kpi" style="border-left-color:#111827"><div class="l">'+ccGrossLabel().replace('Gross cost','Total')+' \u00b7 '+(tl?C.monthLabel(tl):'')+'</div><div class="v">'+fmt(tcv)+'</div><div class="d '+(td==null?'':(td>0?'up':'dn'))+'">'+(td==null?'':(td>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(td))+' vs '+C.monthLabel(tq))+'</div></div>';
       h+='<div class="kpis">'+kp+'</div>'; }
     h+='<div class="grid2"><div>'+stacked(city,ms,model)+'</div><div class="tw"><table><tr><th>'+(state.disp==='pct'?'% of total cost':unitName()+(state.disp==='both'?' \u00b7 % of total':''))+'</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
     var totAmt=ms.map(function(m){ var n=netInfo(model[city][m],city,m); return n.v; });
     var shr=function(amts){ return amts.map(function(a,i){ return (a==null||!totAmt[i])?null:a/totAmt[i]; }); };
     var inRow=function(k,label){ var amts=ms.map(function(m){ return opsVal(k,city,m,model[city][m]); }); return '<tr><td>'+label+'</td>'+rowCellsS(amts.map(function(a,i){ return a==null?null:val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
     var pRow=function(k){ var amts=ms.map(function(m){ return model[city][m][k]; }); return '<tr><td>'+NAMES[k]+'</td>'+rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
-    h+=inRow('labour','Labour (as per payroll)')+pRow('P')+pRow('A')+inRow('other','Other maintenance')+pRow('C');
-    h+='<tr class="tot"><td>Gross cost (Labour + A + P + C + Other)</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
+    inRow=(function(f){ return function(k,label){ return ccOn(k)?f(k,ccBtn(k)+label):''; }; })(inRow);
+    pRow=(function(f){ return function(k){ if(!ccOn(k)) return ''; var r=f(k); return r.replace('<td>'+NAMES[k]+'</td>','<td>'+ccBtn(k)+NAMES[k]+'</td>'); }; })(pRow);
+    h+=inRow('labour','Labour (as per payroll)')+pRow('P')+pRow('A')+inRow('other','Other maintenance')+pRow('C')+pRow('W')+pRow('F');
+    h+='<tr class="tot"><td>'+ccGrossLabel()+'</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
     // Net service cost = gross - revenue damage fee - revenue recovery (scrap and insurance are already inside Other maintenance)
     if(!state.F.hub && !state.F.model && !state.F.st){
       var nets=ms.map(function(m,i){ var g=totAmt[i], rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m);
-        return {g:g, rr:rr, rv:rv, net1:(g==null)?null:g-(rr.v||0), net:(g==null)?null:g-(rr.v||0)-(rv.v||0)}; });
+        var dv=ccOn('dmg')?(rr.v||0):0, rcv=ccOn('rec')?(rv.v||0):0;
+        return {g:g, rr:rr, rv:rv, net1:(g==null)?null:g-dv, net:(g==null)?null:g-dv-rcv}; });
       var mk=function(o){ return o.fb?'\u2020':(o.miss?'*':''); };
       var lessRow=function(label,key){ return '<tr><td style="color:#6b7280;padding-left:18px">'+label+'</td>'+nets.map(function(x,i){ var o=x[key];
           if(o.v==null) return '<td style="color:#6b7280">\u2013</td>';
           var v=val(o.v,city,ms[i]), p=x.g?o.v/x.g:null; return dispCell(v,p,'color:#6b7280').replace('</td>',mk(o)+'</td>'); }).join('')+'</tr>'; };
       var netRow=function(label,key,flags){ return '<tr class="tot"><td>'+label+'</td>'+nets.map(function(x,i){ if(x[key]==null) return '<td>\u2013</td>';
           return dispCell(val(x[key],city,ms[i]), x.g?x[key]/x.g:null, 'font-weight:700').replace('</td>',flags(x)+'</td>'); }).join('')+'</tr>'; };
-      h+=lessRow('Less: revenue damage fee','rr');
-      h+=netRow('Net service cost (less damage fee)','net1',function(x){ return x.rr.fb?'\u2020':(x.rr.miss?'*':''); });
-      h+=lessRow('Less: revenue recovery','rv');
-      h+=netRow('Net service cost (less damage fee + recovery)','net',function(x){ return x.rr.fb?'\u2020':((x.rr.miss||x.rv.miss)?'*':''); });
+      if(ccOn('dmg')) h+=lessRow('Less: revenue damage fee','rr').replace('padding-left:18px">Less:','padding-left:18px">'+ccBtn('dmg')+'Less:');
+      h+=netRow('Net service cost ('+(ccOn('dmg')?'less damage fee':'damage fee hidden')+')','net1',function(x){ return x.rr.fb?'\u2020':(x.rr.miss?'*':''); });
+      if(ccOn('rec')) h+=lessRow('Less: revenue recovery','rv').replace('padding-left:18px">Less:','padding-left:18px">'+ccBtn('rec')+'Less:');
+      h+=netRow('Net service cost ('+([ccOn('dmg')?'less damage fee':null, ccOn('rec')?'recovery':null].filter(Boolean).join(' + ')||'nothing deducted')+')','net',function(x){ return x.rr.fb?'\u2020':((x.rr.miss||x.rv.miss)?'*':''); });
     }
     h+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+ms.map(function(m,i){ var d=model[city][m], a=d.A+d.P+d.C; return dispCell(val(a,city,m), totAmt[i]?a/totAmt[i]:null, 'color:#6b7280'); }).join('')+'</tr>';
     if(!state.F.hub && !state.F.model && !state.F.dyear && !state.F.st) h+='<tr><td>Job cards with parts (count)</td>'+ms.map(function(m){ var n=jcCount(city,m); return '<td style="color:#6b7280">'+(n?n.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join('')+'</tr>';
@@ -736,8 +749,8 @@ function driverVals(city, m, d){
   if(state.F.dyear){ jcs=null; bikes=null; units=null; ref=null; }   // job card counts, part units and refurb saving are city totals: not split by deployed year
   var jp=sumC(city,state.store.jc,m), ok=state.F.dyear?true:(jcs!=null&&bikes!=null&&jcs>=bikes&&(jp==null||jcs>=jp));
   if(!ok){ jcs=null; bikes=null; }   // impossible counts (fewer job cards than bikes or than job cards with parts): incomplete data
-  var tot=(d&&lab!=null&&oth!=null)?d.A+d.P+d.C+lab+oth:null, rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m), ic=recovAmt('ins_claim',city,m), sc=recovAmt('scrap',city,m);
-  var net1=(tot!=null)?tot-(rr.v||0):null, net=(tot!=null)?tot-(rr.v||0)-(rv.v||0):null;   // scrap and insurance claims are already deducted inside Other maintenance (report format), so not again
+  var nI=d?netInfo(d,city,m):{v:null,missing:['x']}, tot=nI.missing.length?null:nI.v, rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m), ic=recovAmt('ins_claim',city,m), sc=recovAmt('scrap',city,m);
+  var dvx=ccOn('dmg')?(rr.v||0):0, rvx=ccOn('rec')?(rv.v||0):0, net1=(tot!=null)?tot-dvx:null, net=(tot!=null)?tot-dvx-rvx:null;   // scrap and insurance claims are already deducted inside Other maintenance (report format), so not again
   return { ok:ok, fleet:fleet, totb:q(tot,fleet), rrb:q(rr.v,fleet), net1b:q(net1,fleet), rvb:q(rv.v,fleet), rvMiss:rv.miss, icb:q(ic.v,fleet), scb:q(sc.v,fleet), netb:q(net,fleet), rrFb:rr.fb, icMiss:ic.miss, scFb:sc.fb, rrMiss:rr.miss&&!rr.fb, scMiss:sc.miss&&!sc.fb, jcs:jcs, bikes:bikes, units:units, parts:parts, lab:lab, oth:oth,
     sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
     visits:q(jcs,fleet), pb:q(parts,fleet), lb:q(lab,fleet), ob:q(oth,fleet) };
