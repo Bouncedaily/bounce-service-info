@@ -650,7 +650,7 @@ function cityCompareHtml(model){
   h+=tog('rec',on('dmg')?'Less: revenue recovery + damage fee':'Less: revenue recovery',u(function(c,m){ var r=rv(c,m); if(r==null) return null; return r+(on('dmg')?(rr(c,m)||0):0); }),-1,'less');
   h+=line('Net service cost ('+ccNetLabel()+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0)-(on('rec')?(rv(c,m)||0):0); }),F1,1,'tot');
   h+=line('Parts total (A+P+C)',u(function(c,m,d){ return d.A+d.P+d.C; }),F1,1,'grey');
-  h+=line('Job cards with parts (count)',function(c,m){ return sumC(c,state.store.jc,m); },F0,0,'grey');
+  h+=line('% of job cards with parts',function(c,m){ var p=sumC(c,state.store.jc,m), t=sumC(c,state.store.jcAll,m); return (p!=null&&t)?p/t:null; },FP,0,'grey');
   // cost drivers (ratios / per bike already: no unit conversion)
   var DV={}; cities.forEach(function(c){ cols.forEach(function(m){ DV[c+'|'+m]=model[c][m]?driverVals(c,m,model[c][m]):null; }); });
   var dv=function(k){ return function(c,m){ var v=DV[c+'|'+m]; return v?v[k]:null; }; };
@@ -717,7 +717,7 @@ function viewOverview(model){
       h+=netRow('Net service cost ('+ccNetLabel()+')','net',function(x){ return x.rr.fb?'\u2020':((x.rr.miss||x.rv.miss)?'*':''); });
     }
     h+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+ms.map(function(m,i){ var d=model[city][m], a=d.A+d.P+d.C; return dispCell(val(a,city,m), totAmt[i]?a/totAmt[i]:null, 'color:#6b7280'); }).join('')+'</tr>';
-    if(!state.F.hub && !state.F.model && !state.F.dyear && !state.F.st) h+='<tr><td>Job cards with parts (count)</td>'+ms.map(function(m){ var n=jcCount(city,m); return '<td style="color:#6b7280">'+(n?n.toLocaleString('en-IN'):'\u2013')+'</td>'; }).join('')+'</tr>';
+    if(!state.F.hub && !state.F.model && !state.F.dyear && !state.F.st) h+='<tr><td>% of job cards with parts</td>'+ms.map(function(m){ var p=sumC(city,state.store.jc,m), t=sumC(city,state.store.jcAll,m); return '<td style="color:#6b7280" title="'+(p!=null&&t?(p.toLocaleString('en-IN')+' of '+t.toLocaleString('en-IN')+' job cards'):'')+'">'+((p!=null&&t)?Math.round(p/t*100)+'%':'\u2013')+'</td>'; }).join('')+'</tr>';
     h+='</table></div></div>'+driversHtml(city, ms, model)+pSplitHtml(city, ms)+'<div class="note">Gross cost = Labour (as per payroll) + A + P + C + Other maintenance, the same as the report. Net service cost (less damage fee) = gross cost \u2212 revenue damage fee; (less recovery + damage fee) deducts both revenue recovery and the damage fee (recovery data from May 2026). Scrap and insurance claims are already deducted inside Other maintenance; \u2020 = input blank, portal figure used; * = not entered). Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
   });
   return h||'<div class="empty">No data for the current filters.</div>';
