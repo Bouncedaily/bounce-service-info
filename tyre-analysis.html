@@ -394,16 +394,17 @@ body { overflow:auto!important; }
 
       <!-- Replaced within 30 days of the previous change -->
       <div class="card" style="margin-bottom:20px">
-        <div class="card-hd"><h2>Replaced Within 30 Days</h2><span class="sub" id="w30-updated">—</span>
+        <div class="card-hd"><h2 id="w30-title">Replaced Within 30 Days</h2><span class="sub" id="w30-updated">—</span>
           <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="exportW30CSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
         <div class="tbl-filter-bar">
           <div class="fg"><label>City</label><select id="w30-city" onchange="loadW30()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
           <div class="fg"><label>Deployed Year</label><select id="w30-year" onchange="loadW30()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option></select></div>
+          <div class="fg"><label>Within (days)</label><div style="display:flex;gap:6px;align-items:center"><select id="w30-days" onchange="w30DaysSel()"><option value="7">7 days</option><option value="15">15 days</option><option value="30" selected>30 days</option><option value="45">45 days</option><option value="60">60 days</option><option value="custom">Custom…</option></select><input id="w30-days-custom" type="number" min="1" max="365" placeholder="days" style="width:70px;display:none" onchange="loadW30()"></div></div>
           <div class="fg"><label>Months</label><select id="w30-months" onchange="loadW30()"><option value="3">Last 3</option><option value="4" selected>Last 4</option><option value="6">Last 6</option></select></div>
         </div>
         <div class="tbl-wrap"><div id="w30-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         <div id="w30-list"></div>
-        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within 30 days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes. Red = 15% or more, amber = 8–15%. The current month is month-to-date.</div>
+        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
       </div>
 
       <!-- Km since last change: parts x km buckets for one replaced month; click a number for the bikes -->
@@ -1545,14 +1546,17 @@ document.addEventListener('click', function(e){ var w=document.getElementById('t
 
 <script>
 var W30={data:null,sel:null};
+function w30Days(){ var s=document.getElementById('w30-days'); if(!s) return 30; if(s.value==='custom'){ var v=parseInt(document.getElementById('w30-days-custom').value,10); return (v>0&&v<=365)?v:30; } return +s.value; }
+function w30DaysSel(){ var s=document.getElementById('w30-days'), c=document.getElementById('w30-days-custom'); c.style.display=s.value==='custom'?'':'none'; if(s.value==='custom'){ c.focus(); if(!c.value) return; } loadW30(); }
 function w30Lbl(k){ var a=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+a[1]-1]+'-'+a[0].slice(2); }
 async function loadW30(){
   var body=document.getElementById('w30-body'); if(!body) return;
   body.innerHTML='<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   document.getElementById('w30-list').innerHTML=''; W30.sel=null;
-  try { W30.data = await rpcU('wear_tear_within30', { p_months: +document.getElementById('w30-months').value, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null }); }
+  try { W30.data = await rpcU('wear_tear_within30', { p_months: +document.getElementById('w30-months').value, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ body.innerHTML='<div class="error-msg">Could not load ('+e.message+'). Refresh the page.</div>'; return; }
   var d=W30.data.data_as_of; document.getElementById('w30-updated').textContent = d ? 'Data as of '+new Date(d).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+  document.getElementById('w30-title').textContent='Replaced Within '+(W30.data.days||w30Days())+' Days';
   renderW30();
 }
 function w30Parts(){ var tp=(document.getElementById('top-part')||{}).value||''; tp=tp.split('|').filter(Boolean);
@@ -1565,7 +1569,7 @@ function renderW30(){
   if(!parts.length){ document.getElementById('w30-body').innerHTML='<div class="empty-state" style="padding:20px">No replacements in this period.</div>'; return; }
   var cell=function(p,m){ var r=idx[p+'|'+m]; if(!r||!r.with_prev) return '<td class="num" style="color:#cbd5e1">–</td>';
     var pc=r.d30/r.with_prev*100, bg=pc>=15?'#fde2e2':(pc>=8?'#fef3c7':''), on=W30.sel&&W30.sel.p===p&&W30.sel.m===m;
-    return '<td class="num" style="background:'+bg+'"><a href="#" onclick="openW30(\''+p.replace(/'/g,"\\'")+'\',\''+m+'\');return false" title="'+r.d30+' of '+r.with_prev+' repeat replacements within 30 days ('+r.d7+' within 7 days) · '+r.total+' replacements in total" style="color:inherit;text-decoration:'+(on?'underline':'none')+';font-weight:'+(on?800:600)+'">'+pc.toFixed(1)+'%</a><div style="font-size:10px;color:#94a3b8">'+r.d30+' of '+r.with_prev+'</div></td>'; };
+    return '<td class="num" style="background:'+bg+'"><a href="#" onclick="openW30(\''+p.replace(/'/g,"\\'")+'\',\''+m+'\');return false" title="'+r.d30+' of '+r.with_prev+' repeat replacements within '+((W30.data&&W30.data.days)||30)+' days ('+r.d7+' within 7 days) · '+r.total+' replacements in total" style="color:inherit;text-decoration:'+(on?'underline':'none')+';font-weight:'+(on?800:600)+'">'+pc.toFixed(1)+'%</a><div style="font-size:10px;color:#94a3b8">'+r.d30+' of '+r.with_prev+'</div></td>'; };
   var tot=function(m){ var a=0,b=0; parts.forEach(function(p){ var r=idx[p+'|'+m]; if(r){ a+=r.d30; b+=r.with_prev; } }); return b?'<td class="num" style="font-weight:700">'+(a/b*100).toFixed(1)+'%<div style="font-size:10px;color:#94a3b8;font-weight:400">'+a+' of '+b+'</div></td>':'<td class="num">–</td>'; };
   document.getElementById('w30-body').innerHTML='<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th>'+ms.map(function(m,i){ return '<th class="num">'+w30Lbl(m)+(i===ms.length-1?' (so far)':'')+'</th>'; }).join('')+'</tr></thead><tbody>'
     +parts.map(function(p){ return '<tr><td>'+p+'</td>'+ms.map(function(m){ return cell(p,m); }).join('')+'</tr>'; }).join('')
@@ -1574,18 +1578,18 @@ function renderW30(){
 async function openW30(p,m){
   W30.sel={p:p,m:m}; renderW30();
   var box=document.getElementById('w30-list'); box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
-  var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null }); }
+  var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
   W30.list=rows||[];
-  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within 30 days <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
+  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within '+((W30.data&&W30.data.days)||30)+' days <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
    +'<div class="tbl-wrap"><table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Reg No</th><th style="text-align:left">City</th><th style="text-align:left">Hub</th><th>Previous change</th><th>This change</th><th class="num">Days apart</th><th class="num">Km apart</th><th style="text-align:left">JC (prev → this)</th></tr></thead><tbody>'
    +W30.list.map(function(r){ return '<tr><td>'+r.reg+'</td><td>'+(r.city||'')+'</td><td>'+(r.hub||'')+'</td><td>'+(r.prev_date||'')+'</td><td>'+(r.date||'')+'</td><td class="num">'+r.days+'</td><td class="num">'+(r.km==null?'–':Math.round(r.km).toLocaleString('en-IN'))+'</td><td>'+(r.prev_jc||'')+' → '+(r.jc||'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
 }
 function exportW30CSV(){
   var D=W30.data||{}, ms=D.months||[], idx={}; (D.rows||[]).forEach(function(r){ idx[r.part+'|'+r.m]=r; });
-  var lines=[['Part'].concat(ms.map(function(m){ return w30Lbl(m)+' %'; }), ms.map(function(m){ return w30Lbl(m)+' within 30 days'; }), ms.map(function(m){ return w30Lbl(m)+' repeat replacements'; })).join(',')];
+  var lines=[['Part'].concat(ms.map(function(m){ return w30Lbl(m)+' %'; }), ms.map(function(m){ return w30Lbl(m)+' within '+((W30.data&&W30.data.days)||30)+' days'; }), ms.map(function(m){ return w30Lbl(m)+' repeat replacements'; })).join(',')];
   w30Parts().forEach(function(p){ lines.push(['"'+p+'"'].concat(ms.map(function(m){ var r=idx[p+'|'+m]; return r&&r.with_prev?(r.d30/r.with_prev*100).toFixed(1):''; }), ms.map(function(m){ var r=idx[p+'|'+m]; return r?r.d30:''; }), ms.map(function(m){ var r=idx[p+'|'+m]; return r?r.with_prev:''; })).join(',')); });
-  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='replaced_within_30_days.csv'; a.click();
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='replaced_within_'+((W30.data&&W30.data.days)||30)+'_days.csv'; a.click();
 }
 (function(){ var go=function(){ try{ loadW30(); }catch(e){} }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else setTimeout(go, 300); })();
 </script>
