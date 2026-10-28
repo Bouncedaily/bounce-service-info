@@ -386,6 +386,7 @@ body { overflow:auto!important; }
           <div class="fg"><label>Show</label><div class="seg" id="cons-stat"><button class="on" data-v="avg" onclick="setConsSeg('cons-stat',this)">Average</button><button data-v="med" onclick="setConsSeg('cons-stat',this)">Median</button><button data-v="pct" onclick="setConsSeg('cons-stat',this)" title="Bikes with this part replaced in the period ÷ all bikes deployed (deployed year + city)">% replaced</button></div></div>
           <div class="fg"><label>Replacement</label><div class="seg" id="cons-repl"><button data-v="first" onclick="setConsSeg('cons-repl',this)">First</button><button class="on" data-v="other" onclick="setConsSeg('cons-repl',this)">Other</button><button data-v="both" onclick="setConsSeg('cons-repl',this)">Both</button></div></div>
           <div class="fg"><label>Deployed Year</label><select id="cons-year" onchange="loadConsumption()"></select></div>
+          <div class="fg"><label>Months</label><div style="display:flex;gap:6px;align-items:center"><select id="cons-mfrom" onchange="setConsMonths()"></select><span style="font-size:12px;color:var(--muted,#64748b)">to</span><select id="cons-mto" onchange="setConsMonths()"></select></div></div>
         </div>
         <div class="tbl-wrap"><div id="consumption-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
       </div>
@@ -996,6 +997,7 @@ let _consSeq = 0;
   let html = '<option value="">All years</option>';
   for (let y = new Date().getFullYear(); y >= 2025; y--) html += `<option value="${y}">${y}</option>`;
   sel.innerHTML = html;
+  try { fillConsMonthSel(); } catch (e) {}
 })();
 function consSeg(id) { const b = document.querySelector('#' + id + ' button.on'); return b ? b.dataset.v : null; }
 
@@ -1141,7 +1143,22 @@ function consCity() { return document.getElementById('top-city').value || ''; }
 function consYear() { return document.getElementById('cons-year')?.value || ''; }
 let _consPen = {}, _consMon = {};
 // month columns: March 2026 to the current month
-function consMonths() { const out = [], now = new Date(); let y = 2026, m = 3; while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth() + 1)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; }
+// Month range filter (remembered in this browser); default = last 3 months
+function consMonths() { const all = consMonthsAll(); let f = '', t = '';
+  try { const r = JSON.parse(localStorage.getItem('wt_cons_months') || '{}'); f = r.f || ''; t = r.t || ''; } catch (e) {}
+  if (!t || all.indexOf(t) < 0) t = all[all.length - 1];
+  if (!f || all.indexOf(f) < 0) f = all[Math.max(0, all.indexOf(t) - 2)];
+  if (f > t) f = t;
+  return all.filter(k => k >= f && k <= t); }
+function fillConsMonthSel() { const all = consMonthsAll(), cur = consMonths(), f = cur[0], t = cur[cur.length - 1];
+  const a = document.getElementById('cons-mfrom'), b = document.getElementById('cons-mto'); if (!a || !b) return;
+  a.innerHTML = all.map(k => `<option value="${k}"${k === f ? ' selected' : ''}>${consMonLabel(k)}</option>`).join('');
+  b.innerHTML = all.map(k => `<option value="${k}"${k === t ? ' selected' : ''}>${consMonLabel(k)}</option>`).join(''); }
+function setConsMonths() { let f = document.getElementById('cons-mfrom').value, t = document.getElementById('cons-mto').value;
+  if (f > t) { const x = f; f = t; t = x; }
+  try { localStorage.setItem('wt_cons_months', JSON.stringify({ f, t })); } catch (e) {}
+  fillConsMonthSel(); renderConsumption(); }
+function consMonthsAll() { const out = [], now = new Date(); let y = 2026, m = 3; while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth() + 1)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; }
 function consMonLabel(k) { const [y, m] = k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + '-' + y.slice(2); }
 async function loadConsumption(_retry) {
   const body = document.getElementById('consumption-body');
@@ -1244,7 +1261,7 @@ function renderConsumption() {
     ${consMonths().map(k => `<th class="num">${consMonLabel(k)}</th>`).join('')}
     <th class="num">This Month Achievement</th><th class="num">Replacements — YTD</th><th class="num">Total Cost (₹) — YTD</th><th class="num">Cost/KM (₹) — YTD</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Month columns show the ${L.stat === '% replaced' ? '% of bikes replaced' : L.stat.toLowerCase() + ' km'} for each month from March; the current month is month-to-date. ${L.stat === '% replaced' ? 'Bikes deployed (denominator): ' + fmt((Object.values(_consPen)[0] || {}).fleet_bikes || 0) + '. ' : ''}Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>% replaced</b> = bikes that had this part replaced in the period (counted once) ÷ all bikes deployed, for the selected deployed year and city (all bikes, whatever brake type); it follows the First / Other / Both choice, and Achievement is not shown in this view. With "First" selected, KM follows the Deployed year filter; only 2026-deployed bikes have their full history in the data, so other years overstate first-fit life. Under each month value: <b>Replaced</b> = replacements in that period; <b>Odo</b> = replacements with a reliable KM, which are the ones used in the average/median (amber when under 5). A KM is left out when it is 0 or when the odometer reading on its JC, or (for Other) on the previous replacement's JC, is flagged as wrong: missing, stuck at the previous reading, a dip or spike against the bike's other readings, going backwards, or rising more than 300 km/day. Flags refresh nightly. <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date (fleet list, else fleet KM data, else the year of its earliest job card). Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat === '% replaced' ? 'Avg' : L.stat} KM (YTD). Achievement = this month's ${L.stat === '% replaced' ? 'avg' : L.stat.toLowerCase()} km ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
+  <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">Month columns show the ${L.stat === '% replaced' ? '% of bikes replaced' : L.stat.toLowerCase() + ' km'} for the months selected in the Months filter; the current month is month-to-date. ${L.stat === '% replaced' ? 'Bikes deployed (denominator): ' + fmt((Object.values(_consPen)[0] || {}).fleet_bikes || 0) + '. ' : ''}Filtered to dms_cat IN ('A','F'), same as "By Part Type" below. <b>% replaced</b> = bikes that had this part replaced in the period (counted once) ÷ all bikes deployed, for the selected deployed year and city (all bikes, whatever brake type); it follows the First / Other / Both choice, and Achievement is not shown in this view. With "First" selected, KM follows the Deployed year filter; only 2026-deployed bikes have their full history in the data, so other years overstate first-fit life. Under each month value: <b>Replaced</b> = replacements in that period; <b>Odo</b> = replacements with a reliable KM, which are the ones used in the average/median (amber when under 5). A KM is left out when it is 0 or when the odometer reading on its JC, or (for Other) on the previous replacement's JC, is flagged as wrong: missing, stuck at the previous reading, a dip or spike against the bike's other readings, going backwards, or rising more than 300 km/day. Flags refresh nightly. <b>Other</b> = the bike already had this part replaced before; KM = km since that previous replacement (this matches the earlier version of this table). <b>First</b> = no earlier replacement on record; KM = odometer at replacement, i.e. km since deployment. <b>Deployed Year</b> = year of the bike's first deployment date (fleet list, else fleet KM data, else the year of its earliest job card). Cost, replacement count and Cost/KM follow all three filters. Cost/KM = (Total Cost ÷ Replacements) ÷ ${L.stat === '% replaced' ? 'Avg' : L.stat} KM (YTD). Achievement = this month's ${L.stat === '% replaced' ? 'avg' : L.stat.toLowerCase()} km ÷ expected life. City applies here; the top date and part filters do not (YTD with rolling monthly windows).</div>`;
 }
 function getConsumptionRows() {
   return consSortedRows().map(({ r, v }) => [r.part_bucket, r.expected_life_km]
