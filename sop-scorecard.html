@@ -43,14 +43,16 @@ tr.hub{cursor:pointer}tr.hub:hover td{background:#f8fafc}tr.hub.sel td{backgroun
 .crit{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;background:#fee2e2;color:#b91c1c;vertical-align:middle}
 .guide{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);align-items:center}
+.embedfr{width:100%;height:calc(100vh - 150px);min-height:640px;border:0;display:block;background:transparent}
 @media(max-width:760px){.wrap{padding:12px}.kpi-val{font-size:21px}}
 </style></head>
 <body>
 <div class="wrap">
   <h1>SOP Scorecard <span class="muted" style="font-weight:500;font-size:14px">&middot; Operations Executive, by hub</span></h1>
-  <div class="psub">Each hub is scored on the SOP items we can already measure from system data and reviewed photos. A hub's score is weighted by the SOP weights and scaled to the weight that is actually measured, so a missing item never counts against a hub. Weights are a draft and can be changed any time.</div>
+  <div class="psub">One place for the Operations Executive SOP: the hub scorecard, the daily form the hubs fill in, and the tyre photo review. Each hub is scored on the SOP items we can already measure from system data and reviewed photos. A hub's score is weighted by the SOP weights and scaled to the weight that is actually measured, so a missing item never counts against a hub. Weights are a draft and can be changed any time.</div>
   <div id="msg"></div>
   <div id="main" style="display:none">
+    <div id="topctl">
     <div class="bar">
       <span><label>Period</label><select id="period">
         <option value="today">Today so far</option><option value="yesterday">Yesterday</option>
@@ -63,10 +65,13 @@ tr.hub{cursor:pointer}tr.hub:hover td{background:#f8fafc}tr.hub.sel td{backgroun
       <button class="btn" id="csv"><i class="ti ti-download"></i> CSV</button>
     </div>
     <div class="kpis" id="kpis"></div>
+    </div>
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="score">Hub scorecard</button>
       <button class="tab" data-tab="follow">Follow-up</button>
       <button class="tab" data-tab="weights">Weights &amp; coverage</button>
+      <button class="tab" data-tab="form">Daily form</button>
+      <button class="tab" data-tab="tyre">Tyre photo review</button>
     </div>
 
     <div id="tab-score">
@@ -85,6 +90,9 @@ tr.hub{cursor:pointer}tr.hub:hover td{background:#f8fafc}tr.hub.sel td{backgroun
       </div>
       <div class="card"><div class="scroll" id="followbody"></div></div>
     </div>
+
+    <div id="tab-form" style="display:none"><iframe id="fr-form" class="embedfr" data-src="sop-daily-form.html?embed=1" title="SOP Daily Form"></iframe></div>
+    <div id="tab-tyre" style="display:none"><iframe id="fr-tyre" class="embedfr" data-src="tyre-photo-review.html?embed=1" title="Tyre Photo Review"></iframe></div>
 
     <div id="tab-weights" style="display:none">
       <div class="guide"><b>Changing a weight:</b> open the <b>sop_items</b> table in the Supabase table editor and edit the <b>weight</b> column (role OE). Refresh this page to see the new scores. Every change is logged in <b>sop_weight_history</b>. The weights should add up to 100.</div>
@@ -223,15 +231,32 @@ function periodRange(p){
 
 /* ---------- page ---------- */
 var DATA=null, SEL=null, CUR=null;
-function fail(r,what){
-  $('main').style.display='none';
-  if(r.expired) $('msg').innerHTML='<div class="card"><div class="msg"><b>Your session has expired.</b><br>Please sign out and sign in again.</div></div>';
-  else if(r.denied) $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the SOP Scorecard.</b><br>Ask an admin to switch it on for you.</div></div>';
-  else $('msg').innerHTML='<div class="card"><div class="msg err">Could not load '+esc(what)+' ('+esc(r.msg)+'). Please try again.</div></div>';
+var NOSCORE=false;
+var TABPERM={score:'sop_scorecard',follow:'sop_scorecard',weights:'sop_scorecard',form:'sop_form',tyre:'tyre_review'};
+var TABORDER=['score','follow','weights','form','tyre'];
+function mySess(){ try{ return JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); }catch(e){ return {}; } }
+function canSeeTab(k){
+  if((k==='score'||k==='follow'||k==='weights')&&NOSCORE) return false;
+  var s=mySess(); if(s.role==='admin') return true;
+  if(!s.permissions) return true;               /* permissions not known here: let the database decide */
+  return !!s.permissions[TABPERM[k]];
+}
+function firstTab(){ for(var i=0;i<TABORDER.length;i++){ if(canSeeTab(TABORDER[i])) return TABORDER[i]; } return null; }
+function applyTabAccess(){
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.style.display=canSeeTab(b.getAttribute('data-tab'))?'':'none'; });
+}
+function noAccess(){ $('main').style.display='none'; $('msg').innerHTML='<div class="card"><div class="msg"><b>You don\'t have access to the SOP Scorecard.</b><br>Ask an admin to switch it on for you.</div></div>'; }
+function scoreFail(r){
+  if(r.denied){ NOSCORE=true; applyTabAccess(); var t=firstTab(); if(t) showTab(t); else noAccess(); return; }
+  var m=r.expired?'Your session has expired. Please sign out and sign in again.':'Could not load the scorecard ('+r.msg+'). Please try again.';
+  $('scorebody').innerHTML='<div class="msg err">'+esc(m)+'</div>'; $('kpis').innerHTML=''; $('asof').textContent='';
 }
 function showTab(t){
-  ['score','follow','weights'].forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
+  TABORDER.forEach(function(k){ $('tab-'+k).style.display=(k===t)?'':'none'; });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
+  $('topctl').style.display=(t==='form'||t==='tyre')?'none':'';
+  var fr=t==='form'?$('fr-form'):(t==='tyre'?$('fr-tyre'):null);
+  if(fr&&!fr.getAttribute('src')) fr.setAttribute('src',fr.getAttribute('data-src'));
 }
 function itemHeaders(wm){
   var have=function(it){ return CUR&&CUR.hubs.some(function(h){ return h.items[it]&&h.items[it].den>0; }); };
@@ -334,8 +359,8 @@ async function load(){
   $('asof').textContent='Loading\u2026';
   var rg=periodRange('30');
   var r=await rpc('sop_scorecard_data',{p_from:rg.from,p_to:rg.to});
-  if(!r.ok){ fail(r,'the scorecard'); return; }
-  $('msg').innerHTML=''; $('main').style.display=''; DATA=r.data;
+  if(!r.ok){ scoreFail(r); return; }
+  $('msg').innerHTML=''; DATA=r.data;
   var cities={}; (DATA.hubs||[]).forEach(function(h){ cities[h.city]=1; });
   var cur=$('city').value;
   $('city').innerHTML='<option value="">All cities</option>'+Object.keys(cities).sort().map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
@@ -366,6 +391,12 @@ function wire(){
   };
 }
 function toastCopy(t){ var b=$('fcopy'); var o=b.innerHTML; b.textContent=t; setTimeout(function(){ b.innerHTML=o; },1500); }
-wire(); load();
+function init(){
+  $('main').style.display=''; applyTabAccess();
+  var t=firstTab(); if(!t){ noAccess(); return; }
+  if(canSeeTab('score')) load();
+  showTab(t);
+}
+wire(); init();
 </script>
 </body></html>
