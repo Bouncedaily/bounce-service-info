@@ -404,6 +404,13 @@ body { overflow:auto!important; }
         </div>
         <div class="tbl-wrap"><div id="w30-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         <div id="w30-list"></div>
+        <div style="padding:12px 12px 4px;border-top:1px solid #eef2f7;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+          <div style="font-weight:700;font-size:13px;margin-right:6px">Early replacements by</div>
+          <div class="fg"><label>Group by</label><select id="w30b-by" onchange="loadW30By()"><option value="hub">Hub</option><option value="tech">Technician (who did the previous change)</option></select></div>
+          <div class="fg"><label>Month</label><select id="w30b-month" onchange="loadW30By()"></select></div>
+          <div class="fg"><label>Min. repeat replacements</label><select id="w30b-min" onchange="renderW30By()"><option value="1">Any</option><option value="5" selected>5+</option><option value="10">10+</option><option value="20">20+</option></select></div>
+        </div>
+        <div class="tbl-wrap"><div id="w30b-body"></div></div>
         <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
       </div>
 
@@ -1539,7 +1546,7 @@ function topPartSync(){ var v=topPartSel(), b=document.getElementById('tp-btn');
   document.getElementById('top-part').value=v.join('|');
   if(b) b.textContent=(v.length===0?'All parts':(v.length===1?v[0]:v.length+' parts selected'))+' \u25be'; }
 var _tpT=null;
-function topPartChanged(){ topPartSync(); clearTimeout(_tpT); _tpT=setTimeout(function(){ loadAllReplacements(); loadRepeats(); loadIntervals(); try{ renderConsumption(); }catch(e){} try{ renderW30(); }catch(e){} }, 400); }
+function topPartChanged(){ topPartSync(); clearTimeout(_tpT); _tpT=setTimeout(function(){ loadAllReplacements(); loadRepeats(); loadIntervals(); try{ renderConsumption(); }catch(e){} try{ renderW30(); loadW30By(); }catch(e){} }, 400); }
 function topPartAll(on){ document.querySelectorAll('.tp-cb').forEach(function(c){ c.checked=on; }); topPartChanged(); }
 document.addEventListener('click', function(e){ var w=document.getElementById('tp-wrap'); if(w && !w.contains(e.target)){ var m=document.getElementById('tp-menu'); if(m) m.style.display='none'; } });
 </script>
@@ -1558,6 +1565,7 @@ async function loadW30(){
   var d=W30.data.data_as_of; document.getElementById('w30-updated').textContent = d ? 'Data as of '+new Date(d).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
   document.getElementById('w30-title').textContent='Replaced Within '+(W30.data.days||w30Days())+' Days';
   renderW30();
+  try { w30bFillMonths(); loadW30By(); } catch(e){}
 }
 function w30Parts(){ var tp=(document.getElementById('top-part')||{}).value||''; tp=tp.split('|').filter(Boolean);
   var seen=[], rows=(W30.data&&W30.data.rows)||[]; rows.forEach(function(r){ if(seen.indexOf(r.part)<0) seen.push(r.part); });
@@ -1592,6 +1600,33 @@ function exportW30CSV(){
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='replaced_within_'+((W30.data&&W30.data.days)||30)+'_days.csv'; a.click();
 }
 (function(){ var go=function(){ try{ loadW30(); }catch(e){} }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else setTimeout(go, 300); })();
+</script>
+
+<script>
+var W30B={rows:[]};
+function w30bFillMonths(){ var sel=document.getElementById('w30b-month'); if(!sel||!W30.data) return; var ms=W30.data.months||[], cur=sel.value;
+  sel.innerHTML=ms.slice().reverse().map(function(m){ return '<option value="'+m+'">'+w30Lbl(m)+'</option>'; }).join('');
+  if(cur && ms.indexOf(cur)>=0) sel.value=cur; }
+async function loadW30By(){
+  var box=document.getElementById('w30b-body'); if(!box) return; var m=document.getElementById('w30b-month').value; if(!m) return;
+  box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
+  var tp=((document.getElementById('top-part')||{}).value||'').split('|').filter(Boolean).map(function(x){ return /^Front Tyre/.test(x)?'Front Tyre (12 Inch / Zoom)':x; });
+  try { W30B.rows = await rpcU('wear_tear_early_by', { p_month:m, p_by: document.getElementById('w30b-by').value, p_city: document.getElementById('w30-city').value || null,
+           p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days(), p_parts: tp.length ? tp.join('|') : null }) || []; }
+  catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
+  renderW30By();
+}
+function renderW30By(){
+  var box=document.getElementById('w30b-body'); if(!box) return; var min=+document.getElementById('w30b-min').value, by=document.getElementById('w30b-by').value, nd=(W30.data&&W30.data.days)||w30Days();
+  var rows=(W30B.rows||[]).filter(function(r){ return r.with_prev>=min; });
+  if(!rows.length){ box.innerHTML='<div class="empty-state" style="padding:16px">Nothing to show for this selection.</div>'; return; }
+  var tA=0,tB=0; (W30B.rows||[]).forEach(function(r){ tA+=r.early; tB+=r.with_prev; }); var avg=tB?tA/tB*100:0;
+  box.innerHTML='<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">'+(by==='tech'?'Technician':'Hub')+'</th>'+(by==='tech'?'<th style="text-align:left">Hub (previous change)</th>':'')+'<th class="num">Repeat replacements</th><th class="num">Within '+nd+' days</th><th class="num">% early</th><th class="num">vs average</th></tr></thead><tbody>'
+    +rows.map(function(r){ var pc=r.with_prev?r.early/r.with_prev*100:0, bg=pc>=15?'#fde2e2':(pc>=8?'#fef3c7':''), d=pc-avg;
+      return '<tr><td>'+r.name+'</td>'+(by==='tech'?'<td style="color:#64748b">'+(r.hub||'')+'</td>':'')+'<td class="num">'+r.with_prev+'</td><td class="num">'+r.early+'</td><td class="num" style="background:'+bg+';font-weight:700">'+pc.toFixed(1)+'%</td><td class="num" style="color:'+(d>0?'#b91c1c':'#15803d')+'">'+(d>0?'+':'\u2212')+Math.abs(d).toFixed(1)+' pp</td></tr>'; }).join('')
+    +'<tr style="background:#f8fafc;font-weight:700"><td>All</td>'+(by==='tech'?'<td></td>':'')+'<td class="num">'+tB+'</td><td class="num">'+tA+'</td><td class="num">'+avg.toFixed(1)+'%</td><td></td></tr></tbody></table>'
+    +'<div style="padding:6px 12px 10px;font-size:11px;color:#64748b">Sorted by the number of early replacements. Technician = who did the <b>previous</b> change (the fix that didn\u2019t last). Follows the City, Deployed Year, days and Part filters above.</div>';
+}
 </script>
 </body>
 </html>
