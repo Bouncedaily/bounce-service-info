@@ -1529,7 +1529,8 @@ async function loadRefurb() {
   const data = rows || [];
   const T = k => sum(data, r => r[k]);
   const consumed = T('consumed'), atHub = T('actual_in_hub'), rpdc = T('sent_to_rpdc'), vendor = T('sent_to_vendor'), outc = T('outcome'), rej = T('rejected');
-  const fin = outc + rej, rate = fin ? Math.round(outc / fin * 100) : null, atVendor = Math.max(vendor - fin, 0), notSent = Math.max(consumed - rpdc, 0);
+  RF.forms = data.some(r => r.source === 'forms');   // 29 Oct 2026: from 1 Nov the figures come from the forms
+  const fin = outc + rej, rate = fin ? Math.round(outc / fin * 100) : null, atVendor = RF.forms ? T('at_vendor') : Math.max(vendor - fin, 0), notSent = Math.max(consumed - rpdc, 0);
   $('#rf-sum').innerHTML = `<div class="flow">
       <div class="step"><div class="v">${num(consumed)}</div><div class="l">${RF.type === 'Tyre' ? 'Replaced on bikes' : 'Removed from bikes'}</div></div>
       <div class="step"><div class="v">${num(atHub)}</div><div class="l">Counted at hubs</div></div>
@@ -1542,7 +1543,8 @@ async function loadRefurb() {
       <span><b class="${notSent ? 'warn' : ''}">${num(notSent)}</b><span class="muted">${RF.type === 'Tyre' ? 'replaced' : 'removed'} but not sent to RPDC</span></span></div>`;
   RF.data = data;
   drawRefurbRows(lbl);
-  const eb = $('#rf-edit'); if (eb) eb.onclick = () => { RF.edit = !RF.edit; loadRefurbRedraw(lbl); };
+  const eb = $('#rf-edit'); if (eb) { if (RF.forms) { eb.hidden = true; RF.edit = false; } eb.onclick = () => { RF.edit = !RF.edit; loadRefurbRedraw(lbl); }; }
+  if (RF.forms) drawRefurbRows(lbl);
 }
 function loadRefurbRedraw(lbl) { $('#rf-edit').textContent = RF.edit ? 'Stop editing' : 'Enter RPDC figures'; drawRefurbRows(lbl); }
 function drawRefurbRows(lbl) {
@@ -1551,7 +1553,8 @@ function drawRefurbRows(lbl) {
   if (edit && !f.city) { note.innerHTML = '<div class="banner info" style="margin:12px 16px 0">Pick a city in the filter above first. RPDC figures are saved per city for the selected period.</div>'; }
   else if (edit) { note.innerHTML = `<div class="banner info" style="margin:12px 16px 0">Saving figures for <b>${esc(f.city)}</b>, ${esc(periodLabel())}. Each stage can only be as large as the one before it.</div>`; }
   else note.innerHTML = '';
-  const canEdit = edit && !!f.city;
+  if (RF.forms) note.innerHTML = `<div class="banner info" style="margin:12px 16px 0">From 1 Nov these figures fill in automatically: <b>Sent to RPDC</b> from hub pickups (each hub's own pickup date), ${RF.type === 'Tyre' ? '<b>inspected / accepted / rejected / returned</b> from the vendor inspections at the RPDC' : '<b>Sent to vendor</b> from the batches sent, <b>Refurbished / Rejected</b> from the returns recorded'} (each on its own date). <b>At vendor</b> is what is still with the vendor on the last day of the period.${f.hub ? ' Vendor figures are for the whole city (parts from all hubs are combined at the RPDC).' : ''}</div>`;
+  const canEdit = edit && !!f.city && !RF.forms;
   const T = RF.type === 'Tyre';
   $('#rf-head').innerHTML = `<tr><th>Part</th><th class="num">System consumed</th><th class="num">Actual available in hub</th><th class="num">Sent to RPDC</th><th class="num">Sent to vendor</th><th class="num">At vendor</th><th class="num">${T ? 'CN approved' : 'Refurbed'}</th><th class="num">${T ? 'CN rejected' : 'Rejected'}</th><th class="num">${T ? 'CN approved part received at RPDC' : 'Refurbed part received at RPDC'}</th><th class="num">${T ? 'CN rejected part received at RPDC' : 'Rejected part received at RPDC'}</th><th class="num">${T ? 'CN document' : 'Document'}</th><th class="num">${T ? 'CN approved %' : 'Refurb %'}</th></tr>`;
   let rows = (RF.data || []).slice();
@@ -1562,7 +1565,7 @@ function drawRefurbRows(lbl) {
   const cell = (r, k, cls) => canEdit ? `<td class="num"><input class="cellnum" data-f="${k}" type="number" min="0" step="1" value="${r[k] ?? ''}" aria-label="${esc(r.part_name)} ${k}"></td>` : `<td class="num ${cls || ''}">${r[k] == null ? '<span class="muted">—</span>' : num(r[k])}</td>`;
   $('#rf-rows').innerHTML = rows.length ? rows.map(r => {
     const out = Number(r.outcome) || 0, rj = Number(r.rejected) || 0, fin = out + rj;
-    const atV = Math.max((Number(r.sent_to_vendor) || 0) - fin, 0);
+    const atV = r.source === 'forms' ? (Number(r.at_vendor) || 0) : Math.max((Number(r.sent_to_vendor) || 0) - fin, 0);
     const notSent = (Number(r.consumed) || 0) > 0 && !(Number(r.sent_to_rpdc) > 0);
     const doc = r.cn_document_url ? `<a href="${esc(r.cn_document_url)}" target="_blank" rel="noopener">View</a>` : (notSent && !canEdit ? '<span class="pill amber">Not being sent</span>' : '<span class="muted">—</span>');
     return `<tr data-part="${esc(r.part_name)}" data-hub="${r.actual_in_hub ?? ''}"><td><b>${esc(r.part_name)}</b></td><td class="num">${num(r.consumed)}</td><td class="num">${r.actual_in_hub == null ? '<span class="muted">—</span>' : num(r.actual_in_hub)}</td>
