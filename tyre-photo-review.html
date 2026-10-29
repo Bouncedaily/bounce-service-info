@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <script src="auth-guard.js"></script><!-- login required: no session -> login page -->
 <script src="error-log.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tyre Photo Review</title>
+<script>if(/[?&]embed=1/.test(location.search))document.documentElement.className+=' embed';</script><title>Tyre Photo Review</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
@@ -61,6 +61,7 @@ td.l,th.l{text-align:left}
 .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}.pg{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px}.pg-top{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:6px}.pg-top span{color:var(--muted)}.pg-bar{height:8px;background:#eef2f7;border-radius:4px;overflow:hidden}.pg-bar i{display:block;height:100%;background:var(--green);transition:width .25s}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
 @media(max-width:760px){.wrap{padding:12px}.rv{grid-template-columns:1fr;padding:12px}.kpi-val{font-size:20px}.rv .acts .btn{flex:1}}
+.embed h1,.embed .psub{display:none}.embed .wrap{padding-top:4px}
 </style></head>
 <body>
 <div class="wrap">
