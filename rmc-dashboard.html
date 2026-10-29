@@ -834,7 +834,10 @@ function driverVals(city, m, d){
   var fleet=den(city,m,'bike'), jcs=sumC(city,state.store.jcAll,m), bikes=sumC(city,state.store.bikes,m), units=partUnits(city,m), parts=d?d.A+d.P+d.C:null,
       lab=opsVal('labour',city,m,d), oth=opsVal('other',city,m,d), ref=refurbAmt(city,m);
   var q=function(a,b){ return (a!=null&&b)?a/b:null; };
-  if(state.F.dyear){ jcs=null; bikes=null; units=null; ref=null; }   // job card counts, part units and refurb saving are city totals: not split by deployed year
+  if(state.F.dyear){   // city totals split to the deployed year: job cards and bikes serviced by its share of job cards, part units and refurb saving by its share of parts cost (estimates)
+    var bmY=baseMonth(m), jsY=jcShare(city,bmY), psY=partsShare(city,bmY);
+    jcs=(jcs!=null&&jsY!=null)?jcs*jsY:null; bikes=(bikes!=null&&jsY!=null)?bikes*jsY:null;
+    units=(units!=null&&psY!=null)?units*psY:null; ref=(ref!=null&&psY!=null)?ref*psY:null; }
   var jp=sumC(city,state.store.jc,m), ok=state.F.dyear?true:(jcs!=null&&bikes!=null&&jcs>=bikes&&(jp==null||jcs>=jp));
   if(!ok){ jcs=null; bikes=null; }   // impossible counts (fewer job cards than bikes or than job cards with parts): incomplete data
   var nI=d?netInfo(d,city,m):{v:null,missing:['x']}, tot=nI.missing.length?null:nI.v, rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m), ic=recovAmt('ins_claim',city,m), sc=recovAmt('scrap',city,m);
@@ -863,7 +866,7 @@ function driversHtml(city, ms, model){
     h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#94a3b8;font-style:italic"':'')+'><td'+(grey||less||memo?' style="color:'+(memo?'#94a3b8':'#6b7280')+((less||memo)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total \u2212 revenue damage fee \u2212 revenue recovery (recovery data from May 2026). Insurance claims and scrap sales are shown for reference only: Other maintenance already has them deducted (Other = porter + insurance & IOT + warranty provision \u2212 scrap \u2212 insurance claims, as in the report), so they are not deducted again. Inputs are under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
-  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost; job card drivers are city totals, so they show \u2013.</p>';
+  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates.</p>';
   if(bad.length && !state.F.dyear) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
 }
