@@ -90,20 +90,39 @@
   }
 
   async function refreshToken(refreshTk) {
-    try {
-      const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshTk })
-      });
-      if (!r.ok) return null;
-      const d = await r.json();
-      const prev = getSession();
-      // Preserve the existing end-of-day expires_at policy marker untouched —
-      // only the token pair changes here.
-      const s = { ...prev, access_token: d.access_token, refresh_token: d.refresh_token, email: d.user?.email || prev.email };
-      localStorage.setItem('sb_session', JSON.stringify(s));
-      return s;
-    } catch(e) { return null; }
+    // 29 Oct 2026: a network blip or server error must NOT log the user out.
+    // Returns the new session, null if the server definitively refused the token, or {transient:true} if it could not be reached.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      // another tab or frame may already have renewed it
+      const cur = getSession();
+      if (cur.refresh_token && cur.refresh_token !== refreshTk) {
+        const exp = realExpiryMs(cur.access_token);
+        if (exp && exp > Date.now() + 90 * 1000) return cur;
+        refreshTk = cur.refresh_token;
+      }
+      try {
+        const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshTk })
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const prev = getSession();
+          // Preserve the existing end-of-day expires_at policy marker untouched; only the token pair changes here.
+          const s = { ...prev, access_token: d.access_token, refresh_token: d.refresh_token, email: d.user?.email || prev.email };
+          localStorage.setItem('sb_session', JSON.stringify(s));
+          return s;
+        }
+        if (r.status >= 400 && r.status < 500 && r.status !== 429) {
+          // refused, but a parallel tab may have just rotated the token: use that if so
+          const cur2 = getSession(); const exp2 = realExpiryMs(cur2.access_token);
+          if (cur2.refresh_token !== refreshTk && exp2 && exp2 > Date.now() + 90 * 1000) return cur2;
+          return null;
+        }
+      } catch (e) { /* network error: retry */ }
+      await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
+    }
+    return { transient: true };
   }
 
   // Returns a token guaranteed cryptographically valid for at least another 90s,
@@ -117,6 +136,7 @@
     if (!realExp || realExp < Date.now() + 90*1000) {
       if (!sess.refresh_token) { redirectLogin(); return null; }
       const refreshed = await refreshToken(sess.refresh_token);
+      if (refreshed && refreshed.transient) return sess.access_token;   // could not reach the server: stay signed in, try again on the next call
       if (refreshed) return refreshed.access_token;
       // Refresh definitively failed (network-blip null is handled by the fallback
       // above via a truthy refresh_token check failing later calls too, but a
