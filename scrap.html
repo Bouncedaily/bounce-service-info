@@ -349,7 +349,9 @@ const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const BASELINE = '2026-08-31';          // all hub scrap cleared on this day
 const VARIANCE = 0.10;                  // a reason is needed when off by more than 10%
-const REASONS = ['Broken', 'Backlog', 'Sent to refurb', 'Sent to RPDC', 'Other'];
+// 29 Oct 2026: clearer reasons; 'Other' needs a real remark
+const REASONS = ['Broken', 'Backlog', 'Kept for next pickup', 'Wrong weight in system', 'Mixed with another category', 'Sent to refurb', 'Sent to RPDC', 'Other'];
+const RLABEL = { 'Backlog': 'Backlog from earlier' };
 const MAIN_CATS = ['Plastic', 'Iron', 'Aluminium'];
 const EXTRA_CATS = ['Wires', 'Brake Shoes', 'Electronics', 'Lighting', 'Battery', 'Controller', 'Carton Box'];
 // scrap that does not come off bikes, so there is no system (consumed) quantity: shown as "–"
@@ -747,6 +749,46 @@ function lineKeys() {
   }
   return S.parts.filter(p => (p.part_type || 'Refurb') === LP.type).map(p => p.part_name);
 }
+
+/* ── Draft auto-save (29 Oct 2026): a reload or camera switch on the phone must not lose a half-filled pickup ── */
+const DRAFT_DB = 'bb-scrap-drafts';
+function draftKey() { return 'draft:' + (S.me || 'me'); }
+function draftDb() { return new Promise((res, rej) => { const r = indexedDB.open(DRAFT_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('d'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function draftPut(v) { try { const db = await draftDb(); await new Promise((res, rej) => { const t = db.transaction('d', 'readwrite'); t.objectStore('d').put(v, draftKey()); t.oncomplete = res; t.onerror = () => rej(t.error); }); } catch (e) { console.warn('draft save failed', e); } }
+async function draftGet() { try { const db = await draftDb(); return await new Promise((res) => { const r = db.transaction('d').objectStore('d').get(draftKey()); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch (e) { return null; } }
+async function draftClear() { try { const db = await draftDb(); db.transaction('d', 'readwrite').objectStore('d').delete(draftKey()); } catch (e) {} }
+let draftTimer = null;
+function saveDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    const lines = {};
+    for (const [k, st] of Object.entries(LP.lines)) {
+      const has = String(st.qty).trim() !== '' || st.file || st.note || st.reason;
+      if (has) lines[k] = { qty: st.qty, rate: st.rate, reason: st.reason, note: st.note, url: st.url, file: st.file || null, fp: st.fp };
+    }
+    if (!Object.keys(lines).length) { draftClear(); return; }
+    draftPut({ at: Date.now(), hub: LP.hub, type: LP.type, date: LP.date, vendor: LP.vendor, fromManual: LP.fromManual, lines });
+  }, 500);
+}
+async function restoreDraft() {
+  if (S.draftChecked) return; S.draftChecked = true;
+  const d = await draftGet();
+  if (!d || !d.lines || Date.now() - d.at > 48 * 3600 * 1000) { if (d) draftClear(); return; }
+  LP.hub = d.hub || LP.hub; LP.type = d.type || LP.type; LP.date = d.date || LP.date; LP.vendor = d.vendor || ''; LP.fromManual = d.fromManual || null;
+  LP.lines = {};
+  for (const [k, x] of Object.entries(d.lines)) {
+    const st = lineState(k);
+    Object.assign(st, { qty: x.qty, rate: x.rate, reason: x.reason, note: x.note || '', url: x.url || null, fp: x.fp || null });
+    if (x.file) { st.file = x.file; st.preview = URL.createObjectURL(x.file); }
+  }
+  S.draftRestoredAt = d.at;
+}
+function draftBanner() {
+  if (!S.draftRestoredAt) return '';
+  const t = new Date(S.draftRestoredAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return `<div class="expect" id="draft-note" style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-left:3px solid var(--blue,#2563eb)"><span>Restored your unsaved pickup from ${esc(t)}. Check it and submit.</span><button type="button" class="btn" id="draft-discard">Discard</button></div>`;
+}
+
 function lineState(k) { return LP.lines[k] || (LP.lines[k] = { qty: '', rate: LP.type === 'Scrap' ? vendorRate(k) : null, file: null, fp: null, url: null, preview: null, reason: null, note: '' }); }
 function lineUnit(k) { return LP.type === 'Scrap' ? (catInfo(k).unit || 'kg') : 'nos'; }
 function variance(k) {
@@ -761,6 +803,7 @@ function variance(k) {
 async function loadLog() {
   const el = $('#tab-log');
   if (!LP.date) LP.date = todayIST();
+  await restoreDraft();
   const pre = S.prefillHub; S.prefillHub = null;
   if (pre) LP.hub = pre;
   if (!LP.hub) LP.hub = S.restrictedHub || F().hub || null;
@@ -827,7 +870,7 @@ async function renderLogForm() {
     if (bad) periodHtml += `<div class="err small">${LP.lastTo >= LP.date ? `The last pickup already covers up to ${dshort(LP.lastTo)}. Pick a later pickup date, or ask Nithish to correct the earlier pickup.` : `A ${esc(LP.type.toLowerCase())} pickup was already logged here up to ${dshort(LP.lastTo)}, so there are no new job cards before ${dshort(LP.date)}. Job cards from ${dshort(LP.date)} onward go into the next pickup.`}</div>`;
   }
   const keys = lineKeys();
-  box.innerHTML = `<div class="lp-form">
+  box.innerHTML = `<div class="lp-form">${draftBanner()}
     <div class="seg" role="radiogroup" aria-label="What is leaving the hub">
       ${['Scrap', 'Refurb', 'Tyre'].map(t => `<button type="button" role="radio" aria-checked="${LP.type === t}" class="${LP.type === t ? 'on' : ''}" data-type="${t}">${t}</button>`).join('')}
     </div>
@@ -897,7 +940,7 @@ function renderWhy(lineEl) {
   if (!v) { box.hidden = true; box.innerHTML = ''; return; }
   const q = v === 'less' ? 'Less than expected. Why?' : 'More than expected. Why?';
   box.hidden = false;
-  box.innerHTML = `<div class="why-q">${q}</div><div class="chips">${REASONS.map(r => `<button type="button" class="chip ${st.reason === r ? 'on' : ''}" data-reason="${esc(r)}" aria-pressed="${st.reason === r}">${esc(r)}</button>`).join('')}</div>
+  box.innerHTML = `<div class="why-q">${q}</div><div class="chips">${REASONS.map(r => `<button type="button" class="chip ${st.reason === r ? 'on' : ''}" data-reason="${esc(r)}" aria-pressed="${st.reason === r}">${esc(RLABEL[r] || r)}</button>`).join('')}</div>
     <input class="note" type="text" placeholder="Remarks (required): what happened? e.g. part sent back to RPDC, scale error" value="${esc(st.note)}" style="min-height:40px">`;
 }
 
@@ -908,7 +951,7 @@ function wireLogForm() {
   $('#lp-date').onchange = e => { const v = e.target.value; if (!v || v > todayIST()) { e.target.value = LP.date; return; } LP.date = v; renderLogForm(); };
   const fr = $('#lp-from'); if (fr) fr.onchange = e => { if (!e.target.value) return; LP.fromManual = e.target.value; renderLogForm(); };
   const vs = $('#lp-vendor'); if (vs) vs.onchange = e => {
-    LP.vendor = e.target.value;
+    LP.vendor = e.target.value; saveDraft();
     for (const k of Object.keys(LP.lines)) { const r = vendorRate(k); if (r !== '') LP.lines[k].rate = r; }
     $$('.line', box).forEach(l => { const r = $('.r', l); if (r) r.value = lineState(l.dataset.key).rate; });
     updateTotals();
@@ -924,6 +967,7 @@ function wireLogForm() {
       if (e.target.classList.contains('q')) { st.qty = e.target.value; renderWhy(l); updateTotals(); }
       else if (e.target.classList.contains('r')) { st.rate = e.target.value; updateTotals(); }
       else if (e.target.classList.contains('note')) { st.note = e.target.value; }
+      saveDraft();
     });
     lines.addEventListener('click', e => {
       const l = e.target.closest('.line'); if (!l) return;
@@ -939,7 +983,7 @@ function wireLogForm() {
         return;
       }
       const chip = e.target.closest('.chip');
-      if (chip) { const st = lineState(l.dataset.key); st.reason = st.reason === chip.dataset.reason ? null : chip.dataset.reason; renderWhy(l); const n = $('.note', l); if (n) n.focus(); }
+      if (chip) { const st = lineState(l.dataset.key); st.reason = st.reason === chip.dataset.reason ? null : chip.dataset.reason; saveDraft(); renderWhy(l); const n = $('.note', l); if (n) n.focus(); }
     });
     lines.addEventListener('change', e => {
       if (!e.target.classList.contains('file')) return;
@@ -949,12 +993,14 @@ function wireLogForm() {
       st.file = file; st.preview = URL.createObjectURL(file);
       const fp = `${file.name}_${file.size}_${file.lastModified}`;
       if (fp !== st.fp) { st.fp = fp; st.url = null; }
+      saveDraft();
       $('.cam', l).classList.add('has');
       const th = $('.thumb', l); th.hidden = false; th.innerHTML = `<img src="${st.preview}" alt="">Photo added · tap the camera to retake`;
     });
     $$('.line', lines).forEach(renderWhy);
   }
   const sub = $('#lp-submit'); if (sub) sub.onclick = submitPickup;
+  const dd = $('#draft-discard'); if (dd) dd.onclick = () => { if (!confirm('Discard the restored pickup?')) return; draftClear(); S.draftRestoredAt = null; for (const st of Object.values(LP.lines)) if (st.preview) URL.revokeObjectURL(st.preview); LP.lines = {}; renderLogForm(); };
 }
 function rerenderLines(keepFocus) {
   const wrap = $('.lines'); if (!wrap) return;
@@ -1050,6 +1096,7 @@ async function submitPickup() {
     const zero = parseFloat(st.qty) === 0;
     if (isScrap && !zero && !(parseFloat(st.rate) >= 0 && st.rate !== '')) probs.push(`${esc(k)}: enter the rate (0 if the vendor doesn't pay for it).`);
     if (v && !st.reason) probs.push(`${esc(k)}: ${v === 'less' ? 'less' : 'more'} than expected (${num(LP.expected[k])} ${lineUnit(k)}). Pick a reason.`);
+    if (v && st.reason === 'Other' && st.note.trim().length < 10) probs.push(`${esc(k)}: you picked "Other". Write in a few words what the reason is.`);
     if (v && st.note.trim().length < 3) probs.push(`${esc(k)}: physical quantity doesn't match the system quantity (${num(LP.expected[k])} ${lineUnit(k)}). Write a remark.`);
     if (!zero && !st.file && !st.url) probs.push(`${esc(k)}: add a scale photo.`);
   }
@@ -1096,6 +1143,7 @@ async function submitPickup() {
     LP.done = { type: LP.type, hub: LP.hub, city, date: LP.date, periodFrom: LP.from, periodTo: lpTo(), vendorName, batchId, lines: r.data || [] };
     for (const { st } of f) if (st.preview) URL.revokeObjectURL(st.preview);
     LP.lines = {}; LP.problems = []; LP.sig = '';
+    draftClear(); S.draftRestoredAt = null;
     S.cache = {}; const keep = S.loaded.log; S.loaded = { log: keep };
     updateBadge();
     renderDone();
@@ -1456,7 +1504,7 @@ async function loadTrends() {
   $('#ch-inr-note').innerHTML = recv ? `<span class="muted">${inr(recv)} received of ${inr(sold)} sold in these 12 weeks.</span>` : `<span class="err" style="font-weight:600">Received so far: ₹0.</span> <span class="muted">Green bars appear as Finance marks payments.</span>`;
   const L = (lb || []).slice().sort((a, b) => b.revenue - a.revenue);
   $('#tr-lb').innerHTML = L.length ? L.map(r => `<tr><td><b>${esc(hubLabel(r.hub_name))}</b></td><td class="num">${kg(r.sold_kg)}</td><td class="num"><b>${inr(r.revenue)}</b></td><td class="num">${r.discrepancy_rate_pct == null ? '—' : r.discrepancy_rate_pct + '%'}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">No pickups in this period.</td></tr>';
-  const R = reasons || {}, order = ['Broken', 'Backlog', 'Sent to RPDC', 'Sent to refurb', 'No difference', 'Other', 'Not given'];
+  const R = reasons || {}, order = ['Broken', 'Backlog', 'Kept for next pickup', 'Wrong weight in system', 'Mixed with another category', 'Sent to RPDC', 'Sent to refurb', 'No difference', 'Other', 'Not given'];
   const max = Math.max(1, ...order.map(k => R[k] || 0));
   const any = order.some(k => R[k]);
   $('#tr-reasons').innerHTML = any ? order.map(k => `<div class="rbar"><span class="lbl">${esc(k)}</span><div class="track"><div class="fill" style="width:${((R[k] || 0) / max * 100).toFixed(0)}%;background:${k === 'Not given' || k === 'No difference' || k === 'Other' ? '#94a3b8' : 'var(--blue)'}"></div></div><span class="n">${num(R[k] || 0)}</span></div>`).join('')
