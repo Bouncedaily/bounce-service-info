@@ -752,7 +752,7 @@ function whatChangedHtml(model){
   } catch(e){ console.warn('whatChanged', e); return ''; }
 }
 function viewOverview(model){
-  var months=selMonths(), h=ccHiddenBar()+whatChangedHtml(model)+(multi()?cityCompareHtml(model):'');
+  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model):'');
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
@@ -968,7 +968,7 @@ function viewParts(model){
 function viewMovers(model){
   var M=state.mv, ms=allMonths(); if(!validCity(M.city)) M.city=defCity();
   var city=M.city, bx=model[city]&&model[city][M.x], by=model[city]&&model[city][M.y];
-  var h='<div class="card"><h3>What moved between two months</h3><div class="row"><select data-a="mcity">'+cityOpts(city)+'</select>'
+  var h=whatChangedHtml(model)+'<div class="card"><h3>What moved between two months</h3><div class="row"><select data-a="mcity">'+cityOpts(city)+'</select>'
    +'<select data-a="mb">'+['A','P','C'].map(function(b){return '<option value="'+b+'"'+(M.bucket===b?' selected':'')+'>'+NAMES[b]+'</option>';}).join('')+'</select>'
    +'<select data-a="mx">'+ms.map(function(m){return '<option value="'+m+'"'+(M.x===m?' selected':'')+'>'+C.monthLabel(m)+'</option>';}).join('')+'</select><span>to</span>'
    +'<select data-a="my">'+ms.map(function(m){return '<option value="'+m+'"'+(M.y===m?' selected':'')+'>'+C.monthLabel(m)+'</option>';}).join('')+'</select></div>';
