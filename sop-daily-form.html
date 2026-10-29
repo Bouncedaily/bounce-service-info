@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<script src="auth-guard.js"></script><!-- login required: no session -> login page -->
+<script src="error-log.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOP Daily Form</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:980px}
+h1{font-size:20px;margin:0;font-weight:700}
+h2{font-size:15px;margin:0}
+.psub{color:var(--muted);font-size:12.5px;margin:3px 0 16px;line-height:1.5}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+select,input[type=text],input[type=number],textarea{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff;color:var(--text);font-family:inherit;max-width:100%}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
+textarea{width:100%;min-height:70px;resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
+.btn:hover{border-color:var(--border2);background:#f8fafc}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}.btn.primary:hover{background:#b91c1c}
+.btn[disabled]{opacity:.55;cursor:default}
+.spacer{flex:1}.muted{color:var(--muted)}.err{color:#b91c1c}
+.chip{display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:700}
+.chip.ok{background:#dcfce7;color:#15803d}.chip.todo{background:#fef3c7;color:#a16207}.chip.na{background:#f1f5f9;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px;overflow:hidden}
+.card-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.card-bd{padding:16px 18px;display:flex;flex-direction:column;gap:16px}
+.note{font-size:12.5px;color:var(--muted);line-height:1.5}
+.field>label{display:block;font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px}
+.checks{display:flex;flex-wrap:wrap;gap:10px}
+.check{display:flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;user-select:none}
+.check input{width:18px;height:18px;margin:0}
+.check.on{border-color:var(--green);background:#f0fdf4}
+.photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.photo{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.photo b{font-size:13px}.photo .hint{font-size:11.5px;color:var(--muted);line-height:1.4}
+.pv{background:#0f172a;border-radius:8px;height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#94a3b8;font-size:12px;text-align:center;padding:8px}
+.pv img{max-width:100%;max-height:100%;display:block}
+.cam{position:relative;overflow:hidden}
+.cam input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+input[type=number]{width:100%}
+.result{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;line-height:1.7}
+.result b{font-weight:700}
+table.mini{border-collapse:collapse;width:100%;margin-top:6px}
+table.mini th,table.mini td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;font-size:13px}
+table.mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.ideas{margin:0;padding-left:18px;color:var(--text2);line-height:1.6}
+.banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;margin-bottom:14px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 18px;border-radius:8px;font-size:13.5px;display:none;z-index:50;max-width:90vw}
+@media(max-width:700px){.wrap{padding:12px}}
+</style></head>
+<body>
+<div class="wrap">
+  <h1>SOP Daily Form</h1>
+  <div class="psub">Fill the morning section when the hub opens and the evening section at close. The photos are taken with your phone camera. Each hub is scored from what is entered here.</div>
+  <div id="msg"></div>
+  <div id="main" style="display:none">
+    <div class="bar">
+      <span><label>Hub</label><select id="hub"></select></span>
+      <span><label>Day</label><select id="day"></select></span>
+      <span class="spacer"></span>
+      <span id="chips"></span>
+    </div>
+    <div id="startnote"></div>
+
+    <div class="card">
+      <div class="card-hd"><h2><i class="ti ti-sun"></i> Morning</h2><span class="note" id="mstatus"></span></div>
+      <div class="card-bd">
+        <div class="field"><label>OEs on duty today</label><div class="checks" id="duty"></div>
+          <div style="margin-top:10px"><input type="text" id="dutyextra" placeholder="Anyone else covering today (names, separated by commas)" style="width:100%"></div></div>
+        <div class="photos" id="photos"></div>
+        <div class="note">The opening time is the time of your first save. For the hub to count as opened on time, save the morning section with the opening photo by <b>8:15 AM</b>.</div>
+        <div><button class="btn primary" id="savem"><i class="ti ti-device-floppy"></i> Save morning</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2><i class="ti ti-moon"></i> Evening</h2><span class="note" id="estatus"></span></div>
+      <div class="card-bd" id="eveningbody"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2><i class="ti ti-bulb"></i> Process ideas</h2><span class="note" id="istatus"></span></div>
+      <div class="card-bd">
+        <div class="note">Two practical ideas per week to improve the process, from what you see on the ground.</div>
+        <textarea id="idea" placeholder="Describe one idea in a sentence or two"></textarea>
+        <div><button class="btn" id="addidea"><i class="ti ti-send"></i> Submit idea</button></div>
+        <ol class="ideas" id="ideas"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+/* Session: tokens last about an hour. Refresh before expiry and retry once on 401 (same approach as the other dashboards). */
+function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:null}; }
+function tokenExpMs(jwt){ try{ var p=JSON.parse(atob(jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+var _refreshing=null;
+async function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async function(){
+    var o=readSess(), s=o.s; if(!s.refresh_token||!o.store) return null;
+    try{
+      var r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token});
+      o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token;
+    }catch(e){ return null; }
+  })();
+  try{ return await _refreshing; } finally { _refreshing=null; }
+}
+async function validToken(){
+  var s=readSess().s; if(!s.access_token) return ANON;
+  var exp=tokenExpMs(s.access_token); if(exp&&exp>Date.now()+30000) return s.access_token;
+  return (await refreshSession())||s.access_token;
+}
+async function rpc(fn,args){
+  try{
+    var call=function(tok){ return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args||{})}); };
+    var r=await call(await validToken());
+    if(r.status===401){ var nt=await refreshSession(); if(nt) r=await call(nt); }
+    if(r.ok) return {ok:true,data:await r.json()};
+    var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
+    if(r.status===401) return {ok:false,status:401,expired:true,msg:'Your session has expired'};
+    return {ok:false,status:r.status,denied:(r.status===403),msg:m||('HTTP '+r.status)};
+  }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
+}
+function toast(t,ms){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},ms||2800); }
+
+/* ---------- helpers ---------- */
+function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function istTime(iso){ return iso?new Date(iso).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}):''; }
+function compress(file,maxDim,quality){
+  return new Promise(function(res,rej){
+    var img=new Image(), url=URL.createObjectURL(file);
+    img.onload=function(){
+      var sc=Math.min(1,maxDim/Math.max(img.width,img.height)), c=document.createElement('canvas');
+      c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      c.toBlob(function(b){ b?res(b):rej(new Error('Could not process the photo')); },'image/jpeg',quality);
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); rej(new Error('That file is not a readable photo')); };
+    img.src=url;
+  });
+}
+async function uploadPhoto(path,blob){
+  var tok=await validToken();
+  var r=await fetch(SB+'/storage/v1/object/sop-photos/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob});
+  if(!r.ok) throw new Error('Photo upload failed (HTTP '+r.status+')');
+}
+async function showStored(path,boxId){
+  try{
+    var tok=await validToken();
+    var r=await fetch(SB+'/storage/v1/object/authenticated/sop-photos/'+path.split('/').map(encodeURIComponent).join('/'),{headers:{apikey:ANON,Authorization:'Bearer '+tok}});
+    if(!r.ok) throw new Error('x');
+    var u=URL.createObjectURL(await r.blob()); $(boxId).innerHTML='<img alt="Saved photo" src="'+u+'">';
+  }catch(e){ $(boxId).textContent='Saved (preview not available)'; }
+}
+
+/* ---------- state ---------- */
+var CTX=null, ROW=null, WEEK=null, PENDING={}, SLOTS=[
+  {key:'opening_photo',title:'Hub opening',hint:'Photo of the hub front / shutter once it is open.'},
+  {key:'cleaning_photo',title:'Cleaning and readiness',hint:'Photo of the customer area: clean, seating and water ready.'},
+  {key:'positioning_photo',title:'Vehicle positioning',hint:'Photo showing the Minor, Major and Dependency bikes parked in their places.'}
+];
+function fail(r,what){
+  $('main').style.display='none';
+  if(r.expired) $('msg').innerHTML='<div class="banner">Your session has expired. Please sign out and sign in again.</div>';
+  else if(r.denied) $('msg').innerHTML='<div class="banner"><b>You don\'t have access to the SOP Daily Form.</b><br>Ask an admin to switch it on for you.</div>';
+  else $('msg').innerHTML='<div class="banner">Could not load '+esc(what)+' ('+esc(r.msg)+'). Please try again.</div>';
+}
+function dayOptions(){
+  var t=CTX.today, y=new Date(t+'T12:00:00Z'); y.setUTCDate(y.getUTCDate()-1); y=y.toISOString().slice(0,10);
+  function lab(d,w){ return w+' ('+new Date(d+'T12:00:00Z').toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'UTC'})+')'; }
+  return [{v:t,l:lab(t,'Today')},{v:y,l:lab(y,'Yesterday')}];
+}
+function selHub(){ return $('hub').value; }
+function selDay(){ return $('day').value; }
+
+async function loadContext(){
+  var r=await rpc('sop_form_context',{});
+  if(!r.ok){ fail(r,'the form'); return; }
+  CTX=r.data; $('msg').innerHTML='';
+  if(!CTX.hubs.length){ $('main').style.display='none'; $('msg').innerHTML='<div class="banner">No hub is assigned to your login yet. Ask an admin to assign your hub(s).</div>'; return; }
+  $('main').style.display='';
+  $('hub').innerHTML=CTX.hubs.map(function(h){ return '<option value="'+esc(h.hub)+'">'+esc(h.hub)+' ('+esc(h.city)+')</option>'; }).join('');
+  $('day').innerHTML=dayOptions().map(function(o){ return '<option value="'+o.v+'">'+esc(o.l)+'</option>'; }).join('');
+  $('startnote').innerHTML=CTX.start_date?'':'<div class="banner">The form is in its pilot period: your entries are recorded, but they do not count towards the scorecard yet.</div>';
+  await loadDay();
+}
+async function loadDay(){
+  PENDING={};
+  var r=await rpc('sop_form_get',{p_hub:selHub(),p_day:selDay()});
+  if(!r.ok){ toast('Could not load this hub ('+r.msg+')',4000); return; }
+  ROW=r.data.row; WEEK=r.data; renderAll();
+}
+function renderAll(){ renderChips(); renderMorning(); renderEvening(); renderIdeas(); }
+function renderChips(){
+  var m=ROW&&ROW.morning_at, e=ROW&&ROW.evening_at;
+  $('chips').innerHTML='<span class="chip '+(m?'ok':'todo')+'">Morning '+(m?'saved '+esc(istTime(ROW.morning_at)):'not saved')+'</span> <span class="chip '+(e?'ok':'todo')+'">Evening '+(e?'saved '+esc(istTime(ROW.evening_at)):'not saved')+'</span>';
+}
+function renderMorning(){
+  var roster=(CTX.roster&&CTX.roster[selHub()])||[], sel={}, saved=(ROW&&ROW.on_duty)||[];
+  saved.forEach(function(n){ sel[n.toLowerCase()]=1; });
+  $('duty').innerHTML=roster.length?roster.map(function(p,i){
+    return '<label class="check'+(sel[p.system.toLowerCase()]?' on':'')+'"><input type="checkbox" data-sys="'+esc(p.system)+'"'+(sel[p.system.toLowerCase()]?' checked':'')+'> '+esc(p.person)+'</label>';
+  }).join(''):'<span class="note">No OEs are listed for this hub yet. Type the names below.</span>';
+  $('dutyextra').value=(ROW&&ROW.on_duty_extra)||'';
+  $('mstatus').textContent=ROW&&ROW.morning_at?('First saved at '+istTime(ROW.morning_at)):'Not saved yet';
+  $('photos').innerHTML=SLOTS.map(function(s){
+    var has=ROW&&ROW[s.key];
+    return '<div class="photo"><b>'+esc(s.title)+'</b><div class="hint">'+esc(s.hint)+'</div><div class="pv" id="pv_'+s.key+'">'+(has?'Loading photo\u2026':'No photo yet')+'</div>'+
+      '<span class="btn cam"><i class="ti ti-camera"></i> '+(has?'Retake photo':'Take photo')+'<input type="file" accept="image/*" capture="environment" data-slot="'+s.key+'"></span></div>';
+  }).join('');
+  SLOTS.forEach(function(s){ if(ROW&&ROW[s.key]) showStored(ROW[s.key],'pv_'+s.key); });
+}
+function renderEvening(){
+  var e=ROW&&ROW.evening_at, b=$('eveningbody');
+  $('estatus').textContent=e?('Submitted at '+istTime(ROW.evening_at)+' (locked)'):'Not submitted yet';
+  if(e){
+    var v=Math.abs((ROW.count_rfd||0)-(ROW.sys_rfd||0))+Math.abs((ROW.count_oos||0)-(ROW.sys_oos||0))+Math.abs((ROW.count_pdi||0)-(ROW.sys_pdi||0));
+    b.innerHTML='<div class="result"><b>Fleet count compared with the system</b>'+
+      '<table class="mini"><thead><tr><th></th><th>RFD</th><th>OOS</th><th>PDI</th></tr></thead><tbody>'+
+      '<tr><td>You counted</td><td>'+ROW.count_rfd+'</td><td>'+ROW.count_oos+'</td><td>'+ROW.count_pdi+'</td></tr>'+
+      '<tr><td>System shows</td><td>'+ROW.sys_rfd+'</td><td>'+ROW.sys_oos+'</td><td>'+ROW.sys_pdi+'</td></tr></tbody></table>'+
+      '<div style="margin-top:8px">'+(v===0?'<span class="chip ok">Matches the system</span>':'<span class="chip todo">'+v+' bike'+(v===1?'':'s')+' different in total</span>')+'</div></div>'+
+      '<div class="grid2"><div class="result">FOC: <b>'+(ROW.foc_raised||0)+'</b> exceptions raised, evidence given for <b>'+(ROW.foc_evidence||0)+'</b></div>'+
+      '<div class="result">LMS: <b>'+(ROW.lms_done||0)+'</b> entries completed for <b>'+(ROW.deployments||0)+'</b> deployments</div></div>'+
+      '<div class="note">The evening section is locked once submitted. If something was entered wrongly, ask an admin to correct it.</div>';
+    return;
+  }
+  b.innerHTML='<div class="field"><label>Bikes physically at the hub right now (count them)</label>'+
+    '<div class="grid3"><div><span class="note">RFD</span><input type="number" min="0" inputmode="numeric" id="c_rfd"></div><div><span class="note">OOS</span><input type="number" min="0" inputmode="numeric" id="c_oos"></div><div><span class="note">PDI</span><input type="number" min="0" inputmode="numeric" id="c_pdi"></div></div>'+
+    '<div class="note" style="margin-top:6px">The system numbers are shown only after you save, so please count the bikes yourself.</div></div>'+
+    '<div class="field"><label>FOC (free-of-cost) exceptions today</label><div class="grid2"><div><span class="note">Exceptions raised</span><input type="number" min="0" inputmode="numeric" id="f_raised"></div><div><span class="note">Evidence given to the SM</span><input type="number" min="0" inputmode="numeric" id="f_evid"></div></div></div>'+
+    '<div class="field"><label>Deployments and LMS</label><div class="grid2"><div><span class="note">Deployments done today</span><input type="number" min="0" inputmode="numeric" id="d_dep"></div><div><span class="note">LMS entries completed</span><input type="number" min="0" inputmode="numeric" id="d_lms"></div></div></div>'+
+    '<div><button class="btn primary" id="savee"><i class="ti ti-device-floppy"></i> Submit evening</button></div>';
+  $('savee').onclick=saveEvening;
+}
+function renderIdeas(){
+  var ideas=(WEEK&&WEEK.ideas)||[];
+  $('istatus').textContent=ideas.length+' of 2 ideas this week (week starting '+new Date(WEEK.week_start+'T12:00:00Z').toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'UTC'})+')';
+  $('ideas').innerHTML=ideas.map(function(i){ return '<li>'+esc(i.idea)+'</li>'; }).join('');
+}
+
+/* ---------- actions ---------- */
+async function saveMorning(){
+  var btn=$('savem'); btn.disabled=true; var orig=btn.innerHTML; btn.textContent='Saving\u2026';
+  try{
+    var paths={};
+    for(var i=0;i<SLOTS.length;i++){
+      var s=SLOTS[i], f=PENDING[s.key]; if(!f) continue;
+      btn.textContent='Uploading '+s.title.toLowerCase()+'\u2026';
+      var blob=await compress(f,1280,0.72);
+      var p='sop/'+slug(selHub())+'/'+selDay()+'/'+s.key.replace('_photo','')+'-'+Date.now()+'.jpg';
+      await uploadPhoto(p,blob); paths[s.key]=p;
+    }
+    var duty=Array.prototype.map.call(document.querySelectorAll('#duty input:checked'),function(c){return c.getAttribute('data-sys');});
+    var r=await rpc('sop_form_save',{p_hub:selHub(),p_day:selDay(),p_section:'morning',p_data:Object.assign({on_duty:duty,on_duty_extra:$('dutyextra').value},paths)});
+    if(!r.ok){ toast('Could not save: '+r.msg,5000); }
+    else{ toast('Morning saved'); await loadDay(); }
+  }catch(e){ toast(e.message||'Could not save',5000); }
+  btn.disabled=false; btn.innerHTML=orig;
+}
+async function saveEvening(){
+  function v(id){ return $(id).value.trim(); }
+  if(v('c_rfd')===''||v('c_oos')===''||v('c_pdi')===''){ toast('Enter the physical count for RFD, OOS and PDI',4000); return; }
+  if(!confirm('Submit the evening section? It is locked after you submit.')) return;
+  var btn=$('savee'); btn.disabled=true;
+  var r=await rpc('sop_form_save',{p_hub:selHub(),p_day:selDay(),p_section:'evening',p_data:{count_rfd:v('c_rfd'),count_oos:v('c_oos'),count_pdi:v('c_pdi'),foc_raised:v('f_raised'),foc_evidence:v('f_evid'),deployments:v('d_dep'),lms_done:v('d_lms')}});
+  if(!r.ok){ toast('Could not submit: '+r.msg,5000); btn.disabled=false; return; }
+  toast('Evening submitted'); await loadDay();
+}
+async function addIdea(){
+  var t=$('idea').value.trim();
+  if(t.length<10){ toast('Please describe the idea in a short sentence',3500); return; }
+  var r=await rpc('sop_idea_add',{p_hub:selHub(),p_idea:t});
+  if(!r.ok){ toast('Could not save: '+r.msg,5000); return; }
+  $('idea').value=''; toast('Idea saved'); await loadDay();
+}
+function wire(){
+  $('hub').onchange=loadDay; $('day').onchange=loadDay;
+  $('savem').onclick=saveMorning; $('addidea').onclick=addIdea;
+  document.addEventListener('change',function(e){
+    var t=e.target;
+    if(t&&t.matches&&t.matches('#duty input')) t.closest('.check').classList.toggle('on',t.checked);
+    if(t&&t.matches&&t.matches('input[type=file][data-slot]')){
+      var f=t.files&&t.files[0]; if(!f) return;
+      var key=t.getAttribute('data-slot'); PENDING[key]=f;
+      var url=URL.createObjectURL(f); $('pv_'+key).innerHTML='<img alt="New photo" src="'+url+'">';
+      toast('Photo ready. Tap Save morning to upload it.');
+    }
+  });
+}
+wire(); loadContext();
+</script>
+</body></html>
