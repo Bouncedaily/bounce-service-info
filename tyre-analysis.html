@@ -411,7 +411,7 @@ body { overflow:auto!important; }
           <div class="fg"><label>Min. repeat replacements</label><select id="w30b-min" onchange="renderW30By()"><option value="1">Any</option><option value="5" selected>5+</option><option value="10">10+</option><option value="20">20+</option></select></div>
         </div>
         <div class="tbl-wrap"><div id="w30b-body"></div></div>
-        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
+        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes \u2014 rows flagged \u26a0 (same job card, \u2264 7 days or < 500 km apart) are possible duplicate billing. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
       </div>
 
       <!-- Km since last change: parts x km buckets for one replaced month; click a number for the bikes -->
@@ -1583,15 +1583,20 @@ function renderW30(){
     +parts.map(function(p){ return '<tr><td>'+p+'</td>'+ms.map(function(m){ return cell(p,m); }).join('')+'</tr>'; }).join('')
     +'<tr style="background:#f8fafc"><td style="font-weight:700">All parts shown</td>'+ms.map(tot).join('')+'</tr></tbody></table>';
 }
+function w30Flag(r){ var f=[];
+  if(r.jc!=null && r.prev_jc!=null && String(r.jc)===String(r.prev_jc)) f.push('Same JC');
+  if(r.days!=null && r.days<=7) f.push('\u2264 7 days');
+  if(r.km!=null && r.km<500) f.push('< 500 km');
+  return f.length ? '<span title="Possible duplicate billing \u2014 check both job cards" style="display:inline-block;padding:1px 8px;border-radius:999px;background:#fde2e2;color:#b91c1c;font-size:11px;font-weight:700">\u26a0 '+f.join(' \u00b7 ')+'</span>' : ''; }
 async function openW30(p,m){
   W30.sel={p:p,m:m}; renderW30();
   var box=document.getElementById('w30-list'); box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
   W30.list=rows||[];
-  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within '+((W30.data&&W30.data.days)||30)+' days <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
-   +'<div class="tbl-wrap"><table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Reg No</th><th style="text-align:left">City</th><th style="text-align:left">Hub</th><th>Previous change</th><th>This change</th><th class="num">Days apart</th><th class="num">Km apart</th><th style="text-align:left">JC (prev → this)</th></tr></thead><tbody>'
-   +W30.list.map(function(r){ return '<tr><td>'+r.reg+'</td><td>'+(r.city||'')+'</td><td>'+(r.hub||'')+'</td><td>'+(r.prev_date||'')+'</td><td>'+(r.date||'')+'</td><td class="num">'+r.days+'</td><td class="num">'+(r.km==null?'–':Math.round(r.km).toLocaleString('en-IN'))+'</td><td>'+(r.prev_jc||'')+' → '+(r.jc||'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within '+((W30.data&&W30.data.days)||30)+' days'+(function(){ var n=W30.list.filter(function(r){ return w30Flag(r); }).length; return n?' <span style="color:#b91c1c;font-weight:600">\u00b7 '+n+' possible duplicate'+(n>1?'s':'')+'</span>':''; })()+' <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
+   +'<div class="tbl-wrap"><table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Reg No</th><th style="text-align:left">City</th><th style="text-align:left">Hub</th><th>Previous change</th><th>This change</th><th class="num">Days apart</th><th class="num">Km apart</th><th style="text-align:left">JC (prev → this)</th><th style="text-align:left">Check</th></tr></thead><tbody>'
+   +W30.list.map(function(r){ return '<tr><td>'+r.reg+'</td><td>'+(r.city||'')+'</td><td>'+(r.hub||'')+'</td><td>'+(r.prev_date||'')+'</td><td>'+(r.date||'')+'</td><td class="num">'+r.days+'</td><td class="num">'+(r.km==null?'–':Math.round(r.km).toLocaleString('en-IN'))+'</td><td>'+(r.prev_jc||'')+' → '+(r.jc||'')+'</td><td>'+w30Flag(r)+'</td></tr>'; }).join('')+'</tbody></table></div>';
 }
 function exportW30CSV(){
   var D=W30.data||{}, ms=D.months||[], idx={}; (D.rows||[]).forEach(function(r){ idx[r.part+'|'+r.m]=r; });
