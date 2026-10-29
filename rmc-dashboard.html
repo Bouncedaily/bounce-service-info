@@ -333,7 +333,7 @@ async function loadAll(){
     var cm=(state.psplit[c]=state.psplit[c]||{}), mm=(cm[x[0]]=cm[x[0]]||{}); mm[st]=o; });
   state.stTypes=['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC'];   // fixed list and order (23 Oct 2026)
   state.recov={}; (D.recov||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.recov[c]=state.recov[c]||{})[x[0]]={rider:x[2]==null?null:+x[2],scrap:x[3]==null?null:+x[3]}; });
-  state.extras={}; (D.extras||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0], e=state.extras[k]||(state.extras[k]={st:{},jcs:0,rr:0,rr7:0});
+  state.extras={}; (D.extras||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0]+'|'+(x[7]||''), e=state.extras[k]||(state.extras[k]={st:{},jcs:0,rr:0,rr7:0});
     e.st[x[2]]={jcs:+x[3]||0, amt:+x[4]||0}; e.jcs+=+x[3]||0; e.rr+=+x[5]||0; e.rr7+=+x[6]||0; });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
@@ -817,7 +817,7 @@ function isPartialMonth(m){ if(/p$/.test(m)) return true; var n=new Date(Date.no
 // ---- extra cost drivers (28 Oct 2026) ----
 function periodDays(m){ if(/p$/.test(m) || isPartialMonth(m)) return window.RMC_PARTIAL_DAYS||null; var p=m.split('-'); return new Date(+p[0], +p[1], 0).getDate(); }
 function extrasFor(city, m){ var cs=city==='ALL'?state.F.cities:[city], out=null;
-  cs.forEach(function(c){ var e=(state.extras||{})[c+'|'+m]; if(!e) return; out=out||{st:{},jcs:0,rr:0,rr7:0};
+  cs.forEach(function(c){ var e=(state.extras||{})[c+'|'+m+'|'+(state.F.dyear||'')]; if(!e) return; out=out||{st:{},jcs:0,rr:0,rr7:0};
     Object.keys(e.st).forEach(function(t){ var o=out.st[t]||(out.st[t]={jcs:0,amt:0}); o.jcs+=e.st[t].jcs; o.amt+=e.st[t].amt; });
     out.jcs+=e.jcs; out.rr+=e.rr; out.rr7+=e.rr7; }); return out; }
 // refurb penetration: refurbished units / (refurbished + new) for parts that have a refurbished version; top-10 parts share of parts cost
@@ -866,7 +866,7 @@ function driversHtml(city, ms, model){
     h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#94a3b8;font-style:italic"':'')+'><td'+(grey||less||memo?' style="color:'+(memo?'#94a3b8':'#6b7280')+((less||memo)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#eef2ff">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total \u2212 revenue damage fee \u2212 revenue recovery (recovery data from May 2026). Insurance claims and scrap sales are shown for reference only: Other maintenance already has them deducted (Other = porter + insurance & IOT + warranty provision \u2212 scrap \u2212 insurance claims, as in the report), so they are not deducted again. Inputs are under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
-  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates.</p>';
+  if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates. Job-card mix and the 7-day comeback are exact for the year.</p>';
   if(bad.length && !state.F.dyear) h+='<p class="sub">Job card counts look incomplete for '+bad.map(C.monthLabel).join(', ')+' (fewer job cards than bikes, or than job cards with parts), so drivers that use them show \u2013 for these months.</p>';
   return h+'</div>';
 }
