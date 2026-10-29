@@ -1383,9 +1383,10 @@ async function confirmPaid(b, btn) {
 // ───────────────────────── Refurb & tyres ─────────────────────────
 const RF = { type: 'Refurb', showAll: false, edit: false };
 
-/* ── Vendor batches at RPDC (29 Oct 2026): vendor inspects at the RPDC.
-   Refurb: refurbished & returned / rejected. Tyre: accepted (one credit note per batch) / rejected / returned. ── */
-const VB = { open: false, lines: [] };
+/* ── Vendor batches (29 Oct 2026).
+   Refurb: RPDC sends parts to the refurb vendor, later records what came back (refurbished / rejected).
+   Tyre: the vendor inspects at the RPDC: accepted (one credit note per batch) / rejected / returned. ── */
+const VB = { open: false, lines: [], ret: null };
 function vbCanAdd(city) { return S.perms.approver || (S.perms.vendorCity && (!city || city === S.perms.vendorCity)); }
 async function drawVendorBatches() {
   const box = $('#vb-body'); if (!box) return;
@@ -1393,17 +1394,61 @@ async function drawVendorBatches() {
   let q = `vendor_cn_batches?select=*,vendor_batch_lines(*)&movement_type=eq.${RF.type}&order=batch_date.desc,id.desc&limit=60`;
   if (f.city) q += `&city=eq.${encodeURIComponent(f.city)}`;
   const rows = await sbGet(q) || [];
+  VB.rows = rows;
   const vname = id => (S.vendors.find(v => v.id === id) || {}).vendor_name || '—';
-  const acc = T ? 'Accepted (CN)' : 'Refurbished';
-  box.innerHTML = (vbCanAdd() ? `<div style="margin-bottom:10px"><button class="btn go" type="button" id="vb-new">${VB.open ? 'Close' : '+ New vendor batch'}</button></div><div id="vb-form"></div>` : '') +
-    `<div class="scroll"><table style="min-width:860px"><thead><tr><th>Date</th><th>City</th><th>Vendor</th><th>Parts</th><th class="num">Inspected</th><th class="num">${acc}</th><th class="num">Rejected</th><th class="num">Returned to RPDC</th>${T ? '<th>Credit note</th>' : ''}<th>By</th></tr></thead><tbody>` +
-    (rows.length ? rows.map(b => `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
-      <td style="max-width:300px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
-      <td class="num">${num(b.verified_qty)}</td><td class="num ok">${num(b.approved_qty)}</td><td class="num err">${num(b.rejected_qty)}</td><td class="num">${num(b.received_at_rpdc_qty)}</td>
-      ${T ? `<td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : '<span class="pill amber">CN pending</span>'}</td>` : ''}
-      <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>`).join('')
-      : `<tr><td colspan="${T ? 10 : 9}" class="muted">No vendor batches yet.</td></tr>`) + '</tbody></table></div>';
+  const newLbl = T ? '+ New vendor inspection' : '+ Send parts to vendor';
+  const head = T
+    ? '<th>Inspected on</th><th>City</th><th>Vendor</th><th>Tyres</th><th class="num">Inspected</th><th class="num">Accepted (CN)</th><th class="num">Rejected</th><th class="num">Returned to RPDC</th><th>Credit note</th><th>By</th>'
+    : '<th>Sent on</th><th>City</th><th>Vendor</th><th>Parts sent</th><th class="num">Sent</th><th class="num">Refurbished back</th><th class="num">Rejected</th><th>Status</th><th></th>';
+  const statusCell = b => {
+    if (b.vendor_status === 'Returned') return `<span class="pill green">Returned ${dshort(b.return_date)}</span>`;
+    const days = Math.max(0, Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000));
+    const part = b.vendor_status === 'Partly returned' ? `Partly returned ${dshort(b.return_date)} · ` : '';
+    return `<span class="pill ${days > 30 ? 'red' : 'amber'}">${part}At vendor · ${days} d</span>`;
+  };
+  const body = rows.length ? rows.map((b, i) => T
+    ? `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
+        <td style="max-width:280px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
+        <td class="num">${num(b.verified_qty)}</td><td class="num ok">${num(b.approved_qty)}</td><td class="num err">${num(b.rejected_qty)}</td><td class="num">${num(b.received_at_rpdc_qty)}</td>
+        <td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : '<span class="pill amber">CN pending</span>'}</td>
+        <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>`
+    : `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
+        <td style="max-width:280px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
+        <td class="num">${num(b.verified_qty)}</td><td class="num ok">${b.vendor_status === 'At vendor' ? '—' : num(b.approved_qty)}</td><td class="num err">${b.vendor_status === 'At vendor' ? '—' : num(b.rejected_qty)}</td>
+        <td>${statusCell(b)}</td>
+        <td class="num">${b.vendor_status !== 'Returned' && vbCanAdd(b.city) ? `<button class="btn" type="button" data-vbret="${i}">Record return</button>` : ''}</td></tr>
+       <tr data-vbretrow="${i}" ${VB.ret === i ? '' : 'hidden'}><td colspan="9" style="background:var(--bg2,#f8fafc)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        ${(b.vendor_batch_lines || []).map(l => `<div style="display:flex;gap:6px;align-items:flex-end;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:6px 8px">
+          <span style="font-weight:600;font-size:12px;max-width:170px">${esc(l.part_name)}<br><span class="muted">sent ${num(l.sent_qty)}</span></span>
+          <label class="fl">Refurbished back<input type="number" min="0" step="1" data-rr="${l.id}" value="${b.vendor_status === 'At vendor' ? '' : l.accepted_qty}" style="width:80px"></label>
+          <label class="fl">Rejected<input type="number" min="0" step="1" data-rj="${l.id}" value="${b.vendor_status === 'At vendor' ? '' : l.rejected_qty}" style="width:70px"></label></div>`).join('')}
+        <label class="fl">Return date<input type="date" data-rdate value="${todayIST()}" max="${todayIST()}"></label>
+        <label class="fl" style="min-width:180px;flex:1">Remark<input type="text" data-rnote2 placeholder="optional"></label>
+        <button class="btn go" type="button" data-vbretok="${i}">Save return</button><span class="small" data-vbretmsg></span></div></td></tr>`).join('')
+    : `<tr><td colspan="${T ? 10 : 9}" class="muted">${T ? 'No vendor inspections yet.' : 'No parts sent to the vendor yet.'}</td></tr>`;
+  box.innerHTML = (vbCanAdd() ? `<div style="margin-bottom:10px"><button class="btn go" type="button" id="vb-new">${VB.open ? 'Close' : newLbl}</button></div><div id="vb-form"></div>` : '') +
+    `<div class="scroll"><table style="min-width:880px"><thead><tr>${head}</tr></thead><tbody id="vb-rows">${body}</tbody></table></div>`;
   const nb = $('#vb-new'); if (nb) nb.onclick = () => { VB.open = !VB.open; if (VB.open && !VB.lines.length) VB.lines = [{}]; drawVendorBatches(); };
+  const tb = $('#vb-rows');
+  if (tb) tb.onclick = async e => {
+    const o = e.target.closest('[data-vbret]'); if (o) { const r = $(`[data-vbretrow="${o.dataset.vbret}"]`); r.hidden = !r.hidden; return; }
+    const ok = e.target.closest('[data-vbretok]'); if (!ok) return;
+    const i = +ok.dataset.vbretok, b = VB.rows[i], row = $(`[data-vbretrow="${i}"]`), msg = $('[data-vbretmsg]', row);
+    const lines = {}, probs = [];
+    (b.vendor_batch_lines || []).forEach(l => {
+      const rv = $(`[data-rr="${l.id}"]`, row).value, jv = $(`[data-rj="${l.id}"]`, row).value;
+      const r = rv === '' ? 0 : Number(rv), j = jv === '' ? 0 : Number(jv);
+      if (r < 0 || j < 0) probs.push(`${l.part_name}: quantities can't be negative.`);
+      if (r + j > Number(l.sent_qty)) probs.push(`${l.part_name}: refurbished + rejected (${r + j}) is more than sent (${num(l.sent_qty)}).`);
+      lines[l.id] = { refurbished: r, rejected: j };
+    });
+    if (!Object.values(lines).some(x => x.refurbished + x.rejected > 0)) probs.push('Enter what came back (refurbished and/or rejected).');
+    if (probs.length) { msg.innerHTML = `<span class="err">${probs.map(esc).join(' ')}</span>`; return; }
+    ok.disabled = true; ok.textContent = 'Saving…';
+    const res = await call('record_refurb_return', { p_batch: b.id, p_lines: lines, p_date: $('[data-rdate]', row).value || todayIST(), p_note: $('[data-rnote2]', row).value.trim() || null });
+    if (!res.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(res.error)}</span>`; ok.disabled = false; ok.textContent = 'Save return'; return; }
+    VB.ret = null; drawVendorBatches();
+  };
   if (VB.open) drawVbForm();
 }
 function drawVbForm() {
@@ -1412,27 +1457,27 @@ function drawVbForm() {
   VB.city = VB.city && cities.includes(VB.city) ? VB.city : cities[0];
   const vendors = S.vendors.filter(v => v.approved && (!v.city || v.city === VB.city));
   const parts = (S.parts || []).filter(p => p.part_type === RF.type).map(p => p.part_name);
-  const acc = T ? 'Accepted (CN)' : 'Refurbished OK';
   fb.innerHTML = `<div class="vcard">
     <div class="vrow"><label class="fl">City<select id="vb-city">${cities.map(c => `<option ${c === VB.city ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
-      <label class="fl">Vendor<select id="vb-vendor"><option value="">Choose vendor</option>${vendors.map(v => `<option value="${v.id}" ${String(v.id) === String(VB.vendor) ? 'selected' : ''}>${esc(v.vendor_name)}</option>`).join('')}</select></label>
-      <label class="fl">Inspection date<input type="date" id="vb-date" value="${VB.date || todayIST()}" max="${todayIST()}"></label></div>
-    <div class="muted small" style="margin:8px 0 4px">Parts the vendor inspected</div>
+      <label class="fl">${T ? 'Tyre vendor' : 'Refurb vendor'}<select id="vb-vendor"><option value="">Choose vendor</option>${vendors.map(v => `<option value="${v.id}" ${String(v.id) === String(VB.vendor) ? 'selected' : ''}>${esc(v.vendor_name)}</option>`).join('')}</select></label>
+      <label class="fl">${T ? 'Inspection date' : 'Sent on'}<input type="date" id="vb-date" value="${VB.date || todayIST()}" max="${todayIST()}"></label></div>
+    <div class="muted small" style="margin:8px 0 4px">${T ? 'Tyres the vendor inspected at the RPDC' : 'Parts sent to the vendor'}</div>
     ${VB.lines.map((l, i) => `<div class="vrow" data-vbl="${i}">
-      <label class="fl">Part<select data-k="part_name"><option value="">Choose</option>${parts.map(p => `<option ${l.part_name === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
-      <label class="fl">Inspected<input type="number" min="0" step="1" data-k="sent_qty" value="${l.sent_qty ?? ''}" style="width:80px"></label>
-      <label class="fl">${acc}<input type="number" min="0" step="1" data-k="accepted_qty" value="${l.accepted_qty ?? ''}" style="width:80px"></label>
+      <label class="fl">${T ? 'Tyre' : 'Part'}<select data-k="part_name"><option value="">Choose</option>${parts.map(p => `<option ${l.part_name === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      <label class="fl">${T ? 'Inspected' : 'Quantity sent'}<input type="number" min="0" step="1" data-k="sent_qty" value="${l.sent_qty ?? ''}" style="width:90px"></label>
+      ${T ? `<label class="fl">Accepted (CN)<input type="number" min="0" step="1" data-k="accepted_qty" value="${l.accepted_qty ?? ''}" style="width:80px"></label>
       <label class="fl">Rejected<input type="number" min="0" step="1" data-k="rejected_qty" value="${l.rejected_qty ?? ''}" style="width:80px"></label>
-      <label class="fl">Returned to RPDC<input type="number" min="0" step="1" data-k="returned_qty" value="${l.returned_qty ?? ''}" style="width:80px"></label>
+      <label class="fl">Returned to RPDC<input type="number" min="0" step="1" data-k="returned_qty" value="${l.returned_qty ?? ''}" style="width:80px"></label>` : ''}
       ${VB.lines.length > 1 ? `<button class="btn" type="button" data-vbdel="${i}">Remove</button>` : ''}</div>`).join('')}
-    <button class="btn" type="button" id="vb-addline">+ Add part</button>
+    <button class="btn" type="button" id="vb-addline">+ Add ${T ? 'tyre' : 'part'}</button>
     ${T ? `<div class="vrow" style="margin-top:10px"><label class="fl">Credit note number<input id="vb-cnno" value="${esc(VB.cnno || '')}" style="width:150px"></label>
       <label class="fl">Credit note value (₹)<input type="number" min="0" step="1" id="vb-cnval" value="${VB.cnval ?? ''}" style="width:120px"></label>
       <label class="fl">CN date<input type="date" id="vb-cndate" value="${VB.cndate || ''}" max="${todayIST()}"></label>
       <label class="fl">CN document<input type="file" id="vb-cndoc" accept="image/*,application/pdf" style="max-width:190px"></label></div>
-      <div class="muted small">Leave the credit note empty if the vendor hasn't issued it yet; the batch shows "CN pending".</div>` : ''}
+      <div class="muted small">Leave the credit note empty if the vendor hasn't issued it yet; the batch shows "CN pending".</div>`
+      : `<div class="muted small" style="margin-top:6px">When the vendor sends parts back, use <b>Record return</b> on this batch to enter what was refurbished and what was rejected.</div>`}
     <div class="vrow" style="margin-top:8px"><label class="fl" style="flex:1">Notes<input id="vb-notes" value="${esc(VB.notes || '')}"></label></div>
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn go" type="button" id="vb-save">Save vendor batch</button><span class="small" id="vb-msg"></span></div></div>`;
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn go" type="button" id="vb-save">${T ? 'Save inspection' : 'Save: sent to vendor'}</button><span class="small" id="vb-msg"></span></div></div>`;
   const keep = () => {
     VB.city = $('#vb-city').value; VB.vendor = $('#vb-vendor').value; VB.date = $('#vb-date').value; VB.notes = $('#vb-notes').value;
     if (T) { VB.cnno = $('#vb-cnno').value; VB.cnval = $('#vb-cnval').value; VB.cndate = $('#vb-cndate').value; }
@@ -1445,21 +1490,21 @@ function drawVbForm() {
     keep(); const msg = $('#vb-msg'), probs = [];
     if (!VB.vendor) probs.push('Choose the vendor.');
     const lines = VB.lines.filter(l => l.part_name || l.sent_qty);
-    if (!lines.length) probs.push('Add at least one part.');
+    if (!lines.length) probs.push(`Add at least one ${T ? 'tyre' : 'part'}.`);
     lines.forEach(l => {
-      if (!l.part_name) probs.push('Choose the part on every line.');
-      if (!(l.sent_qty > 0)) probs.push(`${l.part_name || 'A line'}: enter how many were inspected.`);
-      if ((Number(l.accepted_qty) || 0) + (Number(l.rejected_qty) || 0) > (Number(l.sent_qty) || 0)) probs.push(`${l.part_name}: accepted + rejected is more than inspected.`);
+      if (!l.part_name) probs.push(`Choose the ${T ? 'tyre' : 'part'} on every line.`);
+      if (!(l.sent_qty > 0)) probs.push(`${l.part_name || 'A line'}: enter how many ${T ? 'were inspected' : 'were sent'}.`);
+      if (T && (Number(l.accepted_qty) || 0) + (Number(l.rejected_qty) || 0) > (Number(l.sent_qty) || 0)) probs.push(`${l.part_name}: accepted + rejected is more than inspected.`);
     });
     if (T && Number(VB.cnval) > 0 && !String(VB.cnno || '').trim()) probs.push('Enter the credit note number.');
     if (probs.length) { msg.innerHTML = `<span class="err">${[...new Set(probs)].map(esc).join(' ')}</span>`; return; }
     const btn = $('#vb-save'); btn.disabled = true; btn.textContent = 'Saving…';
     let docUrl = null; const file = T && $('#vb-cndoc').files[0];
-    if (file) { docUrl = await uploadFile(file); if (!docUrl) { msg.innerHTML = '<span class="err">Document upload failed. Nothing was saved; try again.</span>'; btn.disabled = false; btn.textContent = 'Save vendor batch'; return; } }
+    if (file) { docUrl = await uploadFile(file); if (!docUrl) { msg.innerHTML = '<span class="err">Document upload failed. Nothing was saved; try again.</span>'; btn.disabled = false; btn.textContent = 'Save inspection'; return; } }
     const r = await call('save_vendor_batch', { p: { movement_type: RF.type, vendor_id: VB.vendor, city: VB.city, batch_date: VB.date || todayIST(), notes: VB.notes || null,
       cn_number: T ? (VB.cnno || null) : null, cn_value: T && VB.cnval !== '' ? Number(VB.cnval) : null, cn_date: T ? (VB.cndate || null) : null, cn_document_url: docUrl,
       lines: lines.map(l => ({ part_name: l.part_name, sent_qty: Number(l.sent_qty) || 0, accepted_qty: Number(l.accepted_qty) || 0, rejected_qty: Number(l.rejected_qty) || 0, returned_qty: Number(l.returned_qty) || 0 })) } });
-    if (!r.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(r.error)}</span>`; btn.disabled = false; btn.textContent = 'Save vendor batch'; return; }
+    if (!r.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(r.error)}</span>`; btn.disabled = false; btn.textContent = T ? 'Save inspection' : 'Save: sent to vendor'; return; }
     VB.open = false; VB.lines = []; VB.vendor = ''; VB.cnno = ''; VB.cnval = ''; VB.cndate = ''; VB.notes = '';
     drawVendorBatches();
   };
@@ -1475,7 +1520,7 @@ async function loadRefurb() {
       <span style="display:flex;gap:8px">${S.perms.power ? `<button class="btn" type="button" id="rf-edit">${RF.edit ? 'Stop editing' : 'Enter RPDC figures'}</button>` : ''}</span></div>
       <div id="rf-editnote"></div>
       <div class="scroll"><table style="min-width:980px"><thead id="rf-head"></thead><tbody id="rf-rows">${skelRows(8, 6)}</tbody></table></div></div>
-    <div class="card"><div class="card-hd"><h2>Vendor batches at RPDC</h2><span class="note">${RF.type === 'Tyre' ? 'Vendor inspects at the RPDC: accepted tyres earn one credit note per batch; rejected and returned tyres are counted.' : 'Vendor inspects at the RPDC: refurbished parts returned, rejected parts counted.'}${S.perms.vendorCity ? ` You enter batches for ${esc(S.perms.vendorCity)}.` : ''}</span></div>
+    <div class="card"><div class="card-hd"><h2>${RF.type === 'Tyre' ? 'Vendor inspection at RPDC' : 'Sent to refurb vendor'}</h2><span class="note">${RF.type === 'Tyre' ? 'The tyre vendor inspects at the RPDC: accepted tyres earn one credit note per batch; rejected and returned tyres are counted.' : 'RPDC sends parts to the refurb vendor; record what comes back (refurbished / rejected) on each batch.'}${S.perms.vendorCity ? ` You enter these for ${esc(S.perms.vendorCity)}.` : ''}</span></div>
       <div class="card-bd" id="vb-body"><span class="skel" style="width:60%"></span></div></div>`;
   drawVendorBatches();
   $$('[data-rt]', el).forEach(b => b.onclick = () => { RF.type = b.dataset.rt; RF.edit = false; RF.showAll = false; S.loaded.refurb = null; showTab('refurb'); });
