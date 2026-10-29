@@ -368,16 +368,28 @@ body { overflow:auto!important; }
       <div id="tab-analysis">
 
 
+      <div id="wt-sticky" style="position:sticky;top:0;z-index:30;background:var(--bg,#f6f7fb);padding-top:6px;margin:0 -4px;padding-left:4px;padding-right:4px">
       <!-- TOP FILTER BAR -->
-      <div class="tbl-filter-bar" style="margin-bottom:16px;margin-top:8px"><div class="fg"><label>Part</label><input type="hidden" id="top-part" value=""><div id="tp-wrap" style="position:relative"><button type="button" id="tp-btn" onclick="document.getElementById('tp-menu').style.display=document.getElementById('tp-menu').style.display==='block'?'none':'block'" style="min-width:170px;text-align:left;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">All parts ▾</button><div id="tp-menu" style="display:none;position:absolute;z-index:50;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px 8px;max-height:340px;overflow:auto"><div style="display:flex;gap:8px;padding:2px 4px 6px;border-bottom:1px solid #eef2f7"><a href="#" onclick="topPartAll(true);return false" style="font-size:12px">Select all</a><a href="#" onclick="topPartAll(false);return false" style="font-size:12px">Clear</a></div><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Tyres</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre (Energy Ride / 12Inch)" onchange="topPartChanged()">Rear Tyre (Energy Ride / 12Inch)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre 12 Inch (Zoom)" onchange="topPartChanged()">Rear Tyre 12 Inch (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre (Zoom)" onchange="topPartChanged()">Front Tyre (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre 12-Inch" onchange="topPartChanged()">Front Tyre 12-Inch</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Brakes &amp; Wear</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Pad" onchange="topPartChanged()">Front Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Pad" onchange="topPartChanged()">Rear Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Disc" onchange="topPartChanged()">Front Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Disc" onchange="topPartChanged()">Rear Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Cone Set Assy" onchange="topPartChanged()">Cone Set Assy</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rr Brake Shoe Set - Drum" onchange="topPartChanged()">Rr Brake Shoe Set - Drum</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Fr Brake Shoe Set - Drum" onchange="topPartChanged()">Fr Brake Shoe Set - Drum</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Bearings</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Wheel Bearing" onchange="topPartChanged()">Front Wheel Bearing</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Wheel Bearing" onchange="topPartChanged()">Rear Wheel Bearing</label></div></div></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');loadAllReplacements();loadRepeats();loadIntervals();loadConsumption()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+      <div class="tbl-filter-bar" style="margin-bottom:4px;margin-top:4px"><div class="fg"><label>Part</label><input type="hidden" id="top-part" value=""><div id="tp-wrap" style="position:relative"><button type="button" id="tp-btn" onclick="document.getElementById('tp-menu').style.display=document.getElementById('tp-menu').style.display==='block'?'none':'block'" style="min-width:170px;text-align:left;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">All parts ▾</button><div id="tp-menu" style="display:none;position:absolute;z-index:50;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px 8px;max-height:340px;overflow:auto"><div style="display:flex;gap:8px;padding:2px 4px 6px;border-bottom:1px solid #eef2f7"><a href="#" onclick="topPartAll(true);return false" style="font-size:12px">Select all</a><a href="#" onclick="topPartAll(false);return false" style="font-size:12px">Clear</a></div><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Tyres</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre (Energy Ride / 12Inch)" onchange="topPartChanged()">Rear Tyre (Energy Ride / 12Inch)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre 12 Inch (Zoom)" onchange="topPartChanged()">Rear Tyre 12 Inch (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre (Zoom)" onchange="topPartChanged()">Front Tyre (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre 12-Inch" onchange="topPartChanged()">Front Tyre 12-Inch</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Brakes &amp; Wear</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Pad" onchange="topPartChanged()">Front Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Pad" onchange="topPartChanged()">Rear Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Disc" onchange="topPartChanged()">Front Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Disc" onchange="topPartChanged()">Rear Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Cone Set Assy" onchange="topPartChanged()">Cone Set Assy</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rr Brake Shoe Set - Drum" onchange="topPartChanged()">Rr Brake Shoe Set - Drum</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Fr Brake Shoe Set - Drum" onchange="topPartChanged()">Fr Brake Shoe Set - Drum</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Bearings</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Wheel Bearing" onchange="topPartChanged()">Front Wheel Bearing</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Wheel Bearing" onchange="topPartChanged()">Rear Wheel Bearing</label></div></div></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');loadAllReplacements();loadRepeats();loadIntervals();loadConsumption()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+        <div class="wt-secs" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 12px">
+          <button class="wt-sec" data-s="overview" onclick="wtSec('overview')">Consumption</button>
+          <button class="wt-sec" data-s="early" onclick="wtSec('early')">Early replacements</button>
+          <button class="wt-sec" data-s="life" onclick="wtSec('life')">Life &amp; intervals</button>
+          <button class="wt-sec" data-s="repeats" onclick="wtSec('repeats')">Repeats &amp; bikes</button>
+          <button class="wt-sec" data-s="all" onclick="wtSec('all')">All replacements</button>
+          <button class="wt-sec" data-s="*" onclick="wtSec('*')" style="margin-left:auto">Show all</button>
+        </div>
+      </div><!-- /wt-sticky -->
       <!-- KPIs driven by All Replacements filters -->
       <div class="kpi-row" id="kpi-row">
         <div class="kpi"><div class="loading-state" style="padding:12px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div>
       </div>
 
+      <style>.wt-sec{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer}.wt-sec.on{background:#e11d48;border-color:#e11d48;color:#fff}#wt-sticky{box-shadow:0 6px 10px -10px rgba(15,23,42,.35)}</style>
+
       <!-- Wear/Tear Consumption summary -- rolling 3-month / last-month /
            this-month averages vs standard life, refreshed nightly -->
-      <div class="card" style="margin-bottom:20px">
+      <div class="card" data-sec="overview" style="margin-bottom:20px">
         <div class="card-hd"><h2>Wear / Tear Consumption</h2><span class="sub" id="consumption-updated">—</span>
           <div style="display:flex;gap:6px;margin-left:auto">
             <button class="btn-export" onclick="exportConsumptionXLSX()"><i class="ti ti-table-export"></i> Excel</button>
@@ -393,7 +405,7 @@ body { overflow:auto!important; }
 
 
       <!-- Replaced within 30 days of the previous change -->
-      <div class="card" style="margin-bottom:20px">
+      <div class="card" data-sec="early" style="margin-bottom:20px">
         <div class="card-hd"><h2 id="w30-title">Replaced Within 30 Days</h2><span class="sub" id="w30-updated">—</span>
           <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="exportW30CSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
         <div class="tbl-filter-bar">
@@ -415,7 +427,7 @@ body { overflow:auto!important; }
       </div>
 
       <!-- Km since last change: parts x km buckets for one replaced month; click a number for the bikes -->
-      <div class="card" style="margin-bottom:20px">
+      <div class="card" data-sec="life" style="margin-bottom:20px">
         <div class="card-hd"><h2>Km Since Last Change</h2><span class="sub" id="kmb-updated">—</span>
           <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="exportKmbCSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
         <div class="tbl-filter-bar">
@@ -431,7 +443,7 @@ body { overflow:auto!important; }
 
       <!-- Replacement Intervals: 1st vs 2nd (next consecutive) vs overall,
            and current KM for bikes that have never needed this part -->
-      <div class="card" style="margin-bottom:20px">
+      <div class="card" data-sec="life" style="margin-bottom:20px">
         <div class="card-hd"><h2>Replacement Intervals</h2><span class="sub" id="intervals-updated">—</span>
           <div style="display:flex;gap:8px;margin-left:auto;align-items:center">
             <label style="font-size:11px;color:var(--muted,#64748b)">Deployed</label>
@@ -446,7 +458,7 @@ body { overflow:auto!important; }
       </div>
 
       <!-- By Tyre Type + By Submission Type (share same filter/data as All Replacements) -->
-      <div class="grid-2">
+      <div class="grid-2" data-sec="life">
         <div class="card">
           <div class="card-hd"><h2>By Part Type</h2>
             <div style="display:flex;gap:6px;margin-left:auto">
@@ -464,7 +476,7 @@ body { overflow:auto!important; }
       </div>
 
       <!-- Repeat Replacements -->
-      <div class="card">
+      <div class="card" data-sec="repeats">
         <div class="card-hd">
           <h2>⚠️ Repeat Replacements</h2><span class="sub" id="repeat-count">—</span>
           <div class="card-hd-actions">
@@ -488,7 +500,7 @@ body { overflow:auto!important; }
       </div>
 
       <!-- Bike Level Summary -->
-      <div class="card">
+      <div class="card" data-sec="repeats">
         <div class="card-hd">
           <h2>Bike Level Summary</h2><span class="sub" id="bike-summary-count">—</span>
           <div class="card-hd-actions">
@@ -547,7 +559,7 @@ body { overflow:auto!important; }
       </div>
 
       <!-- All Replacements -->
-      <div class="card">
+      <div class="card" data-sec="all">
         <div class="card-hd">
           <h2>All Replacements</h2><span class="sub" id="all-count">—</span>
           <div class="card-hd-actions">
@@ -1632,6 +1644,15 @@ function renderW30By(){
     +'<tr style="background:#f8fafc;font-weight:700"><td>All</td>'+(by==='tech'?'<td></td>':'')+'<td class="num">'+tB+'</td><td class="num">'+tA+'</td><td class="num">'+avg.toFixed(1)+'%</td><td></td></tr></tbody></table>'
     +'<div style="padding:6px 12px 10px;font-size:11px;color:#64748b">Sorted by the number of early replacements. Technician = who did the <b>previous</b> change (the fix that didn\u2019t last). Follows the City, Deployed Year, days and Part filters above.</div>';
 }
+</script>
+
+<script>
+function wtSec(k){ try{ localStorage.setItem('wt_sec',k); }catch(e){}
+  document.querySelectorAll('.wt-sec').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-s')===k); });
+  document.querySelectorAll('#tab-analysis [data-sec]').forEach(function(el){ el.style.display=(k==='*'||el.getAttribute('data-sec')===k)?'':'none'; });
+  var t=document.getElementById('wt-sticky'); if(t && window.scrollY>t.offsetTop) window.scrollTo({top:t.offsetTop-4,behavior:'smooth'}); }
+(function(){ var go=function(){ var k='overview'; try{ k=localStorage.getItem('wt_sec')||'overview'; }catch(e){} wtSec(k); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); })();
 </script>
 </body>
 </html>
