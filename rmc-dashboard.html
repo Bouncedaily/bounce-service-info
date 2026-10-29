@@ -704,8 +704,55 @@ function cityCompareHtml(model){
   }
   return h+'<p class="sub">Same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
 }
+// ---- What changed: moves of 20%+ vs the same days last month (29 Oct 2026) ----
+function whatChangedHtml(model){
+  try {
+  var cities=state.F.cities.filter(function(c){ return model[c]; }); if(!cities.length) return '';
+  var ms=selMonths(); var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0];
+  var A, B; if(pk && isPartialMonth(latest)){ A=pk; B=latest; } else { var full=ms.filter(function(m){ return !/p$/.test(m); }); if(full.length<2) return ''; A=full[full.length-2]; B=full[full.length-1]; }
+  var TH=0.20, names=state.store.names||{}, out=[];
+  var pct=function(a,b){ return (a&&isFinite(a)&&isFinite(b))?(b-a)/Math.abs(a):null; };
+  cities.forEach(function(c){
+    var dA=model[c][A], dB=model[c][B]; if(!dA||!dB) return;
+    var vA=driverVals(c,A,dA), vB=driverVals(c,B,dB), fA=vA.fleet, fB=vB.fleet; if(!fA||!fB) return;
+    var items=[];
+    // cost lines per bike
+    [['A','Wear & tear (A)'],['P','Rider-payable (P)'],['C','Company (C)']].forEach(function(x){
+      var a=(dA[x[0]]||0)/fA, b=(dB[x[0]]||0)/fB, p=pct(a,b); if(p!=null && Math.abs(p)>=TH && Math.abs(b-a)>=2) items.push({kind:'Cost line', t:x[1]+' per bike', a:a, b:b, p:p, imp:Math.abs(b-a), unit:'\u20b9'}); });
+    // parts per bike (A + P + C), material moves only
+    var by={}; state.store.rows.forEach(function(r){ if(r.city!==c || r.cat!=='Part' || ['A','P','C'].indexOf(r.issue)<0 || (r.month!==A && r.month!==B)) return;
+      var k=r.pn, o=by[k]||(by[k]={a:0,b:0,qa:0,qb:0}); if(r.month===A){ o.a+=+r.amt||0; o.qa+=+r.qty||0; } else { o.b+=+r.amt||0; o.qb+=+r.qty||0; } });
+    var pr=[]; Object.keys(by).forEach(function(k){ var o=by[k], a=o.a/fA, b=o.b/fB, p=pct(a,b);
+      if(Math.abs(b-a)>=2 && (p==null || Math.abs(p)>=TH)) pr.push({kind:'Part', t:names[k]||k, a:a, b:b, p:p, imp:Math.abs(b-a), unit:'\u20b9', q:[o.qa,o.qb]}); });
+    pr.sort(function(x,y){ return y.imp-x.imp; }); items=items.concat(pr.slice(0,6));
+    // drivers
+    [['jpb','Job cards per serviced bike',2],['sr','Service rate',1],['ppj','Parts per job card',2],['cpp','Avg cost per part (\u20b9)',0],['pcj','Parts cost per job card (\u20b9)',0],['rr7','Running repair back within 7 days',1],['rpen','Refurb penetration',1],['kmpd','Km per bike per day',1]].forEach(function(x){
+      var a=vA[x[0]], b=vB[x[0]], p=pct(a,b); if(p!=null && Math.abs(p)>=TH) items.push({kind:'Driver', t:x[1], a:a, b:b, p:p, imp:1e6, dec:x[2], pctFmt:(x[0]==='sr'||x[0]==='rr7'||x[0]==='rpen')}); });
+    // hubs: parts spend (A + P + C), same number of days in both periods
+    if(!state.F.hub){ var hb={}; state.store.rows.forEach(function(r){ if(r.city!==c || r.cat!=='Part' || ['A','P','C'].indexOf(r.issue)<0 || !r.hub || (r.month!==A && r.month!==B)) return;
+        var o=hb[r.hub]||(hb[r.hub]={a:0,b:0}); if(r.month===A) o.a+=+r.amt||0; else o.b+=+r.amt||0; });
+      var hr=[]; Object.keys(hb).forEach(function(k){ var o=hb[k], p=pct(o.a,o.b); if(Math.abs(o.b-o.a)>=25000 && (p==null||Math.abs(p)>=TH)) hr.push({kind:'Hub', t:k+' parts spend', a:o.a, b:o.b, p:p, imp:Math.abs(o.b-o.a), unit:'\u20b9tot'}); });
+      hr.sort(function(x,y){ return y.imp-x.imp; }); items=items.concat(hr.slice(0,4)); }
+    if(items.length) out.push({c:c, items:items});
+  });
+  if(!out.length) return '<div class="note" style="margin:0 0 12px">What changed ('+C.monthLabel(B)+' vs '+C.monthLabel(A)+'): no cost line, part, driver or hub moved 20% or more.</div>';
+  var fv=function(it,v){ if(v==null||!isFinite(v)) return '\u2013'; if(it.pctFmt) return (v*100).toFixed(1)+'%'; if(it.unit==='\u20b9tot') return '\u20b9'+(v>=1e5?(v/1e5).toFixed(1)+' L':Math.round(v/1000)+'k'); if(it.unit==='\u20b9') return '\u20b9'+v.toFixed(1); return v.toFixed(it.dec==null?1:it.dec); };
+  var chip=function(it){ var up=it.b>it.a, bad=up; if(it.t==='Refurb penetration'||it.t==='Km per bike per day'||it.t==='Service rate') bad=false;
+    var col=it.kind==='Driver'&&!/cost|Parts per|Job cards|back within/i.test(it.t)?'#475569':(bad?'#b91c1c':'#15803d'), bg=col==='#b91c1c'?'#fde2e2':(col==='#15803d'?'#dcf3e3':'#eef2f7');
+    var pc=it.p==null?'new':((it.p>0?'+':'\u2212')+Math.abs(Math.round(it.p*100))+'%');
+    return '<span title="'+it.kind+(it.q?' \u00b7 qty '+it.q[0]+' \u2192 '+it.q[1]:'')+'" style="display:inline-block;margin:3px 6px 3px 0;padding:3px 10px;border-radius:999px;background:'+bg+';color:'+col+';font-size:12px"><b>'+(up?'\u25b2':'\u25bc')+' '+it.t+'</b> '+fv(it,it.a)+' \u2192 '+fv(it,it.b)+' <b>('+pc+')</b></span>'; };
+  var h='<div class="card" style="margin:0 0 14px;padding:12px 16px"><div style="font-weight:700;font-size:14px;margin-bottom:4px">What changed \u00b7 '+C.monthLabel(B)+' vs '+C.monthLabel(A)+'</div>'
+    +'<div class="sub" style="margin-bottom:6px">Anything that moved 20% or more. Parts and cost lines in \u20b9 per bike (moves of \u20b92+ per bike only); hubs by total parts spend (moves of \u20b925k+). Red = cost up, green = cost down.</div>';
+  out.forEach(function(o){ var grp=function(k){ return o.items.filter(function(i){ return i.kind===k; }); };
+    h+='<div style="margin-top:8px"><div style="font-weight:700;font-size:13px;margin-bottom:2px">'+cityName(o.c)+'</div>';
+    [['Cost line','Cost lines'],['Part','Parts'],['Driver','Drivers'],['Hub','Hubs']].forEach(function(g){ var L=grp(g[0]); if(!L.length) return;
+      h+='<div style="display:flex;gap:8px;align-items:flex-start"><div style="min-width:78px;font-size:11px;color:#64748b;padding-top:6px">'+g[1]+'</div><div>'+L.map(chip).join('')+'</div></div>'; });
+    h+='</div>'; });
+  return h+'</div>';
+  } catch(e){ console.warn('whatChanged', e); return ''; }
+}
 function viewOverview(model){
-  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model):'');
+  var months=selMonths(), h=ccHiddenBar()+whatChangedHtml(model)+(multi()?cityCompareHtml(model):'');
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
