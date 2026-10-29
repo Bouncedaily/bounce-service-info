@@ -628,8 +628,8 @@ async function loadOverview() {
     const n = groupBy(rows, r => r.batch_id || r.id).size;
     actions.push({ pri: 4, hub, city: rows[0].city, pill: '<span class="pill blue">Not acknowledged</span>',
       detail: `${n} refurb/tyre movement${n === 1 ? '' : 's'} (${num(sum(rows, r => r.qty))} nos) waiting for RPDC to confirm receipt`,
-      since: `${Math.max(...rows.map(r => r.age_days || 0))} days`,
-      act: `<button class="btn link" type="button" data-go="approvals">${S.perms.approver ? 'Acknowledge' : 'View'}</button>` });
+      since: (() => { const d = Math.max(...rows.map(r => r.age_days || 0)); return d > 7 ? `<span class="err" style="font-weight:700">${d} days</span>` : `${d} days`; })(),
+      act: `<button class="btn link" type="button" data-go="approvals">${S.perms.approver ? 'Acknowledge' : (S.perms.rpdcCity && rows[0].city === S.perms.rpdcCity ? 'Mark received' : 'View')}</button>` });
   }
   if (countedLeft > 0) {
     const parts = (o.counted || []).filter(c => c.generated - c.picked > 0).map(c => `${esc(c.category)} ${num(c.generated - c.picked)}`).join(' · ');
@@ -1236,7 +1236,7 @@ async function loadApprovals() {
   el.innerHTML = `<div class="kpis" id="ap-kpis"></div>
     <div class="card"><div class="card-hd"><h2>Confirm money received</h2><span class="note">${S.perms.paid ? 'Oldest first. Confirming records the amount, date and invoice, and counts as Finance approval.' : 'Only Finance can mark a sale paid. Oldest first.'}</span></div>
       <div class="scroll"><table style="min-width:900px"><thead><tr><th>Pickup</th><th>Hub</th><th>Vendor</th><th>What</th><th class="num">Sale value</th><th class="num">Waiting</th><th class="num"></th></tr></thead><tbody id="ap-money">${skelRows(7, 5)}</tbody></table></div></div>
-    <div class="card"><div class="card-hd"><h2>Refurb &amp; tyre movements</h2><span class="note">No money involved. The RPDC acknowledges what arrived.</span></div>
+    <div class="card"><div class="card-hd"><h2>Refurb &amp; tyre movements</h2><span class="note">No money involved. The RPDC marks what arrived${S.perms.rpdcCity ? ` (you receive for ${esc(S.perms.rpdcCity)} hubs)` : ''}. Over 7 days waiting is shown in red.</span></div>
       <div class="scroll"><table style="min-width:720px"><thead><tr><th>Sent</th><th>From</th><th>Type</th><th>What</th><th class="num">Waiting</th><th class="num"></th></tr></thead><tbody id="ap-xfer">${skelRows(6, 3)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Recently confirmed</h2><span class="note">Payments marked received, newest first.</span></div>
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Received</th><th>Hub</th><th>Vendor</th><th>Invoice</th><th class="num">Sale value</th><th class="num">Received</th></tr></thead><tbody id="ap-paid">${skelRows(6, 3)}</tbody></table></div></div>`;
@@ -1254,19 +1254,32 @@ async function loadApprovals() {
   $('#ap-kpis').innerHTML = `
     <div class="kpi"><div class="kpi-val">${num(money.length)} sale${money.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Waiting for payment</div><div class="kpi-sub">${oldest ? `Oldest ${oldest[0].age_days} days (${esc(hubLabel(oldest[0].hub_name))}, ${dshort(oldest[0].pickup_date)})` : 'Nothing waiting'}</div></div>
     <div class="kpi ${totalOpen > 0 ? 'watch' : ''}"><div class="kpi-val">${inr(totalOpen)}</div><div class="kpi-lbl">Sold, not confirmed received</div><div class="kpi-sub">All open sales${f.city || f.hub ? ' in this filter' : ''}, any date</div></div>
-    <div class="kpi"><div class="kpi-val">${num(transfers.length)}</div><div class="kpi-lbl">Refurb &amp; tyre movements</div><div class="kpi-sub">Waiting for the RPDC to acknowledge</div></div>`;
+    <div class="kpi"><div class="kpi-val">${num(transfers.length)}</div><div class="kpi-lbl">Refurb &amp; tyre movements</div><div class="kpi-sub">Waiting for the RPDC${(() => { const o = transfers.filter(t => t[0].age_days > 7).length; return o ? ` · <span class="err" style="font-weight:700">${o} over 7 days</span>` : ''; })()}</div></div>`;
   S.apMoney = money; S.apXfer = transfers;
   drawMoney();
   $('#ap-xfer').innerHTML = transfers.length ? transfers.map((b, i) => `<tr><td>${dshort(b[0].pickup_date)}</td><td>${hubCell(b[0].hub_name, b[0].city)}</td><td>${esc(b[0].movement_type)}</td>
-      <td style="max-width:380px">${b.map(x => `${esc(x.item)} ${num(x.qty)}`).join(', ')}</td><td class="num">${b[0].age_days} d</td>
-      <td class="num">${S.perms.approver ? `<button class="btn" type="button" data-ack="${i}">Acknowledge</button>` : ''}</td></tr>`).join('')
+      <td style="max-width:380px">${b.map(x => `${esc(x.item)} ${num(x.qty)}`).join(', ')}</td><td class="num">${b[0].age_days > 7 ? `<span class="err" style="font-weight:700">${b[0].age_days} d</span>` : `${b[0].age_days} d`}</td>
+      <td class="num">${(S.perms.approver || (S.perms.rpdcCity && b[0].city === S.perms.rpdcCity)) ? `<button class="btn go" type="button" data-ack="${i}">Mark received</button>` : ''}</td></tr>
+      <tr data-recv-row="${i}" hidden><td colspan="6" style="background:var(--bg2,#f8fafc)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        ${b.map(x => `<label class="fl" style="min-width:150px">${esc(x.item)} <span class="muted">(sent ${num(x.qty)})</span><input type="number" min="0" step="1" data-rq="${x.id}" value="${x.qty}" style="width:90px"></label>`).join('')}
+        <label class="fl" style="flex:1;min-width:200px">Remark <span class="muted">(needed if a quantity differs)</span><input type="text" data-rnote placeholder="e.g. 2 tyres missing in the load"></label>
+        <button class="btn go" type="button" data-rok="${i}">Confirm received</button><button class="btn" type="button" data-rcancel="${i}">Cancel</button>
+        <span class="small" data-rmsg></span></div></td></tr>`).join('')
     : '<tr><td colspan="6" class="muted">Nothing waiting.</td></tr>';
   $('#ap-xfer').onclick = async e => {
-    const b = e.target.closest('[data-ack]'); if (!b) return;
-    const batch = transfers[+b.dataset.ack];
-    b.disabled = true; b.textContent = 'Saving…';
-    const r = await call('ack_scrap_transfer', { p_ids: batch.map(x => x.id) });
-    if (!r.ok) { alert('Not acknowledged: ' + r.error); b.disabled = false; b.textContent = 'Acknowledge'; return; }
+    const open = e.target.closest('[data-ack]');
+    if (open) { const row = $(`[data-recv-row="${open.dataset.ack}"]`); row.hidden = !row.hidden; return; }
+    const cx = e.target.closest('[data-rcancel]'); if (cx) { $(`[data-recv-row="${cx.dataset.rcancel}"]`).hidden = true; return; }
+    const ok = e.target.closest('[data-rok]'); if (!ok) return;
+    const i = +ok.dataset.rok, batch = transfers[i], row = $(`[data-recv-row="${i}"]`), msg = $('[data-rmsg]', row);
+    const received = {}; let differs = false, badQty = false;
+    batch.forEach(x => { const v = $(`[data-rq="${x.id}"]`, row).value; const q = parseFloat(v); if (v === '' || isNaN(q) || q < 0) badQty = true; received[x.id] = q; if (q !== Number(x.qty)) differs = true; });
+    const note = $('[data-rnote]', row).value.trim();
+    if (badQty) { msg.innerHTML = '<span class="err">Enter the quantity received for every part (0 if nothing arrived).</span>'; return; }
+    if (differs && note.length < 3) { msg.innerHTML = '<span class="err">A quantity differs from what was sent. Write a remark.</span>'; return; }
+    ok.disabled = true; ok.textContent = 'Saving…';
+    const r = await call('ack_scrap_transfer', { p_ids: batch.map(x => x.id), p_received: received, p_note: note || null });
+    if (!r.ok) { msg.innerHTML = '<span class="err">Not saved: ' + esc(r.error) + '</span>'; ok.disabled = false; ok.textContent = 'Confirm received'; return; }
     S.cache = {}; S.loaded = {}; updateBadge(); showTab('approvals');
   };
   const pb = [...groupBy(paid || [], p => p.batch_id || ('id' + p.id)).values()].slice(0, 12);
@@ -1682,13 +1695,13 @@ async function reloadVendors() {
 async function boot() {
   await waitForAuthReady();
   S.me = sessEmail();
-  const [hubs, cats, , parts, power, paid, approver, edit, wadmin] = await Promise.all([
+  const [hubs, cats, , parts, power, paid, approver, edit, wadmin, rpdcCity] = await Promise.all([
     rpc('get_scrap_hub_list', {}), sbGet('scrap_categories?select=*&order=category.asc'), reloadVendors(),
     sbGet('refurb_parts?select=part_name,part_type,unit&order=part_name.asc'),
-    rpc('scrap_is_power_user', {}), rpc('scrap_can_mark_paid', {}), rpc('scrap_is_approver', {}), rpc('scrap_can_edit', {}), rpc('scrap_is_weight_admin', {})
+    rpc('scrap_is_power_user', {}), rpc('scrap_can_mark_paid', {}), rpc('scrap_is_approver', {}), rpc('scrap_can_edit', {}), rpc('scrap_is_weight_admin', {}), rpc('scrap_rpdc_city', {})
   ]);
   S.hubs = hubs || []; S.cats = cats || []; S.parts = parts || [];
-  S.perms = { power: power === true, paid: paid === true, approver: approver === true, edit: edit === true, weightAdmin: wadmin === true };
+  S.perms = { power: power === true, paid: paid === true, approver: approver === true, edit: edit === true, weightAdmin: wadmin === true, rpdcCity: typeof rpdcCity === 'string' && rpdcCity ? rpdcCity : null };
   if (!S.hubs.length) setBanner('Could not load the hub list. Check your connection and tap Refresh.');
   await applyHubRestriction();
   initFilters();
