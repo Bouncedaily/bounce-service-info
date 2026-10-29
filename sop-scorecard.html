@@ -70,6 +70,7 @@ tr.hub{cursor:pointer}tr.hub:hover td{background:#f8fafc}tr.hub.sel td{backgroun
     </div>
 
     <div id="tab-score">
+      <div id="formnote"></div>
       <div class="card"><div class="card-hd"><span>Hub scores</span><span class="legend"><span><span class="pill good">90%+</span> good</span><span><span class="pill ok">75-89%</span> watch</span><span><span class="pill bad">&lt;75%</span> miss</span><span><span class="pill na">&mdash;</span> not measured</span><span class="muted">Click a hub for the daily detail</span></span></div>
         <div class="scroll" id="scorebody"></div></div>
       <div id="detail"></div>
@@ -132,13 +133,22 @@ async function rpc(fn,args){
 
 /* ---------- scoring rules (pure functions) ---------- */
 var GOOD=0.90, OKAY=0.75, MIN_PHOTOS_PERIOD=20, MIN_PHOTOS_DAY=5;
-var SCORED=[4,11,6,7,5];   /* items the scorecard can measure today */
+var SCORED=[4,11,6,7,5,1,2,3,12,14,16,17,18];   /* items the scorecard can measure */
+var FORM_ITEMS=[1,2,3,12,14,16,17,18];          /* items that come from the SOP Daily Form */
 var META={
   4:{short:'Tyre photos',how:'Reviewed photos that show the gauge and match the entered PSI. Needs at least 20 reviewed photos in the period.'},
   11:{short:'RR TAT',how:'Tiered per RR job: within 30 min 100%, within 60 min 75%, within 90 min 25%, longer 0%.'},
   6:{short:'Damage fee',how:'Damage fee collected divided by damage fee raised (rupees).'},
   7:{short:'Submission reason',how:'Share of typed reasons that look genuine. Junk, blank and one-word fillers fail. Recovery rows that only repeat the type are not scored.'},
-  5:{short:'RR tracked',how:'RR bikes (older than 24 hours) that have an outflow within 24 hours of coming in.'}
+  5:{short:'RR tracked',how:'RR bikes (older than 24 hours) that have an outflow within 24 hours of coming in.'},
+  1:{short:'Hub opening',how:'Daily form: opening photo saved by 8:15 AM scores 100%, by 9:00 AM 50%, later or missing 0%.'},
+  2:{short:'Cleaning',how:'Daily form: cleaning and readiness photo saved that day (100%) or missing (0%).'},
+  3:{short:'Positioning',how:'Daily form: vehicle positioning photo saved that day (100%) or missing (0%).'},
+  12:{short:'FOC evidence',how:'Daily form: FOC exceptions with evidence given to the SM, as a share of exceptions raised. No exceptions counts as 100%.'},
+  14:{short:'Fleet count',how:'Daily form: physical count (RFD, OOS, PDI) against the system. Same = 100%, within 2 bikes 75%, within 5 bikes 25%, more 0%.'},
+  16:{short:'LMS',how:'Daily form: LMS entries completed as a share of deployments done. No deployments counts as 100%.'},
+  17:{short:'Own credentials',how:'Share of that day\'s system actions done by an OE on the on-duty list from the morning form.'},
+  18:{short:'Process ideas',how:'Daily form: ideas submitted in the week, out of 2. Counted on each Sunday.'}
 };
 function fmtN(n){ return Math.round(+n||0).toLocaleString('en-IN'); }
 function pct(x){ return x==null?'\u2014':Math.round(x*100)+'%'; }
@@ -155,6 +165,12 @@ function note(item,a){
   if(item===7) return fmtN(a.den)+' reasons';
   if(item===4) return fmtN(a.den)+' photos \u00b7 '+fmtN(a.x1)+' diff \u00b7 '+fmtN(a.x2)+' bad';
   if(item===5) return fmtN(a.den)+' RR bikes';
+  if(item===1||item===2||item===3) return fmtN(a.num)+' of '+fmtN(a.den)+' days';
+  if(item===12) return fmtN(a.x2)+' of '+fmtN(a.x1)+' with evidence';
+  if(item===14) return fmtN(a.x1)+' bikes off in '+fmtN(a.den)+' days';
+  if(item===16) return fmtN(a.x2)+' of '+fmtN(a.x1)+' with LMS';
+  if(item===17) return fmtN(a.den-a.num)+' of '+fmtN(a.den)+' by others';
+  if(item===18) return fmtN(a.x1)+' ideas';
   return '';
 }
 function whatHappened(item,a){
@@ -163,6 +179,14 @@ function whatHappened(item,a){
   if(item===7) return fmtN(a.den-a.num)+' of '+fmtN(a.den)+' submission reasons look invalid';
   if(item===4) return fmtN(a.num)+' of '+fmtN(a.den)+' reviewed photos matched ('+fmtN(a.x1)+' different PSI, '+fmtN(a.x2)+' bad photos)';
   if(item===5) return fmtN(a.den-a.num)+' of '+fmtN(a.den)+' RR bikes not closed within 24 hours';
+  if(item===1) return 'Opening photo not saved by 8:15 AM, or missing';
+  if(item===2) return 'No cleaning and readiness photo';
+  if(item===3) return 'No vehicle positioning photo';
+  if(item===12) return (a.num===0&&!a.x1&&!a.x2)?'Evening section not submitted':('FOC evidence given for '+fmtN(a.x2)+' of '+fmtN(a.x1)+' exceptions');
+  if(item===14) return (a.num===0&&!a.x1&&!a.x2)?'Evening section not submitted (no fleet count)':('Count differs from the system by '+fmtN(a.x1)+' bikes');
+  if(item===16) return (a.num===0&&!a.x1&&!a.x2)?'Evening section not submitted':(fmtN(a.x2)+' of '+fmtN(a.x1)+' deployments have LMS entries');
+  if(item===17) return fmtN(a.den-a.num)+' of '+fmtN(a.den)+' actions were done by someone not on the on-duty list';
+  if(item===18) return fmtN(a.x1)+' of 2 ideas this week';
   return '';
 }
 function weightMap(data){ var W={},C={},T=0; (data.weights||[]).forEach(function(w){ W[w.item_no]=+w.weight||0; C[w.item_no]=!!w.is_critical; T+=+w.weight||0; }); return {W:W,C:C,T:T}; }
@@ -210,7 +234,8 @@ function showTab(t){
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
 }
 function itemHeaders(wm){
-  return SCORED.slice().sort(function(a,b){ return (wm.W[b]||0)-(wm.W[a]||0)||a-b; });
+  var have=function(it){ return CUR&&CUR.hubs.some(function(h){ return h.items[it]&&h.items[it].den>0; }); };
+  return SCORED.filter(have).sort(function(a,b){ return (wm.W[b]||0)-(wm.W[a]||0)||a-b; });
 }
 function render(){
   if(!DATA) return;
@@ -227,6 +252,7 @@ function render(){
     kpi(Math.round(100*(wm.T>0?cov/wm.T:0))+'%','Scorecard measured','share of the SOP weight with data')+
     kpi(critHubs,'Hubs with a critical miss','critical item below 75%',critHubs?'bad':'good')+
     kpi(low,'Hubs below 75%','overall weighted score',low?'bad':'good');
+  $('formnote').innerHTML=DATA.form_start?'<div class="guide">The SOP Daily Form items count from <b>'+esc(new Date(DATA.form_start+'T12:00:00Z').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}))+'</b>. A hub that does not submit the form for a day scores 0 on those items for that day.</div>':'<div class="guide">The SOP Daily Form is in its <b>pilot period</b>: entries are being collected, but its items do not count towards the scorecard yet. Set <b>form_start_date</b> in the <b>sop_settings</b> table to start counting.</div>';
   $('asof').textContent=DATA.as_of?('Data as of '+new Date(DATA.as_of).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'})+' IST'):'';
   /* hub table */
   var rows=CUR.hubs.slice().sort(function(a,b){ if(a.total==null&&b.total==null) return a.hub.localeCompare(b.hub); if(a.total==null) return 1; if(b.total==null) return -1; return a.total-b.total; });
@@ -291,12 +317,13 @@ function renderFollow(){
 function renderWeights(){
   if(!DATA) return;
   var W=DATA.weights||[], tot=0, meas=0;
-  W.forEach(function(w){ tot+=+w.weight||0; if(SCORED.indexOf(w.item_no)>=0) meas+=+w.weight||0; });
+  W.forEach(function(w){ tot+=+w.weight||0; if(SCORED.indexOf(w.item_no)>=0&&(FORM_ITEMS.indexOf(w.item_no)<0||DATA.form_start)) meas+=+w.weight||0; });
   $('wsum').textContent='Total weight '+tot+' \u00b7 measured now '+meas;
   function status(w){
+    if(FORM_ITEMS.indexOf(w.item_no)>=0) return DATA.form_start?'<span class="pill good" style="min-width:0">From the daily form</span>':'<span class="pill ok" style="min-width:0">Daily form (pilot)</span>';
     if(SCORED.indexOf(w.item_no)>=0) return '<span class="pill good" style="min-width:0">Scored now</span>';
     if(w.data_status==='needs_data') return '<span class="pill ok" style="min-width:0">Needs a data source</span>';
-    return '<span class="pill na" style="min-width:0">Needs the daily form</span>';
+    return '<span class="pill na" style="min-width:0">Needs the SM spot-check</span>';
   }
   $('wbody').innerHTML='<table><thead><tr><th>#</th><th class="l">SOP item</th><th>Weight</th><th>Critical</th><th>Status</th><th class="l">How it is scored / what is needed</th></tr></thead><tbody>'+W.map(function(w){
     var how=SCORED.indexOf(w.item_no)>=0?META[w.item_no].how:(w.notes||'');
