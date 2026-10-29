@@ -730,6 +730,8 @@ const LP = { hub: null, type: 'Scrap', date: null, vendor: '', from: null, fromM
 
 // Job cards on the pickup day belong to the NEXT pickup: a pickup covers up to the day before it.
 function lpTo() { return addDays(LP.date, -1); }
+const VCITIES_BASE = ['Bangalore', 'NCR', 'Hyderabad', 'Mumbai', 'Chennai'];
+var VCITIES = VCITIES_BASE;
 function hubCity(h) { const x = S.hubs.find(y => y.hub_name === h); return x ? x.city : (S.restrictedCity || null); }
 function catInfo(c) { return S.cats.find(x => x.category === c) || { category: c, unit: 'kg' }; }
 function vendorRate(cat) {
@@ -810,7 +812,9 @@ async function renderLogForm() {
   const hubSel = document.createElement('select');
   fillHubSelect(hubSel, S.restrictedCity, null, LP.hub);
   if (!LP.hub) hubSel.insertAdjacentHTML('afterbegin', '<option value="" selected>Choose a hub</option>');
-  const vendors = S.vendors.filter(v => v.approved);
+  const hubC = LP.hub ? hubCity(LP.hub) : null;   // 29 Oct 2026: only vendors for the hub's city (no city set = everywhere)
+  const vendors = S.vendors.filter(v => v.approved && (!v.city || !hubC || v.city === hubC));
+  if (LP.vendor && !vendors.some(v => String(v.id) === String(LP.vendor))) LP.vendor = '';
   const isScrap = LP.type === 'Scrap';
   const bad = LP.hub && LP.from > lpTo();
   let periodHtml = '';
@@ -860,7 +864,7 @@ function renderLines(keys) {
   }
   const head = isScrap ? 'What was weighed' : `Parts handed over`;
   return `<div class="lines">
-    <div class="lines-hd"><span>${head}</span><span class="muted small" style="font-weight:400">Photo needed for every line</span></div>
+    <div class="lines-hd"><span>${head}</span><span class="muted small" style="font-weight:400">Scale photo needed for every line</span></div>
     ${!isScrap ? `<input type="search" class="partsearch" id="lp-q" placeholder="Search parts" value="${esc(LP.query)}" aria-label="Search parts">` : ''}
     <div id="lp-lines">${shown.map(lineHtml).join('') || `<div class="msg">${LP.query ? 'No part matches that search.' : 'The system expects no parts from this hub for this period. Use "Show all parts" if something is being sent anyway.'}</div>`}</div>
     ${hiddenCount > 0 ? `<button class="add-more" type="button" id="lp-more">${isScrap ? '+ Wires, brake shoes, electronics, lighting, battery, carton box' : `Show all ${keys.length} parts`}</button>` : ''}
@@ -1047,7 +1051,7 @@ async function submitPickup() {
     if (isScrap && !zero && !(parseFloat(st.rate) >= 0 && st.rate !== '')) probs.push(`${esc(k)}: enter the rate (0 if the vendor doesn't pay for it).`);
     if (v && !st.reason) probs.push(`${esc(k)}: ${v === 'less' ? 'less' : 'more'} than expected (${num(LP.expected[k])} ${lineUnit(k)}). Pick a reason.`);
     if (v && st.note.trim().length < 3) probs.push(`${esc(k)}: physical quantity doesn't match the system quantity (${num(LP.expected[k])} ${lineUnit(k)}). Write a remark.`);
-    if (!zero && !st.file && !st.url) probs.push(`${esc(k)}: add a photo of the scale or the load.`);
+    if (!zero && !st.file && !st.url) probs.push(`${esc(k)}: add a scale photo.`);
   }
   if (probs.length) { showProblems(probs); return; }
   const btn = $('#lp-submit');
@@ -1258,7 +1262,7 @@ function drawMoney() {
     const r = b[0], val = sum(b, x => x.amount), open = AP.open === i;
     const vn = r.vendor_name;
     const vendorCell = vn ? esc(vn) : (S.perms.power
-      ? `<span class="pill indigo">No vendor</span><div style="display:flex;gap:6px;margin-top:6px"><select data-vsel="${i}" style="max-width:160px"><option value="">Set vendor…</option>${vendors.map(v => `<option value="${v.id}">${esc(v.vendor_name)}</option>`).join('')}</select><button class="btn" type="button" data-vsave="${i}">Save</button></div>`
+      ? `<span class="pill indigo">No vendor</span><div style="display:flex;gap:6px;margin-top:6px"><select data-vsel="${i}" style="max-width:160px"><option value="">Set vendor…</option>${vendors.filter(v => !v.city || !r.city || v.city === r.city).map(v => `<option value="${v.id}">${esc(v.vendor_name)}</option>`).join('')}</select><button class="btn" type="button" data-vsave="${i}">Save</button></div>`
       : '<span class="pill indigo">No vendor</span>');
     const ageCls = r.age_days > 21 ? 'err' : r.age_days > 7 ? 'warn' : 'muted';
     let html = `<tr class="${open ? 'open' : ''}"><td>${dshort(r.pickup_date)}</td><td>${hubCell(r.hub_name, r.city)}</td><td>${vendorCell}</td>
@@ -1581,21 +1585,23 @@ async function openSettings(which) {
   }
   const [vendors, rates] = await Promise.all([sbGet('scrap_vendors?select=*&order=vendor_name.asc'), sbGet('vendor_category_rates?select=*')]);
   S.vendors = vendors || S.vendors;
+  VCITIES = [...new Set(VCITIES_BASE.concat((S.hubs || []).map(h => h.city).filter(Boolean)))];
   const rv = {}; (rates || []).forEach(r => { (rv[r.vendor_id] ||= {})[r.category] = r.rate; }); S.rates = rv;
   const cats = S.cats.slice().sort((a, b) => (a.category === 'Other/Uncategorized') - (b.category === 'Other/Uncategorized'));
   const card = v => `<div class="vcard ${v.approved ? '' : 'pending'}" data-v="${v.id}">
-    <div class="vrow"><label class="fl">Name<input data-k="vendor_name" value="${esc(v.vendor_name)}" style="width:180px"></label><label class="fl">Contact<input data-k="contact" value="${esc(v.contact || '')}" style="width:140px"></label><label class="fl">GSTIN<input data-k="gstin" value="${esc(v.gstin || '')}" style="width:160px"></label><label class="fl">PAN<input data-k="pan" value="${esc(v.pan || '')}" style="width:120px" maxlength="10"></label>
+    <div class="vrow"><label class="fl">Name<input data-k="vendor_name" value="${esc(v.vendor_name)}" style="width:180px"></label><label class="fl">City<select data-k="city"><option value="">All cities</option>${VCITIES.map(c => `<option ${(v.city || '') === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label><label class="fl">Contact<input data-k="contact" value="${esc(v.contact || '')}" style="width:140px"></label><label class="fl">GSTIN<input data-k="gstin" value="${esc(v.gstin || '')}" style="width:160px"></label><label class="fl">PAN<input data-k="pan" value="${esc(v.pan || '')}" style="width:120px" maxlength="10"></label>
       <button class="btn" type="button" data-vinfo>Save details</button>${v.approved ? '<span class="pill green" style="align-self:center">Approved</span>' : '<button class="btn go" type="button" data-vapprove>Approve</button>'}</div>
     <div class="rates">${cats.map(c => `<label class="fl">${c.category === 'Other/Uncategorized' ? 'Other' : esc(c.category)} (₹/${esc(c.unit || 'kg')})<input type="number" min="0" step="0.5" data-cat="${esc(c.category)}" value="${rv[v.id] && rv[v.id][c.category] != null ? rv[v.id][c.category] : ''}"></label>`).join('')}<button class="btn" type="button" data-vrates style="align-self:flex-end">Save rates</button></div>
     <div class="small" data-vmsg style="margin-top:6px"></div></div>`;
   const pend = (vendors || []).filter(v => !v.approved), appr = (vendors || []).filter(v => v.approved);
-  body.innerHTML = `<div class="vcard"><div class="vrow"><label class="fl">New vendor name<input id="nv-name" style="width:200px"></label><label class="fl">Contact<input id="nv-contact" style="width:140px"></label><label class="fl">GSTIN<input id="nv-gst" style="width:160px"></label><label class="fl">PAN<input id="nv-pan" style="width:120px" maxlength="10"></label><button class="btn primary" type="button" id="nv-add">Add vendor</button></div><div class="muted small" style="margin-top:6px">New vendors need approval before hubs can pick them.</div></div>
+  body.innerHTML = `<div class="vcard"><div class="vrow"><label class="fl">New vendor name<input id="nv-name" style="width:200px"></label><label class="fl">City<select id="nv-city"><option value="">Choose city</option>${VCITIES.map(c => `<option>${c}</option>`).join('')}</select></label><label class="fl">Contact<input id="nv-contact" style="width:140px"></label><label class="fl">GSTIN<input id="nv-gst" style="width:160px"></label><label class="fl">PAN<input id="nv-pan" style="width:120px" maxlength="10"></label><button class="btn primary" type="button" id="nv-add">Add vendor</button></div><div class="muted small" style="margin-top:6px">New vendors need approval before hubs can pick them.</div></div>
     ${pend.length ? `<h3 style="font-size:13px;color:var(--red-d)">Waiting for approval (${pend.length})</h3>${pend.map(card).join('')}` : ''}
     <h3 style="font-size:13px">Approved (${appr.length})</h3>${appr.map(card).join('') || '<p class="muted">No approved vendors yet.</p>'}`;
   body.onclick = async e => {
     if (e.target.closest('#nv-add')) {
       const name = $('#nv-name').value.trim(); if (!name) return;
-      const r = await send('POST', 'scrap_vendors', { vendor_name: name, contact: $('#nv-contact').value.trim() || null, gstin: $('#nv-gst').value.trim() || null, pan: ($('#nv-pan').value.trim().toUpperCase() || null), approved: false });
+      const city = $('#nv-city').value; if (!city) { alert('Choose the city this vendor serves.'); return; }
+      const r = await send('POST', 'scrap_vendors', { vendor_name: name, city, contact: $('#nv-contact').value.trim() || null, gstin: $('#nv-gst').value.trim() || null, pan: ($('#nv-pan').value.trim().toUpperCase() || null), approved: false });
       if (!r.ok) { alert('Not added: ' + r.error); return; }
       openSettings('vendors'); return;
     }
