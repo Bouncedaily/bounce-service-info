@@ -667,7 +667,7 @@ function cityCompareHtml(model){
   h+=dline('Km per bike per day',dv('kmpd'),F1,0);
   h+=dline('Parts cost per 100 km (\u20b9)',dv('p100'),F1,1);
   h+=dline('Top 10 parts share of parts cost',dv('top10'),FP,0);
-  h+=dline('Running repair bikes back within 7 days',dv('rr7'),FP,1);
+  h+=dline('Running repair + bike exchange: back within 7 days',dv('rr7'),FP,1);
   // job-card mix by submission type
   var STs=(state.stTypes||['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']);
   h+=sec('Job-card mix by submission type');
@@ -726,7 +726,7 @@ function whatChangedHtml(model){
       if(Math.abs(b-a)>=2 && (p==null || Math.abs(p)>=TH)) pr.push({kind:'Part', t:names[k]||k, a:a, b:b, p:p, imp:Math.abs(b-a), unit:'\u20b9', q:[o.qa,o.qb]}); });
     pr.sort(function(x,y){ return y.imp-x.imp; }); items=items.concat(pr.slice(0,6));
     // drivers
-    [['jpb','Job cards per serviced bike',2],['sr','Service rate',1],['ppj','Parts per job card',2],['cpp','Avg cost per part (\u20b9)',0],['pcj','Parts cost per job card (\u20b9)',0],['rr7','Running repair back within 7 days',1],['rpen','Refurb penetration',1],['kmpd','Km per bike per day',1]].forEach(function(x){
+    [['jpb','Job cards per serviced bike',2],['sr','Service rate',1],['ppj','Parts per job card',2],['cpp','Avg cost per part (\u20b9)',0],['pcj','Parts cost per job card (\u20b9)',0],['rr7','Running repair + bike exchange back within 7 days',1],['rpen','Refurb penetration',1],['kmpd','Km per bike per day',1]].forEach(function(x){
       var a=vA[x[0]], b=vB[x[0]], p=pct(a,b); if(p!=null && Math.abs(p)>=TH) items.push({kind:'Driver', t:x[1], a:a, b:b, p:p, imp:1e6, dec:x[2], pctFmt:(x[0]==='sr'||x[0]==='rr7'||x[0]==='rpen')}); });
     // hubs: parts spend (A + P + C), same number of days in both periods
     if(!state.F.hub){ var hb={}; state.store.rows.forEach(function(r){ if(r.city!==c || r.cat!=='Part' || ['A','P','C'].indexOf(r.issue)<0 || !r.hub || (r.month!==A && r.month!==B)) return;
@@ -858,7 +858,7 @@ function driversHtml(city, ms, model){
   var avg=function(k){ var xs=full.map(function(i){return V[i][k];}).filter(function(x){return x!=null&&isFinite(x);}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; };
   var lbl=function(m){ return C.monthLabel(m)+(isPartialMonth(m)?'*':''); };
   var f2=function(v){return v==null?'\u2013':v.toFixed(2);}, f0=function(v){return v==null?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null?'\u2013':Math.round(v*100)+'%';}, f1=function(v){return v==null?'\u2013':v.toFixed(1);};
-  var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: revenue damage fee','rrb',f0,'rr'],['Net service cost \u00b7 less damage fee + recovery (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Avg cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Refurb penetration (refurbished \u00f7 refurbished + new)','rpen',fp],['Km per bike per day','kmpd',f1],['Parts cost per 100 km (\u20b9)','p100',f1],['Top 10 parts share of parts cost','top10',fp],['Running repair bikes back within 7 days','rr7',fp],['Bikes serviced','bikes',f0],['Job cards','jcs',f0]];
+  var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: revenue damage fee','rrb',f0,'rr'],['Net service cost \u00b7 less damage fee + recovery (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Avg cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Refurb penetration (refurbished \u00f7 refurbished + new)','rpen',fp],['Km per bike per day','kmpd',f1],['Parts cost per 100 km (\u20b9)','p100',f1],['Top 10 parts share of parts cost','top10',fp],['Running repair + bike exchange: back within 7 days','rr7',fp],['Bikes serviced','bikes',f0],['Job cards','jcs',f0]];
   var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 cost drivers</h3><div class="tw"><table><tr><th>Driver</th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+(full.length>1?'<th>Avg '+C.monthLabel(ms[full[0]])+'\u2013'+C.monthLabel(ms[full[full.length-1]])+'</th>':'')+'</tr>';
   var mark=function(r,v){ if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
   rows.forEach(function(r){ if(!ccOn('drv:'+r[0])) return; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='jcs', less=String(r[0]).indexOf('Less:')===0;
