@@ -1382,6 +1382,89 @@ async function confirmPaid(b, btn) {
 
 // ───────────────────────── Refurb & tyres ─────────────────────────
 const RF = { type: 'Refurb', showAll: false, edit: false };
+
+/* ── Vendor batches at RPDC (29 Oct 2026): vendor inspects at the RPDC.
+   Refurb: refurbished & returned / rejected. Tyre: accepted (one credit note per batch) / rejected / returned. ── */
+const VB = { open: false, lines: [] };
+function vbCanAdd(city) { return S.perms.approver || (S.perms.vendorCity && (!city || city === S.perms.vendorCity)); }
+async function drawVendorBatches() {
+  const box = $('#vb-body'); if (!box) return;
+  const T = RF.type === 'Tyre', f = F();
+  let q = `vendor_cn_batches?select=*,vendor_batch_lines(*)&movement_type=eq.${RF.type}&order=batch_date.desc,id.desc&limit=60`;
+  if (f.city) q += `&city=eq.${encodeURIComponent(f.city)}`;
+  const rows = await sbGet(q) || [];
+  const vname = id => (S.vendors.find(v => v.id === id) || {}).vendor_name || '—';
+  const acc = T ? 'Accepted (CN)' : 'Refurbished';
+  box.innerHTML = (vbCanAdd() ? `<div style="margin-bottom:10px"><button class="btn go" type="button" id="vb-new">${VB.open ? 'Close' : '+ New vendor batch'}</button></div><div id="vb-form"></div>` : '') +
+    `<div class="scroll"><table style="min-width:860px"><thead><tr><th>Date</th><th>City</th><th>Vendor</th><th>Parts</th><th class="num">Inspected</th><th class="num">${acc}</th><th class="num">Rejected</th><th class="num">Returned to RPDC</th>${T ? '<th>Credit note</th>' : ''}<th>By</th></tr></thead><tbody>` +
+    (rows.length ? rows.map(b => `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
+      <td style="max-width:300px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
+      <td class="num">${num(b.verified_qty)}</td><td class="num ok">${num(b.approved_qty)}</td><td class="num err">${num(b.rejected_qty)}</td><td class="num">${num(b.received_at_rpdc_qty)}</td>
+      ${T ? `<td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : '<span class="pill amber">CN pending</span>'}</td>` : ''}
+      <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>`).join('')
+      : `<tr><td colspan="${T ? 10 : 9}" class="muted">No vendor batches yet.</td></tr>`) + '</tbody></table></div>';
+  const nb = $('#vb-new'); if (nb) nb.onclick = () => { VB.open = !VB.open; if (VB.open && !VB.lines.length) VB.lines = [{}]; drawVendorBatches(); };
+  if (VB.open) drawVbForm();
+}
+function drawVbForm() {
+  const T = RF.type === 'Tyre', fb = $('#vb-form'); if (!fb) return;
+  const cities = S.perms.approver ? [...new Set((S.hubs || []).map(h => h.city).filter(Boolean))] : [S.perms.vendorCity];
+  VB.city = VB.city && cities.includes(VB.city) ? VB.city : cities[0];
+  const vendors = S.vendors.filter(v => v.approved && (!v.city || v.city === VB.city));
+  const parts = (S.parts || []).filter(p => p.part_type === RF.type).map(p => p.part_name);
+  const acc = T ? 'Accepted (CN)' : 'Refurbished OK';
+  fb.innerHTML = `<div class="vcard">
+    <div class="vrow"><label class="fl">City<select id="vb-city">${cities.map(c => `<option ${c === VB.city ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="fl">Vendor<select id="vb-vendor"><option value="">Choose vendor</option>${vendors.map(v => `<option value="${v.id}" ${String(v.id) === String(VB.vendor) ? 'selected' : ''}>${esc(v.vendor_name)}</option>`).join('')}</select></label>
+      <label class="fl">Inspection date<input type="date" id="vb-date" value="${VB.date || todayIST()}" max="${todayIST()}"></label></div>
+    <div class="muted small" style="margin:8px 0 4px">Parts the vendor inspected</div>
+    ${VB.lines.map((l, i) => `<div class="vrow" data-vbl="${i}">
+      <label class="fl">Part<select data-k="part_name"><option value="">Choose</option>${parts.map(p => `<option ${l.part_name === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      <label class="fl">Inspected<input type="number" min="0" step="1" data-k="sent_qty" value="${l.sent_qty ?? ''}" style="width:80px"></label>
+      <label class="fl">${acc}<input type="number" min="0" step="1" data-k="accepted_qty" value="${l.accepted_qty ?? ''}" style="width:80px"></label>
+      <label class="fl">Rejected<input type="number" min="0" step="1" data-k="rejected_qty" value="${l.rejected_qty ?? ''}" style="width:80px"></label>
+      <label class="fl">Returned to RPDC<input type="number" min="0" step="1" data-k="returned_qty" value="${l.returned_qty ?? ''}" style="width:80px"></label>
+      ${VB.lines.length > 1 ? `<button class="btn" type="button" data-vbdel="${i}">Remove</button>` : ''}</div>`).join('')}
+    <button class="btn" type="button" id="vb-addline">+ Add part</button>
+    ${T ? `<div class="vrow" style="margin-top:10px"><label class="fl">Credit note number<input id="vb-cnno" value="${esc(VB.cnno || '')}" style="width:150px"></label>
+      <label class="fl">Credit note value (₹)<input type="number" min="0" step="1" id="vb-cnval" value="${VB.cnval ?? ''}" style="width:120px"></label>
+      <label class="fl">CN date<input type="date" id="vb-cndate" value="${VB.cndate || ''}" max="${todayIST()}"></label>
+      <label class="fl">CN document<input type="file" id="vb-cndoc" accept="image/*,application/pdf" style="max-width:190px"></label></div>
+      <div class="muted small">Leave the credit note empty if the vendor hasn't issued it yet; the batch shows "CN pending".</div>` : ''}
+    <div class="vrow" style="margin-top:8px"><label class="fl" style="flex:1">Notes<input id="vb-notes" value="${esc(VB.notes || '')}"></label></div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn go" type="button" id="vb-save">Save vendor batch</button><span class="small" id="vb-msg"></span></div></div>`;
+  const keep = () => {
+    VB.city = $('#vb-city').value; VB.vendor = $('#vb-vendor').value; VB.date = $('#vb-date').value; VB.notes = $('#vb-notes').value;
+    if (T) { VB.cnno = $('#vb-cnno').value; VB.cnval = $('#vb-cnval').value; VB.cndate = $('#vb-cndate').value; }
+    $$('[data-vbl]', fb).forEach(r => { const l = VB.lines[+r.dataset.vbl]; $$('[data-k]', r).forEach(i => { l[i.dataset.k] = i.dataset.k === 'part_name' ? i.value : (i.value === '' ? '' : Number(i.value)); }); });
+  };
+  $('#vb-city').onchange = () => { keep(); VB.vendor = ''; drawVbForm(); };
+  $('#vb-addline').onclick = () => { keep(); VB.lines.push({}); drawVbForm(); };
+  fb.onclick = e => { const d = e.target.closest('[data-vbdel]'); if (d) { keep(); VB.lines.splice(+d.dataset.vbdel, 1); drawVbForm(); } };
+  $('#vb-save').onclick = async () => {
+    keep(); const msg = $('#vb-msg'), probs = [];
+    if (!VB.vendor) probs.push('Choose the vendor.');
+    const lines = VB.lines.filter(l => l.part_name || l.sent_qty);
+    if (!lines.length) probs.push('Add at least one part.');
+    lines.forEach(l => {
+      if (!l.part_name) probs.push('Choose the part on every line.');
+      if (!(l.sent_qty > 0)) probs.push(`${l.part_name || 'A line'}: enter how many were inspected.`);
+      if ((Number(l.accepted_qty) || 0) + (Number(l.rejected_qty) || 0) > (Number(l.sent_qty) || 0)) probs.push(`${l.part_name}: accepted + rejected is more than inspected.`);
+    });
+    if (T && Number(VB.cnval) > 0 && !String(VB.cnno || '').trim()) probs.push('Enter the credit note number.');
+    if (probs.length) { msg.innerHTML = `<span class="err">${[...new Set(probs)].map(esc).join(' ')}</span>`; return; }
+    const btn = $('#vb-save'); btn.disabled = true; btn.textContent = 'Saving…';
+    let docUrl = null; const file = T && $('#vb-cndoc').files[0];
+    if (file) { docUrl = await uploadFile(file); if (!docUrl) { msg.innerHTML = '<span class="err">Document upload failed. Nothing was saved; try again.</span>'; btn.disabled = false; btn.textContent = 'Save vendor batch'; return; } }
+    const r = await call('save_vendor_batch', { p: { movement_type: RF.type, vendor_id: VB.vendor, city: VB.city, batch_date: VB.date || todayIST(), notes: VB.notes || null,
+      cn_number: T ? (VB.cnno || null) : null, cn_value: T && VB.cnval !== '' ? Number(VB.cnval) : null, cn_date: T ? (VB.cndate || null) : null, cn_document_url: docUrl,
+      lines: lines.map(l => ({ part_name: l.part_name, sent_qty: Number(l.sent_qty) || 0, accepted_qty: Number(l.accepted_qty) || 0, rejected_qty: Number(l.rejected_qty) || 0, returned_qty: Number(l.returned_qty) || 0 })) } });
+    if (!r.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(r.error)}</span>`; btn.disabled = false; btn.textContent = 'Save vendor batch'; return; }
+    VB.open = false; VB.lines = []; VB.vendor = ''; VB.cnno = ''; VB.cnval = ''; VB.cndate = ''; VB.notes = '';
+    drawVendorBatches();
+  };
+}
+
 async function loadRefurb() {
   const el = $('#tab-refurb'), f = F();
   const lbl = RF.type === 'Tyre' ? { out: 'Credit note approved', rej: 'Credit note rejected', rate: 'approval rate' } : { out: 'Refurbished', rej: 'Rejected', rate: 'success rate' };
@@ -1391,7 +1474,10 @@ async function loadRefurb() {
     <div class="card"><div class="card-hd"><h2>By part</h2><span class="note">${lbl.rate[0].toUpperCase() + lbl.rate.slice(1)} = ${lbl.out.toLowerCase()} ÷ (${lbl.out.toLowerCase()} + ${lbl.rej.toLowerCase()}). Never above 100%.</span>
       <span style="display:flex;gap:8px">${S.perms.power ? `<button class="btn" type="button" id="rf-edit">${RF.edit ? 'Stop editing' : 'Enter RPDC figures'}</button>` : ''}</span></div>
       <div id="rf-editnote"></div>
-      <div class="scroll"><table style="min-width:980px"><thead id="rf-head"></thead><tbody id="rf-rows">${skelRows(8, 6)}</tbody></table></div></div>`;
+      <div class="scroll"><table style="min-width:980px"><thead id="rf-head"></thead><tbody id="rf-rows">${skelRows(8, 6)}</tbody></table></div></div>
+    <div class="card"><div class="card-hd"><h2>Vendor batches at RPDC</h2><span class="note">${RF.type === 'Tyre' ? 'Vendor inspects at the RPDC: accepted tyres earn one credit note per batch; rejected and returned tyres are counted.' : 'Vendor inspects at the RPDC: refurbished parts returned, rejected parts counted.'}${S.perms.vendorCity ? ` You enter batches for ${esc(S.perms.vendorCity)}.` : ''}</span></div>
+      <div class="card-bd" id="vb-body"><span class="skel" style="width:60%"></span></div></div>`;
+  drawVendorBatches();
   $$('[data-rt]', el).forEach(b => b.onclick = () => { RF.type = b.dataset.rt; RF.edit = false; RF.showAll = false; S.loaded.refurb = null; showTab('refurb'); });
   const rows = await cached(`pipe|${RF.type}|` + fkey(), () => rpc('get_movement_pipeline', { p_type: RF.type, p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub, p_bound_hub_actual: true }));
   if (S.tab !== 'refurb') return;
@@ -1695,13 +1781,13 @@ async function reloadVendors() {
 async function boot() {
   await waitForAuthReady();
   S.me = sessEmail();
-  const [hubs, cats, , parts, power, paid, approver, edit, wadmin, rpdcCity] = await Promise.all([
+  const [hubs, cats, , parts, power, paid, approver, edit, wadmin, rpdcCity, vendorCity] = await Promise.all([
     rpc('get_scrap_hub_list', {}), sbGet('scrap_categories?select=*&order=category.asc'), reloadVendors(),
     sbGet('refurb_parts?select=part_name,part_type,unit&order=part_name.asc'),
-    rpc('scrap_is_power_user', {}), rpc('scrap_can_mark_paid', {}), rpc('scrap_is_approver', {}), rpc('scrap_can_edit', {}), rpc('scrap_is_weight_admin', {}), rpc('scrap_rpdc_city', {})
+    rpc('scrap_is_power_user', {}), rpc('scrap_can_mark_paid', {}), rpc('scrap_is_approver', {}), rpc('scrap_can_edit', {}), rpc('scrap_is_weight_admin', {}), rpc('scrap_rpdc_city', {}), rpc('scrap_rpdc_vendor_city', {})
   ]);
   S.hubs = hubs || []; S.cats = cats || []; S.parts = parts || [];
-  S.perms = { power: power === true, paid: paid === true, approver: approver === true, edit: edit === true, weightAdmin: wadmin === true, rpdcCity: typeof rpdcCity === 'string' && rpdcCity ? rpdcCity : null };
+  S.perms = { power: power === true, paid: paid === true, approver: approver === true, edit: edit === true, weightAdmin: wadmin === true, rpdcCity: typeof rpdcCity === 'string' && rpdcCity ? rpdcCity : null, vendorCity: typeof vendorCity === 'string' && vendorCity ? vendorCity : null };
   if (!S.hubs.length) setBanner('Could not load the hub list. Check your connection and tap Refresh.');
   await applyHubRestriction();
   initFilters();
