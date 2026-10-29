@@ -857,8 +857,8 @@ function driverVals(city, m, d){
   var nI=d?netInfo(d,city,m):{v:null,missing:['x']}, tot=nI.missing.length?null:nI.v, rr=recovAmt('rev_damage_fee',city,m), rv=recovAmt('rev_recovery',city,m), ic=recovAmt('ins_claim',city,m), sc=recovAmt('scrap',city,m);
   var dvx=ccOn('dmg')?(rr.v||0):0, rvx=ccOn('rec')?(rv.v||0):0, net1=(tot!=null)?tot-dvx:null, net=(tot!=null)?tot-dvx-rvx:null;   // scrap and insurance claims are already deducted inside Other maintenance (report format), so not again
   return { ok:ok, fleet:fleet, totb:q(tot,fleet), rrb:q(rr.v,fleet), net1b:q(net1,fleet), rvb:q(rv.v,fleet), rvMiss:rv.miss, icb:q(ic.v,fleet), scb:q(sc.v,fleet), netb:q(net,fleet), rrFb:rr.fb, icMiss:ic.miss, scFb:sc.fb, rrMiss:rr.miss&&!rr.fb, scMiss:sc.miss&&!sc.fb, jcs:jcs, bikes:bikes, units:units, parts:parts, lab:lab, oth:oth,
-    kmpd:(function(){ var km=sumC(city,state.km,m), dd=periodDays(m); return (km&&fleet&&dd)?km/fleet/dd:null; })(),
-    p100:(function(){ var km=sumC(city,state.km,m); return (km&&parts!=null)?parts/km*100:null; })(),
+    kmpd:(function(){ var km=den(city,m,'km'), dd=periodDays(m); return (km&&fleet&&dd)?km/fleet/dd:null; })(),
+    p100:(function(){ var km=den(city,m,'km'); return (km&&parts!=null)?parts/km*100:null; })(),
     rpen:partMix(city,m).rpen, top10:partMix(city,m).top10,
     rr7:(function(){ var e=extrasFor(city,m); return (e&&e.rr)?e.rr7/e.rr:null; })(),
     sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
