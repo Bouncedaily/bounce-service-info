@@ -1567,11 +1567,16 @@ document.addEventListener('click', function(e){ var w=document.getElementById('t
 var W30={data:null,sel:null};
 function w30Days(){ var s=document.getElementById('w30-days'); if(!s) return 30; if(s.value==='custom'){ var v=parseInt(document.getElementById('w30-days-custom').value,10); return (v>0&&v<=365)?v:30; } return +s.value; }
 function w30DaysSel(){ var s=document.getElementById('w30-days'), c=document.getElementById('w30-days-custom'); c.style.display=s.value==='custom'?'':'none'; if(s.value==='custom'){ c.focus(); if(!c.value) return; } loadW30(); }
+var W30S={main:{k:null,d:'desc'}, by:{k:'early',d:'desc'}, list:{k:'days',d:'asc'}};
+function w30Sort(t,k){ var o=W30S[t]; if(o.k===k) o.d=(o.d==='asc'?'desc':'asc'); else { o.k=k; o.d=(k==='name'||k==='reg'||k==='hub'||k==='city')?'asc':'desc'; }
+  if(t==='main') renderW30(); else if(t==='by') renderW30By(); else renderW30List(); }
+function w30Th(t,k,label,num){ var o=W30S[t], ar=o.k===k?(o.d==='asc'?' \u25b2':' \u25bc'):''; return '<th'+(num?' class="num"':'')+' onclick="w30Sort(\''+t+'\',\''+k+'\')" style="cursor:pointer;user-select:none'+(num?'':';text-align:left')+'" title="Click to sort">'+label+'<span style="color:#e11d48">'+ar+'</span></th>'; }
+function w30Cmp(a,b,d){ var x=(a==null||(typeof a==='number'&&isNaN(a)))?null:a, y=(b==null||(typeof b==='number'&&isNaN(b)))?null:b; if(x===y) return 0; if(x===null) return 1; if(y===null) return -1; var r=(typeof x==='string')?x.localeCompare(y):(x-y); return d==='asc'?r:-r; }
 function w30Lbl(k){ var a=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+a[1]-1]+'-'+a[0].slice(2); }
 async function loadW30(){
   var body=document.getElementById('w30-body'); if(!body) return;
   body.innerHTML='<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
-  document.getElementById('w30-list').innerHTML=''; W30.sel=null;
+  document.getElementById('w30-list').innerHTML=''; W30.sel=null; W30.listHead=null;
   try { W30.data = await rpcU('wear_tear_within30', { p_months: +document.getElementById('w30-months').value, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ body.innerHTML='<div class="error-msg">Could not load ('+e.message+'). Refresh the page.</div>'; return; }
   var d=W30.data.data_as_of; document.getElementById('w30-updated').textContent = d ? 'Data as of '+new Date(d).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
@@ -1585,13 +1590,15 @@ function w30Parts(){ var tp=(document.getElementById('top-part')||{}).value||'';
 function renderW30(){
   var D=W30.data||{}, ms=D.months||[], rows=D.rows||[], idx={};
   rows.forEach(function(r){ idx[r.part+'|'+r.m]=r; });
-  var parts=w30Parts();
+  var parts=w30Parts(), so=W30S.main;
+  if(so.k){ var pv=function(p){ if(so.k==='name') return p; var r=idx[p+'|'+so.k]; return (r&&r.with_prev)?r.d30/r.with_prev:null; };
+    parts=parts.slice().sort(function(a,b){ return w30Cmp(pv(a),pv(b),so.d); }); }
   if(!parts.length){ document.getElementById('w30-body').innerHTML='<div class="empty-state" style="padding:20px">No replacements in this period.</div>'; return; }
   var cell=function(p,m){ var r=idx[p+'|'+m]; if(!r||!r.with_prev) return '<td class="num" style="color:#cbd5e1">–</td>';
     var pc=r.d30/r.with_prev*100, bg=pc>=15?'#fde2e2':(pc>=8?'#fef3c7':''), on=W30.sel&&W30.sel.p===p&&W30.sel.m===m;
     return '<td class="num" style="background:'+bg+'"><a href="#" onclick="openW30(\''+p.replace(/'/g,"\\'")+'\',\''+m+'\');return false" title="'+r.d30+' of '+r.with_prev+' repeat replacements within '+((W30.data&&W30.data.days)||30)+' days ('+r.d7+' within 7 days) · '+r.total+' replacements in total" style="color:inherit;text-decoration:'+(on?'underline':'none')+';font-weight:'+(on?800:600)+'">'+pc.toFixed(1)+'%</a><div style="font-size:10px;color:#94a3b8">'+r.d30+' of '+r.with_prev+'</div></td>'; };
   var tot=function(m){ var a=0,b=0; parts.forEach(function(p){ var r=idx[p+'|'+m]; if(r){ a+=r.d30; b+=r.with_prev; } }); return b?'<td class="num" style="font-weight:700">'+(a/b*100).toFixed(1)+'%<div style="font-size:10px;color:#94a3b8;font-weight:400">'+a+' of '+b+'</div></td>':'<td class="num">–</td>'; };
-  document.getElementById('w30-body').innerHTML='<table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr><th style="text-align:left">Part</th>'+ms.map(function(m,i){ return '<th class="num">'+w30Lbl(m)+(i===ms.length-1?' (so far)':'')+'</th>'; }).join('')+'</tr></thead><tbody>'
+  document.getElementById('w30-body').innerHTML='<table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr>'+w30Th('main','name','Part',false)+ms.map(function(m,i){ return w30Th('main',m,w30Lbl(m)+(i===ms.length-1?' (so far)':''),true); }).join('')+'</tr></thead><tbody>'
     +parts.map(function(p){ return '<tr><td>'+p+'</td>'+ms.map(function(m){ return cell(p,m); }).join('')+'</tr>'; }).join('')
     +'<tr style="background:#f8fafc"><td style="font-weight:700">All parts shown</td>'+ms.map(tot).join('')+'</tr></tbody></table>';
 }
@@ -1605,10 +1612,15 @@ async function openW30(p,m){
   var box=document.getElementById('w30-list'); box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
-  W30.list=rows||[];
-  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within '+((W30.data&&W30.data.days)||30)+' days'+(function(){ var n=W30.list.filter(function(r){ return w30Flag(r); }).length; return n?' <span style="color:#b91c1c;font-weight:600">\u00b7 '+n+' possible duplicate'+(n>1?'s':'')+'</span>':''; })()+' <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
-   +'<div class="tbl-wrap"><table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr><th style="text-align:left">Reg No</th><th style="text-align:left">City</th><th style="text-align:left">Hub</th><th>Previous change</th><th>This change</th><th class="num">Days apart</th><th class="num">Km apart</th><th style="text-align:left">JC (prev → this)</th><th style="text-align:left">Check</th></tr></thead><tbody>'
-   +W30.list.map(function(r){ return '<tr><td>'+r.reg+'</td><td>'+(r.city||'')+'</td><td>'+(r.hub||'')+'</td><td>'+(r.prev_date||'')+'</td><td>'+(r.date||'')+'</td><td class="num">'+r.days+'</td><td class="num">'+(r.km==null?'–':Math.round(r.km).toLocaleString('en-IN'))+'</td><td>'+(r.prev_jc||'')+' → '+(r.jc||'')+'</td><td>'+w30Flag(r)+'</td></tr>'; }).join('')+'</tbody></table></div>';
+  W30.list=rows||[]; W30.listHead={p:p,m:m}; renderW30List();
+}
+function renderW30List(){ if(!W30.listHead||!W30.list) return;
+  var box=document.getElementById('w30-list'), p=W30.listHead.p, m=W30.listHead.m, so=W30S.list;
+  var lv=function(r){ return so.k==='reg'?r.reg:so.k==='city'?(r.city||''):so.k==='hub'?(r.hub||''):so.k==='prev'?(r.prev_date||''):so.k==='date'?(r.date||''):so.k==='km'?r.km:so.k==='flag'?(w30Flag(r)?1:0):r.days; };
+  var L=W30.list.slice().sort(function(a,b){ return w30Cmp(lv(a),lv(b),so.d); });
+  box.innerHTML='<div style="padding:10px 12px;font-weight:700;font-size:13px">'+p+' · '+w30Lbl(m)+' · '+W30.list.length+' replaced within '+((W30.data&&W30.data.days)||30)+' days'+(function(){ var n=W30.list.filter(function(r){ return w30Flag(r); }).length; return n?' <span style="color:#b91c1c;font-weight:600">\u00b7 '+n+' possible duplicate'+(n>1?'s':'')+'</span>':''; })()+' <a href="#" onclick="document.getElementById(\'w30-list\').innerHTML=\'\';W30.sel=null;W30.listHead=null;renderW30();return false" style="font-weight:400;font-size:12px;margin-left:8px">close</a></div>'
+   +'<div class="tbl-wrap"><table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr>'+w30Th('list','reg','Reg No',false)+w30Th('list','city','City',false)+w30Th('list','hub','Hub',false)+w30Th('list','prev','Previous change',false)+w30Th('list','date','This change',false)+w30Th('list','days','Days apart',true)+w30Th('list','km','Km apart',true)+'<th style="text-align:left">JC (prev → this)</th>'+w30Th('list','flag','Check',false)+'</tr></thead><tbody>'
+   +L.map(function(r){ return '<tr><td>'+r.reg+'</td><td>'+(r.city||'')+'</td><td>'+(r.hub||'')+'</td><td>'+(r.prev_date||'')+'</td><td>'+(r.date||'')+'</td><td class="num">'+r.days+'</td><td class="num">'+(r.km==null?'–':Math.round(r.km).toLocaleString('en-IN'))+'</td><td>'+(r.prev_jc||'')+' → '+(r.jc||'')+'</td><td>'+w30Flag(r)+'</td></tr>'; }).join('')+'</tbody></table></div>';
 }
 function exportW30CSV(){
   var D=W30.data||{}, ms=D.months||[], idx={}; (D.rows||[]).forEach(function(r){ idx[r.part+'|'+r.m]=r; });
@@ -1635,14 +1647,16 @@ async function loadW30By(){
 }
 function renderW30By(){
   var box=document.getElementById('w30b-body'); if(!box) return; var min=+document.getElementById('w30b-min').value, by=document.getElementById('w30b-by').value, nd=(W30.data&&W30.data.days)||w30Days();
-  var rows=(W30B.rows||[]).filter(function(r){ return r.with_prev>=min; });
+  var rows=(W30B.rows||[]).filter(function(r){ return r.with_prev>=min; }), so=W30S.by;
+  var bv=function(r){ return so.k==='name'?r.name:so.k==='hub'?(r.hub||''):so.k==='with_prev'?r.with_prev:so.k==='early'?r.early:(r.with_prev?r.early/r.with_prev:null); };
+  rows=rows.slice().sort(function(a,b){ return w30Cmp(bv(a),bv(b),so.d); });
   if(!rows.length){ box.innerHTML='<div class="empty-state" style="padding:16px">Nothing to show for this selection.</div>'; return; }
   var tA=0,tB=0; (W30B.rows||[]).forEach(function(r){ tA+=r.early; tB+=r.with_prev; }); var avg=tB?tA/tB*100:0;
-  box.innerHTML='<table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr><th style="text-align:left">'+(by==='tech'?'Technician':'Hub')+'</th>'+(by==='tech'?'<th style="text-align:left">Hub (previous change)</th>':'')+'<th class="num">Repeat replacements</th><th class="num">Within '+nd+' days</th><th class="num">% early</th><th class="num">vs average</th></tr></thead><tbody>'
+  box.innerHTML='<table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr>'+w30Th('by','name',by==='tech'?'Technician':'Hub',false)+(by==='tech'?w30Th('by','hub','Hub (previous change)',false):'')+w30Th('by','with_prev','Repeat replacements',true)+w30Th('by','early','Within '+nd+' days',true)+w30Th('by','pct','% early',true)+w30Th('by','pct','vs average',true)+'</tr></thead><tbody>'
     +rows.map(function(r){ var pc=r.with_prev?r.early/r.with_prev*100:0, bg=pc>=15?'#fde2e2':(pc>=8?'#fef3c7':''), d=pc-avg;
       return '<tr><td>'+r.name+'</td>'+(by==='tech'?'<td style="color:#64748b">'+(r.hub||'')+'</td>':'')+'<td class="num">'+r.with_prev+'</td><td class="num">'+r.early+'</td><td class="num" style="background:'+bg+';font-weight:700">'+pc.toFixed(1)+'%</td><td class="num" style="color:'+(d>0?'#b91c1c':'#15803d')+'">'+(d>0?'+':'\u2212')+Math.abs(d).toFixed(1)+' pp</td></tr>'; }).join('')
     +'<tr style="background:#f8fafc;font-weight:700"><td>All</td>'+(by==='tech'?'<td></td>':'')+'<td class="num">'+tB+'</td><td class="num">'+tA+'</td><td class="num">'+avg.toFixed(1)+'%</td><td></td></tr></tbody></table>'
-    +'<div style="padding:6px 12px 10px;font-size:11px;color:#64748b">Sorted by the number of early replacements. Technician = who did the <b>previous</b> change (the fix that didn\u2019t last). Follows the City, Deployed Year, days and Part filters above.</div>';
+    +'<div style="padding:6px 12px 10px;font-size:11px;color:#64748b">Click a column header to sort. Technician = who did the <b>previous</b> change (the fix that didn\u2019t last). Follows the City, Deployed Year, days and Part filters above.</div>';
 }
 </script>
 
