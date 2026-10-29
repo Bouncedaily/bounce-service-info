@@ -1449,8 +1449,20 @@ async function drawVendorBatches() {
     if (!res.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(res.error)}</span>`; ok.disabled = false; ok.textContent = 'Save return'; return; }
     VB.ret = null; drawVendorBatches();
   };
-  if (VB.open) drawVbForm();
+  if (VB.open) loadVbStock();
 }
+// 29 Oct 2026: stock at the RPDC per part (received from hubs - sent to the vendor), plus on the way from hubs
+async function loadVbStock() {
+  const cities = S.perms.approver ? [...new Set((S.hubs || []).map(h => h.city).filter(Boolean))] : [S.perms.vendorCity];
+  VB.city = VB.city && cities.includes(VB.city) ? VB.city : cities[0];
+  const key = RF.type + '|' + VB.city;
+  if (VB.stockKey !== key) {
+    const rows = await rpc('get_rpdc_stock', { p_type: RF.type, p_city: VB.city }) || [];
+    VB.stock = {}; rows.forEach(r => { VB.stock[r.part_name] = r; }); VB.stockKey = key;
+  }
+  drawVbForm();
+}
+function stockOf(p) { return (VB.stock || {})[p] || { available: 0, on_the_way: 0 }; }
 function drawVbForm() {
   const T = RF.type === 'Tyre', fb = $('#vb-form'); if (!fb) return;
   const cities = S.perms.approver ? [...new Set((S.hubs || []).map(h => h.city).filter(Boolean))] : [S.perms.vendorCity];
@@ -1463,7 +1475,7 @@ function drawVbForm() {
       <label class="fl">${T ? 'Inspection date' : 'Sent on'}<input type="date" id="vb-date" value="${VB.date || todayIST()}" max="${todayIST()}"></label></div>
     <div class="muted small" style="margin:8px 0 4px">${T ? 'Tyres the vendor inspected at the RPDC' : 'Parts sent to the vendor'}</div>
     ${VB.lines.map((l, i) => `<div class="vrow" data-vbl="${i}">
-      <label class="fl">${T ? 'Tyre' : 'Part'}<select data-k="part_name"><option value="">Choose</option>${parts.map(p => `<option ${l.part_name === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      <label class="fl">${T ? 'Tyre' : 'Part'}<select data-k="part_name"><option value="">Choose</option>${parts.map(p => `<option value="${esc(p)}" ${l.part_name === p ? 'selected' : ''}>${esc(p)} (${num(stockOf(p).available)} at RPDC)</option>`).join('')}</select>${l.part_name ? `<span class="hint">At RPDC: <b>${num(stockOf(l.part_name).available)}</b> available${stockOf(l.part_name).on_the_way ? ` · ${num(stockOf(l.part_name).on_the_way)} on the way from hubs` : ''}</span>` : ''}</label>
       <label class="fl">${T ? 'Inspected' : 'Quantity sent'}<input type="number" min="0" step="1" data-k="sent_qty" value="${l.sent_qty ?? ''}" style="width:90px"></label>
       ${T ? `<label class="fl">Accepted (CN)<input type="number" min="0" step="1" data-k="accepted_qty" value="${l.accepted_qty ?? ''}" style="width:80px"></label>
       <label class="fl">Rejected<input type="number" min="0" step="1" data-k="rejected_qty" value="${l.rejected_qty ?? ''}" style="width:80px"></label>
@@ -1483,7 +1495,8 @@ function drawVbForm() {
     if (T) { VB.cnno = $('#vb-cnno').value; VB.cnval = $('#vb-cnval').value; VB.cndate = $('#vb-cndate').value; }
     $$('[data-vbl]', fb).forEach(r => { const l = VB.lines[+r.dataset.vbl]; $$('[data-k]', r).forEach(i => { l[i.dataset.k] = i.dataset.k === 'part_name' ? i.value : (i.value === '' ? '' : Number(i.value)); }); });
   };
-  $('#vb-city').onchange = () => { keep(); VB.vendor = ''; drawVbForm(); };
+  $('#vb-city').onchange = () => { keep(); VB.vendor = ''; loadVbStock(); };
+  $$('[data-vbl] select[data-k="part_name"]', fb).forEach(sel => sel.onchange = () => { keep(); drawVbForm(); });
   $('#vb-addline').onclick = () => { keep(); VB.lines.push({}); drawVbForm(); };
   fb.onclick = e => { const d = e.target.closest('[data-vbdel]'); if (d) { keep(); VB.lines.splice(+d.dataset.vbdel, 1); drawVbForm(); } };
   $('#vb-save').onclick = async () => {
@@ -1498,6 +1511,8 @@ function drawVbForm() {
     });
     if (T && Number(VB.cnval) > 0 && !String(VB.cnno || '').trim()) probs.push('Enter the credit note number.');
     if (probs.length) { msg.innerHTML = `<span class="err">${[...new Set(probs)].map(esc).join(' ')}</span>`; return; }
+    const over = lines.filter(l => l.part_name && Number(l.sent_qty) > Number(stockOf(l.part_name).available));
+    if (over.length && !confirm(over.map(l => `${l.part_name}: ${l.sent_qty} entered, but only ${num(stockOf(l.part_name).available)} marked received at the RPDC${stockOf(l.part_name).on_the_way ? ` (${num(stockOf(l.part_name).on_the_way)} still on the way from hubs)` : ''}.`).join('\n') + '\n\nSave anyway?')) return;
     const btn = $('#vb-save'); btn.disabled = true; btn.textContent = 'Saving…';
     let docUrl = null; const file = T && $('#vb-cndoc').files[0];
     if (file) { docUrl = await uploadFile(file); if (!docUrl) { msg.innerHTML = '<span class="err">Document upload failed. Nothing was saved; try again.</span>'; btn.disabled = false; btn.textContent = 'Save inspection'; return; } }
@@ -1505,7 +1520,7 @@ function drawVbForm() {
       cn_number: T ? (VB.cnno || null) : null, cn_value: T && VB.cnval !== '' ? Number(VB.cnval) : null, cn_date: T ? (VB.cndate || null) : null, cn_document_url: docUrl,
       lines: lines.map(l => ({ part_name: l.part_name, sent_qty: Number(l.sent_qty) || 0, accepted_qty: Number(l.accepted_qty) || 0, rejected_qty: Number(l.rejected_qty) || 0, returned_qty: Number(l.returned_qty) || 0 })) } });
     if (!r.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(r.error)}</span>`; btn.disabled = false; btn.textContent = T ? 'Save inspection' : 'Save: sent to vendor'; return; }
-    VB.open = false; VB.lines = []; VB.vendor = ''; VB.cnno = ''; VB.cnval = ''; VB.cndate = ''; VB.notes = '';
+    VB.open = false; VB.lines = []; VB.vendor = ''; VB.cnno = ''; VB.cnval = ''; VB.cndate = ''; VB.notes = ''; VB.stockKey = null;
     drawVendorBatches();
   };
 }
