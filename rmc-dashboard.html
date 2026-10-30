@@ -1062,12 +1062,29 @@ function viewSettings(){
 function viewEmpty(){ return '<div class="empty">'+(state.loading?'Loading RMC data…':esc(state.msg||'No data'))+'</div>'; }
 function render(){
   if(state.tab==='hubs') state.tab='overview';
-  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['dist','Replacement km','sort'],['settings','Rules & settings','adjust']];
-  var body=!has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
+  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['dist','Replacement km','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
+  var emb=EMBEDS[state.tab]; if(emb && !canSeeEmbed(state.tab)){ state.tab='overview'; emb=null; }
+  var body=emb ? '' : !has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
   root.innerHTML='<div class="hd"><div><h1>RMC Dashboard</h1><p>Wear &amp; Tear (A), Rider-payable (P), Cost to company (C) from the DMS billing export · Net service cost with monthly inputs</p></div><div class="grp"><span class="status" id="svc-status">'+esc(state.msg)+'</span>'
     +'<button class="btn ghost" data-a="reload">'+ic('sort')+' Refresh</button></div></div>'
-    +(has?filterBar():'')+'<div class="tabs">'+tabs.map(function(t){return '<div class="tab'+(state.tab===t[0]?' on':'')+'" data-a="tab" data-v="'+t[0]+'">'+ic(t[2])+t[1]+'</div>';}).join('')+'</div><div class="main">'+body+'</div>'
+    +(has&&!emb?filterBar():'')+'<div class="tabs">'+tabs.map(function(t){return '<div class="tab'+(state.tab===t[0]?' on':'')+'" data-a="tab" data-v="'+t[0]+'">'+ic(t[2])+t[1]+'</div>';}).join('')+'</div><div class="main"'+(emb?' style="display:none"':'')+'>'+body+'</div>'
     +'<input type="file" id="f_jc" accept=".xlsx,.xls,.csv" style="display:none"><input type="file" id="f_st" accept=".xlsx,.xls,.csv" style="display:none">';
+  try{ syncEmbeds(); }catch(e){}
+}
+// Wear & Tear and Fleet KM Analysis shown as tabs inside RMC (30 Oct 2026). Each loads once in its own frame,
+// kept outside the redrawn area so filter changes here don't reload it; tab shown only with that page's permission.
+var EMBEDS={wt:{label:'Wear & Tear', file:'tyre-analysis.html', perm:'wear_tear'}, fkm:{label:'Fleet KM Analysis', file:'fleet-km.html', perm:'fleet_km'}};
+function embSess(){ try{ return JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); }catch(e){ return {}; } }
+function canSeeEmbed(k){ var s=embSess(), e=EMBEDS[k]; if(!e) return false; if(s.role==='admin') return true; if(!s.permissions) return true; return !!s.permissions[e.perm]; }
+function embedTabs(){ return Object.keys(EMBEDS).filter(canSeeEmbed).map(function(k){ return [k, EMBEDS[k].label, 'chart']; }); }
+function syncEmbeds(){
+  Object.keys(EMBEDS).forEach(function(k){
+    var id='rmc-embed-'+k, box=document.getElementById(id), on=state.tab===k;
+    if(!box && on){ box=document.createElement('div'); box.id=id; box.style.cssText='padding:0 0 10px';
+      box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:calc(100vh - 150px);min-height:680px;border:0;display:block;background:transparent"></iframe>';
+      root.parentNode.insertBefore(box, root.nextSibling); box.querySelector('iframe').src=EMBEDS[k].file+'?embed=1'; }
+    if(box) box.style.display=on?'':'none';
+  });
 }
 function toggle(arr,v){ var i=arr.indexOf(v); if(i>=0) arr.splice(i,1); else arr.push(v); }
 function csv(){
