@@ -349,6 +349,9 @@ const SB = 'https://fuslpeyhpmofzijrotkb.supabase.co';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
 const BASELINE = '2026-08-31';          // all hub scrap cleared on this day
 const VARIANCE = 0.10;                  // a reason is needed when off by more than 10%
+// Alert points from the Bounce Back SOP (30 Oct 2026): red when waiting longer than these days
+const SLA = { rpdcReceive: 1, atVendor: 10, cnPending: 20, unpaid: 3 };
+const redDays = (d, lim) => d >= lim ? `<span class="err" style="font-weight:700">${d} day${d === 1 ? '' : 's'}</span>` : `${d} day${d === 1 ? '' : 's'}`;
 // 29 Oct 2026: clearer reasons; 'Other' needs a real remark
 const REASONS = ['Broken', 'Backlog', 'Kept for next pickup', 'Wrong weight in system', 'Mixed with another category', 'Sent to refurb', 'Sent to RPDC', 'Other'];
 const RLABEL = { 'Backlog': 'Backlog from earlier' };
@@ -612,7 +615,7 @@ async function loadOverview() {
     const first = rows.reduce((a, b) => (a.pickup_date < b.pickup_date ? a : b));
     actions.push({ pri: 2, hub, city: first.city, pill: '<span class="pill amber">Payment not confirmed</span>',
       detail: batches.size === 1 ? `${inr(amt)} sold on ${dshort(first.pickup_date)}, no amount received yet` : `${inr(amt)} across ${batches.size} pickups, no amount received yet`,
-      since: `${oldest} day${oldest === 1 ? '' : 's'}`,
+      since: redDays(oldest, SLA.unpaid),
       act: `<button class="btn link" type="button" data-go="approvals">${S.perms.paid ? 'Mark paid' : 'View'}</button>` });
     const noVendor = [...batches.values()].filter(b => !b[0].vendor_id);
     if (noVendor.length) {
@@ -628,7 +631,7 @@ async function loadOverview() {
     const n = groupBy(rows, r => r.batch_id || r.id).size;
     actions.push({ pri: 4, hub, city: rows[0].city, pill: '<span class="pill blue">Not acknowledged</span>',
       detail: `${n} refurb/tyre movement${n === 1 ? '' : 's'} (${num(sum(rows, r => r.qty))} nos) waiting for RPDC to confirm receipt`,
-      since: (() => { const d = Math.max(...rows.map(r => r.age_days || 0)); return d > 7 ? `<span class="err" style="font-weight:700">${d} days</span>` : `${d} days`; })(),
+      since: redDays(Math.max(...rows.map(r => r.age_days || 0)), SLA.rpdcReceive),
       act: `<button class="btn link" type="button" data-go="approvals">${S.perms.approver ? 'Acknowledge' : (S.perms.rpdcCity && rows[0].city === S.perms.rpdcCity ? 'Mark received' : 'View')}</button>` });
   }
   if (countedLeft > 0) {
@@ -1236,7 +1239,7 @@ async function loadApprovals() {
   el.innerHTML = `<div class="kpis" id="ap-kpis"></div>
     <div class="card"><div class="card-hd"><h2>Confirm money received</h2><span class="note">${S.perms.paid ? 'Oldest first. Confirming records the amount, date and invoice, and counts as Finance approval.' : 'Only Finance can mark a sale paid. Oldest first.'}</span></div>
       <div class="scroll"><table style="min-width:900px"><thead><tr><th>Pickup</th><th>Hub</th><th>Vendor</th><th>What</th><th class="num">Sale value</th><th class="num">Waiting</th><th class="num"></th></tr></thead><tbody id="ap-money">${skelRows(7, 5)}</tbody></table></div></div>
-    <div class="card"><div class="card-hd"><h2>Refurb &amp; tyre movements</h2><span class="note">No money involved. The RPDC marks what arrived${S.perms.rpdcCity ? ` (you receive for ${esc(S.perms.rpdcCity)} hubs)` : ''}. Over 7 days waiting is shown in red.</span></div>
+    <div class="card"><div class="card-hd"><h2>Refurb &amp; tyre movements</h2><span class="note">No money involved. The RPDC marks what arrived${S.perms.rpdcCity ? ` (you receive for ${esc(S.perms.rpdcCity)} hubs)` : ''}. Not received the same day is shown in red (target: same day, escalate to Senthil).</span></div>
       <div class="scroll"><table style="min-width:720px"><thead><tr><th>Sent</th><th>From</th><th>Type</th><th>What</th><th class="num">Waiting</th><th class="num"></th></tr></thead><tbody id="ap-xfer">${skelRows(6, 3)}</tbody></table></div></div>
     <div class="card"><div class="card-hd"><h2>Recently confirmed</h2><span class="note">Payments marked received, newest first.</span></div>
       <div class="scroll"><table style="min-width:760px"><thead><tr><th>Received</th><th>Hub</th><th>Vendor</th><th>Invoice</th><th class="num">Sale value</th><th class="num">Received</th></tr></thead><tbody id="ap-paid">${skelRows(6, 3)}</tbody></table></div></div>`;
@@ -1254,11 +1257,11 @@ async function loadApprovals() {
   $('#ap-kpis').innerHTML = `
     <div class="kpi"><div class="kpi-val">${num(money.length)} sale${money.length === 1 ? '' : 's'}</div><div class="kpi-lbl">Waiting for payment</div><div class="kpi-sub">${oldest ? `Oldest ${oldest[0].age_days} days (${esc(hubLabel(oldest[0].hub_name))}, ${dshort(oldest[0].pickup_date)})` : 'Nothing waiting'}</div></div>
     <div class="kpi ${totalOpen > 0 ? 'watch' : ''}"><div class="kpi-val">${inr(totalOpen)}</div><div class="kpi-lbl">Sold, not confirmed received</div><div class="kpi-sub">All open sales${f.city || f.hub ? ' in this filter' : ''}, any date</div></div>
-    <div class="kpi"><div class="kpi-val">${num(transfers.length)}</div><div class="kpi-lbl">Refurb &amp; tyre movements</div><div class="kpi-sub">Waiting for the RPDC${(() => { const o = transfers.filter(t => t[0].age_days > 7).length; return o ? ` · <span class="err" style="font-weight:700">${o} over 7 days</span>` : ''; })()}</div></div>`;
+    <div class="kpi"><div class="kpi-val">${num(transfers.length)}</div><div class="kpi-lbl">Refurb &amp; tyre movements</div><div class="kpi-sub">Waiting for the RPDC${(() => { const o = transfers.filter(t => t[0].age_days >= SLA.rpdcReceive).length; return o ? ` · <span class="err" style="font-weight:700">${o} not received same day</span>` : ''; })()}</div></div>`;
   S.apMoney = money; S.apXfer = transfers;
   drawMoney();
   $('#ap-xfer').innerHTML = transfers.length ? transfers.map((b, i) => `<tr><td>${dshort(b[0].pickup_date)}</td><td>${hubCell(b[0].hub_name, b[0].city)}</td><td>${esc(b[0].movement_type)}</td>
-      <td style="max-width:380px">${b.map(x => `${esc(x.item)} ${num(x.qty)}`).join(', ')}</td><td class="num">${b[0].age_days > 7 ? `<span class="err" style="font-weight:700">${b[0].age_days} d</span>` : `${b[0].age_days} d`}</td>
+      <td style="max-width:380px">${b.map(x => `${esc(x.item)} ${num(x.qty)}`).join(', ')}</td><td class="num">${b[0].age_days >= SLA.rpdcReceive ? `<span class="err" style="font-weight:700">${b[0].age_days} d</span>` : `${b[0].age_days} d`}</td>
       <td class="num">${(S.perms.approver || (S.perms.rpdcCity && b[0].city === S.perms.rpdcCity)) ? `<button class="btn go" type="button" data-ack="${i}">Mark received</button>` : ''}</td></tr>
       <tr data-recv-row="${i}" hidden><td colspan="6" style="background:var(--bg2,#f8fafc)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
         ${b.map(x => `<label class="fl" style="min-width:150px">${esc(x.item)} <span class="muted">(sent ${num(x.qty)})</span><input type="number" min="0" step="1" data-rq="${x.id}" value="${x.qty}" style="width:90px"></label>`).join('')}
@@ -1325,7 +1328,7 @@ function drawMoney() {
     const vendorCell = vn ? esc(vn) : (S.perms.power
       ? `<span class="pill indigo">No vendor</span><div style="display:flex;gap:6px;margin-top:6px"><select data-vsel="${i}" style="max-width:160px"><option value="">Set vendor…</option>${vendors.filter(v => !v.city || !r.city || v.city === r.city).map(v => `<option value="${v.id}">${esc(v.vendor_name)}</option>`).join('')}</select><button class="btn" type="button" data-vsave="${i}">Save</button></div>`
       : '<span class="pill indigo">No vendor</span>');
-    const ageCls = r.age_days > 21 ? 'err' : r.age_days > 7 ? 'warn' : 'muted';
+    const ageCls = r.age_days >= SLA.unpaid ? 'err' : r.age_days >= 1 ? 'warn' : 'muted';
     let html = `<tr class="${open ? 'open' : ''}"><td>${dshort(r.pickup_date)}</td><td>${hubCell(r.hub_name, r.city)}</td><td>${vendorCell}</td>
       <td style="max-width:280px">${b.map(x => `${esc(x.category)} ${num(x.qty)} ${esc(catInfo(x.category).unit || '')}`).join(', ')}</td><td class="num"><b>${inr(val)}</b></td>
       <td class="num ${ageCls}" style="font-weight:700">${r.age_days} d</td>
@@ -1404,13 +1407,13 @@ async function drawVendorBatches() {
     if (b.vendor_status === 'Returned') return `<span class="pill green">Returned ${dshort(b.return_date)}</span>`;
     const days = Math.max(0, Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000));
     const part = b.vendor_status === 'Partly returned' ? `Partly returned ${dshort(b.return_date)} · ` : '';
-    return `<span class="pill ${days > 30 ? 'red' : 'amber'}">${part}At vendor · ${days} d</span>`;
+    return `<span class="pill ${days >= SLA.atVendor ? 'red' : 'amber'}">${part}At vendor · ${days} d</span>`;
   };
   const body = rows.length ? rows.map((b, i) => T
     ? `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
         <td style="max-width:280px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
         <td class="num">${num(b.verified_qty)}</td><td class="num ok">${num(b.approved_qty)}</td><td class="num err">${num(b.rejected_qty)}</td><td class="num">${num(b.received_at_rpdc_qty)}</td>
-        <td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : `<span class="pill amber">CN pending · ${Math.max(0, Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000))} d</span>${vbCanAdd(b.city) ? ` <button class="btn" type="button" data-cnadd="${i}">Add credit note</button>` : ''}`}</td>
+        <td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : `<span class="pill ${Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000) >= SLA.cnPending ? 'red' : 'amber'}">CN pending · ${Math.max(0, Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000))} d</span>${vbCanAdd(b.city) ? ` <button class="btn" type="button" data-cnadd="${i}">Add credit note</button>` : ''}`}</td>
         <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>
        ${!b.cn_number && vbCanAdd(b.city) ? `<tr data-cnrow="${i}" hidden><td colspan="10" style="background:var(--bg2,#f8fafc)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
         <label class="fl">Credit note number<input data-cnno style="width:150px"></label>
