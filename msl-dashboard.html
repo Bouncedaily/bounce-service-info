@@ -1541,20 +1541,56 @@ function mslKpiHtml() {
     + card('out', 'Stock-outs', mkN(outs.length), `hub-parts at 0 stock · <b>${mkN(fastOut.length)} fast-moving</b>`, 'red', true)
     + '</div>';
 }
-function mslKpiPopup(title, head, rows) {
+// Detail pop-up: search, a dropdown filter per chosen column, sort by header, CSV download
+let MK_POP = null;
+function mslKpiPopup(title, head, rows, filterCols, numCols) {
+  MK_POP = { title, head, rows, filterCols: filterCols || [], numCols: numCols || [], q: '', f: {}, sk: -1, sd: 1 };
   let m = document.getElementById('mkModal');
   if (!m) { m = document.createElement('div'); m.id = 'mkModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center'; m.addEventListener('click', e => { if (e.target === m || e.target.dataset.close) m.remove(); }); document.body.appendChild(m); }
-  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  m.innerHTML = `<div style="background:#fff;border-radius:12px;width:min(900px,96vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb"><b style="font-size:14px">${esc(title)}</b><button data-close="1" style="margin-left:auto;border:0;background:none;font-size:20px;cursor:pointer">×</button></div><div style="overflow:auto;padding:4px 8px 12px"><table style="border-collapse:collapse;font-size:12px;width:auto"><thead><tr>${head.map(h => `<th style="text-align:left;padding:6px 12px;border-bottom:1px solid #e5e7eb;position:sticky;top:0;background:#fff">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td style="padding:5px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap">${esc(c)}</td>`).join('')}</tr>`).join('') || `<tr><td style="padding:12px">Nothing to show.</td></tr>`}</tbody></table></div></div>`;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const sel = ci => { const vals = [...new Set(rows.map(r => String(r[ci] ?? '')))].filter(v => v !== '').sort((a, b) => a.localeCompare(b));
+    return `<label style="display:flex;flex-direction:column;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;gap:2px">${esc(head[ci])}<select data-mkf="${ci}" style="font:inherit;font-size:12px;font-weight:500;text-transform:none;color:#111827;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;min-width:120px"><option value="">All</option>${vals.map(v => `<option>${esc(v)}</option>`).join('')}</select></label>`; };
+  m.innerHTML = `<div style="background:#fff;border-radius:12px;width:min(1100px,97vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb;gap:10px"><b style="font-size:14px" id="mkTitle"></b>
+      <button id="mkCsv" style="margin-left:auto;border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">⬇ Download CSV</button>
+      <button data-close="1" style="border:0;background:none;font-size:20px;cursor:pointer">×</button></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:10px 16px;border-bottom:1px solid #f1f5f9">
+      <label style="display:flex;flex-direction:column;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;gap:2px">Search<input id="mkQ" type="search" placeholder="Type to search any column…" style="font:inherit;font-size:12px;text-transform:none;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;width:240px"></label>
+      ${MK_POP.filterCols.map(sel).join('')}
+      <button id="mkClear" style="border:0;background:none;color:#e11d48;font-size:12px;cursor:pointer;padding-bottom:6px">Clear</button></div>
+    <div style="overflow:auto;padding:4px 8px 12px" id="mkBody"></div></div>`;
+  m.querySelector('#mkQ').addEventListener('input', e => { MK_POP.q = e.target.value.trim().toLowerCase(); mkRender(); });
+  m.querySelectorAll('[data-mkf]').forEach(el => el.addEventListener('change', e => { MK_POP.f[e.target.dataset.mkf] = e.target.value; mkRender(); }));
+  m.querySelector('#mkClear').addEventListener('click', () => { MK_POP.q = ''; MK_POP.f = {}; m.querySelector('#mkQ').value = ''; m.querySelectorAll('[data-mkf]').forEach(el => el.value = ''); mkRender(); });
+  m.querySelector('#mkCsv').addEventListener('click', mkCsv);
+  mkRender();
 }
+function mkFiltered() { const P = MK_POP;
+  let L = P.rows.filter(r => Object.keys(P.f).every(ci => !P.f[ci] || String(r[ci] ?? '') === P.f[ci]) && (!P.q || r.some(c => String(c ?? '').toLowerCase().includes(P.q))));
+  if (P.sk >= 0) { const num = P.numCols.includes(P.sk); L = L.slice().sort((a, b) => { const x = a[P.sk], y = b[P.sk]; const r = num ? ((+x || 0) - (+y || 0)) : String(x ?? '').localeCompare(String(y ?? '')); return r * P.sd; }); }
+  return L; }
+function mkRender() { const P = MK_POP, m = document.getElementById('mkModal'); if (!P || !m) return;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const L = mkFiltered();
+  m.querySelector('#mkTitle').textContent = `${P.title} · showing ${L.length.toLocaleString('en-IN')} of ${P.rows.length.toLocaleString('en-IN')}`;
+  const th = (h, i) => `<th data-mks="${i}" style="text-align:${P.numCols.includes(i) ? 'right' : 'left'};padding:6px 12px;border-bottom:1px solid #e5e7eb;position:sticky;top:0;background:#fff;cursor:pointer;user-select:none;white-space:nowrap" title="Click to sort">${esc(h)}${P.sk === i ? (P.sd > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  m.querySelector('#mkBody').innerHTML = `<table style="border-collapse:collapse;font-size:12px;width:auto"><thead><tr>${P.head.map(th).join('')}</tr></thead><tbody>${L.map(r => `<tr>${r.map((c, i) => `<td style="padding:5px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap;text-align:${P.numCols.includes(i) ? 'right' : 'left'}">${esc(c)}</td>`).join('')}</tr>`).join('') || `<tr><td style="padding:12px" colspan="${P.head.length}">Nothing matches.</td></tr>`}</tbody></table>`;
+  m.querySelectorAll('[data-mks]').forEach(el => el.addEventListener('click', () => { const i = +el.dataset.mks; if (P.sk === i) P.sd = -P.sd; else { P.sk = i; P.sd = P.numCols.includes(i) ? -1 : 1; } mkRender(); }));
+}
+function mkCsv() { const P = MK_POP; if (!P) return; const q = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const lines = [P.head.map(q).join(',')].concat(mkFiltered().map(r => r.map(q).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+  a.download = P.title.replace(/[^A-Za-z0-9]+/g, '_').replace(/_+$/, '') + '.csv'; a.click(); }
 document.addEventListener('click', e => {
   const c = e.target.closest('[data-mk]'); if (!c) return; const k = c.dataset.mk, K = MSL_KPI;
-  const hubRows = list => list.map(h => [h.hub, h.lines, h.ok, h.lines - h.ok, h.out, h.pct.toFixed(1) + '%']);
-  const hh = ['Hub', 'Parts with MSL', 'At MSL', 'Below MSL', 'At 0 stock', 'Fulfilment'];
-  if (k === 'ful') mslKpiPopup(`MSL fulfilled hubs (${K.ful.length})`, hh, hubRows(K.ful));
-  else if (k === 'notful' || k === 'low') mslKpiPopup(`MSL not fulfilled hubs (${K.H.length - K.ful.length}), lowest first`, hh, hubRows(K.H.filter(h => h.ok < h.lines)));
-  else if (k === 'out') mslKpiPopup(`Stock-outs (${K.outs.length}), fast-moving first`, ['Hub', 'Part', 'Part no.', 'FMS', 'MSL', 'Stock'],
-    K.outs.slice().sort((a, b) => (((fsnOf(b) || {}).fsn === 'Fast') - ((fsnOf(a) || {}).fsn === 'Fast')) || String(a.hub_name).localeCompare(b.hub_name)).map(r => [r.hub_name, r.part_name, r.part_number, (fsnOf(r) || {}).fsn || '—', r.msl_qty, r.closing_stock]));
+  const hubRows = list => list.map(h => [mtCity(h.hub), h.hub, h.lines, h.ok, h.lines - h.ok, h.out, +h.pct.toFixed(1)]);
+  const hh = ['City', 'Hub', 'Parts with MSL', 'At MSL', 'Below MSL', 'At 0 stock', 'Fulfilment %'];
+  if (k === 'ful') mslKpiPopup('MSL fulfilled hubs', hh, hubRows(K.ful), [0], [2, 3, 4, 5, 6]);
+  else if (k === 'notful' || k === 'low') mslKpiPopup('MSL not fulfilled hubs (lowest first)', hh, hubRows(K.H.filter(h => h.ok < h.lines)), [0], [2, 3, 4, 5, 6]);
+  else if (k === 'out') mslKpiPopup('Stock-outs (fast-moving first)', ['City', 'Hub', 'Part', 'Part no.', 'Category', 'FMS', 'MSL', 'Stock'],
+    K.outs.slice().sort((a, b) => (((fsnOf(b) || {}).fsn === 'Fast') - ((fsnOf(a) || {}).fsn === 'Fast')) || String(a.hub_name).localeCompare(b.hub_name))
+      .map(r => [mtCity(r.hub_name), r.hub_name, r.part_name, r.part_number, mtCat(r), (fsnOf(r) || {}).fsn || 'Not in FMS list', +r.msl_qty || 0, +r.closing_stock || 0]),
+    [0, 1, 4, 5], [6, 7]);
 });
 
 // ─── Transfer plan pop-up: one row per transfer, grouped by part ─────
