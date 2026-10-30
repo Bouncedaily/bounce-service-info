@@ -1077,11 +1077,13 @@ var EMBEDS={wt:{label:'Wear & Tear', file:'tyre-analysis.html', perm:'wear_tear'
 function embSess(){ try{ return JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); }catch(e){ return {}; } }
 function canSeeEmbed(k){ var s=embSess(), e=EMBEDS[k]; if(!e) return false; if(s.role==='admin') return true; if(!s.permissions) return true; return !!s.permissions[e.perm]; }
 function embedTabs(){ return Object.keys(EMBEDS).filter(canSeeEmbed).map(function(k){ return [k, EMBEDS[k].label, 'chart']; }); }
+function embH(){ var h=0; try{ h=window.top.innerHeight; }catch(e){ h=window.innerHeight; } return Math.max(680, (h||800)-110); }
 function syncEmbeds(){
+  var anyOn=!!EMBEDS[state.tab]; root.style.minHeight=anyOn?'0':'';   // the RMC area is min 100vh: release it so the frame shows right under the tabs
   Object.keys(EMBEDS).forEach(function(k){
     var id='rmc-embed-'+k, box=document.getElementById(id), on=state.tab===k;
     if(!box && on){ box=document.createElement('div'); box.id=id; box.style.cssText='padding:0 0 10px';
-      box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:calc(100vh - 150px);min-height:680px;border:0;display:block;background:transparent"></iframe>';
+      box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:'+embH()+'px;border:0;display:block;background:#f6f7fb"></iframe>';
       root.parentNode.insertBefore(box, root.nextSibling); box.querySelector('iframe').src=EMBEDS[k].file+'?embed=1'; }
     if(box) box.style.display=on?'':'none';
   });
