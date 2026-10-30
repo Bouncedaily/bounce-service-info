@@ -562,11 +562,12 @@ async function loadOverview() {
       <button class="btn" type="button" id="ov-csv"><i class="ti ti-download"></i>Export CSV</button></div>
       <div class="scroll"><table style="min-width:860px"><thead><tr><th>Hub</th><th>Outstanding vs threshold</th><th class="num">Generated</th><th class="num">Picked up</th><th class="num" title="At each pickup since 31 Aug: expected (job cards) minus picked up, per category, when the vendor took less">Missing since 31 Aug</th><th>Last pickup</th><th class="num">Payment</th></tr></thead><tbody id="ov-hubs">${skelRows(6, 6)}</tbody></table></div></div>`;
 
-  const [ov, trig, queue, transfers, pcheck] = await Promise.all([
+  const [ov, trig, queue, transfers, pcheck, lastPick] = await Promise.all([
     cached('ov|' + fkey(), () => rpc('get_scrap_overview', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
     cached('trig|' + f.city + '|' + f.hub, () => rpc('get_hub_scrap_trigger_status', { p_city: f.city, p_hub: f.hub })),
     loadQueue(), loadTransfers(),
-    cached('pc|' + fkey(), () => rpc('get_scrap_pickup_check', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub }))
+    cached('pc|' + fkey(), () => rpc('get_scrap_pickup_check', { p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub })),
+    cached('lastpick', () => sbGet('scrap_sales?select=hub_name,city,pickup_date&movement_type=eq.Scrap&status=neq.Cancelled&order=pickup_date.desc'))
   ]);
   if (S.tab !== 'overview') return;
   const o = ov || { hubs: [], counted: [] };
@@ -633,6 +634,23 @@ async function loadOverview() {
       detail: `${n} refurb/tyre movement${n === 1 ? '' : 's'} (${num(sum(rows, r => r.qty))} nos) waiting for RPDC to confirm receipt`,
       since: redDays(Math.max(...rows.map(r => r.age_days || 0)), SLA.rpdcReceive),
       act: `<button class="btn link" type="button" data-go="approvals">${S.perms.approver ? 'Acknowledge' : (S.perms.rpdcCity && rows[0].city === S.perms.rpdcCity ? 'Mark received' : 'View')}</button>` });
+  }
+  // 30 Oct 2026 (SOP): every main hub needs a scrap pickup at least every 21 days. Bangalore and NCR only for now;
+  // sub-hubs, pilots and railway stations are skipped; hubs with no pickup are counted from the 31 Aug clean-out.
+  {
+    const PICKUP_GAP = 21, BASELINE = '2026-08-31', today = todayIST();
+    const last = {}; (lastPick || []).forEach(r => { if (!last[r.hub_name] || r.pickup_date > last[r.hub_name]) last[r.hub_name] = r.pickup_date; });
+    const mainHubs = (S.hubs || []).filter(h => ['Bangalore', 'NCR'].includes(h.city) && !/hub -|pilot|railway|team|famcare|flipkart/i.test(h.hub_name || h.name || '')
+      && (!f.city || h.city === f.city) && (!f.hub || (h.hub_name || h.name) === f.hub));
+    for (const h of mainHubs) {
+      const name = h.hub_name || h.name, lp = last[name];
+      const days = Math.round((new Date(today) - new Date(lp || BASELINE)) / 86400000);
+      if (days < PICKUP_GAP) continue;
+      actions.push({ pri: 2, hub: name, city: h.city, pill: '<span class="pill red">No scrap pickup</span>',
+        detail: lp ? `No scrap pickup for ${days} days (last: ${dshort(lp)}). Target: at least every ${PICKUP_GAP} days.` : `No scrap pickup logged since the 31 Aug clean-out. Target: at least every ${PICKUP_GAP} days.`,
+        since: redDays(days, PICKUP_GAP),
+        act: canLog ? `<button class="btn link" type="button" data-go="log">Log pickup</button>` : '' });
+    }
   }
   if (countedLeft > 0) {
     const parts = (o.counted || []).filter(c => c.generated - c.picked > 0).map(c => `${esc(c.category)} ${num(c.generated - c.picked)}`).join(' · ');
