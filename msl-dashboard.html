@@ -1539,13 +1539,7 @@ function mslKpiHtml() {
     + card('pct', 'MSL fulfilment', all ? (okL / all * 100).toFixed(1) + '%' : '—', `${mkN(okL)} of ${mkN(all)} hub-parts at MSL`, '', false)
     + card('low', 'Lowest hub', low ? low.hub : '—', low ? low.pct.toFixed(1) + '% of parts at MSL' : '', 'red', true)
     + card('out', 'Stock-outs', mkN(outs.length), `hub-parts at 0 stock · <b>${mkN(fastOut.length)} fast-moving</b>`, 'red', true)
-    + card('tr', 'Transfer opportunities', '…', 'working out…', '', true)
     + '</div>';
-}
-function mslKpiTransfer() {
-  const v = document.getElementById('mk-tr'), sEl = document.getElementById('mk-tr-s'); if (!v) return;
-  const parts = new Set(TRANSFER_PLAN.map(t => t.part)), units = TRANSFER_PLAN.reduce((s, t) => s + (t.qty || 0), 0);
-  v.textContent = mkN(parts.size); sEl.innerHTML = parts.size ? `parts · ${mkN(TRANSFER_PLAN.length)} transfers · ${mkN(units)} units` : 'none: no hub has extra of a short part';
 }
 function mslKpiPopup(title, head, rows) {
   let m = document.getElementById('mkModal');
@@ -1561,7 +1555,6 @@ document.addEventListener('click', e => {
   else if (k === 'notful' || k === 'low') mslKpiPopup(`MSL not fulfilled hubs (${K.H.length - K.ful.length}), lowest first`, hh, hubRows(K.H.filter(h => h.ok < h.lines)));
   else if (k === 'out') mslKpiPopup(`Stock-outs (${K.outs.length}), fast-moving first`, ['Hub', 'Part', 'Part no.', 'FMS', 'MSL', 'Stock'],
     K.outs.slice().sort((a, b) => (((fsnOf(b) || {}).fsn === 'Fast') - ((fsnOf(a) || {}).fsn === 'Fast')) || String(a.hub_name).localeCompare(b.hub_name)).map(r => [r.hub_name, r.part_name, r.part_number, (fsnOf(r) || {}).fsn || '—', r.msl_qty, r.closing_stock]));
-  else if (k === 'tr' && TRANSFER_PLAN.length) openTransferPlan();
 });
 
 // ─── Transfer plan pop-up: one row per transfer, grouped by part ─────
@@ -1733,7 +1726,6 @@ async function renderInsights() {
       }
     });
   });
-  try { mslKpiTransfer(); } catch (e) {}
   if (TRANSFER_PLAN.length) {
     const parts = {}; TRANSFER_PLAN.forEach(t => { (parts[t.part] = parts[t.part] || new Set()).add(t.to); });
     const nParts = Object.keys(parts).length, units = TRANSFER_PLAN.reduce((s, t) => s + t.qty, 0);
