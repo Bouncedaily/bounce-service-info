@@ -1410,8 +1410,14 @@ async function drawVendorBatches() {
     ? `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
         <td style="max-width:280px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
         <td class="num">${num(b.verified_qty)}</td><td class="num ok">${num(b.approved_qty)}</td><td class="num err">${num(b.rejected_qty)}</td><td class="num">${num(b.received_at_rpdc_qty)}</td>
-        <td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : '<span class="pill amber">CN pending</span>'}</td>
-        <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>`
+        <td>${b.cn_number ? `<b>${esc(b.cn_number)}</b> · ${inr(b.cn_value || 0)}${b.cn_document_url ? ` · <a href="${esc(b.cn_document_url)}" target="_blank" rel="noopener">View</a>` : ''}` : `<span class="pill amber">CN pending · ${Math.max(0, Math.round((Date.now() - new Date(b.batch_date).getTime()) / 86400000))} d</span>${vbCanAdd(b.city) ? ` <button class="btn" type="button" data-cnadd="${i}">Add credit note</button>` : ''}`}</td>
+        <td class="muted small">${esc((b.created_by || '').split('@')[0])}</td></tr>
+       ${!b.cn_number && vbCanAdd(b.city) ? `<tr data-cnrow="${i}" hidden><td colspan="10" style="background:var(--bg2,#f8fafc)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <label class="fl">Credit note number<input data-cnno style="width:150px"></label>
+        <label class="fl">Value (₹)<input type="number" min="0" step="1" data-cnval style="width:120px"></label>
+        <label class="fl">CN date<input type="date" data-cndate value="${todayIST()}" max="${todayIST()}"></label>
+        <label class="fl">CN document<input type="file" data-cndoc accept="image/*,application/pdf" style="max-width:190px"></label>
+        <button class="btn go" type="button" data-cnok="${i}">Save credit note</button><span class="small" data-cnmsg></span></div></td></tr>` : ''}`
     : `<tr><td>${dshort(b.batch_date)}</td><td>${esc(b.city || '')}</td><td>${esc(vname(b.vendor_id))}</td>
         <td style="max-width:280px">${(b.vendor_batch_lines || []).map(l => `${esc(l.part_name)} ${num(l.sent_qty)}`).join(', ')}</td>
         <td class="num">${num(b.verified_qty)}</td><td class="num ok">${b.vendor_status === 'At vendor' ? '—' : num(b.approved_qty)}</td><td class="num err">${b.vendor_status === 'At vendor' ? '—' : num(b.rejected_qty)}</td>
@@ -1431,6 +1437,18 @@ async function drawVendorBatches() {
   const nb = $('#vb-new'); if (nb) nb.onclick = () => { VB.open = !VB.open; if (VB.open && !VB.lines.length) VB.lines = [{}]; drawVendorBatches(); };
   const tb = $('#vb-rows');
   if (tb) tb.onclick = async e => {
+    const ca = e.target.closest('[data-cnadd]'); if (ca) { const r = $(`[data-cnrow="${ca.dataset.cnadd}"]`); if (r) r.hidden = !r.hidden; return; }
+    const co = e.target.closest('[data-cnok]');
+    if (co) {
+      const i = +co.dataset.cnok, b = VB.rows[i], row = $(`[data-cnrow="${i}"]`), msg = $('[data-cnmsg]', row);
+      const no = $('[data-cnno]', row).value.trim(), val = Number($('[data-cnval]', row).value), dt = $('[data-cndate]', row).value, file = $('[data-cndoc]', row).files[0];
+      if (!no || !(val > 0)) { msg.innerHTML = '<span class="err">Enter the credit note number and its value.</span>'; return; }
+      co.disabled = true; co.textContent = 'Saving…';
+      let url = null; if (file) { url = await uploadFile(file); if (!url) { msg.innerHTML = '<span class="err">Document upload failed. Nothing was saved; try again.</span>'; co.disabled = false; co.textContent = 'Save credit note'; return; } }
+      const res = await call('add_tyre_credit_note', { p_batch: b.id, p_number: no, p_value: val, p_date: dt || todayIST(), p_doc: url });
+      if (!res.ok) { msg.innerHTML = `<span class="err">Not saved: ${esc(res.error)}</span>`; co.disabled = false; co.textContent = 'Save credit note'; return; }
+      drawVendorBatches(); return;
+    }
     const o = e.target.closest('[data-vbret]'); if (o) { const r = $(`[data-vbretrow="${o.dataset.vbret}"]`); r.hidden = !r.hidden; return; }
     const ok = e.target.closest('[data-vbretok]'); if (!ok) return;
     const i = +ok.dataset.vbretok, b = VB.rows[i], row = $(`[data-vbretrow="${i}"]`), msg = $('[data-vbretmsg]', row);
@@ -1482,11 +1500,11 @@ function drawVbForm() {
       <label class="fl">Returned to RPDC<input type="number" min="0" step="1" data-k="returned_qty" value="${l.returned_qty ?? ''}" style="width:80px"></label>` : ''}
       ${VB.lines.length > 1 ? `<button class="btn" type="button" data-vbdel="${i}">Remove</button>` : ''}</div>`).join('')}
     <button class="btn" type="button" id="vb-addline">+ Add ${T ? 'tyre' : 'part'}</button>
-    ${T ? `<div class="vrow" style="margin-top:10px"><label class="fl">Credit note number<input id="vb-cnno" value="${esc(VB.cnno || '')}" style="width:150px"></label>
+    ${T ? `<div class="vrow" style="margin-top:10px"><label class="fl">Credit note number <span class="muted">(if already issued)</span><input id="vb-cnno" value="${esc(VB.cnno || '')}" style="width:150px"></label>
       <label class="fl">Credit note value (₹)<input type="number" min="0" step="1" id="vb-cnval" value="${VB.cnval ?? ''}" style="width:120px"></label>
       <label class="fl">CN date<input type="date" id="vb-cndate" value="${VB.cndate || ''}" max="${todayIST()}"></label>
       <label class="fl">CN document<input type="file" id="vb-cndoc" accept="image/*,application/pdf" style="max-width:190px"></label></div>
-      <div class="muted small">Leave the credit note empty if the vendor hasn't issued it yet; the batch shows "CN pending".</div>`
+      <div class="muted small">The credit note usually comes some days after the inspection: save the counts today, then use <b>Add credit note</b> on the batch when it arrives.</div>`
       : `<div class="muted small" style="margin-top:6px">When the vendor sends parts back, use <b>Record return</b> on this batch to enter what was refurbished and what was rejected.</div>`}
     <div class="vrow" style="margin-top:8px"><label class="fl" style="flex:1">Notes<input id="vb-notes" value="${esc(VB.notes || '')}"></label></div>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="btn go" type="button" id="vb-save">${T ? 'Save inspection' : 'Save: sent to vendor'}</button><span class="small" id="vb-msg"></span></div></div>`;
