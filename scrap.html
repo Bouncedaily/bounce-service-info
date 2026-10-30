@@ -640,7 +640,7 @@ async function loadOverview() {
   {
     const PICKUP_GAP = 21, BASELINE = '2026-08-31', today = todayIST();
     const last = {}; (lastPick || []).forEach(r => { if (!last[r.hub_name] || r.pickup_date > last[r.hub_name]) last[r.hub_name] = r.pickup_date; });
-    const mainHubs = (S.hubs || []).filter(h => ['Bangalore', 'NCR'].includes(h.city) && !/hub -|pilot|railway|team|famcare|flipkart/i.test(h.hub_name || h.name || '')
+    const mainHubs = (S.hubs || []).filter(h => ['Bangalore', 'NCR'].includes(h.city) && !/hub -|pilot|railway|team|famcare|flipkart|^rpdc|^all /i.test(h.hub_name || h.name || '')
       && (!f.city || h.city === f.city) && (!f.hub || (h.hub_name || h.name) === f.hub));
     for (const h of mainHubs) {
       const name = h.hub_name || h.name, lp = last[name];
