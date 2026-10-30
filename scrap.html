@@ -1396,7 +1396,9 @@ async function drawVendorBatches() {
   const T = RF.type === 'Tyre', f = F();
   let q = `vendor_cn_batches?select=*,vendor_batch_lines(*)&movement_type=eq.${RF.type}&order=batch_date.desc,id.desc&limit=60`;
   if (f.city) q += `&city=eq.${encodeURIComponent(f.city)}`;
+  const myType = RF.type;
   const rows = await sbGet(q) || [];
+  if (RF.type !== myType || !$('#vb-body')) return;   // switched Refurb/Tyres while loading
   VB.rows = rows;
   const vname = id => (S.vendors.find(v => v.id === id) || {}).vendor_name || '—';
   const newLbl = T ? '+ New vendor inspection' : '+ Send parts to vendor';
@@ -1560,8 +1562,9 @@ async function loadRefurb() {
       <div class="card-bd" id="vb-body"><span class="skel" style="width:60%"></span></div></div>`;
   drawVendorBatches();
   $$('[data-rt]', el).forEach(b => b.onclick = () => { RF.type = b.dataset.rt; RF.edit = false; RF.showAll = false; S.loaded.refurb = null; showTab('refurb'); });
-  const rows = await cached(`pipe|${RF.type}|` + fkey(), () => rpc('get_movement_pipeline', { p_type: RF.type, p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub, p_bound_hub_actual: true }));
-  if (S.tab !== 'refurb') return;
+  const myType = RF.type;   // 30 Oct 2026: ignore a late response if the user switched Refurb/Tyres meanwhile
+  const rows = await cached(`pipe|${myType}|` + fkey(), () => rpc('get_movement_pipeline', { p_type: myType, p_from: f.from, p_to: f.to, p_city: f.city, p_hub: f.hub, p_bound_hub_actual: true }));
+  if (S.tab !== 'refurb' || RF.type !== myType) return;
   const data = rows || [];
   const T = k => sum(data, r => r[k]);
   const consumed = T('consumed'), atHub = T('actual_in_hub'), rpdc = T('sent_to_rpdc'), vendor = T('sent_to_vendor'), outc = T('outcome'), rej = T('rejected');
