@@ -1061,8 +1061,8 @@ function viewSettings(){
 }
 function viewEmpty(){ return '<div class="empty">'+(state.loading?'Loading RMC data…':esc(state.msg||'No data'))+'</div>'; }
 function render(){
-  if(state.tab==='hubs') state.tab='overview';
-  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['dist','Replacement km','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
+  if(state.tab==='hubs' || state.tab==='dist') state.tab='overview';   // Replacement km tab removed (30 Oct 2026)
+  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
   var emb=EMBEDS[state.tab]; if(emb && !canSeeEmbed(state.tab)){ state.tab='overview'; emb=null; }
   var body=emb ? '' : !has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
   root.innerHTML='<div class="hd"><div><h1>RMC Dashboard</h1><p>Wear &amp; Tear (A), Rider-payable (P), Cost to company (C) from the DMS billing export · Net service cost with monthly inputs</p></div><div class="grp"><span class="status" id="svc-status">'+esc(state.msg)+'</span>'
