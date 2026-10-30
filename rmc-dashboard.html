@@ -1069,7 +1069,7 @@ function render(){
     +'<button class="btn ghost" data-a="reload">'+ic('sort')+' Refresh</button></div></div>'
     +(has&&!emb?filterBar():'')+'<div class="tabs">'+tabs.map(function(t){return '<div class="tab'+(state.tab===t[0]?' on':'')+'" data-a="tab" data-v="'+t[0]+'">'+ic(t[2])+t[1]+'</div>';}).join('')+'</div><div class="main"'+(emb?' style="display:none"':'')+'>'+body+'</div>'
     +'<input type="file" id="f_jc" accept=".xlsx,.xls,.csv" style="display:none"><input type="file" id="f_st" accept=".xlsx,.xls,.csv" style="display:none">';
-  try{ syncEmbeds(); }catch(e){}
+  try{ syncEmbeds(); preloadEmbeds(); }catch(e){}
 }
 // Wear & Tear and Fleet KM Analysis shown as tabs inside RMC (30 Oct 2026). Each loads once in its own frame,
 // kept outside the redrawn area so filter changes here don't reload it; tab shown only with that page's permission.
@@ -1078,15 +1078,31 @@ function embSess(){ try{ return JSON.parse(localStorage.getItem('sb_session')||s
 function canSeeEmbed(k){ var s=embSess(), e=EMBEDS[k]; if(!e) return false; if(s.role==='admin') return true; if(!s.permissions) return true; return !!s.permissions[e.perm]; }
 function embedTabs(){ return Object.keys(EMBEDS).filter(canSeeEmbed).map(function(k){ return [k, EMBEDS[k].label, 'chart']; }); }
 function embH(){ var h=0; try{ h=window.top.innerHeight; }catch(e){ h=window.innerHeight; } return Math.max(680, (h||800)-110); }
+function embBox(k){   // one frame per embedded dashboard, created once, never moved (moving a frame reloads it)
+  var id='rmc-embed-'+k, box=document.getElementById(id); if(box) return box;
+  box=document.createElement('div'); box.id=id;
+  box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:'+embH()+'px;border:0;display:block;background:#f4f6f9"></iframe>';
+  root.parentNode.insertBefore(box, root.nextSibling);
+  box.querySelector('iframe').src=EMBEDS[k].file+'?embed=1';
+  return box;
+}
+function embPlace(box, on){   // shown: in the page flow under the tabs; not shown: kept loaded off-screen at full width (charts size correctly)
+  box.style.cssText = on ? 'padding:0 0 10px' : 'position:absolute;left:-10000px;top:0;width:'+(root.offsetWidth||1200)+'px;visibility:hidden;pointer-events:none';
+}
 function syncEmbeds(){
   var anyOn=!!EMBEDS[state.tab]; root.style.minHeight=anyOn?'0':'';   // the RMC area is min 100vh: release it so the frame shows right under the tabs
   Object.keys(EMBEDS).forEach(function(k){
-    var id='rmc-embed-'+k, box=document.getElementById(id), on=state.tab===k;
-    if(!box && on){ box=document.createElement('div'); box.id=id; box.style.cssText='padding:0 0 10px';
-      box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:'+embH()+'px;border:0;display:block;background:#f6f7fb"></iframe>';
-      root.parentNode.insertBefore(box, root.nextSibling); box.querySelector('iframe').src=EMBEDS[k].file+'?embed=1'; }
-    if(box) box.style.display=on?'':'none';
+    var on=state.tab===k, box=document.getElementById('rmc-embed-'+k);
+    if(on && !box) box=embBox(k);
+    if(box) embPlace(box, on);
   });
+}
+// Preload the embedded dashboards in the background once RMC has data, so their tabs open instantly
+var _embPre=false;
+function preloadEmbeds(){
+  if(_embPre || !state.store || !state.store.rows || !state.store.rows.length) return; _embPre=true;
+  setTimeout(function(){ Object.keys(EMBEDS).forEach(function(k, i){ if(!canSeeEmbed(k)) return;
+    setTimeout(function(){ if(!document.getElementById('rmc-embed-'+k)){ var b=embBox(k); embPlace(b, state.tab===k); } }, i*2500); }); }, 3000);
 }
 function toggle(arr,v){ var i=arr.indexOf(v); if(i>=0) arr.splice(i,1); else arr.push(v); }
 function csv(){
