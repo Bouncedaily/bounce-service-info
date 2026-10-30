@@ -15,7 +15,7 @@
   --muted:   #64748b;
   --muted2:  #94a3b8;
   --red:     #dc2626;
-  --blue:    #2563eb;
+  --blue:    #dc2626;
   --green:   #16a34a;
   --amber:   #d97706;
   --purple:  #7c3aed;
@@ -217,7 +217,7 @@ input[type=date] { min-width: 130px; }
   font-size: 10px; font-weight: 600;
 }
 .t-r { background: #fef2f2; color: #dc2626; }
-.t-b { background: #eff6ff; color: #2563eb; }
+.t-b { background: #fef2f2; color: #dc2626; }
 .t-g { background: #f0fdf4; color: #16a34a; }
 .t-a { background: #fffbeb; color: #d97706; }
 
@@ -308,7 +308,7 @@ input[type=date] { min-width: 130px; }
     tr:last-child td{border-bottom:none}
     tr:hover td{background:rgba(0,0,0,.02)}
     .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
-    .p-blr{background:#eff6ff;color:#1d4ed8}.p-ncr{background:#fef2f2;color:#dc2626}.p-hyd{background:#f0fdf4;color:#16a34a}
+    .p-blr{background:#fef2f2;color:#b91c1c}.p-ncr{background:#fef2f2;color:#dc2626}.p-hyd{background:#f0fdf4;color:#16a34a}
     .tag-part{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:10px;color:var(--text2);white-space:nowrap}
     .repeat-badge{background:#fef2f2;color:#dc2626;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
     .pg-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--border);font-size:12px}
@@ -318,7 +318,7 @@ input[type=date] { min-width: 130px; }
     .spin{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
     @keyframes spin{to{transform:rotate(360deg)}}
     .sub-wr{background:#fffbeb;color:#92400e;border-radius:4px;padding:1px 6px;font-size:10px}
-    .sub-rs{background:#eff6ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:10px}
+    .sub-rs{background:#fef2f2;color:#991b1b;border-radius:4px;padding:1px 6px;font-size:10px}
     .sub-be{background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 6px;font-size:10px}
     .sub-pd{background:#faf5ff;color:#6b21a8;border-radius:4px;padding:1px 6px;font-size:10px}
   </style>
@@ -366,7 +366,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
         <button class="wt-tab" data-t="forecast" onclick="wtTab('forecast')">Forecast</button>
       </div>
       <style>.wt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 14px;font-size:13px;font-weight:600;color:var(--muted,#64748b);cursor:pointer;margin-bottom:-1px}.wt-tab.on{color:var(--text,#0f172a);border-bottom-color:var(--red,#dc2626)}
-      .fc-err-pos{color:#b45309;font-weight:600}.fc-err-neg{color:#2563eb;font-weight:600}.fc-flag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}.fc-over{background:#fde2e2;color:#b91c1c}.fc-under{background:#dbeafe;color:#1d4ed8}</style>
+      .fc-err-pos{color:#b45309;font-weight:600}.fc-err-neg{color:#dc2626;font-weight:600}.fc-flag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}.fc-over{background:#fde2e2;color:#b91c1c}.fc-under{background:#fee2e2;color:#b91c1c}</style>
       <div id="tab-analysis">
 
 
@@ -748,7 +748,7 @@ async function loadAllReplacements() {
   const s = _mainResult.summary || {};
   const kpis = [
     {l:'Total Replacements', v:fmt(s.total_replacements), sub:'Tyre part lines',                          bar:'#dc2626'},
-    {l:'Unique JCs',         v:fmt(s.unique_jcs),         sub:'Job cards',                               bar:'#2563eb'},
+    {l:'Unique JCs',         v:fmt(s.unique_jcs),         sub:'Job cards',                               bar:'#dc2626'},
     {l:'Unique Bikes',       v:fmt(s.unique_bikes),       sub:'Vehicles',                                bar:'#7c3aed'},
     {l:'Avg KM on Part',     v:s.avg_km ? fmt(s.avg_km)+' km':'—', sub:`${fmt(s.km_available_count)} with prev data`, bar:'#d97706'},
     {l:'Median KM on Part',  v:s.median_km ? fmt(s.median_km)+' km':'—', sub:'50th percentile',         bar:'#16a34a'},
@@ -1154,7 +1154,7 @@ function fcRender() {
     if (!city) h += `<tr style="background:#f8fafc;font-weight:700"><td></td><td style="text-align:left">Total</td><td style="text-align:right">${n(tf)}</td>${b3(t3)}<td style="text-align:right">${n(ta)}</td><td style="text-align:right">${(ta - tf > 0 ? '+' : '') + n(ta - tf)}</td><td style="text-align:right">${fcErr(tf, ta)}</td></tr>`;
     gf += tf; ga += ta; g3.b_rep += t3.b_rep; g3.b_came += t3.b_came; g3.b_none += t3.b_none;
   });
-  h += `<tr style="background:#eef2ff;font-weight:800;border-top:2px solid #cbd5e1"><td style="text-align:left">All parts</td><td></td><td style="text-align:right">${n(gf)}</td>${b3(g3)}<td style="text-align:right">${n(ga)}</td><td style="text-align:right">${(ga - gf > 0 ? '+' : '') + n(ga - gf)}</td><td style="text-align:right">${fcErr(gf, ga)}</td></tr></tbody></table>`;
+  h += `<tr style="background:#fef2f2;font-weight:800;border-top:2px solid #cbd5e1"><td style="text-align:left">All parts</td><td></td><td style="text-align:right">${n(gf)}</td>${b3(g3)}<td style="text-align:right">${n(ga)}</td><td style="text-align:right">${(ga - gf > 0 ? '+' : '') + n(ga - gf)}</td><td style="text-align:right">${fcErr(gf, ga)}</td></tr></tbody></table>`;
   document.getElementById('fc-body').innerHTML = rows.length ? h : '<div class="empty" style="padding:20px">No data.</div>';
 }
 function hcSeg(btn) { document.querySelectorAll('#hc-flag button').forEach(b => b.classList.toggle('on', b === btn)); FC.flag = btn.dataset.v; hcRender(); }
