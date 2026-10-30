@@ -458,7 +458,7 @@ function renderUsers(users) {
       <td>${u.email}</td>
       <td class="user-role"><span class="pill ${u.role==='admin'?'p-admin':'p-viewer'}">${u.role}</span></td>
       <td><span class="pill ${u.is_active?'p-active':'p-inactive'}">${u.is_active?'Active':'Inactive'}</span></td>
-      <td style="font-size:12px;min-width:150px">${aboutCell(u)}</td>
+      <td style="font-size:12px;min-width:170px" id="about-${btoa(u.email).replace(/=/g,'')}">${aboutCell(u)}</td>
       <td>${perms}</td>
       <td style="font-size:12px;color:var(--muted)">${fmt(u.last_login)}</td>
       <td class="user-action">${isProt?'<span style="color:var(--muted);font-size:11px">Protected</span>':
@@ -473,11 +473,42 @@ function renderUsers(users) {
   updateBulkBar();
 }
 // "Tell us about you" answers (self-reported role, city, hubs), shown next to each user (27 Oct 2026)
+var ABOUT_ROLES=['City Head','Service Manager','Hub Manager','Central Team','HO Approval Team','Store Incharge','Plant Team'];
+var ABOUT_NOCITY=['Central Team','HO Approval Team','Plant Team'], ABOUT_NOHUB=['Central Team','HO Approval Team','Plant Team','City Head'];
+var ABOUT_CITIES=['Bangalore','NCR','Hyderabad','Mumbai','Chennai'];
+var ABOUT_USERS={};
+function aboutEsc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function aboutId(email){ return 'about-'+btoa(email).replace(/=/g,''); }
 function aboutCell(u){
-  if(!u.self_answered_at) return '<span style="color:var(--muted)">Not answered yet</span>';
-  var e=function(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+  ABOUT_USERS[u.email]=u;
+  var e=aboutEsc, edit=' <a href="#" onclick="aboutEdit(\''+e(u.email)+'\');return false" title="Correct this answer" style="font-size:11px;font-weight:400;margin-left:4px">✎ edit</a>';
+  if(!u.self_answered_at) return '<span style="color:var(--muted)">Not answered yet</span>'+edit;
   var hubs=u.self_all_hubs?'All hubs':((u.self_hubs||[]).join(', '));
-  return '<div style="font-weight:600">'+e(u.self_role)+'</div>'+(u.self_city?'<div>'+e(u.self_city)+(hubs?' · <span style="color:var(--muted)">'+e(hubs)+'</span>':'')+'</div>':'');
+  return '<div style="font-weight:600">'+e(u.self_role)+edit+'</div>'+(u.self_city?'<div>'+e(u.self_city)+(hubs?' · <span style="color:var(--muted)">'+e(hubs)+'</span>':'')+'</div>':'');
+}
+function aboutEdit(email){
+  var u=ABOUT_USERS[email]||{}, el=document.getElementById(aboutId(email)); if(!el) return; var e=aboutEsc;
+  var hubsTxt=u.self_all_hubs?'All hubs':((u.self_hubs||[]).join(', '));
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:4px;min-width:200px">'
+    +'<select id="ae-role" style="font-size:12px">'+ABOUT_ROLES.map(function(r){ return '<option'+(r===u.self_role?' selected':'')+'>'+r+'</option>'; }).join('')+'</select>'
+    +'<select id="ae-city" style="font-size:12px"><option value="">— city —</option>'+ABOUT_CITIES.map(function(c){ return '<option'+(c===u.self_city?' selected':'')+'>'+c+'</option>'; }).join('')+'</select>'
+    +'<input id="ae-hubs" style="font-size:12px" placeholder="Hubs, comma separated, or All hubs" value="'+e(hubsTxt)+'">'
+    +'<div style="display:flex;gap:6px"><button class="btn" style="font-size:11px;padding:3px 10px" onclick="aboutSave(\''+e(email)+'\')">Save</button>'
+    +'<button class="btn" style="font-size:11px;padding:3px 10px;background:#fff;color:#334155;border:1px solid #cbd5e1" onclick="aboutCancel(\''+e(email)+'\')">Cancel</button></div></div>';
+  var sync=function(){ var r=document.getElementById('ae-role').value; document.getElementById('ae-city').style.display=ABOUT_NOCITY.indexOf(r)>=0?'none':''; document.getElementById('ae-hubs').style.display=ABOUT_NOHUB.indexOf(r)>=0?'none':''; };
+  document.getElementById('ae-role').onchange=sync; sync();
+}
+function aboutCancel(email){ var el=document.getElementById(aboutId(email)); if(el) el.innerHTML=aboutCell(ABOUT_USERS[email]||{email:email}); }
+async function aboutSave(email){
+  var role=document.getElementById('ae-role').value, city=document.getElementById('ae-city').value, ht=document.getElementById('ae-hubs').value.trim();
+  if(ABOUT_NOCITY.indexOf(role)<0 && !city){ showToast('Choose a city for '+role); return; }
+  var all=/^all hubs$/i.test(ht), hubs=(all||!ht)?null:ht.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  var r=await rpc('admin_set_self_profile',{p_email:email,p_role:role,p_city:city||null,p_hubs:hubs,p_all_hubs:all});
+  if(!r.ok){ var er=await r.json().catch(function(){return {};}); showToast('❌ '+(er.message||'Could not save')); return; }
+  var u=ABOUT_USERS[email]||{email:email};
+  u.self_role=role; u.self_city=ABOUT_NOCITY.indexOf(role)>=0?null:city; u.self_hubs=ABOUT_NOHUB.indexOf(role)>=0?null:hubs; u.self_all_hubs=ABOUT_NOHUB.indexOf(role)>=0?false:all; u.self_answered_at=u.self_answered_at||new Date().toISOString();
+  aboutCancel(email); showToast('✅ Saved: '+(u.name||email)+' → '+role);
+  try{ logAudit(email,'correct_about',{role:role,city:city,hubs:ht}); }catch(e){}
 }
 
 async function addUser() {
