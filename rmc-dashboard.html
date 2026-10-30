@@ -8,7 +8,7 @@
 <title>RMC Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-#svc{--navy:#1F3864;--ink:#1a1a1a;--mut:#6b7280;--line:#e5e7eb;--bg:#f6f7fb;--A:#2A78D6;--P:#EB6834;--C:#7A5CC7;--L:#9aa3b2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;font-size:13px}
+#svc{--navy:#0f172a;--accent:#dc2626;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0;--bg:#f4f6f9;--A:#2A78D6;--P:#EB6834;--C:#7A5CC7;--L:#9aa3b2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;font-size:13px}
 #svc *{box-sizing:border-box}
 #svc .hd{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 #svc .hd h1{font-size:17px;margin:0;font-weight:650}
@@ -22,11 +22,11 @@
 #svc .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 #svc .grp>label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
 #svc .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;color:#374151}
-#svc .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+#svc .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 #svc select,#svc input[type=text],#svc input[type=number],#svc input[type=month]{border:1px solid #d5dae3;border-radius:7px;padding:5px 8px;font-size:12.5px;background:#fff}
 #svc .tabs{padding:0 22px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:2px;overflow-x:auto}
 #svc .tab{padding:11px 14px;font-size:13px;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;white-space:nowrap}
-#svc .tab.on{color:var(--navy);border-bottom-color:var(--navy);font-weight:650}
+#svc .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:650}
 #svc .main{padding:18px 22px;max-width:none}
 #svc .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 #svc .card h3{margin:0 0 4px;font-size:14px;color:var(--navy)}
@@ -500,7 +500,7 @@ function dispCell(v, share, style){ var st=style?' style="'+style+'"':'';
   if(v==null) return '<td'+st+'>\u2013</td>';
   var p=(share==null||!isFinite(share))?'':Math.round(share*100)+'%';
   if(state.disp==='pct') return '<td'+st+'>'+(p||'\u2013')+'</td>';
-  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#1d4ed8;font-weight:600;font-size:10.5px"> '+p+'</span>':'')+'</td>';
+  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+p+'</span>':'')+'</td>';
   return '<td'+st+'>'+fmt(v)+'</td>'; }
 function rowCellsS(vals, shares, heatOn){ var base=state.disp==='pct'?shares:vals, nums=base.filter(function(v){return v!=null&&isFinite(v);}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
   return vals.map(function(v,i){ return dispCell(v, shares[i], heatOn?heat(base[i],mn,mx):''); }).join(''); }
@@ -619,7 +619,7 @@ function cityCompareHtml(model){
   var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p><div class="tw"><table>';
   h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+cityName(c)+'</th>'; }).join('')+'</tr>';
   h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
-  var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#1F3864;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
+  var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
   // one table row: getter(city, month) -> number; fmt; dir: +1 higher is worse, -1 higher is better, 0 no colour; kind: tot / less / grey
   var line=function(label,getter,fmtFn,dir,kind){
     var lab=kind==='less'?'color:#6b7280;padding-left:18px':(kind==='grey'?'color:#6b7280':(kind==='sub'?'padding-left:18px;color:#475569':''));
@@ -763,7 +763,7 @@ function viewOverview(model){
     if(last){ var kp=['A','P','C','T'].map(function(k){ var cur=k==='T'?['A','P','C'].reduce(function(a,b){return a+(val(model[city][last][b],city,last)||0);},0):val(model[city][last][k],city,last);
         var pv=null; if(prev){ pv=k==='T'?['A','P','C'].reduce(function(a,b){return a+(val(model[city][prev][b],city,prev)||0);},0):val(model[city][prev][k],city,prev); }
         var d=(pv!=null&&cur!=null)?cur-pv:null, cls=d==null?'':(d>0?'up':'dn');
-        return '<div class="kpi" style="border-left-color:'+(k==='T'?'#1F3864':COLORS[k])+'"><div class="l">'+(k==='T'?'Parts total (A+P+C)':NAMES[k])+' \u00b7 '+C.monthLabel(last)+'</div><div class="v">'+fmt(cur)+'</div><div class="d '+cls+'">'+(d==null?'':(d>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(d))+' vs '+C.monthLabel(prev))+'</div></div>'; }).join('');
+        return '<div class="kpi" style="border-left-color:'+(k==='T'?'#0f172a':COLORS[k])+'"><div class="l">'+(k==='T'?'Parts total (A+P+C)':NAMES[k])+' \u00b7 '+C.monthLabel(last)+'</div><div class="v">'+fmt(cur)+'</div><div class="d '+cls+'">'+(d==null?'':(d>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(d))+' vs '+C.monthLabel(prev))+'</div></div>'; }).join('');
       var tm=ms.filter(function(m){ return totalAmt(model[city][m],city,m)!=null; }), tl=tm[tm.length-1], tq=tm[tm.length-2], tc=tl?totalAmt(model[city][tl],city,tl):null, tp=tq?totalAmt(model[city][tq],city,tq):null, tcv=tc==null?null:val(tc,city,tl), tpv=tp==null?null:val(tp,city,tq), td=(tcv!=null&&tpv!=null)?tcv-tpv:null;
       kp+='<div class="kpi" style="border-left-color:#111827"><div class="l">'+ccGrossLabel().replace('Gross cost','Total')+' \u00b7 '+(tl?C.monthLabel(tl):'')+'</div><div class="v">'+fmt(tcv)+'</div><div class="d '+(td==null?'':(td>0?'up':'dn'))+'">'+(td==null?'':(td>0?'\u25b2 ':'\u25bc ')+fmt(Math.abs(td))+' vs '+C.monthLabel(tq))+'</div></div>';
       h+='<div class="kpis">'+kp+'</div>'; }
