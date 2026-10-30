@@ -1446,7 +1446,7 @@ function renderMslTables() {
   if (!MT_ROWS.length) { box.innerHTML = ''; return; }
   const hubs = [...new Set(MT_ROWS.map(r => r.hub_name))].sort((a, b) => a.localeCompare(b));
   const cats = [...new Set(MT_ROWS.map(mtCat))].sort((a, b) => (a === 'Unmapped') - (b === 'Unmapped') || a.startsWith('Not in') - b.startsWith('Not in') || a.localeCompare(b));
-  box.innerHTML = '<div id="mtInsights"></div>' +
+  box.innerHTML = mslKpiHtml() + '<div id="mtInsights"></div>' +
     `<div class="mt-row">${mtSummaryTable('MSL by City', 'City', Object.keys(CITY_HUBS).concat(['Other']), r => mtCity(r.hub_name), true)}${mtSummaryTable('MSL by FMS', 'FMS', ['Fast', 'Medium', 'Slow', 'Not in FMS list'], mtFsn, false)}</div>` +
     '<div id="cardRunway"></div><div id="cardSF"></div><div id="cardSC"></div>' +
     '<div id="mtOrder"></div>';
@@ -1519,6 +1519,50 @@ function wireRowSearch(inputId, tableHost, countId) {
   };
   inp.oninput = run; run();
 }
+
+// ─── Top KPI cards (follow City / Hub / Category / FMS filters; hub view) ─────
+let MSL_KPI = {};
+const mkN = v => (+v || 0).toLocaleString('en-IN');
+function mslKpiHtml() {
+  const L = MT_ROWS.filter(r => (+r.msl_qty || 0) > 0), hubs = {};
+  L.forEach(r => { const h = hubs[r.hub_name] || (hubs[r.hub_name] = { lines: 0, ok: 0, out: 0 }); h.lines++; if ((+r.closing_stock || 0) >= (+r.msl_qty || 0)) h.ok++; if ((+r.closing_stock || 0) <= 0) h.out++; });
+  const H = Object.keys(hubs).map(k => ({ hub: k, ...hubs[k], pct: hubs[k].lines ? hubs[k].ok / hubs[k].lines * 100 : 0 })).sort((a, b) => a.pct - b.pct);
+  const ful = H.filter(h => h.ok === h.lines), okL = H.reduce((s, h) => s + h.ok, 0), all = H.reduce((s, h) => s + h.lines, 0);
+  const outs = L.filter(r => (+r.closing_stock || 0) <= 0), fastOut = outs.filter(r => ((fsnOf(r) || {}).fsn) === 'Fast');
+  MSL_KPI = { H, ful, outs, fastOut };
+  const card = (id, label, val, sub, col, click) => `<div class="kpi" data-mk="${id}" ${click ? 'style="cursor:pointer" title="Click for details"' : ''}><div class="kl">${label}</div><div class="kv ${col || ''}" id="mk-${id}">${val}</div><div class="ks" id="mk-${id}-s">${sub}</div><div class="kbar" ${col === 'red' ? 'style="background:#ef4444"' : col === 'green' ? 'style="background:#22c55e"' : ''}></div></div>`;
+  const low = H[0];
+  return `<style>.msl-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}.msl-kpi .kpi{padding:12px 14px}</style><div class="msl-kpi">`
+    + card('hubs', 'No. of hubs', mkN(H.length), 'with MSL data', '', false)
+    + card('ful', 'MSL fulfilled hubs', mkN(ful.length), 'every part at MSL', 'green', true)
+    + card('notful', 'MSL not fulfilled hubs', mkN(H.length - ful.length), 'at least one part below MSL', 'red', true)
+    + card('pct', 'MSL fulfilment', all ? (okL / all * 100).toFixed(1) + '%' : '—', `${mkN(okL)} of ${mkN(all)} hub-parts at MSL`, '', false)
+    + card('low', 'Lowest hub', low ? low.hub : '—', low ? low.pct.toFixed(1) + '% of parts at MSL' : '', 'red', true)
+    + card('out', 'Stock-outs', mkN(outs.length), `hub-parts at 0 stock · <b>${mkN(fastOut.length)} fast-moving</b>`, 'red', true)
+    + card('tr', 'Transfer opportunities', '…', 'working out…', '', true)
+    + '</div>';
+}
+function mslKpiTransfer() {
+  const v = document.getElementById('mk-tr'), sEl = document.getElementById('mk-tr-s'); if (!v) return;
+  const parts = new Set(TRANSFER_PLAN.map(t => t.part)), units = TRANSFER_PLAN.reduce((s, t) => s + (t.qty || 0), 0);
+  v.textContent = mkN(parts.size); sEl.innerHTML = parts.size ? `parts · ${mkN(TRANSFER_PLAN.length)} transfers · ${mkN(units)} units` : 'none: no hub has extra of a short part';
+}
+function mslKpiPopup(title, head, rows) {
+  let m = document.getElementById('mkModal');
+  if (!m) { m = document.createElement('div'); m.id = 'mkModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center'; m.addEventListener('click', e => { if (e.target === m || e.target.dataset.close) m.remove(); }); document.body.appendChild(m); }
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  m.innerHTML = `<div style="background:#fff;border-radius:12px;width:min(900px,96vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb"><b style="font-size:14px">${esc(title)}</b><button data-close="1" style="margin-left:auto;border:0;background:none;font-size:20px;cursor:pointer">×</button></div><div style="overflow:auto;padding:4px 8px 12px"><table style="border-collapse:collapse;font-size:12px;width:auto"><thead><tr>${head.map(h => `<th style="text-align:left;padding:6px 12px;border-bottom:1px solid #e5e7eb;position:sticky;top:0;background:#fff">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td style="padding:5px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap">${esc(c)}</td>`).join('')}</tr>`).join('') || `<tr><td style="padding:12px">Nothing to show.</td></tr>`}</tbody></table></div></div>`;
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-mk]'); if (!c) return; const k = c.dataset.mk, K = MSL_KPI;
+  const hubRows = list => list.map(h => [h.hub, h.lines, h.ok, h.lines - h.ok, h.out, h.pct.toFixed(1) + '%']);
+  const hh = ['Hub', 'Parts with MSL', 'At MSL', 'Below MSL', 'At 0 stock', 'Fulfilment'];
+  if (k === 'ful') mslKpiPopup(`MSL fulfilled hubs (${K.ful.length})`, hh, hubRows(K.ful));
+  else if (k === 'notful' || k === 'low') mslKpiPopup(`MSL not fulfilled hubs (${K.H.length - K.ful.length}), lowest first`, hh, hubRows(K.H.filter(h => h.ok < h.lines)));
+  else if (k === 'out') mslKpiPopup(`Stock-outs (${K.outs.length}), fast-moving first`, ['Hub', 'Part', 'Part no.', 'FMS', 'MSL', 'Stock'],
+    K.outs.slice().sort((a, b) => (((fsnOf(b) || {}).fsn === 'Fast') - ((fsnOf(a) || {}).fsn === 'Fast')) || String(a.hub_name).localeCompare(b.hub_name)).map(r => [r.hub_name, r.part_name, r.part_number, (fsnOf(r) || {}).fsn || '—', r.msl_qty, r.closing_stock]));
+  else if (k === 'tr' && TRANSFER_PLAN.length) openTransferPlan();
+});
 
 // ─── Transfer plan pop-up: one row per transfer, grouped by part ─────
 let TRANSFER_PLAN = [];
@@ -1689,6 +1733,7 @@ async function renderInsights() {
       }
     });
   });
+  try { mslKpiTransfer(); } catch (e) {}
   if (TRANSFER_PLAN.length) {
     const parts = {}; TRANSFER_PLAN.forEach(t => { (parts[t.part] = parts[t.part] || new Set()).add(t.to); });
     const nParts = Object.keys(parts).length, units = TRANSFER_PLAN.reduce((s, t) => s + t.qty, 0);
