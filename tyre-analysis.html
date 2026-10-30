@@ -327,6 +327,8 @@ input[type=date] { min-width: 130px; }
 .main,.app-main { width:100%!important; flex:1!important; }
 body { overflow:auto!important; }
 </style><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>/* tab mode inside another dashboard (?embed=1): hide this page's own sidebar (30 Oct 2026) */
+if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#sidebar{display:none!important}.main{margin-left:0!important;width:100%!important;max-width:100%!important}body{padding-left:0!important}</style>');}</script>
 </head>
 <body>
 <div class="sb-overlay" style="display:none" id="sb-overlay" role="button" tabindex="-1" aria-label="Close navigation" onclick="closeSidebar()" onkeydown="if(event.key==='Escape'||event.key==='Enter')closeSidebar()"></div>
