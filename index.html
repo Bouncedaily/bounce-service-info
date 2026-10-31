@@ -9,36 +9,54 @@
   function role(t){ try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role; } catch(e){ return null; } }
   function expMs(t){ try { var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp ? p.exp*1000 : 0; } catch(e){ return 0; } }
   function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
-  var refreshing = null;
-  // 31 Oct 2026: never send an expired token. Use a token another tab/frame already renewed; retry network
-  // errors; only a definite refusal ends the session (back to login).
+  // 31 Oct 2026: ONE renewal at a time across every tab and frame (shared lock in localStorage). Parallel renewals with
+  // the same refresh token made Supabase flag "refresh_token_already_used" and cancel the whole session.
   function fresh(t){ return t && expMs(t) > Date.now() + 60000; }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  var ANONK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+  async function renew(){
+    var LOCK = 'sb_refresh_lock', me = Math.random().toString(36).slice(2);
+    for (var i = 0; i < 50; i++) {
+      var s = sess();
+      if (!s.access_token) return { refused: true };
+      if (fresh(s.access_token)) return { token: s.access_token };
+      if (!s.refresh_token) return { refused: true };
+      var l = null; try { l = JSON.parse(localStorage.getItem(LOCK) || 'null'); } catch(e) {}
+      if (!l || Date.now() - l.at > 15000) {
+        localStorage.setItem(LOCK, JSON.stringify({ id: me, at: Date.now() }));
+        await sleep(80);
+        var l2 = null; try { l2 = JSON.parse(localStorage.getItem(LOCK) || 'null'); } catch(e) {}
+        if (l2 && l2.id === me) {
+          var s2 = sess();
+          if (fresh(s2.access_token)) { localStorage.removeItem(LOCK); return { token: s2.access_token }; }
+          try {
+            var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: ANONK, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s2.refresh_token }) });
+            if (r.ok) {
+              var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token || s2.refresh_token });
+              localStorage.setItem('sb_session', JSON.stringify(ns));
+              try { sessionStorage.setItem('sb_session_bak', JSON.stringify(ns)); } catch(e) {}
+              localStorage.removeItem(LOCK); return { token: d.access_token };
+            }
+            localStorage.removeItem(LOCK);
+            if (r.status >= 400 && r.status < 500 && r.status !== 429) { var c = sess(); return fresh(c.access_token) ? { token: c.access_token } : { refused: true }; }
+          } catch(e) { localStorage.removeItem(LOCK); }
+          await sleep(3000);                                  // server or network trouble: wait, then try again
+          continue;
+        }
+      }
+      await sleep(400);                                       // another tab/frame is renewing: wait for its token
+    }
+    var c3 = sess(); return fresh(c3.access_token) ? { token: c3.access_token } : { transient: true };
+  }
+  window.__sbRenew = renew;
+  var kicked = false;
   async function userToken(){
     var s = sess(); if (!s.access_token || !s.expires_at || s.expires_at < Date.now()) return null;
     if (fresh(s.access_token)) return s.access_token;
-    if (!s.refresh_token) return null;
-    if (!refreshing) refreshing = (async function(){
-      try {
-        for (var attempt = 0; attempt < 4; attempt++) {
-          var cur = sess();
-          if (fresh(cur.access_token)) return cur.access_token;           // renewed elsewhere meanwhile
-          try {
-            var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method:'POST', headers:{ apikey: anonKey || '', 'Content-Type':'application/json' }, body: JSON.stringify({ refresh_token: cur.refresh_token }) });
-            if (r.ok) {
-              var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token });
-              localStorage.setItem('sb_session', JSON.stringify(ns)); return d.access_token;
-            }
-            if (r.status >= 400 && r.status < 500 && r.status !== 429) {
-              var c2 = sess(); if (fresh(c2.access_token)) return c2.access_token;  // another tab won the race
-              if (attempt >= 1) { try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} return null; }
-            }
-          } catch (e) { /* network: retry */ }
-          await new Promise(function(res){ setTimeout(res, 1500 * Math.pow(2, attempt)); });
-        }
-        var c3 = sess(); return fresh(c3.access_token) ? c3.access_token : null;
-      } finally { setTimeout(function(){ refreshing = null; }, 0); }
-    })();
-    return refreshing;
+    var res = await renew();
+    if (res.token) return res.token;
+    if (res.refused && !kicked) { kicked = true; try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} }
+    return null;
   }
   var origFetch = window.fetch.bind(window), anonKey = null;
   window.fetch = async function(input, init){
@@ -1418,23 +1436,14 @@ function closeSidebar() {
 function jwtExpMs(t){ try { return (JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp || 0) * 1000; } catch(e){ return 0; } }
 var _tokRefreshing = false;
 function keepTokenFresh(){
+  // 31 Oct 2026: renew through the shared single renewer (one renewal across all tabs and frames)
   if (_tokRefreshing) return;
   var sess; try { sess = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return; }
   if (!sess.access_token || !sess.refresh_token) return;
   if (jwtExpMs(sess.access_token) - Date.now() > 10 * 60 * 1000) return;
+  if (!window.__sbRenew) return;
   _tokRefreshing = true;
-  fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
-    method: 'POST', headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: sess.refresh_token })
-  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-    if (d && d.access_token) {
-      var cur; try { cur = JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ cur = {}; }
-      if (!cur.access_token) return;                 // signed out meanwhile
-      cur.access_token = d.access_token; if (d.refresh_token) cur.refresh_token = d.refresh_token;
-      localStorage.setItem('sb_session', JSON.stringify(cur));
-      try { sessionStorage.setItem('sb_session_bak', JSON.stringify(cur)); } catch(e) {}
-    }
-  }).catch(function(){}).then(function(){ _tokRefreshing = false; });
+  window.__sbRenew().catch(function(){}).then(function(){ _tokRefreshing = false; });
 }
 setInterval(keepTokenFresh, 5 * 60 * 1000);
 setTimeout(keepTokenFresh, 3000);

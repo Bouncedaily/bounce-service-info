@@ -7,36 +7,54 @@
   function role(t){ try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role; } catch(e){ return null; } }
   function expMs(t){ try { var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp ? p.exp*1000 : 0; } catch(e){ return 0; } }
   function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
-  var refreshing = null;
-  // 31 Oct 2026: never send an expired token. Use a token another tab/frame already renewed; retry network
-  // errors; only a definite refusal ends the session (back to login).
+  // 31 Oct 2026: ONE renewal at a time across every tab and frame (shared lock in localStorage). Parallel renewals with
+  // the same refresh token made Supabase flag "refresh_token_already_used" and cancel the whole session.
   function fresh(t){ return t && expMs(t) > Date.now() + 60000; }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  var ANONK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+  async function renew(){
+    var LOCK = 'sb_refresh_lock', me = Math.random().toString(36).slice(2);
+    for (var i = 0; i < 50; i++) {
+      var s = sess();
+      if (!s.access_token) return { refused: true };
+      if (fresh(s.access_token)) return { token: s.access_token };
+      if (!s.refresh_token) return { refused: true };
+      var l = null; try { l = JSON.parse(localStorage.getItem(LOCK) || 'null'); } catch(e) {}
+      if (!l || Date.now() - l.at > 15000) {
+        localStorage.setItem(LOCK, JSON.stringify({ id: me, at: Date.now() }));
+        await sleep(80);
+        var l2 = null; try { l2 = JSON.parse(localStorage.getItem(LOCK) || 'null'); } catch(e) {}
+        if (l2 && l2.id === me) {
+          var s2 = sess();
+          if (fresh(s2.access_token)) { localStorage.removeItem(LOCK); return { token: s2.access_token }; }
+          try {
+            var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: ANONK, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s2.refresh_token }) });
+            if (r.ok) {
+              var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token || s2.refresh_token });
+              localStorage.setItem('sb_session', JSON.stringify(ns));
+              try { sessionStorage.setItem('sb_session_bak', JSON.stringify(ns)); } catch(e) {}
+              localStorage.removeItem(LOCK); return { token: d.access_token };
+            }
+            localStorage.removeItem(LOCK);
+            if (r.status >= 400 && r.status < 500 && r.status !== 429) { var c = sess(); return fresh(c.access_token) ? { token: c.access_token } : { refused: true }; }
+          } catch(e) { localStorage.removeItem(LOCK); }
+          await sleep(3000);                                  // server or network trouble: wait, then try again
+          continue;
+        }
+      }
+      await sleep(400);                                       // another tab/frame is renewing: wait for its token
+    }
+    var c3 = sess(); return fresh(c3.access_token) ? { token: c3.access_token } : { transient: true };
+  }
+  window.__sbRenew = renew;
+  var kicked = false;
   async function userToken(){
     var s = sess(); if (!s.access_token || !s.expires_at || s.expires_at < Date.now()) return null;
     if (fresh(s.access_token)) return s.access_token;
-    if (!s.refresh_token) return null;
-    if (!refreshing) refreshing = (async function(){
-      try {
-        for (var attempt = 0; attempt < 4; attempt++) {
-          var cur = sess();
-          if (fresh(cur.access_token)) return cur.access_token;           // renewed elsewhere meanwhile
-          try {
-            var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method:'POST', headers:{ apikey: anonKey || '', 'Content-Type':'application/json' }, body: JSON.stringify({ refresh_token: cur.refresh_token }) });
-            if (r.ok) {
-              var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token });
-              localStorage.setItem('sb_session', JSON.stringify(ns)); return d.access_token;
-            }
-            if (r.status >= 400 && r.status < 500 && r.status !== 429) {
-              var c2 = sess(); if (fresh(c2.access_token)) return c2.access_token;  // another tab won the race
-              if (attempt >= 1) { try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} return null; }
-            }
-          } catch (e) { /* network: retry */ }
-          await new Promise(function(res){ setTimeout(res, 1500 * Math.pow(2, attempt)); });
-        }
-        var c3 = sess(); return fresh(c3.access_token) ? c3.access_token : null;
-      } finally { setTimeout(function(){ refreshing = null; }, 0); }
-    })();
-    return refreshing;
+    var res = await renew();
+    if (res.token) return res.token;
+    if (res.refused && !kicked) { kicked = true; try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} }
+    return null;
   }
   var origFetch = window.fetch.bind(window), anonKey = null;
   window.fetch = async function(input, init){
@@ -106,38 +124,10 @@
   }
 
   async function refreshToken(refreshTk) {
-    // 29 Oct 2026: a network blip or server error must NOT log the user out.
-    // Returns the new session, null if the server definitively refused the token, or {transient:true} if it could not be reached.
-    for (let attempt = 0; attempt < 4; attempt++) {
-      // another tab or frame may already have renewed it
-      const cur = getSession();
-      if (cur.refresh_token && cur.refresh_token !== refreshTk) {
-        const exp = realExpiryMs(cur.access_token);
-        if (exp && exp > Date.now() + 90 * 1000) return cur;
-        refreshTk = cur.refresh_token;
-      }
-      try {
-        const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
-          method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshTk })
-        });
-        if (r.ok) {
-          const d = await r.json();
-          const prev = getSession();
-          // Preserve the existing end-of-day expires_at policy marker untouched; only the token pair changes here.
-          const s = { ...prev, access_token: d.access_token, refresh_token: d.refresh_token, email: d.user?.email || prev.email };
-          localStorage.setItem('sb_session', JSON.stringify(s));
-          return s;
-        }
-        if (r.status >= 400 && r.status < 500 && r.status !== 429) {
-          // refused, but a parallel tab may have just rotated the token: use that if so
-          const cur2 = getSession(); const exp2 = realExpiryMs(cur2.access_token);
-          if (cur2.refresh_token !== refreshTk && exp2 && exp2 > Date.now() + 90 * 1000) return cur2;
-          return null;
-        }
-      } catch (e) { /* network error: retry */ }
-      await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
-    }
+    // 31 Oct 2026: shared single renewer (see top of file). Returns the session, null if refused, or {transient:true}.
+    const res = await window.__sbRenew();
+    if (res.token) return getSession();
+    if (res.refused) return null;
     return { transient: true };
   }
 
