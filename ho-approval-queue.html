@@ -137,6 +137,51 @@ tr.row-flag:hover{background:#fee2e2}
 .pg-btn.active { background: var(--red); color: #fff; border-color: var(--red); }.city-pill { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border2); background: var(--card); color: var(--text); font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
 .city-pill:hover { border-color: var(--red); color: var(--red); }
 .city-pill.active { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* ── Phone layout (31 Oct 2026): screens under 640px. Desktop unchanged. ── */
+@media (max-width:640px){
+  .wrap{padding:12px 12px 28px}
+  h1{font-size:18px}
+  .hqtabs{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:18px;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x proximity}
+  .hqtabs::-webkit-scrollbar{display:none}
+  .hqtab-btn{white-space:nowrap;flex:0 0 auto;font-size:13.5px;scroll-snap-align:start}
+  .psub{font-size:11.5px;margin-bottom:10px}
+  #hqtab-queue > .bar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:12px}
+  #hqtab-queue > .bar > .count{grid-column:1/5;font-size:13px}
+  #hqtab-queue > .bar > #syncedAt{grid-column:5/7;text-align:right;align-self:center}
+  #hqtab-queue > .bar > #dateFilter{grid-column:1/7;max-width:none!important;width:100%;box-sizing:border-box}
+  #hqtab-queue > .bar > button{grid-column:span 2;padding:9px 4px!important;font-size:12px!important;min-width:0}
+  #hqtab-queue > .bar > button:nth-last-of-type(-n+2){grid-column:span 3}
+  #hqtab-queue > .bar > select{grid-column:span 3;width:100%;min-width:0;box-sizing:border-box}
+  #hqtab-queue > .bar > #filter{grid-column:1/7;min-width:0;width:100%;box-sizing:border-box}
+  .jc{border-radius:12px;margin-bottom:12px}
+  .jc-hd{padding:12px;gap:8px}
+  .jc-hd-left{align-items:flex-start;width:100%}
+  .jc-hd-left > div{min-width:0}
+  .jc-title{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+  .jc-summary-line,.jc-meta{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+  .jc-body{overflow-wrap:anywhere}
+  .jc-body *{max-width:100%;box-sizing:border-box}
+  .jc-split,.jc-side,.jc-main{min-width:0}
+  .reason,.nophotos,.section-lbl{padding-left:12px;padding-right:12px;white-space:normal}
+  .photos{padding:10px 12px 0}
+  .photos .pitem,.photos img{width:calc(50vw - 40px)}
+  .photos img{height:auto;aspect-ratio:4/3}
+  .dec{flex-direction:column;align-items:stretch;padding:12px}
+  .dec textarea{min-width:0;width:100%}
+  .dbtns{width:100%}
+  .dbtns .btn{flex:1;padding:12px 8px;font-size:14px}
+  .foot{padding:8px 12px}
+  /* tables inside a job card become stacked cards: label on the left, value on the right */
+  .jc table.mstack thead{display:none}
+  .jc table.mstack,.jc table.mstack tbody,.jc table.mstack tr{display:block;width:100%}
+  .jc table.mstack tr{border-bottom:1px solid var(--border);padding:10px 12px}
+  .jc table.mstack td{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border:none;padding:3px 0;text-align:right;font-size:13px;width:100%}
+  .jc table.mstack td::before{content:attr(data-label);flex:0 0 40%;text-align:left;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .jc table.mstack td:first-child{display:block;text-align:left;font-weight:700;font-size:14px;padding-bottom:4px}
+  .jc table.mstack td:first-child::before{display:none}
+  .jc table.mstack td:empty{display:none}
+}
 </style></head>
 <body>
 <div class="wrap">
@@ -2581,5 +2626,26 @@ function nithishRender(){
     ? list.map(nithishCard).join('')
     : '<div class="empty">Nothing flagged right now — no pending or re-opened job card currently has A/P cost over ₹3,000 or a premature tyre/brake part.</div>';
 }
+</script>
+
+<script>
+// Phone layout helper (31 Oct 2026): copy each table header onto its cells, so the phone CSS can show
+// tables inside job cards as stacked label/value cards. Runs whenever the queue redraws; harmless on desktop.
+(function(){
+  function stack(){
+    document.querySelectorAll('.jc table:not([data-mst])').forEach(function(t){
+      var hs = Array.prototype.map.call(t.querySelectorAll('thead th'), function(th){ return th.textContent.replace(/\s+/g,' ').trim(); });
+      if (!hs.length) return;
+      t.querySelectorAll('tbody tr').forEach(function(tr){
+        var i = 0;
+        Array.prototype.forEach.call(tr.children, function(td){ td.setAttribute('data-label', hs[i] || ''); i += (+td.colSpan || 1); });
+      });
+      t.classList.add('mstack'); t.setAttribute('data-mst', '1');
+    });
+  }
+  var timer = null;
+  new MutationObserver(function(){ clearTimeout(timer); timer = setTimeout(stack, 60); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', stack);
+})();
 </script>
 </body></html>
