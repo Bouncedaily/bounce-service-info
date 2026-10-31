@@ -717,7 +717,8 @@ function renderAccessByDash() {
 // 30 Oct 2026: role-wise access, using each person's role from the "Tell us about you" form (self_role)
 const ABD_ROLES = ['City Head', 'Service Manager', 'Hub Manager', 'Central Team', 'HO Approval Team', 'Store Incharge'];
 function abdRoleCell(key, users) {
-  const opts = ABD_ROLES.map(r => {
+  const roles = [...new Set(ABD_ROLES.concat(users.map(u => u.self_role).filter(Boolean)))];
+  const opts = roles.map(r => {
     const inRole = users.filter(u => u.self_role === r && !(u.role === 'admin' || u.email === ADMIN));
     if (!inRole.length) return '';
     const have = inRole.filter(u => (u.permissions || DEFAULT_PERMS)[key]).length;
