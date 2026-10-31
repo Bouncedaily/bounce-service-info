@@ -55,7 +55,13 @@
     if (fresh(s.access_token)) return s.access_token;
     var res = await renew();
     if (res.token) return res.token;
-    if (res.refused && !kicked) { kicked = true; try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} }
+    if (res.refused && !kicked) {
+      // the session is dead (refused by the login server): clear it first, so the portal shows the sign-in screen
+      // instead of reloading in a loop (31 Oct 2026)
+      kicked = true;
+      try { localStorage.removeItem('sb_session'); sessionStorage.removeItem('sb_session_bak'); sessionStorage.removeItem('sb_session'); localStorage.removeItem('sb_refresh_lock'); } catch(e) {}
+      try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {}
+    }
     return null;
   }
   var origFetch = window.fetch.bind(window), anonKey = null;
