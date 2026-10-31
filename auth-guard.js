@@ -8,17 +8,33 @@
   function expMs(t){ try { var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp ? p.exp*1000 : 0; } catch(e){ return 0; } }
   function sess(){ try { return JSON.parse(localStorage.getItem('sb_session') || '{}'); } catch(e){ return {}; } }
   var refreshing = null;
+  // 31 Oct 2026: never send an expired token. Use a token another tab/frame already renewed; retry network
+  // errors; only a definite refusal ends the session (back to login).
+  function fresh(t){ return t && expMs(t) > Date.now() + 60000; }
   async function userToken(){
     var s = sess(); if (!s.access_token || !s.expires_at || s.expires_at < Date.now()) return null;
-    if (expMs(s.access_token) > Date.now() + 60000) return s.access_token;
-    if (!s.refresh_token) return s.access_token;
+    if (fresh(s.access_token)) return s.access_token;
+    if (!s.refresh_token) return null;
     if (!refreshing) refreshing = (async function(){
       try {
-        var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method:'POST', headers:{ apikey: anonKey || '', 'Content-Type':'application/json' }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
-        if (!r.ok) return s.access_token;
-        var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token });
-        localStorage.setItem('sb_session', JSON.stringify(ns)); return d.access_token;
-      } catch(e){ return s.access_token; } finally { setTimeout(function(){ refreshing = null; }, 0); }
+        for (var attempt = 0; attempt < 4; attempt++) {
+          var cur = sess();
+          if (fresh(cur.access_token)) return cur.access_token;           // renewed elsewhere meanwhile
+          try {
+            var r = await origFetch(SBU + '/auth/v1/token?grant_type=refresh_token', { method:'POST', headers:{ apikey: anonKey || '', 'Content-Type':'application/json' }, body: JSON.stringify({ refresh_token: cur.refresh_token }) });
+            if (r.ok) {
+              var d = await r.json(); var ns = Object.assign({}, sess(), { access_token: d.access_token, refresh_token: d.refresh_token });
+              localStorage.setItem('sb_session', JSON.stringify(ns)); return d.access_token;
+            }
+            if (r.status >= 400 && r.status < 500 && r.status !== 429) {
+              var c2 = sess(); if (fresh(c2.access_token)) return c2.access_token;  // another tab won the race
+              if (attempt >= 1) { try { (window.top || window).location.href = '/bounce-service-info/index.html'; } catch(e) {} return null; }
+            }
+          } catch (e) { /* network: retry */ }
+          await new Promise(function(res){ setTimeout(res, 1500 * Math.pow(2, attempt)); });
+        }
+        var c3 = sess(); return fresh(c3.access_token) ? c3.access_token : null;
+      } finally { setTimeout(function(){ refreshing = null; }, 0); }
     })();
     return refreshing;
   }
