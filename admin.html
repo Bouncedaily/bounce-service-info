@@ -166,8 +166,8 @@
         <div class="card-hd"><h2>Access by dashboard</h2><span class="sub">Who can open each dashboard · admins can open everything</span>
           <input type="search" id="abd-search" placeholder="Search dashboard or person…" oninput="renderAccessByDash()" style="margin-left:auto;max-width:260px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12.5px">
         </div>
-        <div class="tbl"><table><thead><tr><th style="width:220px">Dashboard</th><th style="width:70px">People</th><th>Who has access</th><th style="width:220px">Add someone</th></tr></thead>
-          <tbody id="abd-tbody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
+        <div class="tbl"><table><thead><tr><th style="width:200px">Dashboard</th><th style="width:70px">People</th><th>Who has access</th><th style="width:200px">Add someone</th><th style="width:210px" title="Uses each person's role from the 'Tell us about you' form">By role</th></tr></thead>
+          <tbody id="abd-tbody"><tr><td colspan="5" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
       </div>
 
       <!-- System Health -->
@@ -710,9 +710,35 @@ function renderAccessByDash() {
     if (q && !text.includes(q)) return '';
     const chips = has.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email)).map(u => `<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;padding:2px 4px 2px 9px;border:1px solid var(--border);border-radius:999px;font-size:11.5px" title="${u.email}">${u.name || u.email}<button type="button" onclick="abdSet('${u.email}','${key}',false)" aria-label="Remove ${u.name || u.email}" style="border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 4px">×</button></span>`).join('');
     const add = without.length ? `<select onchange="if(this.value){abdSet(this.value,'${key}',true)}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px"><option value="">+ Give access…</option>${without.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email)).map(u => `<option value="${u.email}">${u.name || u.email}</option>`).join('')}</select>` : '<span style="font-size:11px;color:var(--muted)">Everyone has it</span>';
-    return `<tr><td style="font-weight:600">${label}</td><td style="font-weight:700">${has.length}<span style="font-weight:400;color:var(--muted);font-size:11px"> + ${admins.length} admin</span></td><td>${chips || '<span style="font-size:11px;color:var(--muted)">Only admins</span>'}</td><td>${add}</td></tr>`;
+    return `<tr><td style="font-weight:600">${label}</td><td style="font-weight:700">${has.length}<span style="font-weight:400;color:var(--muted);font-size:11px"> + ${admins.length} admin</span></td><td>${chips || '<span style="font-size:11px;color:var(--muted)">Only admins</span>'}</td><td>${add}</td><td>${abdRoleCell(key, users)}</td></tr>`;
   }).join('');
-  tb.innerHTML = rows || '<tr><td colspan="4" class="empty">No match</td></tr>';
+  tb.innerHTML = rows || '<tr><td colspan="5" class="empty">No match</td></tr>';
+}
+// 30 Oct 2026: role-wise access, using each person's role from the "Tell us about you" form (self_role)
+const ABD_ROLES = ['City Head', 'Service Manager', 'Hub Manager', 'Central Team', 'HO Approval Team', 'Store Incharge'];
+function abdRoleCell(key, users) {
+  const opts = ABD_ROLES.map(r => {
+    const inRole = users.filter(u => u.self_role === r && !(u.role === 'admin' || u.email === ADMIN));
+    if (!inRole.length) return '';
+    const have = inRole.filter(u => (u.permissions || DEFAULT_PERMS)[key]).length;
+    return (have < inRole.length ? `<option value="give|${r}">Give to all ${r}s (${have}/${inRole.length})</option>` : '')
+         + (have > 0 ? `<option value="remove|${r}">Remove from all ${r}s (${have}/${inRole.length})</option>` : '');
+  }).join('');
+  return opts ? `<select onchange="if(this.value){abdRole('${key}',this.value);this.value=''}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px"><option value="">Choose a role…</option>${opts}</select>`
+              : '<span style="font-size:12px;color:var(--muted)">No roles answered yet</span>';
+}
+async function abdRole(key, v) {
+  const [act, role] = v.split('|'), give = act === 'give';
+  const users = (ALL_USERS || []).filter(u => u.is_active !== false && u.self_role === role && !(u.role === 'admin' || u.email === ADMIN)
+    && (give ? !(u.permissions || DEFAULT_PERMS)[key] : !!(u.permissions || DEFAULT_PERMS)[key]));
+  if (!users.length) return;
+  if (!confirm(`${give ? 'Give' : 'Remove'} "${dashLabel(key)}" ${give ? 'to' : 'from'} ${users.length} ${role}${users.length > 1 ? 's' : ''}?\n\n${users.map(u => u.name || u.email).join(', ')}`)) return;
+  let ok = 0;
+  for (const u of users) {
+    try { await rpc('update_user_permissions', { user_email: u.email, user_permissions: { ...(u.permissions || DEFAULT_PERMS), [key]: give } }); logAudit(u.email, 'set_perm', { key, val: give, from: 'access_by_role:' + role }); ok++; } catch (e) { console.error(e); }
+  }
+  showToast(`${give ? 'Gave' : 'Removed'} ${dashLabel(key)} ${give ? 'to' : 'from'} ${ok} ${role}${ok > 1 ? 's' : ''}`);
+  await loadUsers(); loadAuditLog();
 }
 async function abdSet(email, key, val) {
   if (!val && !confirm(`Remove "${dashLabel(key)}" from ${email}?`)) return;
