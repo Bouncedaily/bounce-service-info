@@ -446,16 +446,18 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div id="hqtab-history" style="display:none">
-  <div class="psub">Type a registration number (even partial, e.g. "BLR") to see every part replaced on matching vehicles across all dates — or leave it blank and search by part name instead (this month by default).</div>
+  <div class="psub">Type a registration number (even partial, e.g. "BLR") to see every part replaced on matching vehicles across all dates — or leave it blank and search by part name instead (this month by default; use the range menu or the From / To dates to go wider).</div>
   <div style="display:flex;gap:8px;align-items:center;margin:12px 0 16px;flex-wrap:wrap">
     <input type="text" id="svc-reg-input" placeholder="e.g. BLRBD00001 or BLR" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;width:220px;text-transform:uppercase;font-weight:600" oninput="onSvcSearchInput()" autofocus>
     <input type="text" id="svc-part-filter" placeholder="…or search by part name" style="padding:9px 14px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;width:200px" oninput="onSvcSearchInput()">
-    <span style="font-size:11px;color:var(--muted,#64748b);display:none">From</span>
-    <input type="date" id="svc-from-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit;display:none" onchange="onSvcSearchInput()">
-    <span style="font-size:11px;color:var(--muted,#64748b);display:none">To</span>
-    <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit;display:none" onchange="onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b)">From</span>
+    <input type="date" id="svc-from-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="svcRangeCustom();onSvcSearchInput()">
+    <span style="font-size:11px;color:var(--muted,#64748b)">To</span>
+    <input type="date" id="svc-to-date" style="padding:7px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit" onchange="svcRangeCustom();onSvcSearchInput()">
+    <select id="svc-range" onchange="onSvcRangeChange()" title="Quick date range (part-name search)" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="ytd">Year to date</option><option value="custom">Custom dates</option></select>
     <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
     <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
+    <select id="svc-cat-filter" onchange="onSvcSearchInput()" title="Category of the part (A, P, W, C, F)" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All categories</option><option value="A">A &ndash; Wear &amp; tear</option><option value="P">P &ndash; Paid (rider)</option><option value="W">W &ndash; Warranty</option><option value="C">C &ndash; Company</option><option value="F">F &ndash; Free of cost</option><option value="-">Uncategorised</option></select>
     <button class="btn" id="svc-back-btn" style="display:none" onclick="goBackServiceHistory()">← Back</button>
     <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Apply Filters</button>
     <button class="btn" onclick="clearServiceHistoryFilters()">Clear Filters</button>
@@ -2121,7 +2123,7 @@ function setNithishDateFilter(which){
 }
 let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' }, SVC_PART_FILTER = '', SVC_MODE = 'reg';
 let SVC_DIMS_INIT = false, SVC_HUBS_BY_CITY = {};
-const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'] };
+const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'], C: ['Company', '#f5f3ff', '#6d28d9'] };
 
 let SVC_DEFAULT_FROM = '', SVC_DEFAULT_TO = '';
 async function loadSvcDims(){
@@ -2148,6 +2150,18 @@ function onSvcCityChange(){
   var hubs = city ? (SVC_HUBS_BY_CITY[city]||[]).slice().sort() : Object.values(SVC_HUBS_BY_CITY).flat().sort();
   hubSel.innerHTML = '<option value="">All hubs</option>' + hubs.map(function(h){ return '<option value="'+esc(h)+'">'+esc(h)+'</option>'; }).join('');
 }
+function svcRangeCustom(){ var s = document.getElementById('svc-range'); if(s) s.value = 'custom'; }
+function onSvcRangeChange(){
+  var v = document.getElementById('svc-range').value;
+  if(v === 'custom') return;
+  var t = new Date(Date.now()+5.5*60*60*1000), today = t.toISOString().slice(0,10), from;
+  if(v === 'month') from = today.slice(0,8)+'01';
+  else if(v === 'ytd') from = today.slice(0,4)+'-01-01';
+  else { var d = new Date(t.getTime()); d.setUTCDate(d.getUTCDate()-(+v-1)); from = d.toISOString().slice(0,10); }
+  document.getElementById('svc-from-date').value = from;
+  document.getElementById('svc-to-date').value = today;
+  onSvcSearchInput();
+}
 function clearServiceHistoryFilters(){
   document.getElementById('svc-reg-input').value = '';
   document.getElementById('svc-part-filter').value = '';
@@ -2156,6 +2170,8 @@ function clearServiceHistoryFilters(){
   document.getElementById('svc-hub-filter').value = '';
   document.getElementById('svc-from-date').value = SVC_DEFAULT_FROM;
   document.getElementById('svc-to-date').value = SVC_DEFAULT_TO;
+  document.getElementById('svc-cat-filter').value = '';
+  document.getElementById('svc-range').value = 'month';
   // A drill-down's saved "previous state" is only meaningful relative to
   // where you drilled in from -- clearing filters is a fresh start, so any
   // pending Back target is stale and would otherwise resurrect filters
@@ -2173,6 +2189,8 @@ function captureSvcState(){
     hub: document.getElementById('svc-hub-filter').value,
     from: document.getElementById('svc-from-date').value,
     to: document.getElementById('svc-to-date').value,
+    cat: document.getElementById('svc-cat-filter').value,
+    range: document.getElementById('svc-range').value,
   };
 }
 function applySvcState(s){
@@ -2183,6 +2201,8 @@ function applySvcState(s){
   document.getElementById('svc-hub-filter').value = s.hub;
   document.getElementById('svc-from-date').value = s.from;
   document.getElementById('svc-to-date').value = s.to;
+  if(s.cat !== undefined) document.getElementById('svc-cat-filter').value = s.cat;
+  if(s.range) document.getElementById('svc-range').value = s.range;
 }
 // Click a vehicle's reg number in a multi-vehicle result (part search, or a
 // partial reg match like "BLR") to drill into just that vehicle's full
@@ -2269,13 +2289,14 @@ async function loadServiceHistory(){
   var hub = document.getElementById('svc-hub-filter').value;
   var fromDate = document.getElementById('svc-from-date').value;
   var toDate = document.getElementById('svc-to-date').value;
+  var cat = document.getElementById('svc-cat-filter').value;
   var box = document.getElementById('svc-history-results');
   var kpiBox = document.getElementById('svc-kpis');
   document.getElementById('svc-export-btn').style.display = 'none';
 
   SVC_MODE = reg.length >= 2 ? 'reg' : 'part';
   updateSvcModeNote(reg, partQuery);
-  var isUnmodifiedDefault = SVC_MODE==='part' && !partQuery && !city && !hub && fromDate===SVC_DEFAULT_FROM && toDate===SVC_DEFAULT_TO;
+  var isUnmodifiedDefault = SVC_MODE==='part' && !partQuery && !city && !hub && fromDate===SVC_DEFAULT_FROM && toDate===SVC_DEFAULT_TO && !cat;
   box.innerHTML='<div class="empty" style="padding:24px"><span class="spin"></span>Loading service history…</div>';
   kpiBox.innerHTML='';
   try{
@@ -2303,6 +2324,8 @@ async function loadServiceHistory(){
         p_hub: SVC_MODE==='part' && hub ? [hub] : null,
         p_from: SVC_MODE==='part' ? (fromDate||null) : null,
         p_to: SVC_MODE==='part' ? (toDate||null) : null,
+        p_cat: cat ? [cat] : null,
+        p_limit: SVC_MODE==='part' ? 6000 : 1500,
       })});
       // A newer search has been fired (and possibly already rendered) while
       // this one was in flight -- e.g. the unfiltered "browse all" request is
@@ -2319,7 +2342,7 @@ async function loadServiceHistory(){
     SVC_REG = SVC_MODE==='reg' ? reg : '';
     if(!rows.length){
       var noneMsg = SVC_MODE==='reg' ? 'No matches for reg <b>'+esc(reg)+'</b>'+(partQuery?' with part <b>"'+esc(partQuery)+'"</b>':'')+'.'
-        : (partQuery || city || hub) ? 'No matches'+(partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):'')+' in this date range.'
+        : (partQuery || city || hub || cat) ? 'No matches'+(partQuery?' for <b>"'+esc(partQuery)+'"</b>':'')+(city?' in '+esc(city):'')+(hub?' / '+esc(hub):'')+' in this date range.'
         : 'No parts found in this date range.';
       box.innerHTML = '<div class="empty" style="padding:24px">'+noneMsg+'</div>';
       return;
@@ -2462,7 +2485,7 @@ function renderSvcTable(){
   var contextLabel = SVC_MODE==='part'
     ? ('across all vehicles'+(svcPartVal ? ' for <b>"'+esc(svcPartVal)+'"</b>' : ''))
     : ('matching reg <b>'+esc(SVC_REG)+'</b>'+(svcPartVal ? ' with part <b>"'+esc(svcPartVal)+'"</b>' : ''));
-  var truncNote = SVC_TOTAL_COUNT > rows.length ? ' — <span style="color:#b45309;font-weight:600">showing most recent '+rows.length.toLocaleString('en-IN')+' of '+SVC_TOTAL_COUNT.toLocaleString('en-IN')+', narrow with dates/city/hub to see the rest</span>' : '';
+  var truncNote = SVC_TOTAL_COUNT > rows.length ? ' — <span style="color:#b45309;font-weight:600">showing most recent '+rows.length.toLocaleString('en-IN')+' of '+SVC_TOTAL_COUNT.toLocaleString('en-IN')+', narrow with dates/city/hub/category to see the rest</span>' : '';
   var html = '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:8px">Showing '+rows.length+' part'+(rows.length===1?'':'s')+' '+contextLabel+truncNote+' — click any column to sort, repeated parts highlighted</div>';
   html += '<div style="overflow-x:auto"><table><thead><tr>'+
     th('Reg Number','reg_number',false) +
