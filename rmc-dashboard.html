@@ -589,11 +589,12 @@ function ccHiddenBar(){ var hd=ccHidden(), ks=Object.keys(CC_LABELS).filter(func
 function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; } } return state.ccHide; }
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
+  if(model.ALL) cities=['ALL'].concat(cities);   // 2 Nov 2026: Overall (all selected cities together) before the cities
   var all={}; cities.forEach(function(c){ Object.keys(model[c]).forEach(function(m){ all[m]=1; }); });
   var ms=selMonths().filter(function(m){ return all[m]; }); if(!ms.length) return '';
   var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0];
   var full=ms.filter(function(m){ return !/p$/.test(m) && !isPartialMonth(m); });
-  var cols=full.slice(-3); if(pk) cols.push(pk);   // 2 Nov 2026: last three full months (was two) if(cols.indexOf(latest)<0) cols.push(latest);
+  var cols=full.slice(-3); if(pk) cols.push(pk); if(cols.indexOf(latest)<0) cols.push(latest);   // 2 Nov 2026: last three full months (was two)
   var cmpIdx = (pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
   var ok=function(v){ return v!=null && isFinite(v); };
   var F1=function(v){ return ok(v)?(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}):'\u2013'; };
@@ -603,21 +604,21 @@ function cityCompareHtml(model){
   var scale=function(t){ return t<0.5 ? mix('#63be7b','#ffeb84',t*2) : mix('#ffeb84','#f8696b',(t-0.5)*2); };
   var shade=function(vals,dir){ var a=vals[cmpIdx[0]], b=vals[cmpIdx[1]], out=vals.map(function(){return '';});
     if(!dir || !ok(a) || !ok(b) || !a) return out; var p=(b-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return out;
-    out[cmpIdx[1]]='background:'+(((p>0)===(dir>0))?'#fde2e2':'#dcf3e3')+';'; return out; };
+    var worse=(p>0)===(dir>0); out[cmpIdx[1]]='background:'+(!worse?'#dcf3e3':(Math.abs(p)<=5?'#fef3c7':'#fde2e2'))+';'; return out; };   // 2 Nov 2026: amber = worse by 5% or less
   var _unusedHeat=function(vals,dir){ if(!dir) return vals.map(function(){return '';});
     var xs=vals.filter(ok); if(xs.length<2) return vals.map(function(){return '';});
     var lo=Math.min.apply(null,xs), hi=Math.max.apply(null,xs); if(hi===lo) return vals.map(function(v){ return ok(v)?'background:#ffeb84;':''; });
     return vals.map(function(v){ if(!ok(v)) return ''; var t=(v-lo)/(hi-lo); if(dir<0) t=1-t; return 'background:'+scale(t)+';'; }); };
   var badge=function(vals,dir){ var a=vals[cmpIdx[0]], b=vals[cmpIdx[1]]; if(!ok(a)||!ok(b)||!a||!dir) return '';
     var p=(b-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ' <span style="font-size:10px;color:#64748b">0%</span>';
-    var worse=(p>0)===(dir>0); return ' <span style="font-size:10px;font-weight:700;color:'+(worse?'#b91c1c':'#15803d')+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
+    var worse=(p>0)===(dir>0); return ' <span style="font-size:10px;font-weight:700;color:'+(!worse?'#15803d':(Math.abs(p)<=5?'#b45309':'#b91c1c'))+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
   var bd=function(i){ return i===0?'border-left:2px solid #94a3b8;':''; };
   var nCols=1+cities.length*cols.length;
   var HDtop=ccHidden(), hlabels={labour:'Labour',P:'P: Rider-payable',A:'A: Wear & Tear',other:'Other maintenance',C:'C: Cost to company',dmg:'Revenue damage fee',rec:'Revenue recovery'};
   var hk=Object.keys(hlabels).filter(function(k){ return HDtop[k]; });
   var hiddenBar=hk.length?'<div style="margin:2px 0 8px;font-size:12px;color:#64748b">Hidden from the table and totals: '+hk.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+hlabels[k]+'</span>'; }).join('')+'</div>':'';
-  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last three full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p><div class="tw"><table>';
-  h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+cityName(c)+'</th>'; }).join('')+'</tr>';
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Overall and each city\u2019s last three full months (and the partial-month pair). The last column is compared with the month before it: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fef3c7;padding:0 6px;border-radius:3px">worse by up to 5%</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse by more than 5%</span>.</p><div class="tw"><table>';
+  h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+(c==='ALL'?'Overall':cityName(c))+'</th>'; }).join('')+'</tr>';
   h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
   var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
   // one table row: getter(city, month) -> number; fmt; dir: +1 higher is worse, -1 higher is better, 0 no colour; kind: tot / less / grey
