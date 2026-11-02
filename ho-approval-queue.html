@@ -2520,12 +2520,12 @@ function renderSvcTable(){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
+  var cols = ['Reg Number','Chassis Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     var earlyFlag = r.is_early_replacement ? ('Yes ('+r.km_on_part+' km vs '+r.expected_life_km+' km expected)') : '';
     var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
-    return [r.reg_number||''].concat(base);
+    return [r.reg_number||'', r.chassis_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
     return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
