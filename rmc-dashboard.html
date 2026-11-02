@@ -575,7 +575,7 @@ function stacked(city, months, model){
     s+='<text x="'+(x+bw/2)+'" y="'+(H-10)+'" font-size="10.5" text-anchor="middle" fill="#6b7280">'+C.monthLabel(m)+'</text>'; });
   return s+'</svg><div class="sub" style="margin-top:2px"><span style="color:'+COLORS.A+'">&#9632;</span> A &nbsp;<span style="color:'+COLORS.P+'">&#9632;</span> P &nbsp;<span style="color:'+COLORS.C+'">&#9632;</span> C &nbsp; (stacked, '+unitName()+')</div>';
 }
-// City comparison: cities side by side, each with the last two full months and the partial-month pair (e.g. Sep 1-27 vs Oct 1-27).
+// City comparison: cities side by side, each with the last three full months and the partial-month pair (e.g. Sep 1-27 vs Oct 1-27).
 // Same numbers as each city's own cards: it reuses opsVal / netInfo / recovAmt / driverVals / pSplitVal / val.
 // Colour: within each city, each row is shaded across its periods (green = better, red = worse); the last column
 // also shows the change vs the same days of the previous month (Oct 1-27 vs Sep 1-27).
@@ -593,7 +593,7 @@ function cityCompareHtml(model){
   var ms=selMonths().filter(function(m){ return all[m]; }); if(!ms.length) return '';
   var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0];
   var full=ms.filter(function(m){ return !/p$/.test(m) && !isPartialMonth(m); });
-  var cols=full.slice(-2); if(pk) cols.push(pk); if(cols.indexOf(latest)<0) cols.push(latest);
+  var cols=full.slice(-3); if(pk) cols.push(pk);   // 2 Nov 2026: last three full months (was two) if(cols.indexOf(latest)<0) cols.push(latest);
   var cmpIdx = (pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
   var ok=function(v){ return v!=null && isFinite(v); };
   var F1=function(v){ return ok(v)?(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}):'\u2013'; };
@@ -616,7 +616,7 @@ function cityCompareHtml(model){
   var HDtop=ccHidden(), hlabels={labour:'Labour',P:'P: Rider-payable',A:'A: Wear & Tear',other:'Other maintenance',C:'C: Cost to company',dmg:'Revenue damage fee',rec:'Revenue recovery'};
   var hk=Object.keys(hlabels).filter(function(k){ return HDtop[k]; });
   var hiddenBar=hk.length?'<div style="margin:2px 0 8px;font-size:12px;color:#64748b">Hidden from the table and totals: '+hk.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+hlabels[k]+'</span>'; }).join('')+'</div>':'';
-  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last two full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p><div class="tw"><table>';
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Each city\u2019s last three full months and the partial-month pair. The last column is compared with the same days of the previous month: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse</span>.</p><div class="tw"><table>';
   h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+cityName(c)+'</th>'; }).join('')+'</tr>';
   h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
   var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
