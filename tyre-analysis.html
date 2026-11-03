@@ -1566,8 +1566,10 @@ function renderOdb(){
     return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${n} of ${t} replacements${few ? ' (too few this month to judge)' : ''}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},'${mon}')"` : ''}>${inner}</td>`;
   };
   let h = '<table class="tbl"><thead><tr><th>' + esc(ODB.byLabel || 'Odometer at replacement') + '</th>' + ms.map(m => `<th class="num">${mLbl(m)}</th>`).join('') + '</tr></thead><tbody>';
-  rows.forEach(r => { h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i])).join('') + '</tr>'; });
-  h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements</td>' + tot.map(t => `<td class="num">${show === 'pct' ? (t ? '100%' : '–') : t.toLocaleString('en-IN')}</td>`).join('') + '</tr>';
+  const coh = D.cohort || {}, hasCoh = Object.keys(coh).length > 0;   // 3 Nov 2026: bikes of the current fleet in each band
+  rows.forEach(r => { const nb = coh[String(r.bk)];
+    h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px" title="Bikes in the current fleet in this band${D.by === 'usage' ? ' (latest job card in the last 60 days)' : ''}">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i])).join('') + '</tr>'; });
+  h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements' + (hasCoh ? ` <span class="sub" style="font-size:11px;font-weight:400">· ${Object.values(coh).reduce((a, b) => a + b, 0).toLocaleString('en-IN')} bikes in fleet</span>` : '') + '</td>' + tot.map(t => `<td class="num">${show === 'pct' ? (t ? '100%' : '–') : t.toLocaleString('en-IN')}</td>`).join('') + '</tr>';
   // median odometer per month (from the bands: midpoint of the band holding the 50th percentile)
   h += '<tr><td class="sub">Median band</td>' + ms.map((m, i) => { const t = tot[i]; if (!t) return '<td class="num sub">–</td>';
       let acc = 0, lab = '–'; const valid = D.rows.filter(r => r.bk >= 0), vt = valid.reduce((a, r) => a + r.counts[i], 0); for (const r of valid) { acc += r.counts[i]; if (vt && acc >= vt / 2) { lab = r.label.replace(' km', ''); break; } }
