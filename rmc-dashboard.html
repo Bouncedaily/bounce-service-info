@@ -305,6 +305,9 @@ async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rule
 async function loadAll(){
   state.loading=true; toast('Loading RMC data…'); render();
   var t0=Date.now(), r=await rpc('rmc_dashboard_data',{});
+  // 3 Nov 2026: a momentary database slowdown (e.g. a heavy refresh) can push this call past the time limit; retry up to 3 times
+  for(var _try=1; !r.ok && _try<=3 && /timeout|canceling statement|5\d\d|Failed to fetch|network/i.test((r.msg||'')+' '+(r.status||'')); _try++){
+    toast('Database busy, retrying ('+_try+' of 3)\u2026'); await new Promise(function(res){ setTimeout(res, 3000*_try); }); r=await rpc('rmc_dashboard_data',{}); }
   if(!r.ok){ state.loading=false; toast(r.status===401||r.status===403||/access/i.test(r.msg||'')?'No access: the RMC Dashboard is admin-only for now.':'Could not load: '+r.msg); render(); return; }
   var D=r.data||{}, L=(D.lines||[]).slice();
   state.partial=D.partial||null; window.RMC_PARTIAL_DAYS=state.partial?state.partial.days:null;
