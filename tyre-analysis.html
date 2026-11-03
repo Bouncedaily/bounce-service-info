@@ -360,7 +360,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
   <div class="content">
     <div class="wrap">
       <div class="page-title">Wear &amp; Tear Deep Dive</div>
-      <div class="page-sub">All tyre replacements from JC details — count, cost, repeat replacements, hub & city breakdown</div>
+      <div class="page-sub">Wear & tear part replacements (tyres, brakes, bearings, cone sets) from job cards: consumption vs expected life, early and repeat replacements, bike and hub breakdown</div>
       <div class="wt-tabs" style="display:flex;gap:4px;margin:14px 0 16px;border-bottom:1px solid var(--border,#e2e8f0)">
         <button class="wt-tab on" data-t="analysis" onclick="wtTab('analysis')">Analysis</button>
         <button class="wt-tab" data-t="forecast" onclick="wtTab('forecast')">Forecast</button>
@@ -372,7 +372,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
 
       <div id="wt-sticky" style="position:sticky;top:0;z-index:30;background:var(--bg,#f6f7fb);padding-top:6px;margin:0 -4px;padding-left:4px;padding-right:4px">
       <!-- TOP FILTER BAR -->
-      <div class="tbl-filter-bar" style="margin-bottom:4px;margin-top:4px"><div class="fg"><label>Part</label><input type="hidden" id="top-part" value=""><div id="tp-wrap" style="position:relative"><button type="button" id="tp-btn" onclick="document.getElementById('tp-menu').style.display=document.getElementById('tp-menu').style.display==='block'?'none':'block'" style="min-width:170px;text-align:left;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">All parts ▾</button><div id="tp-menu" style="display:none;position:absolute;z-index:50;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px 8px;max-height:340px;overflow:auto"><div style="display:flex;gap:8px;padding:2px 4px 6px;border-bottom:1px solid #eef2f7"><a href="#" onclick="topPartAll(true);return false" style="font-size:12px">Select all</a><a href="#" onclick="topPartAll(false);return false" style="font-size:12px">Clear</a></div><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Tyres</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre (Energy Ride / 12Inch)" onchange="topPartChanged()">Rear Tyre (Energy Ride / 12Inch)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre 12 Inch (Zoom)" onchange="topPartChanged()">Rear Tyre 12 Inch (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre (Zoom)" onchange="topPartChanged()">Front Tyre (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre 12-Inch" onchange="topPartChanged()">Front Tyre 12-Inch</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Brakes &amp; Wear</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Pad" onchange="topPartChanged()">Front Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Pad" onchange="topPartChanged()">Rear Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Disc" onchange="topPartChanged()">Front Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Disc" onchange="topPartChanged()">Rear Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Cone Set Assy" onchange="topPartChanged()">Cone Set Assy</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rr Brake Shoe Set - Drum" onchange="topPartChanged()">Rr Brake Shoe Set - Drum</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Fr Brake Shoe Set - Drum" onchange="topPartChanged()">Fr Brake Shoe Set - Drum</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Bearings</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Wheel Bearing" onchange="topPartChanged()">Front Wheel Bearing</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Wheel Bearing" onchange="topPartChanged()">Rear Wheel Bearing</label></div></div></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');loadAllReplacements();loadRepeats();loadIntervals();loadConsumption()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
+      <div class="tbl-filter-bar" style="margin-bottom:4px;margin-top:4px"><div class="fg"><label>Part</label><input type="hidden" id="top-part" value=""><div id="tp-wrap" style="position:relative"><button type="button" id="tp-btn" onclick="document.getElementById('tp-menu').style.display=document.getElementById('tp-menu').style.display==='block'?'none':'block'" style="min-width:170px;text-align:left;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">All parts ▾</button><div id="tp-menu" style="display:none;position:absolute;z-index:50;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px 8px;max-height:340px;overflow:auto"><div style="display:flex;gap:8px;padding:2px 4px 6px;border-bottom:1px solid #eef2f7"><a href="#" onclick="topPartAll(true);return false" style="font-size:12px">Select all</a><a href="#" onclick="topPartAll(false);return false" style="font-size:12px">Clear</a></div><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Tyres</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre (Energy Ride / 12Inch)" onchange="topPartChanged()">Rear Tyre (Energy Ride / 12Inch)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Tyre 12 Inch (Zoom)" onchange="topPartChanged()">Rear Tyre 12 Inch (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre (Zoom)" onchange="topPartChanged()">Front Tyre (Zoom)</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Tyre 12-Inch" onchange="topPartChanged()">Front Tyre 12-Inch</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Brakes &amp; Wear</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Pad" onchange="topPartChanged()">Front Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Pad" onchange="topPartChanged()">Rear Brake Pad</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Brake Disc" onchange="topPartChanged()">Front Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Brake Disc" onchange="topPartChanged()">Rear Brake Disc</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Cone Set Assy" onchange="topPartChanged()">Cone Set Assy</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rr Brake Shoe Set - Drum" onchange="topPartChanged()">Rr Brake Shoe Set - Drum</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Fr Brake Shoe Set - Drum" onchange="topPartChanged()">Fr Brake Shoe Set - Drum</label><div style="font-size:11px;font-weight:700;color:#64748b;margin:6px 4px 2px">Bearings</div><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Front Wheel Bearing" onchange="topPartChanged()">Front Wheel Bearing</label><label style="display:flex;gap:6px;align-items:center;padding:3px 4px;font-size:12px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="tp-cb" value="Rear Wheel Bearing" onchange="topPartChanged()">Rear Wheel Bearing</label></div></div></div><div class="fg"><label>From</label><input type="date" id="top-start" onchange="loadAllReplacements();loadRepeats();loadIntervals();loadBikeSummary()"/></div><div class="fg"><label>To</label><input type="date" id="top-end" onchange="loadAllReplacements();loadRepeats();loadIntervals();loadBikeSummary()"/></div><div class="fg"><label>City</label><select id="top-city" onchange="narrowHubsByCity('top-city','rep-hub');narrowHubsByCity('top-city','bs-hub');narrowHubsByCity('top-city','f-hub');loadAllReplacements();loadRepeats();loadIntervals();loadConsumption();loadBikeSummary();try{loadW30();}catch(e){}try{loadKmb();}catch(e){}"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div><button class="btn-sm" onclick="clearTopFilters()" style="align-self:flex-end">Clear</button></div>
         <div class="wt-secs" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 12px">
           <button class="wt-sec" data-s="overview" onclick="wtSec('overview')">Consumption</button>
           <button class="wt-sec" data-s="early" onclick="wtSec('early')">Early replacements</button>
@@ -425,7 +425,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
           <div class="fg"><label>Min. repeat replacements</label><select id="w30b-min" onchange="renderW30By()"><option value="1">Any</option><option value="5" selected>5+</option><option value="10">10+</option><option value="20">20+</option></select></div>
         </div>
         <div class="tbl-wrap"><div id="w30b-body"></div></div>
-        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes \u2014 rows flagged \u26a0 (same job card, \u2264 7 days or < 500 km apart) are possible duplicate billing. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
+        <div style="padding:8px 12px;font-size:11px;color:var(--muted,#64748b)">% = replacements done within the chosen number of days of the previous change of the same part on the same bike ÷ replacements that have an earlier change on record (first-ever changes are left out). Hover a cell for the counts; click it for the bikes — rows flagged ⚠ (same job card, ≤ 7 days or < 500 km apart) are possible duplicate billing. Red = 15% or more, amber = 8–15% (these thresholds are set for 30 days; read shorter or longer windows relative to each other). The current month is month-to-date.</div>
       </div>
 
       <!-- Km since last change: parts x km buckets for one replaced month; click a number for the bikes -->
@@ -721,7 +721,7 @@ function err(id, msg) {
 }
 
 // ---------- ALL REPLACEMENTS (also drives KPIs + by-part + by-sub) ----------
-function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=y+'-'+mo+'-01',td=now.toISOString().slice(0,10);['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.querySelectorAll('.tp-cb').forEach(function(c){c.checked=false;});if(typeof topPartSync==='function')topPartSync();document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadRepeats();loadIntervals();loadConsumption();}
+function clearTopFilters(){var now=new Date(),y=now.getFullYear(),mo=String(now.getMonth()+1).padStart(2,'0'),ms=wtLastMonth()[0],td=wtLastMonth()[1];['top-part','top-city'].forEach(function(id){document.getElementById(id).value='';});document.querySelectorAll('.tp-cb').forEach(function(c){c.checked=false;});if(typeof topPartSync==='function')topPartSync();document.getElementById('top-start').value=ms;document.getElementById('top-end').value=td;loadAllReplacements();loadRepeats();loadIntervals();loadConsumption();}
 
 async function loadAllReplacements() {
   _allPage = 1;
@@ -747,7 +747,7 @@ async function loadAllReplacements() {
   // KPIs
   const s = _mainResult.summary || {};
   const kpis = [
-    {l:'Total Replacements', v:fmt(s.total_replacements), sub:'Tyre part lines',                          bar:'#dc2626'},
+    {l:'Total Replacements', v:fmt(s.total_replacements), sub:'Part lines',                          bar:'#dc2626'},
     {l:'Unique JCs',         v:fmt(s.unique_jcs),         sub:'Job cards',                               bar:'#dc2626'},
     {l:'Unique Bikes',       v:fmt(s.unique_bikes),       sub:'Vehicles',                                bar:'#7c3aed'},
     {l:'Avg KM on Part',     v:s.avg_km ? fmt(s.avg_km)+' km':'—', sub:`${fmt(s.km_available_count)} with prev data`, bar:'#d97706'},
@@ -760,8 +760,14 @@ async function loadAllReplacements() {
       <div class="ks">${k.sub}</div><div class="kbar" style="background:${k.bar}"></div>
     </div>`).join('');
 
-  // By tyre type
-  const parts = _mainResult.by_part || [];
+  // By part type
+  const parts = (function(src){ var FT=/^Front Tyre/i, out=[], m=null;
+    (src||[]).forEach(function(p){ if(!FT.test(p.part_group||'')) { out.push(p); return; }
+      if(!m){ m={part_group:'Front Tyre (12 Inch / Zoom)', replacements:0, unique_bikes:0, _kmw:0, _medw:0, min_km:null, max_km:null, total_cost:0}; out.push(m); }
+      var n=+p.replacements||0; m.replacements+=n; m.unique_bikes+=(+p.unique_bikes||0); m._kmw+=(+p.avg_km||0)*n; m._medw+=(+p.median_km||0)*n; m.total_cost+=(+p.total_cost||0);
+      m.min_km = m.min_km==null ? p.min_km : Math.min(m.min_km, p.min_km); m.max_km = m.max_km==null ? p.max_km : Math.max(m.max_km, p.max_km); });
+    if(m){ m.avg_km = m.replacements ? m._kmw/m.replacements : null; m.median_km = m.replacements ? m._medw/m.replacements : null; }
+    return out.sort(function(a,b){ return (b.replacements||0)-(a.replacements||0); }); })(_mainResult.by_part);   // 3 Nov 2026: front tyres as one part
   const maxP = Math.max(1,...parts.map(p=>p.replacements||0));
   document.getElementById('by-part-body').innerHTML = parts.length ? `
     <table><thead><tr><th>Part Type</th><th>Replacements</th><th>Bikes</th><th>Avg KM</th><th>Median KM</th><th>Min KM</th><th>Max KM</th><th>Total Cost</th><th>Cost/KM (₹)</th></tr></thead>
@@ -776,7 +782,7 @@ async function loadAllReplacements() {
       <td style="font-family:var(--mono);color:var(--muted)">${fmt(p.min_km)} km</td>
       <td style="font-family:var(--mono);color:var(--muted)">${fmt(p.max_km)} km</td>
       <td style="font-family:var(--mono);color:var(--muted)">${fmtC(p.total_cost)}</td>
-      <td style="font-family:var(--mono);color:var(--accent);font-weight:600">${p.avg_km&&p.total_cost&&p.replacements?(p.total_cost/p.replacements/p.avg_km).toFixed(2):'—'}</td>
+      <td style="font-family:var(--mono);color:var(--text2)">${p.avg_km&&p.total_cost&&p.replacements?(p.total_cost/p.replacements/p.avg_km).toFixed(2):'—'}</td>
     </tr>`).join('')}</tbody></table>` : '<div class="loading-state" style="padding:20px">No data</div>';
 
   // By submission type
@@ -896,7 +902,7 @@ async function loadRepeats() {
     ? `${repeats.length} bikes with multiple replacements`
     : 'No repeat replacements found';
   document.getElementById('repeat-body').innerHTML = repeats.length ? `
-    <table><thead><tr><th>Reg No</th><th>City</th><th>Hub</th><th>Tyre</th><th>Times</th><th>Avg KM</th><th>Min KM</th><th>Max KM</th><th>First</th><th>Last</th><th>Duration (days)</th><th>JC Nos</th><th>Sub Types</th></tr></thead>
+    <table><thead><tr><th>Reg No</th><th>City</th><th>Hub</th><th>Part</th><th>Times</th><th>Avg KM</th><th>Min KM</th><th>Max KM</th><th>First</th><th>Last</th><th>Duration (days)</th><th>JC Nos</th><th>Sub Types</th></tr></thead>
     <tbody>${repeats.map(r=>`<tr>
       <td style="font-weight:700;font-family:var(--mono)">${r.reg_number||'—'}</td>
       <td><span class="pill ${cityPill(r.city)}">${r.city||'—'}</span></td>
@@ -916,16 +922,20 @@ async function loadRepeats() {
 }
 
 // ---------- BIKE LEVEL SUMMARY ----------
+// 3 Nov 2026: Bike level summary loads only when its section is visible (it is the biggest download on the page)
+function wtBikeVisible(){ var el=document.getElementById('bike-summary-body'); el=el&&el.closest('[data-sec]'); return !el || el.style.display!=='none'; }
 async function loadBikeSummary() {
+  if (!wtBikeVisible()) { window._wtBikeDirty = true; return; }
+  window._wtBikeDirty = false;
   spin('bike-summary-body');
   document.getElementById('bike-summary-count').textContent = 'Loading…';
   document.getElementById('bike-pg-bar').style.display = 'none';
 
   const params = {
-    p_city:  document.getElementById('bs-city').value  || null,
-    p_part:  document.getElementById('bs-part').value  || null,
-    p_start: document.getElementById('bs-start').value || null,
-    p_end:   document.getElementById('bs-end').value   || null
+    p_city:  document.getElementById('top-city').value  || null,   // follows the filters at the top of the page
+    p_part:  document.getElementById('top-part').value  || null,
+    p_start: document.getElementById('top-start').value || null,
+    p_end:   document.getElementById('top-end').value   || null
   };
   const bs = await rpc('get_tyre_bike_summary', params);
   if (!bs || bs.code || bs.message) { err('bike-summary-body', bs?.message); document.getElementById('bike-summary-count').textContent='—'; return; }
@@ -981,7 +991,7 @@ function renderBikePage() {
       <td style="color:var(--text2)">${fmt(r.overall_replacements)}</td>
       <td style="font-family:var(--mono)">${fmt(r.current_odo)} km</td>
       <td style="font-family:var(--mono);color:var(--text2)">${fmt(r.avg_odo_per_instance)} km</td>
-      <td style="font-family:var(--mono);font-weight:600;color:var(--red)">${fmt(r.km_this_replacement)} km</td>
+      <td style="font-family:var(--mono);font-weight:600;color:${r.km_this_replacement!=null&&r.km_this_replacement<2000?'var(--red)':'var(--text)'}">${r.km_this_replacement!=null?fmt(r.km_this_replacement)+' km':'—'}</td>
       <td style="font-family:var(--mono);color:var(--muted)">${fmt(r.km_at_last_replacement)} km</td>
       <td style="font-family:var(--mono);font-weight:600">${fmt(r.km_on_part)} km</td>
     </tr>`).join('')}</tbody></table>`;
@@ -1052,7 +1062,7 @@ function kmbInitMonths() {
   const sel = document.getElementById('kmb-month'); if (!sel || sel.options.length) return;
   const now = new Date(Date.now() + 5.5 * 3600e3); const out = [];
   for (let i = 0; i < 10; i++) { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)); if (d < new Date(Date.UTC(2026, 0, 1))) break;
-    out.push(`<option value="${d.toISOString().slice(0, 7)}">${d.toLocaleString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })}${i === 0 ? ' (so far)' : ''}</option>`); }
+    out.push(`<option value="${d.toISOString().slice(0, 7)}"${i === 1 ? ' selected' : ''}>${d.toLocaleString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })}${i === 0 ? ' (so far)' : ''}</option>`); }
   sel.innerHTML = out.join('');
 }
 function setKmbShow(btn) { document.querySelectorAll('#kmb-show button').forEach(b => b.classList.toggle('on', b === btn)); KMB.show = btn.dataset.v; renderKmb(); }
@@ -1061,8 +1071,9 @@ async function loadKmb() {
   const body = document.getElementById('kmb-body');
   body.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   document.getElementById('kmb-list').innerHTML = ''; KMB.sel = null;
-  try { KMB.data = await rpcU('wear_tear_km_buckets', { p_month: document.getElementById('kmb-month').value, p_city: document.getElementById('kmb-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
+  try { KMB.data = await rpcU('wear_tear_km_buckets', { p_month: document.getElementById('kmb-month').value, p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
   catch (e) { body.innerHTML = `<div class="error-msg">Could not load (${e.message}). Refresh the page.</div>`; return; }
+  if (!KMB.data) { body.innerHTML = '<div class="empty-state" style="padding:20px">No data for this month yet.</div>'; return; }
   const d = KMB.data.data_as_of; document.getElementById('kmb-updated').textContent = d ? 'Data as of ' + new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   renderKmb();
 }
@@ -1081,7 +1092,7 @@ async function openKmb(part, b) {
   const box = document.getElementById('kmb-list');
   const lbl = b === 'all' ? 'All changes' : (KMB_COLS.find(c => c[0] === b) || [, b])[1];
   box.innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
-  try { KMB.list = await rpcU('wear_tear_km_bucket_list', { p_month: document.getElementById('kmb-month').value, p_part: part, p_bucket: b, p_city: document.getElementById('kmb-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
+  try { KMB.list = await rpcU('wear_tear_km_bucket_list', { p_month: document.getElementById('kmb-month').value, p_part: part, p_bucket: b, p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('kmb-year').value || null }); }
   catch (e) { box.innerHTML = `<div class="error-msg">Could not load the bikes (${e.message}).</div>`; return; }
   const L = KMB.list || [], f = n => n == null ? '—' : Math.round(+n).toLocaleString('en-IN'), dt = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—';
   const clsLbl = { first: 'First change', odo: 'Odometer error' };
@@ -1129,6 +1140,7 @@ async function fcLoad() {
   document.getElementById('fc-body').innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   try { [FC.data, FC.hub] = await Promise.all([rpcU('wt_forecast_vs_actual', { p_tag: tag }), rpcU('wt_hub_check', { p_tag: tag })]); }
   catch (e) { document.getElementById('fc-body').innerHTML = `<div class="error-msg">Could not load (${e.message}).</div>`; return; }
+  if (!FC.data) { document.getElementById('fc-body').innerHTML = '<div class="empty-state" style="padding:20px">No forecast results for this month yet.</div>'; document.getElementById('fc-sub').textContent = ''; return; }
   const r = FC.data.run || {}, dt = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
   const partial = FC.data.share_of_window < 1;
   document.getElementById('fc-sub').textContent = `${dt(r.win_start)} – ${dt(r.win_end)} · made with data up to ${dt(r.cutoff)}` + (partial ? ` · actual through ${dt(FC.data.through)} (forecast scaled to the same days)` : '');
@@ -1269,7 +1281,7 @@ function consFilterText() {
 // actually used in the avg/median. Amber when Odo is under 5 (thin sample).
 function consN(odo, replaced) {
   if (odo == null && replaced == null) return '';
-  const thin = (odo || 0) < 5;
+  const thin = (odo || 0) < WT_MIN_N;
   return `<div style="font-size:10px;font-weight:400;color:${thin ? '#e3b07a' : '#b4bac4'}">Replaced ${replaced ?? 0} · Odo ${odo ?? 0}</div>`;
 }
 function renderConsumption() {
@@ -1286,10 +1298,13 @@ function renderConsumption() {
     ${v.months.map((x, i) => v.pctMode
       ? `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${x.pct==null||!x.bikes?'—':x.pct+'%'}</span><div style="font-size:10px;font-weight:400;color:#b4bac4">${fmt(x.bikes||0)} bikes</div></td>`
       : `<td class="num"><span style="${i===v.months.length-1?'font-weight:600':''}">${fmt(x.km)}</span>${consN(x.odo, x.rep)}</td>`).join('')}
-    <td class="num" ${achClass(v.ach)}>${v.ach==null?'—':v.ach+'%'}</td>
+    ${(() => { const lo = (v.months[v.months.length-1] || {}).odo || 0;
+      return (v.ach != null && lo < WT_MIN_N)
+        ? `<td class="num" style="color:#94a3b8" title="Only ${lo} replacement(s) with a clean km this month: too few to judge">${v.ach}% <span style="font-size:10px">(few)</span></td>`
+        : `<td class="num" ${achClass(v.ach)}>${v.ach==null?'—':v.ach+'%'}</td>`; })()}
     <td class="num">${fmt(v.cnt)}</td>
     <td class="num">${fmtC(v.cost)}</td>
-    <td class="num" style="color:var(--accent,#0891b2);font-weight:600">${v.cpk==null?'—':'₹'+v.cpk}</td>
+    <td class="num" style="color:var(--text2,#475569)">${v.cpk==null?'—':'₹'+v.cpk}</td>
   </tr>`).join('');
   const firstWarn = (consSeg('cons-repl') === 'first' && consYear() !== '2026')
     ? `<div style="margin:8px 12px;padding:8px 12px;border-left:4px solid #d97706;background:#fffbeb;color:#92400e;font-size:12px;border-radius:6px"><b>Read with care:</b> First-replacement km for ${consYear() ? consYear() + '-deployed bikes' : 'all deployed years'} includes bikes deployed before the job-card data starts (May 2025). For those bikes the real first replacement may be missing, so the odometer counts km from earlier parts too and <b>overstates part life</b>. Use <b>Deployed year 2026</b> for clean first-fit life.</div>` : '';
@@ -1333,7 +1348,8 @@ async function loadIntervals() {
     _intervalsRows = Array.isArray(result) ? result : [];
     renderIntervals();
     const upd = document.getElementById('intervals-updated');
-    if (upd) upd.textContent = ((params.p_start || params.p_end) ? `${params.p_start||'…'} to ${params.p_end||'…'}` : 'All time') + (deployedYear ? ` · deployed ${deployedYear}` : '');
+    const _fd = x => x ? new Date(x + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '…';
+    if (upd) upd.textContent = ((params.p_start || params.p_end) ? `${_fd(params.p_start)} – ${_fd(params.p_end)}` : 'All time') + (deployedYear ? ` · deployed ${deployedYear}` : '');
   } catch(e) {
     console.error('loadIntervals error:', e);
     body.innerHTML = '<div class="loading-state" style="padding:20px;color:var(--danger,#dc2626)">Failed to load. <a href="#" onclick="loadIntervals();return false;">Retry</a></div>';
@@ -1423,6 +1439,10 @@ function exportBikeSummary() {
 }
 
 const today = () => new Date().toISOString().slice(0,10);
+// 3 Nov 2026: the page opens on the LAST FULL MONTH (opening on "this month" showed almost nothing early in a month)
+function wtLastMonth(){ var n=new Date(), a=new Date(n.getFullYear(), n.getMonth()-1, 1), b=new Date(n.getFullYear(), n.getMonth(), 0);
+  var f=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }; return [f(a), f(b)]; }
+var WT_MIN_N = 20;   // below this many replacements a % or achievement is shown grey ("few"), not coloured
 
 // ---------- CLEAR FILTERS ----------
 function clearFilters(table) {
@@ -1431,22 +1451,22 @@ function clearFilters(table) {
     document.getElementById('rep-min-times').value = '2';
     loadRepeats();
   } else if (table === 'bs') {
-    const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+    const _lm=wtLastMonth();
     document.getElementById('bs-city').value    = '';
     document.getElementById('bs-hub').value     = '';
     document.getElementById('bs-part').value    = '';
-    document.getElementById('bs-start').value   = `${y}-${m}-01`;
-    document.getElementById('bs-end').value     = now.toISOString().slice(0,10);
+    document.getElementById('bs-start').value   = _lm[0];
+    document.getElementById('bs-end').value     = _lm[1];
     document.getElementById('bs-min-repl').value= '';
     document.getElementById('bs-max-repl').value= '';
     loadBikeSummary();
   } else if (table === 'all') {
-    const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+    const _lm=wtLastMonth();
     document.getElementById('f-city').value  = '';
     document.getElementById('f-hub').value   = '';
     document.getElementById('f-part').value  = '';
-    document.getElementById('f-start').value = `${y}-${m}-01`;
-    document.getElementById('f-end').value   = now.toISOString().slice(0,10);
+    document.getElementById('f-start').value = _lm[0];
+    document.getElementById('f-end').value   = _lm[1];
     document.getElementById('f-sub').value   = '';
     loadAllReplacements();
   }
@@ -1477,12 +1497,15 @@ function applyBikeClientFilters() {
   { document.getElementById('sidebar').classList.add('mobile-open'); document.getElementById('sb-overlay').classList.add('active'); document.getElementById('sb-hamburger').style.display='none'; }
 
 
+// ── One set of filters (3 Nov 2026): Part, City and dates live at the top only. The All replacements boxes for these
+// did nothing, and the Bike summary ones duplicated the top bar, so they are hidden; each section keeps its own extras.
+(function(){ ['f-city','f-part','f-start','f-end','bs-city','bs-part','bs-start','bs-end','w30-city','kmb-city'].forEach(function(id){ var el=document.getElementById(id), fg=el&&el.closest('.fg'); if(fg) fg.style.display='none'; });
+  ['all-count','bike-summary-count'].forEach(function(id){ var c=document.getElementById(id); if(c && !c.nextElementSibling?.classList?.contains('wt-follow')){ var n=document.createElement('span'); n.className='sub wt-follow'; n.style.marginLeft='8px'; n.textContent='· follows Part, City and dates at the top'; c.after(n); } }); })();
 // ── Auto-load all tables on page open ──
 (function() {
   try {
     populateHubDropdowns();
-    var now = new Date(), y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
-    var monthStart = y+'-'+m+'-01', today = now.toISOString().slice(0,10);
+    var _lm = wtLastMonth(), monthStart = _lm[0], today = _lm[1];
     document.getElementById('f-start').value  = monthStart;
     document.getElementById('f-end').value    = today;
     if(document.getElementById('top-start'))document.getElementById('top-start').value=monthStart;
@@ -1491,7 +1514,7 @@ function applyBikeClientFilters() {
     document.getElementById('bs-end').value   = today;
     loadAllReplacements();
     loadRepeats();
-    loadBikeSummary();
+    (function(){ var k='overview'; try{ k=localStorage.getItem('wt_sec')||'overview'; }catch(e){} if(k==='repeats'||k==='*') loadBikeSummary(); else window._wtBikeDirty=true; })();   // bike summary: only when its section is open
     loadConsumption();
     loadIntervals();
     (window.authGetValidToken ? Promise.resolve() : new Promise(r => { window.addEventListener('auth-ready', r, { once: true }); setTimeout(r, 5000); })).then(loadKmb);
@@ -1560,7 +1583,7 @@ function topPartSync(){ var v=topPartSel(), b=document.getElementById('tp-btn');
   document.getElementById('top-part').value=v.join('|');
   if(b) b.textContent=(v.length===0?'All parts':(v.length===1?v[0]:v.length+' parts selected'))+' \u25be'; }
 var _tpT=null;
-function topPartChanged(){ topPartSync(); clearTimeout(_tpT); _tpT=setTimeout(function(){ loadAllReplacements(); loadRepeats(); loadIntervals(); try{ renderConsumption(); }catch(e){} try{ renderW30(); loadW30By(); }catch(e){} }, 400); }
+function topPartChanged(){ topPartSync(); clearTimeout(_tpT); _tpT=setTimeout(function(){ loadAllReplacements(); loadRepeats(); loadIntervals(); loadBikeSummary(); try{ renderConsumption(); }catch(e){} try{ renderW30(); loadW30By(); }catch(e){} }, 400); }
 function topPartAll(on){ document.querySelectorAll('.tp-cb').forEach(function(c){ c.checked=on; }); topPartChanged(); }
 document.addEventListener('click', function(e){ var w=document.getElementById('tp-wrap'); if(w && !w.contains(e.target)){ var m=document.getElementById('tp-menu'); if(m) m.style.display='none'; } });
 </script>
@@ -1579,8 +1602,9 @@ async function loadW30(){
   var body=document.getElementById('w30-body'); if(!body) return;
   body.innerHTML='<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   document.getElementById('w30-list').innerHTML=''; W30.sel=null; W30.listHead=null;
-  try { W30.data = await rpcU('wear_tear_within30', { p_months: +document.getElementById('w30-months').value, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
+  try { W30.data = await rpcU('wear_tear_within30', { p_months: +document.getElementById('w30-months').value, p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ body.innerHTML='<div class="error-msg">Could not load ('+e.message+'). Refresh the page.</div>'; return; }
+  if(!W30.data){ body.innerHTML='<div class="empty-state" style="padding:20px">No data for this selection yet.</div>'; return; }
   var d=W30.data.data_as_of; document.getElementById('w30-updated').textContent = d ? 'Data as of '+new Date(d).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
   document.getElementById('w30-title').textContent='Replaced Within '+(W30.data.days||w30Days())+' Days';
   renderW30();
@@ -1597,7 +1621,7 @@ function renderW30(){
     parts=parts.slice().sort(function(a,b){ return w30Cmp(pv(a),pv(b),so.d); }); }
   if(!parts.length){ document.getElementById('w30-body').innerHTML='<div class="empty-state" style="padding:20px">No replacements in this period.</div>'; return; }
   var cell=function(p,m){ var r=idx[p+'|'+m]; if(!r||!r.with_prev) return '<td class="num" style="color:#cbd5e1">–</td>';
-    var pc=r.d30/r.with_prev*100, bg=pc>=15?'#fde2e2':(pc>=8?'#fef3c7':''), on=W30.sel&&W30.sel.p===p&&W30.sel.m===m;
+    var pc=r.d30/r.with_prev*100, bg=r.with_prev<WT_MIN_N?'':(pc>=15?'#fde2e2':(pc>=8?'#fef3c7':'')), on=W30.sel&&W30.sel.p===p&&W30.sel.m===m;
     return '<td class="num" style="background:'+bg+'"><a href="#" onclick="openW30(\''+p.replace(/'/g,"\\'")+'\',\''+m+'\');return false" title="'+r.d30+' of '+r.with_prev+' repeat replacements within '+((W30.data&&W30.data.days)||30)+' days ('+r.d7+' within 7 days) · '+r.total+' replacements in total" style="color:inherit;text-decoration:'+(on?'underline':'none')+';font-weight:'+(on?800:600)+'">'+pc.toFixed(1)+'%</a><div style="font-size:10px;color:#94a3b8">'+r.d30+' of '+r.with_prev+'</div></td>'; };
   var tot=function(m){ var a=0,b=0; parts.forEach(function(p){ var r=idx[p+'|'+m]; if(r){ a+=r.d30; b+=r.with_prev; } }); return b?'<td class="num" style="font-weight:700">'+(a/b*100).toFixed(1)+'%<div style="font-size:10px;color:#94a3b8;font-weight:400">'+a+' of '+b+'</div></td>':'<td class="num">–</td>'; };
   document.getElementById('w30-body').innerHTML='<table class="data-table w30-tbl" style="width:auto;font-size:12px"><thead><tr>'+w30Th('main','name','Part',false)+ms.map(function(m,i){ return w30Th('main',m,w30Lbl(m)+(i===ms.length-1?' (so far)':''),true); }).join('')+'</tr></thead><tbody>'
@@ -1612,7 +1636,7 @@ function w30Flag(r){ var f=[];
 async function openW30(p,m){
   W30.sel={p:p,m:m}; renderW30();
   var box=document.getElementById('w30-list'); box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
-  var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('w30-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
+  var rows; try { rows = await rpcU('wear_tear_within30_bikes', { p_month:m, p_part:p, p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days() }); }
   catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
   W30.list=rows||[]; W30.listHead={p:p,m:m}; renderW30List();
 }
@@ -1637,12 +1661,12 @@ function exportW30CSV(){
 var W30B={rows:[]};
 function w30bFillMonths(){ var sel=document.getElementById('w30b-month'); if(!sel||!W30.data) return; var ms=W30.data.months||[], cur=sel.value;
   sel.innerHTML=ms.slice().reverse().map(function(m){ return '<option value="'+m+'">'+w30Lbl(m)+'</option>'; }).join('');
-  if(cur && ms.indexOf(cur)>=0) sel.value=cur; }
+  if(cur && ms.indexOf(cur)>=0) sel.value=cur; else if(ms.length>1) sel.value=ms[ms.length-2]; }   // default: last full month
 async function loadW30By(){
   var box=document.getElementById('w30b-body'); if(!box) return; var m=document.getElementById('w30b-month').value; if(!m) return;
   box.innerHTML='<div class="loading-state" style="padding:14px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   var tp=((document.getElementById('top-part')||{}).value||'').split('|').filter(Boolean).map(function(x){ return /^Front Tyre/.test(x)?'Front Tyre (12 Inch / Zoom)':x; });
-  try { W30B.rows = await rpcU('wear_tear_early_by', { p_month:m, p_by: document.getElementById('w30b-by').value, p_city: document.getElementById('w30-city').value || null,
+  try { W30B.rows = await rpcU('wear_tear_early_by', { p_month:m, p_by: document.getElementById('w30b-by').value, p_city: document.getElementById('top-city').value || null,
            p_deploy_year: document.getElementById('w30-year').value || null, p_days: w30Days(), p_parts: tp.length ? tp.join('|') : null }) || []; }
   catch(e){ box.innerHTML='<div class="error-msg">Could not load ('+e.message+')</div>'; return; }
   renderW30By();
@@ -1666,6 +1690,7 @@ function renderW30By(){
 function wtSec(k){ try{ localStorage.setItem('wt_sec',k); }catch(e){}
   document.querySelectorAll('.wt-sec').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-s')===k); });
   document.querySelectorAll('#tab-analysis [data-sec]').forEach(function(el){ el.style.display=(k==='*'||el.getAttribute('data-sec')===k)?'':'none'; });
+  if(window._wtBikeDirty && typeof wtBikeVisible==='function' && wtBikeVisible()) loadBikeSummary();
   var t=document.getElementById('wt-sticky'); if(t && window.scrollY>t.offsetTop) window.scrollTo({top:t.offsetTop-4,behavior:'smooth'}); }
 (function(){ var go=function(){ var k='overview'; try{ k=localStorage.getItem('wt_sec')||'overview'; }catch(e){} wtSec(k); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); })();
