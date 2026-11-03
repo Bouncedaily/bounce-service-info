@@ -244,7 +244,7 @@ function mergeDen(def,saved){ if(!saved) return def; Object.keys(def).forEach(fu
 function migrateFleet(f){ if(!f) return f; var old={BLR:10503,NCR:2097,HYD:1140}; Object.keys(old).forEach(function(c){ if(f[c]&&f[c]['2026-09']===old[c]) delete f[c]['2026-09']; }); return f; }
 var state = {
   store:C.newStore(), rules:[], fleet:{}, ops:{}, km:{},
-  hubFleet:{}, hubKm:{}, foldOn:true, loading:true,
+  hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), loading:true,
   F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:'overview', msg:'',
   parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:''}
 };
@@ -1163,7 +1163,7 @@ root.addEventListener('change',function(e){
   else if(a==='pcity') state.parts.city=el.value; else if(a==='ptop') state.parts.top=+el.value;
   else if(a==='mcity') state.mv.city=el.value; else if(a==='mb') state.mv.bucket=el.value; else if(a==='mx') state.mv.x=el.value; else if(a==='my') state.mv.y=el.value;
   else if(a==='hcity') state.hubs.city=el.value;
-  else if(a==='fold') state.foldOn=el.checked;
+  else if(a==='fold'){ state.foldOn=el.checked; try { localStorage.setItem('rmc_fold_refurb', el.checked?'1':'0'); } catch(e){} }   // 3 Nov 2026: remember the choice
   
   render();
 });
