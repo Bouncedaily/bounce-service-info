@@ -2388,7 +2388,7 @@ function renderDeptCell(regNumber, oosSince) {
   const selected = cached ? (cached.department || '') : '';
   const regAttr = JSON.stringify(regNumber);
   const sinceAttr = JSON.stringify(oosSince || '');
-  const opts = ['Service', 'Spares', 'Ops'].map(d =>
+  const opts = ['Service', 'Spares', 'Ops', 'Side stand'].map(d =>
     `<option value="${d}"${selected === d ? ' selected' : ''}>${d}</option>`
   ).join('');
   return `<td><select class="dept-select" style="padding:4px 6px;border:1px solid var(--border2,#cbd5e1);border-radius:6px;font-size:12px;font-family:inherit" onchange='onDeptChange(this, ${regAttr}, ${sinceAttr})'>
@@ -2397,6 +2397,12 @@ function renderDeptCell(regNumber, oosSince) {
 }
 
 const SERVICE_CATEGORY_OPTIONS = ['HO Approval', 'Warranty Approval', 'Technical support for Diagnosis', 'Number plate', 'Support from external vendors'];
+const SIDE_STAND_OPTIONS = [
+  '1. One bolt broken / stuck; other side nut thread intact',
+  '2. Thread slip on both side nuts',
+  '3. Thread slip on one side nut; broken bolt stuck in the other',
+  '4. Side stand mounting clamp on the frame damaged / dislocated'
+];
 const PO_NUMBER_PATTERN = /^PO\d{10}$/;
 
 // Remarks' required-ness and placeholder both depend on Department (and,
@@ -2413,6 +2419,7 @@ function remarkPlaceholderFor(department, poCategory) {
     if (poCategory === 'Support from external vendors') return 'Give your remarks';
     return 'Select a category first';
   }
+  if (department === 'Side stand') return poCategory ? 'Describe what you found (add a video link if you have one)' : 'Select a scenario first';
   return 'Select a department first';
 }
 
@@ -2489,6 +2496,12 @@ function renderPoCategoryCell(regNumber, oosSince) {
       <option value="">— Select —</option>${opts}
     </select></td>`;
   }
+  if (department === 'Side stand') {
+    const opts = SIDE_STAND_OPTIONS.map(o => `<option value="${o}"${o === poCat ? ' selected' : ''}>${o}</option>`).join('');
+    return `<td><select style="padding:4px 6px;border:1px solid var(--border2,#cbd5e1);border-radius:6px;font-size:12px;font-family:inherit;max-width:260px" onchange='onPoCategoryDropdownChange(this, ${regAttr}, ${sinceAttr})'>
+      <option value="">— Select scenario —</option>${opts}
+    </select></td>`;
+  }
   // Ops (or no department chosen yet): nothing to enter here.
   return `<td><span style="color:var(--muted,#94a3b8);font-size:12px">—</span></td>`;
 }
@@ -2526,6 +2539,7 @@ async function saveRow(btnEl, regNumber, oosSince) {
   if (!department) errors.push('Select a Department.');
   if (department === 'Spares' && !PO_NUMBER_PATTERN.test(poCategory)) errors.push('PO Number must be "PO" followed by 10 digits.');
   if (department === 'Service' && !SERVICE_CATEGORY_OPTIONS.includes(poCategory)) errors.push('Select a Category.');
+  if (department === 'Side stand' && !SIDE_STAND_OPTIONS.includes(poCategory)) errors.push('Select a Scenario.');
   if (!remarkText) errors.push('Remarks is required.');
   if (errors.length) {
     alert('Cannot save:\n\n' + errors.join('\n'));
@@ -2581,7 +2595,7 @@ function renderRemarkCell(regNumber, oosSince) {
   const poCategory = cached.po_number_category || '';
   const text = cached.remark_text || '';
   const placeholder = remarkPlaceholderFor(department, poCategory);
-  const canType = department === 'Ops' || (department === 'Spares') || (department === 'Service' && poCategory);
+  const canType = department === 'Ops' || (department === 'Spares') || (department === 'Service' && poCategory) || (department === 'Side stand' && poCategory);
   const missing = canType && !text;
   const regAttr = JSON.stringify(regNumber);
   const sinceAttr = JSON.stringify(oosSince || '');
