@@ -455,6 +455,8 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
           <div class="fg"><label>Rows by</label><select id="odb-by" onchange="loadOdb()">
             <option value="odo">Odometer at replacement</option><option value="km">Km since last change</option><option value="days">Days since last change</option>
             <option value="age">Bike age (months since deployment)</option><option value="usage">Daily usage (avg km/day, last 30 days)</option></select></div>
+          <div class="fg"><label>Replacement no.</label><select id="odb-rn" onchange="loadOdb()" title="Which change of this part on the bike, counted from Jan 2026 (when job card history starts)">
+            <option value="0">All</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th+</option></select></div>
           <div class="fg"><label>Months</label><select id="odb-months" onchange="loadOdb()"><option value="3">Last 3</option><option value="6" selected>Last 6</option><option value="12">Last 12</option></select></div>
           <div class="fg" id="odb-step-fg"><label id="odb-step-lbl">Odometer band</label><select id="odb-step" onchange="loadOdb()"><option value="2000">2k km</option><option value="5000" selected>5k km</option><option value="10000">10k km</option></select></div>
           <div class="fg"><label>Deployed Year</label><select id="odb-year" onchange="loadOdb()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option></select></div>
@@ -1544,7 +1546,7 @@ async function loadOdb(){
   document.getElementById('odb-step-fg').style.display = (by === 'odo' || by === 'km') ? '' : 'none';
   document.getElementById('odb-step-lbl').textContent = by === 'km' ? 'Km band' : 'Odometer band';
   try { ODB.data = await rpcU('wear_tear_part_matrix', { p_part: document.getElementById('odb-part').value, p_by: by, p_months: +document.getElementById('odb-months').value,
-          p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('odb-year').value || null, p_step: step }); }
+          p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('odb-year').value || null, p_step: step, p_rn: +document.getElementById('odb-rn').value }); }
   catch (e) { body.innerHTML = `<div class="error-msg">Could not load (${esc(e.message)}).</div>`; return; }
   renderOdb();
 }
@@ -1556,24 +1558,26 @@ function renderOdb(){
   const mLbl = m => new Date(m + '-01T00:00:00').toLocaleString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-') + (m === cur ? ' (so far)' : '');
   const show = ODB.show, rows = D.rows.filter(r => r.bk >= 0 || r.counts.some(n => n > 0));
   // heat: shade by share of the month (darkest = biggest band), not for tiny months
-  const cell = (n, t, bk, mon) => {
+  const cell = (n, t, bk, mon, npre) => {
     const pc = t ? n / t * 100 : null, few = t < (typeof WT_MIN_N === 'number' ? WT_MIN_N : 20);
     const bg = (pc == null || few || !n) ? '' : `background:rgba(220,38,38,${Math.min(0.08 + pc / 100 * 2.2, 0.55).toFixed(2)})`;
     const pTxt = pc == null ? '–' : (pc >= 10 ? pc.toFixed(0) : pc.toFixed(1)) + '%';
     const inner = show === 'n' ? (n ? n.toLocaleString('en-IN') : '<span style="color:#cbd5e1">0</span>')
       : show === 'pct' ? (n ? pTxt : '<span style="color:#cbd5e1">–</span>')
       : (n ? `<b>${pTxt}</b><div class="sub" style="font-size:10.5px">${n.toLocaleString('en-IN')}</div>` : '<span style="color:#cbd5e1">–</span>');
-    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${n} of ${t} replacements${few ? ' (too few this month to judge)' : ''}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},'${mon}')"` : ''}>${inner}</td>`;
+    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${n} of ${t} replacements${npre ? ` · ${npre} on bikes deployed before 2026 (history from Jan 2026 only)` : ''}${few ? ' (too few this month to judge)' : ''}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},'${mon}')"` : ''}>${inner}</td>`;
   };
   let h = '<table class="tbl"><thead><tr><th>' + esc(ODB.byLabel || 'Odometer at replacement') + '</th>' + ms.map(m => `<th class="num">${mLbl(m)}</th>`).join('') + '</tr></thead><tbody>';
   const coh = D.cohort || {}, hasCoh = Object.keys(coh).length > 0;   // 3 Nov 2026: bikes of the current fleet in each band
   rows.forEach(r => { const nb = coh[String(r.bk)];
-    h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px" title="Bikes in the current fleet in this band${D.by === 'usage' ? ' (latest job card in the last 60 days)' : ''}">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i])).join('') + '</tr>'; });
+    h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px" title="Bikes in the current fleet in this band${D.by === 'usage' ? ' (latest job card in the last 60 days)' : ''}">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i], (r.pre || [])[i] || 0)).join('') + '</tr>'; });
   h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements' + (hasCoh ? ` <span class="sub" style="font-size:11px;font-weight:400">· ${Object.values(coh).reduce((a, b) => a + b, 0).toLocaleString('en-IN')} bikes in fleet</span>` : '') + '</td>' + tot.map(t => `<td class="num">${show === 'pct' ? (t ? '100%' : '–') : t.toLocaleString('en-IN')}</td>`).join('') + '</tr>';
   // median odometer per month (from the bands: midpoint of the band holding the 50th percentile)
   h += '<tr><td class="sub">Median band</td>' + ms.map((m, i) => { const t = tot[i]; if (!t) return '<td class="num sub">–</td>';
       let acc = 0, lab = '–'; const valid = D.rows.filter(r => r.bk >= 0), vt = valid.reduce((a, r) => a + r.counts[i], 0); for (const r of valid) { acc += r.counts[i]; if (vt && acc >= vt / 2) { lab = r.label.replace(' km', ''); break; } }
       return `<td class="num sub" style="font-size:11px">${esc(lab)}</td>`; }).join('') + '</tr>';
+  const rnN = +(D.rn || 0), tp = D.totals_pre || [], tSum = tot.reduce((a, b) => a + b, 0), pSum = tp.reduce((a, b) => a + b, 0);
+  if (rnN && tSum) h += `<tr><td colspan="${ms.length + 1}" style="font-size:11px;color:#b45309;background:#fffbeb">⚠ ${['', '1st', '2nd', '3rd', '4th+'][rnN]} replacement is counted from Jan 2026, when job card history starts. ${pSum.toLocaleString('en-IN')} of ${tSum.toLocaleString('en-IN')} (${Math.round(pSum / tSum * 100)}%) are on bikes deployed before 2026, whose earlier changes are not visible, so their number may be higher. Exact for bikes deployed in 2026.</td></tr>`;
   body.innerHTML = h + '</tbody></table>';
 }
 async function loadOdbList(bk, mon){
@@ -1581,26 +1585,27 @@ async function loadOdbList(bk, mon){
   const mLbl = new Date(mon + '-01T00:00:00').toLocaleString('en-IN', { month: 'short', year: 'numeric' });
   box.innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   let rows; try { rows = await rpcU('wear_tear_part_matrix_list', { p_part: D.part, p_by: D.by || 'odo', p_month: mon, p_bk: bk, p_city: document.getElementById('top-city').value || null,
-      p_deploy_year: document.getElementById('odb-year').value || null, p_step: D.step }); }
+      p_deploy_year: document.getElementById('odb-year').value || null, p_step: D.step, p_rn: +(D.rn || 0) }); }
   catch (e) { box.innerHTML = `<div class="error-msg">Could not load (${esc(e.message)}).</div>`; return; }
-  ODB.list = { rows: rows || [], title: `${D.part} · ${mLbl} · ${(ODB.byLabel || 'odometer').toLowerCase()} ${row ? row.label : ''}` };
+  ODB.list = { rows: rows || [], title: `${D.part}${+(D.rn || 0) ? ' · ' + ['', '1st', '2nd', '3rd', '4th+'][+D.rn] + ' replacement' : ''} · ${mLbl} · ${(ODB.byLabel || 'odometer').toLowerCase()} ${row ? row.label : ''}` };
   const fd = x => x ? new Date(x + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '–';
   const n0 = v => v == null ? '–' : Number(v).toLocaleString('en-IN');
   const kmCell = r => r.cls === 'first' ? '<span class="sub">first change</span>' : r.cls === 'odo' ? '<span style="color:#b45309" title="This or the previous job card odometer is flagged">odometer error</span>'
       : `<span style="${r.km != null && r.km < 2000 ? 'color:var(--red,#dc2626);font-weight:700' : ''}">${n0(r.km)} km</span>`;
   let h = `<div style="display:flex;align-items:center;gap:10px;padding:12px 16px 6px;border-top:1px solid var(--border,#e2e8f0)"><b>${esc(ODB.list.title)}</b><span class="sub">${rows.length} replacement${rows.length === 1 ? '' : 's'}</span>
     <button class="btn-export" style="margin-left:auto" onclick="exportOdbListCSV()"><i class="ti ti-table-export"></i> CSV</button><a href="#" class="sub" onclick="document.getElementById('odb-list').innerHTML='';return false">close</a></div>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Reg No</th><th>City</th><th>Hub</th><th>Replaced on</th><th class="num">Odometer</th><th>JC</th><th>Previous change</th><th class="num">Odometer then</th><th class="num">Km since previous change</th><th class="num">Days since</th><th class="num">Bike age</th><th class="num">Daily usage</th></tr></thead><tbody>`;
-  rows.forEach(r => { h += `<tr><td style="font-weight:600">${esc(r.reg)}</td><td>${esc(r.city || '')}</td><td>${esc(r.hub || '')}</td><td>${fd(r.date)}</td><td class="num">${n0(r.odo)}</td>
-    <td>${esc(r.jc || '–')}</td><td>${r.prev_date ? fd(r.prev_date) + (r.prev_jc ? ` <span class="sub">(JC ${esc(r.prev_jc)})</span>` : '') : '<span class="sub">–</span>'}</td><td class="num">${n0(r.prev_odo)}</td><td class="num">${kmCell(r)}</td><td class="num">${r.days == null ? '–' : r.days + ' d'}</td><td class="num">${r.age_m == null ? '–' : r.age_m + ' mo'}</td><td class="num">${r.usage == null ? '–' : r.usage + ' km/day'}</td></tr>`; });
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Reg No</th><th>City</th><th>Hub</th><th>Replaced on</th><th class="num">Odometer</th><th>JC</th><th>Previous change</th><th class="num">Odometer then</th><th class="num">Km since previous change</th><th class="num">Days since</th><th class="num">Bike age</th><th class="num">Daily usage</th><th class="num">Replacement no.</th></tr></thead><tbody>`;
+  const ord = n => n == null ? '–' : n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+  rows.forEach(r => { h += `<tr${r.pre2026 ? ' style="color:#94a3b8"' : ''}><td style="font-weight:600">${esc(r.reg)}${r.pre2026 ? ` <span style="font-size:10px;font-weight:600;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 5px" title="Deployed ${r.deployed || 'before 2026'}: changes before Jan 2026 are not in the data">deployed ${r.deployed ? String(r.deployed).slice(0, 4) : 'pre-2026'} · history from Jan 2026</span>` : ''}</td><td>${esc(r.city || '')}</td><td>${esc(r.hub || '')}</td><td>${fd(r.date)}</td><td class="num">${n0(r.odo)}</td>
+    <td>${esc(r.jc || '–')}</td><td>${r.prev_date ? fd(r.prev_date) + (r.prev_jc ? ` <span class="sub">(JC ${esc(r.prev_jc)})</span>` : '') : '<span class="sub">–</span>'}</td><td class="num">${n0(r.prev_odo)}</td><td class="num">${kmCell(r)}</td><td class="num">${r.days == null ? '–' : r.days + ' d'}</td><td class="num">${r.age_m == null ? '–' : r.age_m + ' mo'}</td><td class="num">${r.usage == null ? '–' : r.usage + ' km/day'}</td><td class="num">${ord(r.rn)}${r.pre2026 ? '<span title="Counted from Jan 2026; could be higher">*</span>' : ''}</td></tr>`; });
   box.innerHTML = h + '</tbody></table></div>';
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 function exportOdbListCSV(){
   const L = ODB.list; if (!L) return;
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const lines = [['Reg No','City','Hub','Replaced on','Odometer','JC','Previous change','Previous JC','Odometer then','Km since previous change','Days since','Bike age (months)','Daily usage (km/day)','Note'].join(',')];
-  L.rows.forEach(r => lines.push([r.reg, r.city, r.hub, r.date, r.odo, r.jc, r.prev_date, r.prev_jc, r.prev_odo, (r.cls === 'first' || r.cls === 'odo') ? '' : r.km, r.days, r.age_m, r.usage, r.cls === 'first' ? 'first change' : r.cls === 'odo' ? 'odometer error' : ''].map(q).join(',')));
+  const lines = [['Reg No','City','Hub','Replaced on','Odometer','JC','Previous change','Previous JC','Odometer then','Km since previous change','Days since','Bike age (months)','Daily usage (km/day)','Replacement no. (from Jan 2026)','Deployed before 2026','Note'].join(',')];
+  L.rows.forEach(r => lines.push([r.reg, r.city, r.hub, r.date, r.odo, r.jc, r.prev_date, r.prev_jc, r.prev_odo, (r.cls === 'first' || r.cls === 'odo') ? '' : r.km, r.days, r.age_m, r.usage, r.rn, r.pre2026 ? 'yes' : 'no', r.cls === 'first' ? 'first change' : r.cls === 'odo' ? 'odometer error' : ''].map(q).join(',')));
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = L.title.replace(/[^a-z0-9]+/gi, '_') + '.csv'; a.click();
 }
 function exportOdbCSV(){
