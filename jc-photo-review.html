@@ -140,12 +140,15 @@ async function load(reset){
   $('info').textContent=TOTAL.toLocaleString('en-IN')+' job cards · list updated '+fmtWhen(d.refreshed_at);
   render(); $('more').style.display=OFFSET<TOTAL?'':'none';
 }
+function draftDiff(x){ var d=+x.draft_part_cost, f=+x.cost; if(!d) return ''; var pc=Math.round((f-d)/d*100);
+  return ' <span style="text-transform:none;font-size:11px;color:'+(pc>0?'#b91c1c':pc<0?'#15803d':'#64748b')+'">(billed '+(pc>0?'+':'')+pc+'% vs draft)</span>'; }
 function hoName(u){ if(!u) return ''; var n=String(u).split('@')[0].replace(/[._]/g,' ').toLowerCase(); return n.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
 function photo(url,lbl){ if(!url) return '<figure><div class="fail">No '+lbl.toLowerCase()+' photo</div><figcaption>'+lbl+'</figcaption></figure>';
   return '<figure><img loading="lazy" src="'+esc(url)+'" data-z="'+esc(url)+'" alt="'+lbl+'" onerror="this.outerHTML=\'<div class=fail>Photo did not load</div>\'"><figcaption>'+lbl+'</figcaption></figure>'; }
 function cardHtml(x,i){
   var v=x.verdict;
-  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd" data-parts="'+i+'" title="Click for the parts on this job card"><div class="cost">'+inr(x.cost)+'</div>'
+  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd" data-parts="'+i+'" title="Click for the parts on this job card"><div class="cost" title="Parts billed (excl. warranty)">'+inr(x.cost)+'</div>'
+    +(x.draft_part_cost!=null?'<div class="m"><span>Draft JC parts</span><b>'+inr(x.draft_part_cost)+'</b>'+draftDiff(x)+'</div>':'')
     +'<div class="m"><span>Reg</span><b>'+esc(x.reg||'–')+'</b></div><div class="m"><span>JC</span>'+esc(x.jc_no||x.draft_jc_id)+'</div>'
     +'<div class="m"><span>Hub</span>'+esc(x.hub||'')+', '+esc(x.city||'')+'</div><div class="m"><span>Type</span>'+esc(x.stype||'–')+'</div>'
     +'<div class="m"><span>Closed</span>'+fmtWhen(x.closed_at)+'</div>'
@@ -164,7 +167,7 @@ var CATN={A:'Wear & tear',P:'Rider-payable',C:'Company',W:'Warranty',F:'Free of 
 async function openParts(i){
   var x=ROWS[i]; if(!x) return; var side=$('side');
   $('sTitle').textContent=(x.reg||'')+' · JC '+(x.jc_no||x.draft_jc_id);
-  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' parts (excl. warranty)'+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
+  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' parts billed (excl. warranty)'+(x.draft_part_cost!=null?' · draft '+inr(x.draft_part_cost):'')+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
   $('sBody').innerHTML='<div class="msg muted">Loading…</div>'; side.classList.add('open');
   var r=await rpc('jc_review_parts',{p_jc:x.draft_jc_id});
   if(!r.ok){ $('sBody').innerHTML='<div class="msg" style="color:#b91c1c">'+esc(r.msg)+'</div>'; return; }
