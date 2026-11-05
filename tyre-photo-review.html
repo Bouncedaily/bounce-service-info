@@ -41,6 +41,7 @@ td.l,th.l{text-align:left}
 .hubname{font-weight:700;font-size:13px}.citysub{color:var(--muted2);font-size:11px}
 .pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
 .pill.ok{background:#dcfce7;color:#15803d}.pill.warn{background:#fef3c7;color:#a16207}.pill.bad{background:#fee2e2;color:#b91c1c}.pill.na{background:#f1f5f9;color:var(--muted)}
+td.clk{cursor:pointer}td.clk:hover{background:#fef2f2}
 .chip{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#fee2e2;color:#b91c1c;margin:2px 4px 2px 0}
 .chip.amber{background:#fef3c7;color:#a16207}
 /* review cards */
@@ -99,13 +100,14 @@ td.l,th.l{text-align:left}
 
     <div id="tab-summary" style="display:none">
       <div class="bar">
-        <span><label>Period</label><select id="days"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option><option value="custom">Pick a date</option></select> <input type="date" id="sumday" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
+        <span><label>Period</label><select id="days"><option value="today" selected>Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30">Last 30 days</option><option value="custom">Pick a date</option></select> <input type="date" id="sumday" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
         <span class="spacer"></span><span id="sstatus" class="muted"></span>
         <button class="btn" id="csv">Download CSV</button>
       </div>
       <div class="kpis" id="kpis"></div>
-      <div class="card"><div class="card-hd"><span>By hub</span><span class="muted" style="font-weight:400">Sorted with the most problems first</span></div><div class="scroll" id="sumbody"></div></div>
-      <div class="guide" style="margin-bottom:0"><b>Automatic flags:</b> <i>Hold then pass</i> = a held check re-entered as a pass for the same bike within a minute with a 3 PSI or larger change. <i>Reused photo</i> = the identical photo file appears on another check. <i>Old photo</i> = the camera recorded the photo more than 30 minutes before the check was saved. <i>Small file</i> = the photo file is under 60 KB (normal photos are around 300 KB), which is often a dark or blank photo. <i>Blank</i> = the photo file is under 5 KB.</div>
+      <div class="card" id="sumcard"><div class="card-hd"><span>By hub</span><span class="muted" style="font-weight:400">Sorted with the most problems first &middot; click a hub or a number to see the raw data</span></div><div class="scroll" id="sumbody"></div></div>
+      <div id="rawpanel" style="display:none"></div>
+      <div class="guide" id="sumguide" style="margin-bottom:0"><b>Automatic flags:</b> <i>Hold then pass</i> = a held check re-entered as a pass for the same bike within a minute with a 3 PSI or larger change. <i>Reused photo</i> = the identical photo file appears on another check. <i>Old photo</i> = the camera recorded the photo more than 30 minutes before the check was saved. <i>Small file</i> = the photo file is under 60 KB (normal photos are around 300 KB), which is often a dark or blank photo. <i>Blank</i> = the photo file is under 5 KB.</div>
     </div>
   </div>
 </div>
@@ -314,6 +316,7 @@ document.addEventListener('click',function(e){
 /* ---------- Summary ---------- */
 function pct(a,b){ return b>0?Math.round(100*a/b):null; }
 async function loadSummary(){
+  closeRaw();
   $('sstatus').textContent='Loading…';
   var sv=$('days').value, sargs;
   if(sv==='today') sargs={p_day:istToday()}; else if(sv==='yesterday') sargs={p_day:istShift(1)};
@@ -341,14 +344,72 @@ function renderSummary(){
     return sb-sa || String(a.hub).localeCompare(String(b.hub));
   });
   if(!rows.length){ $('sumbody').innerHTML='<div class="msg muted">No tyre checks in this period.</div>'; return; }
-  function cell(n,cls){ return '<td>'+(n? '<span class="pill '+cls+'">'+n+'</span>' : '<span class="muted">0</span>')+'</td>'; }
+  function ck(hub,metric){ return ' class="clk" data-hub="'+esc(hub)+'" data-metric="'+metric+'" title="Click to see the raw data"'; }
+  function cell(n,cls,metric,hub){ return '<td'+(n?ck(hub,metric):'')+'>'+(n? '<span class="pill '+cls+'">'+n+'</span>' : '<span class="muted">0</span>')+'</td>'; }
+  function plain(n,metric,hub){ return '<td'+(n?ck(hub,metric):'')+'>'+(n?n:'<span class="muted">0</span>')+'</td>'; }
   $('sumbody').innerHTML='<table><thead><tr><th class="l">Hub</th><th>Checks</th><th>Reviewed</th><th>Match %</th><th>Different</th><th>Bad photo</th><th>Hold then pass</th><th>Reused photo</th><th>Old photo</th><th>Small file</th><th>Blank</th></tr></thead><tbody>'+
   rows.map(function(h){
     var rv=h.match+h.different+h.bad_photo, mp=pct(h.match,rv);
     var mc=mp==null?'na':(mp>=95?'ok':(mp>=85?'warn':'bad'));
-    return '<tr><td class="l"><span class="hubname">'+esc(h.hub)+'</span>'+(h.city?'<br><span class="citysub">'+esc(h.city)+'</span>':'')+'</td><td>'+h.checks+'</td><td>'+(rv||'<span class="muted">0</span>')+'</td><td>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
-      cell(h.different,'bad')+cell(h.bad_photo,'warn')+cell(h.fast_flips,'warn')+cell(h.dup_photos,'bad')+cell(h.old_photos,'warn')+cell(h.small_photos,'warn')+cell(h.blank_photos,'warn')+'</tr>';
+    return '<tr><td class="l clk" data-hub="'+esc(h.hub)+'" data-metric="checks" title="Click to see all checks of this hub"><span class="hubname">'+esc(h.hub)+'</span>'+(h.city?'<br><span class="citysub">'+esc(h.city)+'</span>':'')+'</td>'+
+      plain(h.checks,'checks',h.hub)+plain(rv,'reviewed',h.hub)+
+      '<td'+(mp==null?'':ck(h.hub,'match'))+'>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
+      cell(h.different,'bad','different',h.hub)+cell(h.bad_photo,'warn','bad_photo',h.hub)+cell(h.fast_flips,'warn','fast_flip',h.hub)+cell(h.dup_photos,'bad','dup',h.hub)+cell(h.old_photos,'warn','old',h.hub)+cell(h.small_photos,'warn','small',h.hub)+cell(h.blank_photos,'warn','blank',h.hub)+'</tr>';
   }).join('')+'</tbody></table>';
+}
+/* ---------- Raw data behind a summary number ---------- */
+var RAW=null, RAWQ=null;
+var METRIC_LABEL={checks:'All checks',reviewed:'Reviewed',match:'Matches the entered PSI',different:'Different PSI',bad_photo:'Bad photo',fast_flip:'Hold then pass',dup:'Reused photo',old:'Old photo',small:'Small file',blank:'Blank photo'};
+function periodArgs(){
+  var sv=$('days').value;
+  if(sv==='today') return {p_day:istToday()}; if(sv==='yesterday') return {p_day:istShift(1)};
+  if(sv==='custom'){ var pk=$('sumday').value; return pk?{p_day:pk}:null; }
+  return {p_days:+sv};
+}
+function periodLabel(){ return SUM&&SUM.day?fmtDay(SUM.day):'last '+(SUM?SUM.days:'')+' days'; }
+function istStamp(iso){ return iso?new Date(iso).toLocaleString('sv-SE',{timeZone:'Asia/Kolkata'}).slice(0,16):''; }
+async function openRaw(hub,metric){
+  var pa=periodArgs(); if(!pa) return;
+  RAWQ={hub:hub,metric:metric};
+  $('kpis').style.display='none'; $('sumcard').style.display='none'; $('sumguide').style.display='none'; $('rawpanel').style.display='';
+  $('rawpanel').innerHTML='<div class="card"><div class="msg muted">Loading raw data…</div></div>';
+  var r=await rpc('tyre_review_raw',Object.assign({p_hub:hub||null,p_metric:metric||'checks'},pa));
+  if(!r.ok){ $('rawpanel').innerHTML='<div class="card"><div class="msg"><span class="err">Could not load ('+esc(r.msg)+').</span> <button class="btn" data-raw="close">Back to summary</button></div></div>'; return; }
+  RAW=r.data; renderRaw();
+}
+function closeRaw(){
+  RAW=null; var p=$('rawpanel'); if(p){ p.style.display='none'; p.innerHTML=''; }
+  $('kpis').style.display=''; $('sumcard').style.display=''; $('sumguide').style.display='';
+}
+function sideFlags(x){ var f=[]; if(x.dup) f.push('Reused'); if(x.old) f.push('Old'); if(x.small) f.push('Small'); if(x.blank) f.push('Blank'); return f; }
+function renderRaw(){
+  var q=RAWQ, n=RAW.rows.length;
+  var title=esc(q.hub||'All hubs')+' &middot; '+esc(METRIC_LABEL[q.metric]||q.metric)+' &middot; '+esc(periodLabel());
+  function rv(x){ return x.verdict?esc(verdictText(x.verdict,x.seen_psi)):'<span class="muted">not reviewed</span>'; }
+  function fl(x){ var f=sideFlags(x); return f.length?f.map(function(t){return '<span class="chip">'+t+'</span>';}).join(''):'<span class="muted">—</span>'; }
+  var body=RAW.rows.map(function(r){
+    return '<tr><td class="l">'+esc(fmtWhen(r.created_at))+'</td>'+(q.hub?'':'<td class="l">'+esc(r.hub)+'</td>')+'<td class="l">'+esc(r.reg_number||'')+'</td><td class="l">'+esc(r.done_by||'—')+'</td>'+
+      '<td>'+(r.result==='hold'?'<span class="pill warn">hold</span>':'<span class="pill ok">pass</span>')+'</td>'+
+      '<td>'+esc(num(r.front.psi))+'</td><td class="l">'+rv(r.front)+'</td><td class="l">'+fl(r.front)+'</td>'+
+      '<td>'+esc(num(r.rear.psi))+'</td><td class="l">'+rv(r.rear)+'</td><td class="l">'+fl(r.rear)+'</td>'+
+      '<td>'+(r.fast_flip?'<span class="chip">yes</span>':'<span class="muted">—</span>')+'</td>'+
+      '<td class="l"><a target="_blank" rel="noopener" href="'+esc(r.front.url)+'">Front</a> &middot; <a target="_blank" rel="noopener" href="'+esc(r.rear.url)+'">Rear</a></td></tr>';
+  }).join('');
+  $('rawpanel').innerHTML='<div class="card"><div class="card-hd"><span>'+title+' &mdash; '+RAW.total+' tyre check'+(RAW.total===1?'':'s')+'</span>'+
+    '<span><button class="btn" data-raw="close">&larr; Back to summary</button> <button class="btn" data-raw="csv">Download CSV</button></span></div>'+
+    '<div class="guide" style="margin:10px 14px">Each row is one tyre check (one bike). The summary counts photos, so a bike with both tyres flagged is counted twice there.'+(RAW.total>n?' Showing the newest '+n+' of '+RAW.total+'; narrow the period or pick a single hub to see the rest.':'')+'</div>'+
+    (n?'<div class="scroll"><table><thead><tr><th class="l">When</th>'+(q.hub?'':'<th class="l">Hub</th>')+'<th class="l">Bike</th><th class="l">Done by</th><th>Result</th><th>Front PSI</th><th class="l">Front review</th><th class="l">Front flags</th><th>Rear PSI</th><th class="l">Rear review</th><th class="l">Rear flags</th><th>Hold then pass</th><th class="l">Photos</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="msg muted">No rows.</div>')+'</div>';
+}
+function rawCsv(){
+  if(!RAW) return;
+  var rows=[['Check ID','When (IST)','Hub','City','Bike','Done by','Result','Hold then pass','Front PSI entered','Front review','Front PSI seen','Front reviewed by','Front reviewed at (IST)','Front flags','Front photo KB','Front photo taken (IST)','Front photo link','Rear PSI entered','Rear review','Rear PSI seen','Rear reviewed by','Rear reviewed at (IST)','Rear flags','Rear photo KB','Rear photo taken (IST)','Rear photo link']];
+  RAW.rows.forEach(function(r){
+    function side(x){ return [x.psi,x.verdict||'',x.seen_psi==null?'':x.seen_psi,x.reviewed_by||'',istStamp(x.reviewed_at),sideFlags(x).join('+'),x.bytes==null?'':Math.round(x.bytes/1024),istStamp(x.photo_taken_at),x.url]; }
+    rows.push([r.check_id,istStamp(r.created_at),r.hub,r.city||'',r.reg_number||'',r.done_by||'',r.result||'',r.fast_flip?'yes':''].concat(side(r.front),side(r.rear)));
+  });
+  var nm=('tyre-raw-'+(RAWQ.hub||'all-hubs')+'-'+RAWQ.metric+'-'+(SUM&&SUM.day?SUM.day:(SUM?SUM.days+'d':''))).replace(/[^A-Za-z0-9_\-]+/g,'-')+'.csv';
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download=nm;
+  document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
 }
 function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n'); }
 $('csv').onclick=function(){
@@ -362,6 +423,8 @@ $('csv').onclick=function(){
 /* ---------- wiring ---------- */
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.onclick=function(){ showTab(b.getAttribute('data-tab')); }; });
 $('more').onclick=function(){ loadBatch(true); };
+$('sumbody').addEventListener('click',function(e){ var td=e.target.closest('td.clk'); if(!td) return; openRaw(td.getAttribute('data-hub'),td.getAttribute('data-metric')); });
+$('rawpanel').addEventListener('click',function(e){ var b=e.target.closest('[data-raw]'); if(!b) return; var a=b.getAttribute('data-raw'); if(a==='close') closeRaw(); else if(a==='csv') rawCsv(); });
 $('hubsel').onchange=function(){ loadBatch(false); };
 $('daysel').onchange=function(){ if($('daysel').value!=='picked') $('daypick').value=''; loadBatch(false); };
 $('daypick').onchange=function(){ $('daysel').value=$('daypick').value?'picked':'both'; loadBatch(false); };
