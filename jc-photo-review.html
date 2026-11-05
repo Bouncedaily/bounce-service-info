@@ -248,8 +248,8 @@ async function loadDraftSummary(){
     +'<tr><th class="grp">JCs</th><th>Draft ₹</th><th>Billed ₹</th><th>Less by ₹</th><th class="grp">JCs</th><th>Draft ₹</th><th>Billed ₹</th><th>More by ₹</th><th class="grp">JCs</th><th>Billed ₹</th><th class="grp">JCs</th><th>Billed ₹</th><th class="grp">Draft ₹</th><th>Billed ₹</th><th>Billed vs draft</th></tr></thead><tbody>';
   L.forEach(function(x){ var all=x.city==='All cities', c=all?'':x.city;
     h+='<tr'+(all?' class="tot"':'')+'><td class="l">'+esc(x.city)+'</td><td>'+k(x.jcs,c,'')+'</td>'
-      +'<td class="gs">'+k(x.less_n,c,'less')+'</td><td>'+inr(x.less_draft)+'</td><td>'+inr(x.less_billed)+'</td><td style="color:#15803d">'+inr((+x.less_draft||0)-(+x.less_billed||0))+'</td>'
-      +'<td class="gs">'+k(x.more_n,c,'more')+'</td><td>'+inr(x.more_draft)+'</td><td>'+inr(x.more_billed)+'</td><td style="color:#b91c1c">'+inr((+x.more_billed||0)-(+x.more_draft||0))+'</td>'
+      +'<td class="gs">'+k(x.less_n,c,'less')+'</td><td>'+inr(x.less_draft)+'</td><td>'+inr(x.less_billed)+'</td><td style="color:#15803d">'+(+x.less_n?inr((+x.less_draft||0)-(+x.less_billed||0)):'–')+'</td>'
+      +'<td class="gs">'+k(x.more_n,c,'more')+'</td><td>'+inr(x.more_draft)+'</td><td>'+inr(x.more_billed)+'</td><td style="color:#b91c1c">'+(+x.more_n?inr((+x.more_billed||0)-(+x.more_draft||0)):'–')+'</td>'
       +'<td class="gs">'+k(x.match_n,c,'match')+'</td><td>'+inr(x.match_billed)+'</td>'
       +'<td class="gs">'+k(x.nodraft_n,c,'nodraft')+'</td><td>'+inr(x.nodraft_billed)+'</td>'
       +'<td class="gs">'+inr(x.draft)+'</td><td>'+inr(x.billed)+'</td><td>'+pc(+x.billed||0,+x.draft||0)+'</td></tr>'; });
