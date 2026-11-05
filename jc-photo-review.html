@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<script src="auth-guard.js"></script>
+<script src="error-log.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<script>if(/[?&]embed=1/.test(location.search))document.documentElement.className+=' embed';</script><title>JC Photo Review</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--border:#e2e8f0;--border2:#cbd5e1;--text:#0f172a;--text2:#334155;--muted:#64748b;--muted2:#94a3b8;--red:#dc2626;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+.wrap{padding:20px 24px;max-width:1500px}
+h1{font-size:20px;margin:0;font-weight:700}
+.psub{color:var(--muted);font-size:12px;margin:3px 0 16px;max-width:900px;line-height:1.5}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;position:sticky;top:0;z-index:20}
+.bar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:6px}
+select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text);font-family:inherit}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{background:#f8fafc}.btn[disabled]{opacity:.55;cursor:default}
+.v-minor{border-color:#86efac;color:#15803d}.v-minor.on,.v-minor:hover{background:#16a34a;color:#fff;border-color:#16a34a}
+.v-medium{border-color:#fcd34d;color:#a16207}.v-medium.on,.v-medium:hover{background:#d97706;color:#fff;border-color:#d97706}
+.v-major{border-color:#fca5a5;color:#b91c1c}.v-major.on,.v-major:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-size:22px;font-weight:800}.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}.kpi i{display:block;font-style:normal;font-size:11.5px;color:var(--muted2);margin-top:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.card.done{opacity:.5}
+.chd{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;padding:12px 16px;border-bottom:1px solid var(--border)}
+.chd .cost{font-size:22px;font-weight:800;color:var(--red)}
+.chd .m{font-size:12px;color:var(--text2)}.chd .m span{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
+.ph{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px;background:#0f172a}
+.ph figure{margin:0;display:flex;flex-direction:column;gap:4px}
+.ph img{width:100%;height:220px;object-fit:cover;border-radius:6px;cursor:zoom-in;background:#1e293b}
+.ph figcaption{color:#cbd5e1;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.ph .fail{height:220px;border-radius:6px;background:#1e293b;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center;padding:10px}
+.acts{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px}
+.acts input{flex:1;min-width:220px}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.t-minor{background:#dcfce7;color:#15803d}.t-medium{background:#fef3c7;color:#a16207}.t-major{background:#fee2e2;color:#b91c1c}
+.muted{color:var(--muted)}.msg{padding:18px;line-height:1.6}
+#zoom{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}
+#zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:12.5px;display:none;z-index:100}
+@media(max-width:900px){.ph{grid-template-columns:repeat(2,1fr)}.ph img,.ph .fail{height:160px}}
+</style></head><body><div class="wrap">
+<h1>JC Photo Review</h1>
+<div class="psub">Job cards with the highest cost first. Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major, for the first card still to review. Click a photo to enlarge it.</div>
+<div class="bar">
+  <div><label>Month</label><select id="fMonth"></select></div>
+  <div><label>City</label><select id="fCity"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
+  <div><label>Hub</label><select id="fHub"><option value="">All hubs</option></select></div>
+  <div><label>Show</label><select id="fStatus"><option value="pending">To review</option><option value="reviewed">Reviewed</option><option value="all">All</option></select></div>
+  <div style="flex:1"></div><div class="muted" id="info"></div>
+</div>
+<div class="kpis" id="kpis"></div>
+<div id="list"><div class="msg muted">Loading…</div></div>
+<div style="text-align:center;margin:10px 0 30px"><button class="btn" id="more" style="display:none">Load 30 more</button></div>
+</div>
+<div id="zoom"><img alt=""></div><div id="toast"></div>
+<script>
+var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
+var SUM=null, QUEUE=[], HUBS_FILLED=false, LOADED=false, PROG=null;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+/* Session: tokens last about an hour. Refresh before expiry and retry once on 401 (same approach as the other dashboards). */
+function readSess(){ try{ var ls=localStorage.getItem('sb_session'); if(ls) return {s:JSON.parse(ls),store:localStorage}; var ss=sessionStorage.getItem('sb_session'); if(ss) return {s:JSON.parse(ss),store:sessionStorage}; }catch(e){} return {s:{},store:localStorage}; }
+function tokenExpMs(jwt){ try{ var p=JSON.parse(atob(jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.exp?p.exp*1000:null; }catch(e){ return null; } }
+var _refreshing=null;
+async function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async function(){
+    var o=readSess(), s=o.s; if(!s.refresh_token) return null;
+    try{
+      var r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+      if(!r.ok) return null; var d=await r.json(); if(!d.access_token) return null;
+      s=Object.assign({},s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token});
+      o.store.setItem('sb_session',JSON.stringify(s)); return s.access_token;
+    }catch(e){ return null; }
+  })();
+  try{ return await _refreshing; } finally { _refreshing=null; }
+}
+async function validToken(){
+  var s=readSess().s; if(!s.access_token) return ANON;
+  var exp=tokenExpMs(s.access_token); if(exp&&exp>Date.now()+30000) return s.access_token;
+  return (await refreshSession())||s.access_token;
+}
+async function rpc(fn,args){
+  try{
+    var call=function(tok){ return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args||{})}); };
+    var r=await call(await validToken());
+    if(r.status===401){ var nt=await refreshSession(); if(nt) r=await call(nt); }
+    if(r.ok) return {ok:true,data:await r.json()};
+    var m=''; try{ var e=await r.json(); m=e.message||''; }catch(x){}
+    if(r.status===401) return {ok:false,status:401,expired:true,msg:'Your session has expired'};
+    return {ok:false,status:r.status,denied:(r.status===403),msg:m||('HTTP '+r.status)};
+  }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
+}
+var ROWS=[], TOTAL=0, OFFSET=0, PAGE=30;
+var VL={minor:'Minor damage',medium:'Medium damage',major:'Major accident'};
+function inr(v){ return v==null?'–':'₹'+Math.round(+v).toLocaleString('en-IN'); }
+function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
+function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},2400); }
+function params(){ return {p_month:$('fMonth').value, p_city:$('fCity').value||null, p_hub:$('fHub').value||null, p_status:$('fStatus').value}; }
+(function months(){ var d=new Date(), s=''; for(var i=0;i<3;i++){ var x=new Date(d.getFullYear(), d.getMonth()-i, 1), k=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');
+  s+='<option value="'+k+'">'+x.toLocaleDateString('en-IN',{month:'short',year:'numeric'})+(i===0?' (so far)':'')+'</option>'; } $('fMonth').innerHTML=s; })();
+async function loadSummary(){
+  var r=await rpc('jc_review_summary',{p_month:$('fMonth').value,p_city:$('fCity').value||null}); if(!r.ok){ $('kpis').innerHTML=''; return; }
+  var b=r.data.by_verdict||{}, tot=r.data.total_jcs||0, rev=0, k=function(v){ return b[v]||{n:0,cost:0}; };
+  ['minor','medium','major'].forEach(function(v){ rev+=k(v).n; });
+  var card=function(val,lbl,sub,col){ return '<div class="kpi"><b style="color:'+(col||'inherit')+'">'+val+'</b><span>'+lbl+'</span><i>'+sub+'</i></div>'; };
+  $('kpis').innerHTML=card(rev.toLocaleString('en-IN'),'Reviewed','of '+tot.toLocaleString('en-IN')+' job cards with photos')
+    +card(k('minor').n,'Minor damage',inr(k('minor').cost)+' job card cost','#15803d')
+    +card(k('medium').n,'Medium damage',inr(k('medium').cost)+' job card cost','#a16207')
+    +card(k('major').n,'Major accident',inr(k('major').cost)+' job card cost','#b91c1c');
+}
+async function load(reset){
+  if(reset){ OFFSET=0; ROWS=[]; $('list').innerHTML='<div class="msg muted">Loading…</div>'; }
+  var p=params(); p.p_limit=PAGE; p.p_offset=OFFSET;
+  var r=await rpc('jc_review_queue',p);
+  if(!r.ok){ $('list').innerHTML='<div class="msg" style="color:#b91c1c">'+(r.denied?'You don’t have access to JC photo review. Ask the admin for the “JC photo review” permission.':esc(r.msg))+'</div>'; return; }
+  var d=r.data; TOTAL=d.total||0; ROWS=ROWS.concat(d.rows||[]); OFFSET=ROWS.length;
+  if(reset){ var cur=$('fHub').value; $('fHub').innerHTML='<option value="">All hubs</option>'+(d.hubs||[]).map(function(h){ return '<option'+(h===cur?' selected':'')+'>'+esc(h)+'</option>'; }).join(''); }
+  $('info').textContent=TOTAL.toLocaleString('en-IN')+' job cards · list updated '+fmtWhen(d.refreshed_at);
+  render(); $('more').style.display=OFFSET<TOTAL?'':'none';
+}
+function photo(url,lbl){ if(!url) return '<figure><div class="fail">No '+lbl.toLowerCase()+' photo</div><figcaption>'+lbl+'</figcaption></figure>';
+  return '<figure><img loading="lazy" src="'+esc(url)+'" data-z="'+esc(url)+'" alt="'+lbl+'" onerror="this.outerHTML=\'<div class=fail>Photo did not load</div>\'"><figcaption>'+lbl+'</figcaption></figure>'; }
+function cardHtml(x,i){
+  var v=x.verdict;
+  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd"><div class="cost">'+inr(x.cost)+'</div>'
+    +'<div class="m"><span>Reg</span><b>'+esc(x.reg||'–')+'</b></div><div class="m"><span>JC</span>'+esc(x.jc_no||x.draft_jc_id)+'</div>'
+    +'<div class="m"><span>Hub</span>'+esc(x.hub||'')+', '+esc(x.city||'')+'</div><div class="m"><span>Type</span>'+esc(x.stype||'–')+'</div>'
+    +'<div class="m"><span>Closed</span>'+fmtWhen(x.closed_at)+'</div>'
+    +'<div class="m"><span>Parts</span>'+inr(x.parts)+' · <span>Labour</span>'+inr(x.labour)+' · <span>Rider-payable</span>'+inr(x.p_cost)+'</div>'
+    +'<div class="m"><span>Damage fee</span>'+inr(x.fee_charged)+' charged · '+inr(x.fee_paid)+' paid</div>'
+    +(v?'<div class="m"><span class="tag t-'+v+'">'+VL[v]+'</span> <span style="text-transform:none">by '+esc((x.reviewed_by||'').split('@')[0])+'</span></div>':'')+'</div>'
+    +'<div class="ph">'+photo(x.f,'Front')+photo(x.b,'Back')+photo(x.l,'Left')+photo(x.r,'Right')+'</div>'
+    +'<div class="acts"><button class="btn v-minor'+(v==='minor'?' on':'')+'" data-i="'+i+'" data-v="minor">1 · Minor damage</button>'
+    +'<button class="btn v-medium'+(v==='medium'?' on':'')+'" data-i="'+i+'" data-v="medium">2 · Medium damage</button>'
+    +'<button class="btn v-major'+(v==='major'?' on':'')+'" data-i="'+i+'" data-v="major">3 · Major accident</button>'
+    +'<input id="n'+i+'" placeholder="Note (optional)" value="'+esc(x.note||'')+'">'
+    +(v?'<button class="btn" data-i="'+i+'" data-v="clear" title="Remove the verdict">Clear</button>':'')+'</div></div>';
+}
+function render(){ $('list').innerHTML=ROWS.length?ROWS.map(cardHtml).join(''):'<div class="msg muted">Nothing to review for this selection.</div>'; }
+async function save(i,v){
+  var x=ROWS[i]; if(!x) return; var note=($('n'+i)||{}).value||null;
+  var r=await rpc('jc_review_submit',{p_jc:x.draft_jc_id,p_verdict:v==='clear'?null:v,p_note:note,p_cost:x.cost});
+  if(!r.ok){ toast('Could not save: '+(r.denied?'no permission':r.msg)); return; }
+  if(v==='clear'){ x.verdict=null; x._done=false; } else { x.verdict=v; x.note=note; x._done=($('fStatus').value==='pending'); x.reviewed_by=(readSess().s.email||''); }
+  var el=$('c'+i); if(el) el.outerHTML=cardHtml(x,i);
+  toast(v==='clear'?'Verdict removed':'Saved: '+VL[v]); loadSummary();
+  if(v!=='clear' && $('fStatus').value==='pending'){ var nx=ROWS.findIndex(function(y){ return !y._done; }); var ne=nx>=0?$('c'+nx):null; if(ne) ne.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-v]'); if(b){ save(+b.dataset.i,b.dataset.v); return; }
+  var z=e.target.closest('[data-z]'); if(z){ var o=$('zoom'); o.querySelector('img').src=z.dataset.z; o.style.display='flex'; return; }
+  if(e.target.closest('#zoom')) $('zoom').style.display='none';
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){ $('zoom').style.display='none'; return; }
+  if(/input|select|textarea/i.test((document.activeElement||{}).tagName||'')) return;
+  var m={'1':'minor','2':'medium','3':'major'}[e.key]; if(!m) return;
+  var i=ROWS.findIndex(function(y){ return !y._done && !y.verdict; }); if(i>=0) save(i,m);
+});
+['fMonth','fCity','fStatus'].forEach(function(id){ $(id).addEventListener('change',function(){ if(id!=='fStatus') $('fHub').value=''; load(true); loadSummary(); }); });
+$('fHub').addEventListener('change',function(){ load(true); });
+$('more').addEventListener('click',function(){ load(false); });
+load(true); loadSummary();
+</script></body></html>
