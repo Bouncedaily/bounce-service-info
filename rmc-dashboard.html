@@ -495,7 +495,7 @@ function val(amt, city, month){
   if(state.unit==='rs') return amt;
   var d=den(city, month, state.unit); return d ? amt/d : null;
 }
-function fmt(v){ if(v==null||isNaN(v)) return '\u2013'; if(state.unit==='km') return v.toFixed(4); if(state.unit==='rs') return Math.round(v).toLocaleString('en-IN'); return v.toFixed(1); }
+function fmt(v){ if(v==null||isNaN(v)) return '\u2013'; if(state.unit==='km') return v.toFixed(3);   // 5 Nov 2026: 3 decimals per km if(state.unit==='rs') return Math.round(v).toLocaleString('en-IN'); return v.toFixed(1); }
 function unitName(){ return state.unit==='bike'?'per bike':state.unit==='km'?'per km':'total \u20b9'; }
 function heat(v,mn,mx){ if(v==null||mx===mn) return ''; var t=(v-mn)/(mx-mn),r,g,b; if(t<.5){var k=t/.5;r=99+k*156;g=190+k*45;b=123-k*3;}else{var k2=(t-.5)/.5;r=255-k2*25;g=235-k2*115;b=120-k2*10;} return 'background:rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')'; }
 // value + share of a total, by the Display switch (Value / % / Value + %)
@@ -601,6 +601,7 @@ function cityCompareHtml(model){
   var cmpIdx = (pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
   var ok=function(v){ return v!=null && isFinite(v); };
   var F1=function(v){ return ok(v)?(Math.round(v*10)/10).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1}):'\u2013'; };
+  var FM=function(v){ return state.unit==='km' ? (ok(v)?v.toFixed(3):'\u2013') : F1(v); };   // money rows: 3 decimals per km
   var F2=function(v){ return ok(v)?v.toFixed(2):'\u2013'; }, F0=function(v){ return ok(v)?Math.round(v).toLocaleString('en-IN'):'\u2013'; }, FP=function(v){ return ok(v)?Math.round(v*100)+'%':'\u2013'; };
   // Excel-style 3-colour scale: green #63be7b, yellow #ffeb84, red #f8696b
   var mix=function(c1,c2,t){ return '#'+[0,2,4].map(function(i){ var x=parseInt(c1.substr(i+1,2),16), y=parseInt(c2.substr(i+1,2),16); return ('0'+Math.round(x+(y-x)*t).toString(16)).slice(-2); }).join(''); };
@@ -641,9 +642,9 @@ function cityCompareHtml(model){
   var gross=function(c,m,d){ var n=netInfo(d,c,m); return n.missing.length?null:n.v; };
   var tog=function(k,label,getter,dir,kind){
     if(!on(k)) return '';
-    if(on(k)) return line('<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'+label, getter, F1, dir, kind);
+    if(on(k)) return line('<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'+label, getter, FM, dir, kind);
     var out='<tr style="opacity:.45"><td style="'+(kind==='less'?'padding-left:18px;':'')+'color:#6b7280"><span data-a="cchide" data-v="'+k+'" title="Show this line and add it back to the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">+</span><s>'+label+'</s> <i style="font-size:11px">(hidden, not in totals)</i></td>';
-    cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#9ca3af"><s>'+F1(v)+'</s></td>'; }); });
+    cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#9ca3af"><s>'+FM(v)+'</s></td>'; }); });
     return out+'</tr>'; };
   var names={labour:'Labour',A:'A',P:'P',C:'C',other:'Other'}, shown=['labour','A','P','C','other'].filter(on).map(function(k){ return names[k]; });
   h+=tog('labour','Labour (as per payroll)',u(comp.labour),1);
@@ -653,11 +654,11 @@ function cityCompareHtml(model){
   h+=tog('W','W: Warranty',u(comp.W),1);
   h+=tog('F','F: Free of cost',u(comp.F),1);
   h+=tog('other','Other maintenance',u(comp.other),1);
-  h+=line(ccGrossLabel(),u(gross),F1,1,'tot');
+  h+=line(ccGrossLabel(),u(gross),FM,1,'tot');
   h+=tog('dmg','Less: revenue damage fee',u(function(c,m){ return rr(c,m); }),-1,'less');
   h+=tog('rec','Less: revenue recovery',u(function(c,m){ return rv(c,m); }),-1,'less');
-  h+=line('Net service cost ('+ccNetLabel()+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0)-(on('rec')?(rv(c,m)||0):0); }),F1,1,'tot');
-  h+=line('Parts total (A+P+C)',u(function(c,m,d){ return d.A+d.P+d.C; }),F1,1,'grey');
+  h+=line('Net service cost ('+ccNetLabel()+')',u(function(c,m,d){ var x=gross(c,m,d); return x==null?null:x-(on('dmg')?(rr(c,m)||0):0)-(on('rec')?(rv(c,m)||0):0); }),FM,1,'tot');
+  h+=line('Parts total (A+P+C)',u(function(c,m,d){ return d.A+d.P+d.C; }),FM,1,'grey');
   h+=line('% of job cards with parts',function(c,m){ var p=sumC(c,state.store.jc,m), t=sumC(c,state.store.jcAll,m); return (p!=null&&t)?p/t:null; },FP,0,'grey');
   // cost drivers (ratios / per bike already: no unit conversion)
   var DV={}; cities.forEach(function(c){ cols.forEach(function(m){ DV[c+'|'+m]=model[c][m]?driverVals(c,m,model[c][m]):null; }); });
@@ -691,14 +692,14 @@ function cityCompareHtml(model){
   var PV={}; cities.forEach(function(c){ cols.forEach(function(m){ PV[c+'|'+m]=pSplitVal(c,m); }); });
   var pv=function(fn){ return function(c,m){ var v=PV[c+'|'+m]; return v?val(fn(v),c,m):null; }; };
   h+=sec('P category (rider-payable) breakup');
-  h+=line('P cost (parts + labour (as per DMS))',pv(function(v){return v.pp+v.pl;}),F1,1,'tot');
-  h+=line('Damage fee revenue',pv(function(v){return v.rev_p+v.rev_l;}),F1,-1,'sub');
-  h+=line('Charged, not collected',pv(function(v){return v.cnc_p+v.cnc_l;}),F1,1,'sub');
-  h+=line('Above \u20b93,000 cap \u00b7 rider paid in full',pv(function(v){return v.cap_paid;}),F1,1,'sub');
-  h+=line('Above \u20b93,000 cap \u00b7 rider not paid in full',pv(function(v){return v.cap_unpaid;}),F1,1,'sub');
-  h+=line('Not charged to rider (visible damage missed at inspection)',pv(function(v){return v.nc_p+v.nc_l;}),F1,1,'sub');
-  h+=line('Non-visible components',pv(function(v){return v.hid;}),F1,1,'sub');
-  h+=line('Extra fee collected (not part of P cost)',pv(function(v){return v.extra;}),F1,-1,'grey');
+  h+=line('P cost (parts + labour (as per DMS))',pv(function(v){return v.pp+v.pl;}),FM,1,'tot');
+  h+=line('Damage fee revenue',pv(function(v){return v.rev_p+v.rev_l;}),FM,-1,'sub');
+  h+=line('Charged, not collected',pv(function(v){return v.cnc_p+v.cnc_l;}),FM,1,'sub');
+  h+=line('Above \u20b93,000 cap \u00b7 rider paid in full',pv(function(v){return v.cap_paid;}),FM,1,'sub');
+  h+=line('Above \u20b93,000 cap \u00b7 rider not paid in full',pv(function(v){return v.cap_unpaid;}),FM,1,'sub');
+  h+=line('Not charged to rider (visible damage missed at inspection)',pv(function(v){return v.nc_p+v.nc_l;}),FM,1,'sub');
+  h+=line('Non-visible components',pv(function(v){return v.hid;}),FM,1,'sub');
+  h+=line('Extra fee collected (not part of P cost)',pv(function(v){return v.extra;}),FM,-1,'grey');
   h+=line('Job cards with P-category lines',function(c,m){ var v=PV[c+'|'+m]; return v?v.jcs:null; },F0,0,'grey');
   h+='</table></div>';
   var bi=cmpIdx[0], bj=cmpIdx[1];
