@@ -79,6 +79,7 @@ td.l,th.l{text-align:left}
       <div class="pgs" id="prog" style="display:none"></div>
       <div class="bar">
         <span><label>Hub</label><select id="hubsel"><option value="">All hubs</option></select></span>
+        <span><label>Day</label><select id="daysel"><option value="both" selected>Today + yesterday</option><option value="0">Today</option><option value="1">Yesterday</option></select> <input type="date" id="daypick" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
         <span class="muted" id="rstatus"></span>
         <span class="spacer"></span>
         <button class="btn" id="more">Load 10 more</button>
@@ -88,7 +89,7 @@ td.l,th.l{text-align:left}
 
     <div id="tab-summary" style="display:none">
       <div class="bar">
-        <span><label>Period</label><select id="days"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option></select></span>
+        <span><label>Period</label><select id="days"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option><option value="custom">Pick a date</option></select> <input type="date" id="sumday" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
         <span class="spacer"></span><span id="sstatus" class="muted"></span>
         <button class="btn" id="csv">Download CSV</button>
       </div>
@@ -178,18 +179,35 @@ function cardHtml(it,i){
 
 
 /* ---------- Daily progress: today and yesterday (India dates). The queue only holds these two days. ---------- */
+function istToday(){ return new Date(Date.now()+5.5*3600*1000).toISOString().slice(0,10); }
+function istShift(n){ var x=new Date(istToday()+'T12:00:00Z'); x.setUTCDate(x.getUTCDate()-n); return x.toISOString().slice(0,10); }
+function fillDaySelect(){
+  var html='';
+  for(var n=2;n<=13;n++){ var d=istShift(n); html+='<option value="'+d+'">'+new Date(d+'T12:00:00Z').toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',timeZone:'UTC'})+'</option>'; }
+  $('daysel').insertAdjacentHTML('beforeend',html+'<option value="picked" hidden>Picked date</option>');
+  $('daypick').max=istToday(); $('daypick').min='2026-09-01'; $('sumday').max=istToday(); $('sumday').min='2026-09-01';
+}
+/* The day being reviewed: null = today + yesterday (the usual queue), otherwise one India date. */
+function selectedDay(){
+  var pk=$('daypick').value; if(pk) return pk;
+  var v=$('daysel').value; if(v==='both'||v==='picked') return null;
+  if(v==='0') return istToday(); if(v==='1') return istShift(1);
+  return v;
+}
 function fmtDay(d){ return new Date(d+'T12:00:00Z').toLocaleDateString('en-IN',{day:'2-digit',month:'short',timeZone:'UTC'}); }
 function renderProgress(){
   if(!PROG||!PROG.by_day||!PROG.by_day.length) return;
   $('prog').style.display='';
+  var yd=new Date(PROG.today+'T12:00:00Z'); yd.setUTCDate(yd.getUTCDate()-1); var yest=yd.toISOString().slice(0,10);
   $('prog').innerHTML=PROG.by_day.map(function(d,i){
     var pct=d.photos?Math.round(100*d.reviewed/d.photos):0;
-    var name=(i===0?'Today':(i===1?'Yesterday':fmtDay(d.day)))+' ('+fmtDay(d.day)+')';
+    var name=(d.day===PROG.today?'Today':(d.day===yest?'Yesterday':new Date(d.day+'T12:00:00Z').toLocaleDateString('en-IN',{weekday:'long',timeZone:'UTC'})))+' ('+fmtDay(d.day)+')';
     return '<div class="pg"><div class="pg-top"><b>'+name+'</b><span>'+d.reviewed+' of '+d.photos+' photos reviewed</span></div><div class="pg-bar"><i style="width:'+pct+'%"></i></div></div>';
   }).join('');
 }
 async function loadProgress(){
-  var r=await rpc('tyre_review_progress',{p_hub:$('hubsel').value||null,p_days:2});
+  var dsel=selectedDay(); var pargs={p_hub:$('hubsel').value||null}; if(dsel) pargs.p_day=dsel; else pargs.p_days=2;
+  var r=await rpc('tyre_review_progress',pargs);
   if(r.ok){ PROG=r.data; renderProgress(); }
 }
 function bumpProgress(it){
@@ -217,14 +235,15 @@ async function loadPhoto(i,it){
 }
 async function loadBatch(append){
   $('rstatus').textContent='Loading…'; $('more').disabled=true;
-  var r=await rpc('tyre_review_next',{p_hub:$('hubsel').value||null,p_n:10});
+  var dsel=selectedDay(); var nargs={p_hub:$('hubsel').value||null,p_n:10}; if(dsel) nargs.p_day=dsel;
+  var r=await rpc('tyre_review_next',nargs);
   $('more').disabled=false;
   if(!r.ok){ if(!LOADED) { fail(r,'the review queue'); } else { $('rstatus').innerHTML='<span class="err">Could not load ('+esc(r.msg)+')</span>'; } return; }
   LOADED=true; $('msg').innerHTML=''; $('main').style.display='';
   var items=r.data||[];
   if(!append){ QUEUE=[]; $('rvbody').innerHTML=''; }
   var base=QUEUE.length; QUEUE=QUEUE.concat(items);
-  if(!items.length && !QUEUE.length){ $('rvbody').innerHTML='<div class="card"><div class="msg">Nothing left to review'+($('hubsel').value?' for this hub':'')+'. Check back after more tyre checks come in.</div></div>'; }
+  if(!items.length && !QUEUE.length){ $('rvbody').innerHTML='<div class="card"><div class="msg">Nothing left to review'+($('hubsel').value?' for this hub':'')+(selectedDay()?' on this day':'')+'. Check back after more tyre checks come in.</div></div>'; }
   else { $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join('')); items.forEach(function(it,k){ loadPhoto(base+k,it); }); }
   var left=QUEUE.filter(function(x){return !x._done;}).length;
   $('rstatus').textContent=left+' to review';
@@ -261,7 +280,11 @@ document.addEventListener('click',function(e){
 function pct(a,b){ return b>0?Math.round(100*a/b):null; }
 async function loadSummary(){
   $('sstatus').textContent='Loading…';
-  var r=await rpc('tyre_review_summary',{p_days:+$('days').value});
+  var sv=$('days').value, sargs;
+  if(sv==='today') sargs={p_day:istToday()}; else if(sv==='yesterday') sargs={p_day:istShift(1)};
+  else if(sv==='custom'){ var pk=$('sumday').value; if(!pk){ $('sstatus').textContent='Pick a date'; return; } sargs={p_day:pk}; }
+  else sargs={p_days:+sv};
+  var r=await rpc('tyre_review_summary',sargs);
   if(!r.ok){ $('sstatus').innerHTML='<span class="err">Could not load ('+esc(r.msg)+')</span>'; return; }
   SUM=r.data; renderSummary();
   $('sstatus').textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
@@ -270,7 +293,7 @@ function renderSummary(){
   var t=SUM.totals, rev=t.match+t.different+t.bad_photo, mp=pct(t.match,rev);
   function kpi(v,l,s,cls){ return '<div class="kpi '+(cls||'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div><div class="kpi-sub">'+(s||'')+'</div></div>'; }
   $('kpis').innerHTML=
-    kpi(t.checks,'Tyre checks','last '+SUM.days+' days')+
+    kpi(t.checks,'Tyre checks',(SUM.day?fmtDay(SUM.day):'last '+SUM.days+' days'))+
     kpi(rev,'Photos reviewed','of '+(t.checks*2)+' photos')+
     kpi(mp==null?'—':mp+'%','Matches the entered PSI','of reviewed photos',mp==null?'':(mp>=95?'good':(mp>=85?'watch':'bad')))+
     kpi(t.different,'Different PSI','reviewer saw another number',t.different?'bad':'')+
@@ -297,7 +320,7 @@ $('csv').onclick=function(){
   if(!SUM) return;
   var rows=[['Hub','City','Checks','Reviewed','Match','Different','Bad photo','Hold then pass','Reused photo','Old photo','Small file','Blank']];
   (SUM.hubs||[]).forEach(function(h){ rows.push([h.hub,h.city||'',h.checks,h.match+h.different+h.bad_photo,h.match,h.different,h.bad_photo,h.fast_flips,h.dup_photos,h.old_photos,h.small_photos,h.blank_photos]); });
-  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download='tyre-photo-review-'+SUM.days+'d.csv';
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download='tyre-photo-review-'+(SUM.day?SUM.day:SUM.days+'d')+'.csv';
   document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
 };
 
@@ -305,7 +328,11 @@ $('csv').onclick=function(){
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.onclick=function(){ showTab(b.getAttribute('data-tab')); }; });
 $('more').onclick=function(){ loadBatch(true); };
 $('hubsel').onchange=function(){ loadBatch(false); };
-$('days').onchange=loadSummary;
+$('daysel').onchange=function(){ if($('daysel').value!=='picked') $('daypick').value=''; loadBatch(false); };
+$('daypick').onchange=function(){ $('daysel').value=$('daypick').value?'picked':'both'; loadBatch(false); };
+$('days').onchange=function(){ if($('days').value!=='custom') $('sumday').value=''; loadSummary(); };
+$('sumday').onchange=function(){ if($('sumday').value){ $('days').value='custom'; loadSummary(); } };
+fillDaySelect();
 loadBatch(false);
 </script>
 </body></html>
