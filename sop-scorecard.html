@@ -256,7 +256,7 @@ function showTab(t){
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===t); });
   $('topctl').style.display=(t==='form'||t==='tyre')?'none':'';
   var fr=t==='form'?$('fr-form'):(t==='tyre'?$('fr-tyre'):null);
-  if(fr&&!fr.getAttribute('src')) fr.setAttribute('src',fr.getAttribute('data-src'));
+  if(fr&&!fr.getAttribute('src')) fr.setAttribute('src',fr.getAttribute('data-src')+'&v='+Date.now());   /* always the newest copy of the embedded page, never a cached one */
 }
 function itemHeaders(wm){
   var have=function(it){ return CUR&&CUR.hubs.some(function(h){ return h.items[it]&&h.items[it].den>0; }); };
