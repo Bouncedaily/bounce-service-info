@@ -463,6 +463,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
           <div class="fg"><label>Months</label><select id="odb-months" onchange="loadOdb()"><option value="3">Last 3</option><option value="6" selected>Last 6</option><option value="12">Last 12</option></select></div>
           <div class="fg" id="odb-step-fg"><label id="odb-step-lbl">Odometer band</label><select id="odb-step" onchange="loadOdb()"><option value="2000">2k km</option><option value="5000" selected>5k km</option><option value="10000">10k km</option></select></div>
           <div class="fg"><label>Deployed Year</label><select id="odb-year" onchange="loadOdb()"><option value="">Any year</option><option value="2025">2025</option><option value="2026">2026</option></select></div>
+          <div class="fg"><label>Base for %</label><div class="seg" id="odb-base"><button class="on" data-v="repl" onclick="setOdbBase(this)" title="% = share of the replacements">Replacements</button><button data-v="bikes" onclick="setOdbBase(this)" title="% = replacements ÷ bikes in that cohort at the end of the month">Bikes in cohort</button></div></div>
           <div class="fg"><label>Show</label><div class="seg" id="odb-show"><button class="on" data-v="both" onclick="setOdbShow(this)">% and count</button><button data-v="pct" onclick="setOdbShow(this)">%</button><button data-v="n" onclick="setOdbShow(this)">Count</button></div></div>
         </div>
         <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px"><span id="odb-rowsnote">Rows = the bike's <b>odometer at the time of replacement</b></span><span id="odb-colnote">; columns = month replaced. <b>%</b> = share of that month's replacements of this part (each column adds up to 100%). Follows the City at the top. The current month is month-to-date. Click any number to see the bikes.</span></div>
@@ -1531,7 +1532,9 @@ function applyBikeClientFilters() {
 
 // ── Replacements by Odometer (3 Nov 2026) ──
 const esc = typeof window.esc === 'function' ? window.esc : (v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
-const ODB = { data: null, show: 'both', pctOf: 'row' };
+const ODB = { data: null, show: 'both', pctOf: 'row', base: 'repl' };
+function setOdbBase(b){ document.querySelectorAll('#odb-base button').forEach(x => x.classList.toggle('on', x === b)); ODB.base = b.dataset.v;
+  const pf = document.getElementById('odb-pctof-fg'); if (pf && ODB.data && ODB.data.xtab) pf.style.display = ODB.base === 'bikes' ? 'none' : ''; renderOdb(); }
 function setOdbPctOf(b){ document.querySelectorAll('#odb-pctof button').forEach(x => x.classList.toggle('on', x === b)); ODB.pctOf = b.dataset.v; renderOdb(); }
 function setOdbShow(b){ document.querySelectorAll('#odb-show button').forEach(x => x.classList.toggle('on', x === b)); ODB.show = b.dataset.v; renderOdb(); }
 async function loadOdb(){
@@ -1551,7 +1554,7 @@ async function loadOdb(){
   document.getElementById('odb-step-lbl').textContent = by === 'km' ? 'Km band' : 'Odometer band';
   let cols = document.getElementById('odb-cols').value;
   if (cols === by) { cols = 'month'; document.getElementById('odb-cols').value = 'month'; }   // rows and columns can't be the same thing
-  document.getElementById('odb-pctof-fg').style.display = cols === 'month' ? 'none' : '';
+  document.getElementById('odb-pctof-fg').style.display = (cols === 'month' || ODB.base === 'bikes') ? 'none' : '';
   (function(){ const sel = document.getElementById('odb-months'), want = cols === 'month' ? 'ranges' : 'all';
     if (sel.dataset.mode !== want) { const cur = sel.value; let o = '<option value="3">Last 3</option><option value="6">Last 6</option><option value="12">Last 12</option>';
       if (want === 'all') { o += '<optgroup label="Single month">'; const n = new Date();
@@ -1572,26 +1575,33 @@ async function loadOdb(){
 function renderOdb(){
   const body = document.getElementById('odb-body'), D = ODB.data;
   if (!D || !D.rows) { body.innerHTML = '<div class="empty-state" style="padding:20px">No data for this selection yet.</div>'; return; }
+  { const cn = document.getElementById('odb-colnote'); if (cn) { if (!ODB.colNote) ODB.colNote = cn.innerHTML;
+      if (!D.xtab) cn.innerHTML = (ODB.base === 'bikes' && D.cohort_m) ? '; columns = month replaced. <b>%</b> = replacements ÷ <b>bikes in that band at the end of that month</b> (the cohort as it was then). Follows the City at the top. The current month is month-to-date. Click any number to see the bikes.' : ODB.colNote; } }
   if (D.xtab) return renderOdbXtab();
   const d = D.data_as_of; document.getElementById('odb-updated').textContent = d ? 'Data as of ' + new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   const ms = D.months || [], tot = D.totals || [], cur = new Date().toISOString().slice(0, 7);
   const mLbl = m => new Date(m + '-01T00:00:00').toLocaleString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-') + (m === cur ? ' (so far)' : '');
   const show = ODB.show, rows = D.rows.filter(r => r.bk >= 0 || r.counts.some(n => n > 0));
   // heat: shade by share of the month (darkest = biggest band), not for tiny months
-  const cell = (n, t, bk, mon, npre) => {
-    const pc = t ? n / t * 100 : null, few = t < (typeof WT_MIN_N === 'number' ? WT_MIN_N : 20);
-    const bg = (pc == null || few || !n) ? '' : `background:rgba(220,38,38,${Math.min(0.08 + pc / 100 * 2.2, 0.55).toFixed(2)})`;
+  const byBikes = ODB.base === 'bikes' && D.cohort_m, cm = D.cohort_m || {};
+  // bikes base: % = replacements / bikes in that band at that month end; shading relative to the highest rate in the table
+  let maxRate = 0; if (byBikes) D.rows.forEach(r => r.counts.forEach((n, i) => { const b = (cm[String(r.bk)] || [])[i]; if (b >= 20 && n) maxRate = Math.max(maxRate, n / b); }));
+  const cell = (n, t, bk, mon, npre, bikes) => {
+    const den = byBikes ? bikes : t;
+    const pc = den ? n / den * 100 : null, few = den < (typeof WT_MIN_N === 'number' ? WT_MIN_N : 20);
+    const bg = (pc == null || few || !n) ? '' : byBikes ? `background:rgba(220,38,38,${Math.min(0.08 + (maxRate ? (n / den) / maxRate : 0) * 0.47, 0.55).toFixed(2)})` : `background:rgba(220,38,38,${Math.min(0.08 + pc / 100 * 2.2, 0.55).toFixed(2)})`;
     const pTxt = pc == null ? '–' : (pc >= 10 ? pc.toFixed(0) : pc.toFixed(1)) + '%';
     const inner = show === 'n' ? (n ? n.toLocaleString('en-IN') : '<span style="color:#cbd5e1">0</span>')
       : show === 'pct' ? (n ? pTxt : '<span style="color:#cbd5e1">–</span>')
       : (n ? `<b>${pTxt}</b><div class="sub" style="font-size:10.5px">${n.toLocaleString('en-IN')}</div>` : '<span style="color:#cbd5e1">–</span>');
-    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${n} of ${t} replacements${npre ? ` · ${npre} on bikes deployed before 2026 (history from Jan 2026 only)` : ''}${few ? ' (too few this month to judge)' : ''}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},'${mon}')"` : ''}>${inner}</td>`;
+    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${byBikes ? `${n} replaced out of ${(bikes || 0).toLocaleString('en-IN')} bikes in this band at month end` : `${n} of ${t} replacements`}${npre ? ` · ${npre} on bikes deployed before 2026 (history from Jan 2026 only)` : ''}${few ? ' (too few this month to judge)' : ''}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},'${mon}')"` : ''}>${inner}</td>`;
   };
   let h = '<table class="tbl"><thead><tr><th>' + esc(ODB.byLabel || 'Odometer at replacement') + '</th>' + ms.map(m => `<th class="num">${mLbl(m)}</th>`).join('') + '</tr></thead><tbody>';
   const coh = D.cohort || {}, hasCoh = Object.keys(coh).length > 0;   // 3 Nov 2026: bikes of the current fleet in each band
   rows.forEach(r => { const nb = coh[String(r.bk)];
-    h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px" title="${r.bk === -2 ? 'Bikes in the current fleet whose ' + esc(D.part) + ' has never been changed (still the original)' : (D.by === 'km' || D.by === 'days') ? 'Bikes in the current fleet whose last ' + esc(D.part) + ' change was this long ago' : 'Bikes in the current fleet in this band'}${D.by === 'usage' ? ' (latest job card in the last 60 days)' : ''}">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i], (r.pre || [])[i] || 0)).join('') + '</tr>'; });
-  h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements' + (hasCoh ? ` <span class="sub" style="font-size:11px;font-weight:400">· ${Object.values(coh).reduce((a, b) => a + b, 0).toLocaleString('en-IN')} bikes in fleet</span>` : '') + '</td>' + tot.map(t => `<td class="num">${show === 'pct' ? (t ? '100%' : '–') : t.toLocaleString('en-IN')}</td>`).join('') + '</tr>';
+    h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px" title="${r.bk === -2 ? 'Bikes in the current fleet whose ' + esc(D.part) + ' has never been changed (still the original)' : (D.by === 'km' || D.by === 'days') ? 'Bikes in the current fleet whose last ' + esc(D.part) + ' change was this long ago' : 'Bikes in the current fleet in this band'}${D.by === 'usage' ? ' (latest job card in the last 60 days)' : ''}">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>` + r.counts.map((n, i) => cell(n, tot[i], r.bk, ms[i], (r.pre || [])[i] || 0, (cm[String(r.bk)] || [])[i] || 0)).join('') + '</tr>'; });
+  h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements' + (hasCoh ? ` <span class="sub" style="font-size:11px;font-weight:400">· ${Object.values(coh).reduce((a, b) => a + b, 0).toLocaleString('en-IN')} bikes in fleet</span>` : '') + '</td>' + tot.map((t, i) => { const fb = byBikes ? Object.values(cm).reduce((a, arr) => a + ((arr || [])[i] || 0), 0) : 0;
+      return `<td class="num">${byBikes ? (fb ? `${(t / fb * 100).toFixed(1)}% <div class="sub" style="font-size:10.5px;font-weight:400">${t.toLocaleString('en-IN')} of ${fb.toLocaleString('en-IN')} bikes</div>` : '–') : show === 'pct' ? (t ? '100%' : '–') : t.toLocaleString('en-IN')}</td>`; }).join('') + '</tr>';
   // median odometer per month (from the bands: midpoint of the band holding the 50th percentile)
   h += '<tr><td class="sub">Median band</td>' + ms.map((m, i) => { const t = tot[i]; if (!t) return '<td class="num sub">–</td>';
       let acc = 0, lab = '–'; const valid = D.rows.filter(r => r.bk >= 0), vt = valid.reduce((a, r) => a + r.counts[i], 0); for (const r of valid) { acc += r.counts[i]; if (vt && acc >= vt / 2) { lab = r.label.replace(' km', ''); break; } }
@@ -1609,19 +1619,21 @@ function renderOdbXtab(){
   const rows = D.rows.filter(r => r.bk >= 0 || r.counts.some(n => n > 0));
   const colLbl = { km: 'Km since last change', days: 'Days since last change' }[D.cols_by] || '';
   const coh = D.cohort || {}, hasCoh = Object.keys(coh).length > 0, minN = typeof WT_MIN_N === 'number' ? WT_MIN_N : 20;
+  const byBikes = ODB.base === 'bikes' && D.cohort_bm, bm = D.cohort_bm || {}, nm = D.n_months || 1;
   const cell = (n, den, bk, cbk) => {
+    if (byBikes) den = bm[String(bk)] || 0;
     const pc = den ? n / den * 100 : null, few = den < minN;
     const bg = (pc == null || few || !n) ? '' : `background:rgba(220,38,38,${Math.min(0.08 + pc / 100 * 2.2, 0.55).toFixed(2)})`;
     const pTxt = pc == null ? '–' : (pc >= 10 ? pc.toFixed(0) : pc.toFixed(1)) + '%';
     const inner = show === 'n' ? (n ? n.toLocaleString('en-IN') : '<span style="color:#cbd5e1">0</span>') : show === 'pct' ? (n ? pTxt : '<span style="color:#cbd5e1">–</span>')
       : (n ? `<b>${pTxt}</b><div class="sub" style="font-size:10.5px">${n.toLocaleString('en-IN')}</div>` : '<span style="color:#cbd5e1">–</span>');
-    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${n} of ${den} replacements in this ${pOf === 'row' ? 'row' : 'column'}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},null,${cbk})"` : ''}>${inner}</td>`;
+    return `<td class="num" style="${bg};${few ? 'color:#94a3b8' : ''}${n ? ';cursor:pointer' : ''}" title="${byBikes ? `${n} replaced ÷ ${den.toLocaleString('en-IN')} bike-months in this row (${nm} month${nm > 1 ? 's' : ''})` : `${n} of ${den} replacements in this ${pOf === 'row' ? 'row' : 'column'}`}${n ? ' · click for the bikes' : ''}"${n ? ` onclick="loadOdbList(${bk},null,${cbk})"` : ''}>${inner}</td>`;
   };
-  let h = `<div class="sub" style="padding:6px 16px">Columns = <b>${esc(colLbl)}</b> · ${fd(D.period.from)} – ${fd(D.period.to)} · % = share of the <b>${pOf === 'row' ? 'row (each row adds up to 100%)' : 'column (each column adds up to 100%)'}</b></div>`;
+  let h = `<div class="sub" style="padding:6px 16px">Columns = <b>${esc(colLbl)}</b> · ${fd(D.period.from)} – ${fd(D.period.to)} · % = ${byBikes ? `<b>replacements ÷ bikes in the row's cohort${nm > 1 ? `, per month (average over ${nm} months)` : ''}</b>` : `share of the <b>${pOf === 'row' ? 'row (each row adds up to 100%)' : 'column (each column adds up to 100%)'}</b>`}</div>`;
   h += '<table class="tbl"><thead><tr><th>' + esc(ODB.byLabel) + '</th>' + cols.map((c, i) => keep[i] ? `<th class="num" style="white-space:nowrap">${esc(c.label.replace('First change (no earlier change)', 'First change'))}</th>` : '').join('') + '<th class="num">Total</th></tr></thead><tbody>';
-  rows.forEach(r => { const nb = coh[String(r.bk)], rt = r.counts.reduce((a, b) => a + b, 0);
+  rows.forEach(r => { const nb = byBikes ? Math.round((bm[String(r.bk)] || 0) / nm) : coh[String(r.bk)], rt = r.counts.reduce((a, b) => a + b, 0);
     h += `<tr><td style="white-space:nowrap${r.bk < 0 ? ';color:var(--muted)' : ''}">${esc(r.label)}${hasCoh ? ` <span class="sub" style="font-size:11px">· ${(nb || 0).toLocaleString('en-IN')} bikes</span>` : ''}</td>`
-      + r.counts.map((n, i) => keep[i] ? cell(n, pOf === 'row' ? rt : ct[i], r.bk, cols[i].bk) : '').join('') + `<td class="num" style="font-weight:700">${rt.toLocaleString('en-IN')}</td></tr>`; });
+      + r.counts.map((n, i) => keep[i] ? cell(n, pOf === 'row' ? rt : ct[i], r.bk, cols[i].bk) : '').join('') + `<td class="num" style="font-weight:700">${rt.toLocaleString('en-IN')}${byBikes && bm[String(r.bk)] ? `<div class="sub" style="font-size:10.5px;font-weight:400">${(rt / bm[String(r.bk)] * 100).toFixed(1)}% of bikes${nm > 1 ? '/month' : ''}</div>` : ''}</td></tr>`; });
   const gt = ct.reduce((a, b) => a + b, 0);
   h += '<tr style="font-weight:700;background:var(--bg2,#f8fafc)"><td>All replacements</td>' + ct.map((t, i) => keep[i] ? `<td class="num">${show === 'pct' && pOf === 'row' && gt ? Math.round(t / gt * 100) + '%' : t.toLocaleString('en-IN')}</td>` : '').join('') + `<td class="num">${gt.toLocaleString('en-IN')}</td></tr>`;
   body.innerHTML = h + '</tbody></table>';
