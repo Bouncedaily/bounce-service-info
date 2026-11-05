@@ -1102,7 +1102,17 @@ function embBox(k){   // one frame per embedded dashboard, created once, never m
   box=document.createElement('div'); box.id=id;
   box.innerHTML='<iframe title="'+EMBEDS[k].label+'" style="width:100%;height:'+embH()+'px;border:0;display:block;background:#f4f6f9"></iframe>';
   root.parentNode.insertBefore(box, root.nextSibling);
-  box.querySelector('iframe').src=EMBEDS[k].file+'?embed=1&v='+Date.now();   // 5 Nov 2026: always the latest version (the embedded page was served from browser cache)
+  var fr=box.querySelector('iframe');
+  fr.src=EMBEDS[k].file+'?embed=1&v='+Date.now();   // 5 Nov 2026: always the latest version (the embedded page was served from browser cache)
+  // 5 Nov 2026: the frame grows to fit its page, so only the RMC page scrolls (no scrolling inside the tab)
+  fr.addEventListener('load', function(){
+    try {
+      var doc=fr.contentDocument, fit=function(){ var hh=Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0); if(hh>200) fr.style.height=(hh+8)+'px'; };
+      // the embedded page scrolls inside its own app shell: let it take its natural height
+      var st=doc.createElement('style'); st.textContent='html,body,.app,.content,.main{height:auto!important;max-height:none!important;overflow:visible!important}'; doc.head.appendChild(st);
+      fit(); if(window.ResizeObserver){ new ResizeObserver(fit).observe(doc.body); } setInterval(fit, 1500);
+    } catch(e){ /* different origin: keep the fixed height */ }
+  });
   return box;
 }
 function embPlace(box, on){   // shown: in the page flow under the tabs; not shown: kept loaded off-screen at full width (charts size correctly)
