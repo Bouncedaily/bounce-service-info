@@ -109,7 +109,7 @@ td.clk{cursor:pointer}td.clk:hover{background:#fef2f2}
       <div class="kpis" id="kpis"></div>
       <div class="card" id="sumcard"><div class="card-hd"><span>By hub</span><span class="muted" style="font-weight:400">Sorted with the most problems first &middot; click a hub or a number to see the raw data</span></div><div class="scroll" id="sumbody"></div></div>
       <div id="rawpanel" style="display:none"></div>
-      <div class="guide" id="sumguide" style="margin-bottom:0"><b>Automatic flags:</b> <i>Hold then pass</i> = a held check re-entered as a pass for the same bike within a minute with a 3 PSI or larger change. <i>Reused photo</i> = the identical photo file appears on another check. <i>Old photo</i> = the camera recorded the photo more than 30 minutes before the check was saved. <i>Small file</i> = the photo file is under 60 KB (normal photos are around 300 KB), which is often a dark or blank photo. <i>Blank</i> = the photo file is under 5 KB.</div>
+      <div class="guide" id="sumguide" style="margin-bottom:0"><b>How to read this:</b> <i>Reviewed</i> = photos a reviewer has checked. <i>Match %</i> = share of reviewed photos where the PSI on the gauge equals the PSI entered. <i>Different</i> = the photo shows another number. <i>Bad photo</i> = black, blank, or no gauge reading. Click a hub or a number to see the raw tyre checks behind it.</div>
     </div>
   </div>
 </div>
@@ -170,15 +170,6 @@ function showTab(t){
 }
 
 /* ---------- Review ---------- */
-function flagChips(f){
-  var h='';
-  if(f.fast_flip) h+='<span class="chip">Hold then pass within a minute</span>';
-  if(f.dup_photo) h+='<span class="chip">Same photo used on another check</span>';
-  if(f.old_photo) h+='<span class="chip">Photo taken long before the check</span>';
-  if(f.blank_photo) h+='<span class="chip">Photo file is tiny / blank</span>';
-  if(f.small_photo) h+='<span class="chip amber">Very small photo file (may be dark or blank)</span>';
-  return h;
-}
 function verdictText(v,seen){
   if(v==='match') return 'Matches';
   if(v==='bad_photo') return 'Bad photo';
@@ -193,7 +184,6 @@ function sideHtml(i,side,s){
       '<div class="diff"><label class="muted">PSI shown in the photo</label><input type="number" step="0.5" min="0" inputmode="decimal" placeholder="e.g. 27.5"><button class="btn primary" data-act="save_diff">Save</button><button class="btn" data-act="skip_diff">Not readable</button></div>';
   return '<div class="side'+(s.reviewed?' done':'')+'" id="sd'+i+k+'" data-side="'+side+'"><h4>'+(side==='front'?'Front tyre':'Rear tyre')+'</h4>'+
     '<div class="ph" id="ph'+i+k+'"><div class="fail">Loading photo…</div></div>'+
-    '<div>'+flagChips(s.flags||{})+'</div>'+
     '<div class="entered"><b>'+esc(num(s.entered_psi))+'</b><span>PSI entered for the '+side+' tyre</span></div>'+
     '<div id="ct'+i+k+'">'+ctl+'</div></div>';
 }
@@ -202,7 +192,6 @@ function cardHtml(it,i){
   return '<div class="card rv bike" id="rv'+i+'" data-i="'+i+'">'+
     '<div class="bikehead"><div class="meta"><div><span>Hub</span>'+esc(it.hub_name)+(it.city?' <span class="citysub" style="display:inline;text-transform:none;letter-spacing:0">('+esc(it.city)+')</span>':'')+'</div><div><span>Done by</span>'+esc(it.performed_by_name||'—')+'</div><div><span>Bike</span>'+esc(it.reg_number||'')+'</div><div><span>When</span>'+esc(fmtWhen(it.created_at))+'</div><div><span>Result</span>'+(it.result==='hold'?'<span class="pill warn" style="margin:0">hold</span>':'<span class="pill ok" style="margin:0">pass</span>')+'</div></div>'+
     '<div id="bo'+i+'">'+(bothOpen?'<button class="btn ok" data-act="both_match">Both match</button>':'')+'</div></div>'+
-    (it.fast_flip?'<div style="margin-bottom:8px">'+flagChips({fast_flip:true})+'</div>':'')+
     '<div class="sides">'+sideHtml(i,'front',it.front)+sideHtml(i,'rear',it.rear)+'</div></div>';
 }
 
@@ -351,31 +340,28 @@ function renderSummary(){
     kpi(rev,'Photos reviewed','of '+(t.checks*2)+' photos')+
     kpi(mp==null?'—':mp+'%','Matches the entered PSI','of reviewed photos',mp==null?'':(mp>=95?'good':(mp>=85?'watch':'bad')))+
     kpi(t.different,'Different PSI','reviewer saw another number',t.different?'bad':'')+
-    kpi(t.bad_photo,'Bad photos','blank, black or no reading',t.bad_photo?'watch':'')+
-    kpi(t.fast_flips,'Hold then pass','within a minute',t.fast_flips?'watch':'')+
-    kpi(t.dup_photos,'Reused photos','identical file elsewhere',t.dup_photos?'bad':'')+
-    kpi(t.small_photos,'Very small photos','may be dark or blank',t.small_photos?'watch':'');
+    kpi(t.bad_photo,'Bad photos','blank, black or no reading',t.bad_photo?'watch':'');
   var rows=(SUM.hubs||[]).slice().sort(function(a,b){
-    var sa=a.different+a.bad_photo+a.fast_flips+a.dup_photos+a.old_photos+a.blank_photos+a.small_photos, sb=b.different+b.bad_photo+b.fast_flips+b.dup_photos+b.old_photos+b.blank_photos+b.small_photos;
+    var sa=a.different+a.bad_photo, sb=b.different+b.bad_photo;
     return sb-sa || String(a.hub).localeCompare(String(b.hub));
   });
   if(!rows.length){ $('sumbody').innerHTML='<div class="msg muted">No tyre checks in this period.</div>'; return; }
   function ck(hub,metric){ return ' class="clk" data-hub="'+esc(hub)+'" data-metric="'+metric+'" title="Click to see the raw data"'; }
   function cell(n,cls,metric,hub){ return '<td'+(n?ck(hub,metric):'')+'>'+(n? '<span class="pill '+cls+'">'+n+'</span>' : '<span class="muted">0</span>')+'</td>'; }
   function plain(n,metric,hub){ return '<td'+(n?ck(hub,metric):'')+'>'+(n?n:'<span class="muted">0</span>')+'</td>'; }
-  $('sumbody').innerHTML='<table><thead><tr><th class="l">Hub</th><th>Checks</th><th>Reviewed</th><th>Match %</th><th>Different</th><th>Bad photo</th><th>Hold then pass</th><th>Reused photo</th><th>Old photo</th><th>Small file</th><th>Blank</th></tr></thead><tbody>'+
+  $('sumbody').innerHTML='<table><thead><tr><th class="l">Hub</th><th>Checks</th><th>Reviewed</th><th>Match %</th><th>Different</th><th>Bad photo</th></tr></thead><tbody>'+
   rows.map(function(h){
     var rv=h.match+h.different+h.bad_photo, mp=pct(h.match,rv);
     var mc=mp==null?'na':(mp>=95?'ok':(mp>=85?'warn':'bad'));
     return '<tr><td class="l clk" data-hub="'+esc(h.hub)+'" data-metric="checks" title="Click to see all checks of this hub"><span class="hubname">'+esc(h.hub)+'</span>'+(h.city?'<br><span class="citysub">'+esc(h.city)+'</span>':'')+'</td>'+
       plain(h.checks,'checks',h.hub)+plain(rv,'reviewed',h.hub)+
       '<td'+(mp==null?'':ck(h.hub,'match'))+'>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
-      cell(h.different,'bad','different',h.hub)+cell(h.bad_photo,'warn','bad_photo',h.hub)+cell(h.fast_flips,'warn','fast_flip',h.hub)+cell(h.dup_photos,'bad','dup',h.hub)+cell(h.old_photos,'warn','old',h.hub)+cell(h.small_photos,'warn','small',h.hub)+cell(h.blank_photos,'warn','blank',h.hub)+'</tr>';
+      cell(h.different,'bad','different',h.hub)+cell(h.bad_photo,'warn','bad_photo',h.hub)+'</tr>';
   }).join('')+'</tbody></table>';
 }
 /* ---------- Raw data behind a summary number ---------- */
 var RAW=null, RAWQ=null;
-var METRIC_LABEL={checks:'All checks',reviewed:'Reviewed',match:'Matches the entered PSI',different:'Different PSI',bad_photo:'Bad photo',fast_flip:'Hold then pass',dup:'Reused photo',old:'Old photo',small:'Small file',blank:'Blank photo'};
+var METRIC_LABEL={checks:'All checks',reviewed:'Reviewed',match:'Matches the entered PSI',different:'Different PSI',bad_photo:'Bad photo'};
 function periodArgs(){
   var sv=$('days').value;
   if(sv==='today') return {p_day:istToday()}; if(sv==='yesterday') return {p_day:istShift(1)};
@@ -397,31 +383,28 @@ function closeRaw(){
   RAW=null; var p=$('rawpanel'); if(p){ p.style.display='none'; p.innerHTML=''; }
   $('kpis').style.display=''; $('sumcard').style.display=''; $('sumguide').style.display='';
 }
-function sideFlags(x){ var f=[]; if(x.dup) f.push('Reused'); if(x.old) f.push('Old'); if(x.small) f.push('Small'); if(x.blank) f.push('Blank'); return f; }
 function renderRaw(){
   var q=RAWQ, n=RAW.rows.length;
   var title=esc(q.hub||($('sumcity').value?'All '+$('sumcity').value+' hubs':'All hubs'))+' &middot; '+esc(METRIC_LABEL[q.metric]||q.metric)+' &middot; '+esc(periodLabel());
   function rv(x){ return x.verdict?esc(verdictText(x.verdict,x.seen_psi)):'<span class="muted">not reviewed</span>'; }
-  function fl(x){ var f=sideFlags(x); return f.length?f.map(function(t){return '<span class="chip">'+t+'</span>';}).join(''):'<span class="muted">—</span>'; }
   var body=RAW.rows.map(function(r){
     return '<tr><td class="l">'+esc(fmtWhen(r.created_at))+'</td>'+(q.hub?'':'<td class="l">'+esc(r.hub)+'</td>')+'<td class="l">'+esc(r.reg_number||'')+'</td><td class="l">'+esc(r.done_by||'—')+'</td>'+
       '<td>'+(r.result==='hold'?'<span class="pill warn">hold</span>':'<span class="pill ok">pass</span>')+'</td>'+
-      '<td>'+esc(num(r.front.psi))+'</td><td class="l">'+rv(r.front)+'</td><td class="l">'+fl(r.front)+'</td>'+
-      '<td>'+esc(num(r.rear.psi))+'</td><td class="l">'+rv(r.rear)+'</td><td class="l">'+fl(r.rear)+'</td>'+
-      '<td>'+(r.fast_flip?'<span class="chip">yes</span>':'<span class="muted">—</span>')+'</td>'+
+      '<td>'+esc(num(r.front.psi))+'</td><td class="l">'+rv(r.front)+'</td>'+
+      '<td>'+esc(num(r.rear.psi))+'</td><td class="l">'+rv(r.rear)+'</td>'+
       '<td class="l"><a target="_blank" rel="noopener" href="'+esc(r.front.url)+'">Front</a> &middot; <a target="_blank" rel="noopener" href="'+esc(r.rear.url)+'">Rear</a></td></tr>';
   }).join('');
   $('rawpanel').innerHTML='<div class="card"><div class="card-hd"><span>'+title+' &mdash; '+RAW.total+' tyre check'+(RAW.total===1?'':'s')+'</span>'+
     '<span><button class="btn" data-raw="close">&larr; Back to summary</button> <button class="btn" data-raw="csv">Download CSV</button></span></div>'+
-    '<div class="guide" style="margin:10px 14px">Each row is one tyre check (one bike). The summary counts photos, so a bike with both tyres flagged is counted twice there.'+(RAW.total>n?' Showing the newest '+n+' of '+RAW.total+'; narrow the period or pick a single hub to see the rest.':'')+'</div>'+
-    (n?'<div class="scroll"><table><thead><tr><th class="l">When</th>'+(q.hub?'':'<th class="l">Hub</th>')+'<th class="l">Bike</th><th class="l">Done by</th><th>Result</th><th>Front PSI</th><th class="l">Front review</th><th class="l">Front flags</th><th>Rear PSI</th><th class="l">Rear review</th><th class="l">Rear flags</th><th>Hold then pass</th><th class="l">Photos</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="msg muted">No rows.</div>')+'</div>';
+    '<div class="guide" style="margin:10px 14px">Each row is one tyre check (one bike). The summary counts photos, so a bike with both tyres marked the same way (for example Bad photo) is counted twice there.'+(RAW.total>n?' Showing the newest '+n+' of '+RAW.total+'; narrow the period or pick a single hub to see the rest.':'')+'</div>'+
+    (n?'<div class="scroll"><table><thead><tr><th class="l">When</th>'+(q.hub?'':'<th class="l">Hub</th>')+'<th class="l">Bike</th><th class="l">Done by</th><th>Result</th><th>Front PSI</th><th class="l">Front review</th><th>Rear PSI</th><th class="l">Rear review</th><th class="l">Photos</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="msg muted">No rows.</div>')+'</div>';
 }
 function rawCsv(){
   if(!RAW) return;
-  var rows=[['Check ID','When (IST)','Hub','City','Bike','Done by','Result','Hold then pass','Front PSI entered','Front review','Front PSI seen','Front reviewed by','Front reviewed at (IST)','Front flags','Front photo KB','Front photo taken (IST)','Front photo link','Rear PSI entered','Rear review','Rear PSI seen','Rear reviewed by','Rear reviewed at (IST)','Rear flags','Rear photo KB','Rear photo taken (IST)','Rear photo link']];
+  var rows=[['Check ID','When (IST)','Hub','City','Bike','Done by','Result','Front PSI entered','Front review','Front PSI seen','Front reviewed by','Front reviewed at (IST)','Front photo link','Rear PSI entered','Rear review','Rear PSI seen','Rear reviewed by','Rear reviewed at (IST)','Rear photo link']];
   RAW.rows.forEach(function(r){
-    function side(x){ return [x.psi,x.verdict||'',x.seen_psi==null?'':x.seen_psi,x.reviewed_by||'',istStamp(x.reviewed_at),sideFlags(x).join('+'),x.bytes==null?'':Math.round(x.bytes/1024),istStamp(x.photo_taken_at),x.url]; }
-    rows.push([r.check_id,istStamp(r.created_at),r.hub,r.city||'',r.reg_number||'',r.done_by||'',r.result||'',r.fast_flip?'yes':''].concat(side(r.front),side(r.rear)));
+    function side(x){ return [x.psi,x.verdict||'',x.seen_psi==null?'':x.seen_psi,x.reviewed_by||'',istStamp(x.reviewed_at),x.url]; }
+    rows.push([r.check_id,istStamp(r.created_at),r.hub,r.city||'',r.reg_number||'',r.done_by||'',r.result||''].concat(side(r.front),side(r.rear)));
   });
   var nm=('tyre-raw-'+(RAWQ.hub||('all-hubs'+($('sumcity').value?'-'+$('sumcity').value:'')))+'-'+RAWQ.metric+'-'+(SUM&&SUM.day?SUM.day:(SUM?SUM.days+'d':''))).replace(/[^A-Za-z0-9_\-]+/g,'-')+'.csv';
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download=nm;
@@ -430,8 +413,8 @@ function rawCsv(){
 function csvText(rows){ return '\ufeff'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\n'); }
 $('csv').onclick=function(){
   if(!SUM) return;
-  var rows=[['Hub','City','Checks','Reviewed','Match','Different','Bad photo','Hold then pass','Reused photo','Old photo','Small file','Blank']];
-  (SUM.hubs||[]).forEach(function(h){ rows.push([h.hub,h.city||'',h.checks,h.match+h.different+h.bad_photo,h.match,h.different,h.bad_photo,h.fast_flips,h.dup_photos,h.old_photos,h.small_photos,h.blank_photos]); });
+  var rows=[['Hub','City','Checks','Reviewed','Match','Different','Bad photo']];
+  (SUM.hubs||[]).forEach(function(h){ rows.push([h.hub,h.city||'',h.checks,h.match+h.different+h.bad_photo,h.match,h.different,h.bad_photo]); });
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download='tyre-photo-review-'+(SUM.day?SUM.day:SUM.days+'d')+(SUM.city?'-'+SUM.city:'')+'.csv';
   document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
 };
