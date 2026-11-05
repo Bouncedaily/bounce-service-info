@@ -41,6 +41,18 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 #zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:12.5px;display:none;z-index:100}
 .ho{padding:8px 16px;border-bottom:1px solid var(--border);background:#fffbeb;font-size:12.5px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}.hol{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:4px}.hor{color:var(--text2);flex:1;min-width:240px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:6px 0 16px}
+.tab{border:0;background:none;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--red);border-bottom-color:var(--red)}
+table.st{border-collapse:collapse;font-size:12.5px;width:auto}
+table.st th{background:#0f172a;color:#fff;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;padding:7px 12px;text-align:right;white-space:nowrap;position:sticky;top:0}
+table.st th.l,table.st td.l{text-align:left}
+table.st th.grp{text-align:center;border-left:2px solid #334155}
+table.st td{padding:6px 12px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+table.st td.gs{border-left:2px solid var(--border2)}
+table.st tr.tot td{font-weight:800;background:#f8fafc;border-top:2px solid var(--border2)}
+table.st a.k{color:var(--red);font-weight:700;text-decoration:none;cursor:pointer}table.st a.k:hover{text-decoration:underline}
+table.st th.s{cursor:pointer}
 .chd{cursor:pointer}.chd:hover{background:#f8fafc}
 #side{position:fixed;top:0;right:0;height:100%;width:min(520px,96vw);background:#fff;border-left:1px solid var(--border);box-shadow:-12px 0 30px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .2s ease;z-index:60;display:flex;flex-direction:column}
 #side.open{transform:none}
@@ -57,6 +69,7 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 @media(max-width:900px){.ph{grid-template-columns:repeat(2,1fr)}.ph img,.ph .fail{height:160px}}
 </style></head><body><div class="wrap">
 <h1>JC Photo Review</h1>
+<div class="tabs"><button class="tab on" data-tab="review">Review</button><button class="tab" data-tab="summary">Summary: draft vs billed</button></div>
 <div class="psub">Job cards with the highest parts cost first (warranty parts and labour not included). Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major, for the first card still to review. Click a photo to enlarge it.</div>
 <div class="bar">
   <div><label>Month</label><select id="fMonth"></select></div>
@@ -66,9 +79,18 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
   <div><label>Show</label><select id="fStatus"><option value="pending">To review</option><option value="reviewed">Reviewed</option><option value="all">All</option></select></div>
   <div style="flex:1"></div><div class="muted" id="info"></div>
 </div>
-<div class="kpis" id="kpis"></div>
+<div id="pane-review"><div class="kpis" id="kpis"></div>
 <div id="list"><div class="msg muted">Loading…</div></div>
-<div style="text-align:center;margin:10px 0 30px"><button class="btn" id="more" style="display:none">Load 30 more</button></div>
+<div style="text-align:center;margin:10px 0 30px"><button class="btn" id="more" style="display:none">Load 30 more</button></div></div>
+<div id="pane-summary" style="display:none">
+  <div class="card" style="padding:0"><div style="padding:12px 16px;border-bottom:1px solid var(--border)"><b style="font-size:14px">Billed parts vs Draft JC part cost, by city</b>
+    <div class="muted" style="font-size:12px;margin-top:2px">Billed = parts on the final job card, excluding warranty (W) and labour. <b>Match</b> = within ±1% (or ±₹10). <b>No draft</b> = no draft part cost on the job card. Click any number for the job cards behind it.</div></div>
+    <div style="overflow:auto"><table class="st" id="sumTbl"></table></div></div>
+  <div class="card" id="rawCard" style="display:none;padding:0"><div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    <b id="rawTitle" style="font-size:14px"></b><input id="rawQ" type="search" placeholder="Search reg, JC, hub, approver…" style="width:240px">
+    <div style="flex:1"></div><button class="btn" id="rawCsv"><i class="ti ti-download"></i> Download CSV</button><button class="btn" id="rawClose">Close</button></div>
+    <div style="overflow:auto;max-height:70vh"><table class="st" id="rawTbl"></table></div></div>
+</div>
 </div>
 <div id="zoom"><img alt=""></div><div id="toast"></div>
 <div id="side"><div class="sh"><div><b id="sTitle">Parts</b><div class="muted" id="sSub" style="font-size:12px;margin-top:2px"></div></div><button class="x" id="sClose" title="Close">×</button></div><div class="sb" id="sBody"></div></div>
@@ -209,4 +231,59 @@ $('fHub').addEventListener('change',function(){ load(true); });
 $('fHo').addEventListener('change',function(){ load(true); });
 $('more').addEventListener('click',function(){ load(false); });
 load(true); loadSummary();
+
+var RAW={rows:[],sk:'diff',sd:1,label:''};
+var BK={less:'Less than draft',more:'More than draft',match:'Match',nodraft:'No draft'};
+function showTab(t){ document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
+  $('pane-review').style.display=t==='review'?'':'none'; $('pane-summary').style.display=t==='summary'?'':'none';
+  document.querySelectorAll('#fHub,#fHo,#fStatus').forEach(function(el){ el.parentNode.style.display=t==='review'?'':'none'; });
+  if(t==='summary') loadDraftSummary(); }
+async function loadDraftSummary(){
+  var tb=$('sumTbl'); tb.innerHTML='<tr><td class="l muted">Loading…</td></tr>'; $('rawCard').style.display='none';
+  var r=await rpc('jc_review_draft_summary',{p_month:$('fMonth').value});
+  if(!r.ok){ tb.innerHTML='<tr><td class="l" style="color:#b91c1c">'+esc(r.msg)+'</td></tr>'; return; }
+  var L=r.data||[], pc=function(a,b){ return b?Math.round((a-b)/b*100)+'%':'–'; };
+  var k=function(n,city,b){ n=+n||0; return n?'<a class="k" data-city="'+esc(city)+'" data-b="'+(b||'')+'">'+n.toLocaleString('en-IN')+'</a>':'–'; };
+  var h='<thead><tr><th class="l" rowspan="2">City</th><th rowspan="2">Job cards</th><th class="grp" colspan="4">Less than draft</th><th class="grp" colspan="4">More than draft</th><th class="grp" colspan="2">Match</th><th class="grp" colspan="2">No draft</th><th class="grp" colspan="3">Total</th></tr>'
+    +'<tr><th class="grp">JCs</th><th>Draft ₹</th><th>Billed ₹</th><th>Less by ₹</th><th class="grp">JCs</th><th>Draft ₹</th><th>Billed ₹</th><th>More by ₹</th><th class="grp">JCs</th><th>Billed ₹</th><th class="grp">JCs</th><th>Billed ₹</th><th class="grp">Draft ₹</th><th>Billed ₹</th><th>Billed vs draft</th></tr></thead><tbody>';
+  L.forEach(function(x){ var all=x.city==='All cities', c=all?'':x.city;
+    h+='<tr'+(all?' class="tot"':'')+'><td class="l">'+esc(x.city)+'</td><td>'+k(x.jcs,c,'')+'</td>'
+      +'<td class="gs">'+k(x.less_n,c,'less')+'</td><td>'+inr(x.less_draft)+'</td><td>'+inr(x.less_billed)+'</td><td style="color:#15803d">'+inr((+x.less_draft||0)-(+x.less_billed||0))+'</td>'
+      +'<td class="gs">'+k(x.more_n,c,'more')+'</td><td>'+inr(x.more_draft)+'</td><td>'+inr(x.more_billed)+'</td><td style="color:#b91c1c">'+inr((+x.more_billed||0)-(+x.more_draft||0))+'</td>'
+      +'<td class="gs">'+k(x.match_n,c,'match')+'</td><td>'+inr(x.match_billed)+'</td>'
+      +'<td class="gs">'+k(x.nodraft_n,c,'nodraft')+'</td><td>'+inr(x.nodraft_billed)+'</td>'
+      +'<td class="gs">'+inr(x.draft)+'</td><td>'+inr(x.billed)+'</td><td>'+pc(+x.billed||0,+x.draft||0)+'</td></tr>'; });
+  tb.innerHTML=h+'</tbody>';
+}
+async function openRaw(city,b){
+  var card=$('rawCard'); card.style.display=''; RAW.label=(city||'All cities')+' · '+(b?BK[b]:'All job cards');
+  $('rawTitle').textContent=RAW.label+' · loading…'; $('rawTbl').innerHTML='';
+  var r=await rpc('jc_review_draft_list',{p_month:$('fMonth').value,p_city:city||null,p_bucket:b||null});
+  if(!r.ok){ $('rawTitle').textContent=RAW.label+' · could not load ('+r.msg+')'; return; }
+  RAW.rows=r.data||[]; renderRaw(); card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+var RAWCOLS=[['reg','Reg','l'],['jc_no','JC no.','l'],['city','City','l'],['hub','Hub','l'],['stype','Visit type','l'],['ho_user','HO approver','l'],['closed_at','Closed','l'],['draft','Draft ₹',''],['billed','Billed ₹',''],['diff','Billed − draft ₹',''],['pct','%',''],['bucket','Result','l'],['ho_remarks','HO remarks','l']];
+function rawFiltered(){ var q=($('rawQ').value||'').toLowerCase().trim(); var L=RAW.rows.filter(function(x){ return !q || [x.reg,x.jc_no,x.hub,x.city,x.ho_user,x.ho_remarks,x.stype].join(' ').toLowerCase().indexOf(q)>=0; });
+  var k=RAW.sk, d=RAW.sd; return L.slice().sort(function(a,b){ var x=a[k], y=b[k]; if(x==null) return 1; if(y==null) return -1; var r=(typeof x==='number'||!isNaN(+x)&&x!=='')?(+x)-(+y):String(x).localeCompare(String(y)); if(k==='diff') r=Math.abs(+x)-Math.abs(+y); return r*(d>0?-1:1); }); }
+function renderRaw(){ var L=rawFiltered();
+  $('rawTitle').textContent=RAW.label+' · '+L.length.toLocaleString('en-IN')+' job cards';
+  var h='<thead><tr>'+RAWCOLS.map(function(c){ return '<th class="s '+c[2]+'" data-sk="'+c[0]+'">'+c[1]+(RAW.sk===c[0]?(RAW.sd>0?' ▼':' ▲'):'')+'</th>'; }).join('')+'</tr></thead><tbody>';
+  h+=L.slice(0,2000).map(function(x){ return '<tr><td class="l"><b>'+esc(x.reg||'')+'</b></td><td class="l">'+esc(x.jc_no||x.draft_jc_id)+'</td><td class="l">'+esc(x.city||'')+'</td><td class="l">'+esc(x.hub||'')+'</td><td class="l">'+esc(x.stype||'')+'</td><td class="l">'+esc(hoName(x.ho_user))+'</td><td class="l">'+fmtWhen(x.closed_at)+'</td>'
+    +'<td>'+inr(x.draft)+'</td><td>'+inr(x.billed)+'</td><td style="color:'+((+x.diff||0)<0?'#15803d':(+x.diff||0)>0?'#b91c1c':'inherit')+'">'+(x.diff==null?'–':((+x.diff<0?'−':'+')+'₹'+Math.abs(Math.round(+x.diff)).toLocaleString('en-IN')))+'</td><td>'+(x.pct==null?'–':x.pct+'%')+'</td><td class="l">'+esc(BK[x.bucket]||'')+'</td><td class="l" style="white-space:normal;min-width:260px;max-width:420px">'+esc(x.ho_remarks||'')+'</td></tr>'; }).join('');
+  if(L.length>2000) h+='<tr><td class="l muted" colspan="13">Showing the first 2,000; download the CSV for all '+L.length.toLocaleString('en-IN')+'.</td></tr>';
+  $('rawTbl').innerHTML=h+'</tbody>'; }
+function rawCsv(){ var L=rawFiltered(), q=function(v){ var t=String(v==null?'':v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  var lines=[['Reg','JC no','Draft JC id','City','Hub','Visit type','HO approver','Closed','Draft part cost','Billed parts (excl W)','Billed - draft','%','Result','HO remarks'].join(',')]
+    .concat(L.map(function(x){ return [x.reg,x.jc_no,x.draft_jc_id,x.city,x.hub,x.stype,hoName(x.ho_user),x.closed_at,x.draft,x.billed,x.diff,x.pct,BK[x.bucket],x.ho_remarks].map(q).join(','); }));
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv'})); a.download='draft_vs_billed_'+$('fMonth').value+'_'+RAW.label.replace(/[^A-Za-z0-9]+/g,'_')+'.csv'; a.click(); }
+document.addEventListener('click',function(e){
+  var t=e.target.closest('.tab'); if(t){ showTab(t.dataset.tab); return; }
+  var k=e.target.closest('a.k'); if(k){ openRaw(k.dataset.city,k.dataset.b); return; }
+  var th=e.target.closest('#rawTbl th[data-sk]'); if(th){ var c=th.dataset.sk; if(RAW.sk===c) RAW.sd=-RAW.sd; else { RAW.sk=c; RAW.sd=1; } renderRaw(); return; }
+  if(e.target.closest('#rawClose')){ $('rawCard').style.display='none'; return; }
+  if(e.target.closest('#rawCsv')){ rawCsv(); return; }
+});
+$('rawQ').addEventListener('input',function(){ renderRaw(); });
+$('fMonth').addEventListener('change',function(){ if($('pane-summary').style.display!=='none') loadDraftSummary(); });
+$('fCity').addEventListener('change',function(){ if($('pane-summary').style.display!=='none') loadDraftSummary(); });
 </script></body></html>
