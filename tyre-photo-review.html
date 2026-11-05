@@ -41,6 +41,7 @@ td.l,th.l{text-align:left}
 .hubname{font-weight:700;font-size:13px}.citysub{color:var(--muted2);font-size:11px}
 .pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
 .pill.ok{background:#dcfce7;color:#15803d}.pill.warn{background:#fef3c7;color:#a16207}.pill.bad{background:#fee2e2;color:#b91c1c}.pill.na{background:#f1f5f9;color:var(--muted)}
+.pending{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px}.pchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pchip{border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;background:#fff;user-select:none}.pchip:hover{border-color:var(--red)}.pchip b{margin-left:5px;color:var(--red)}.pchip.done{opacity:.55}.pchip.done b{color:#15803d}
 td.clk{cursor:pointer}td.clk:hover{background:#fef2f2}
 .chip{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#fee2e2;color:#b91c1c;margin:2px 4px 2px 0}
 .chip.amber{background:#fef3c7;color:#a16207}
@@ -88,10 +89,11 @@ td.clk{cursor:pointer}td.clk:hover{background:#fef2f2}
     <div id="tab-review">
       <div class="guide"><b>How to check:</b> the photo should show the pressure gauge with a lit PSI reading. The <b>large number on top</b> is the measured pressure (the smaller number below is a preset). Tap <b>Matches</b> if it equals the entered PSI, <b>Different</b> if it shows another number (type it in), or <b>Bad photo</b> if it is black, blank, or does not show the gauge with a PSI reading.</div>
       <div class="pgs" id="prog" style="display:none"></div>
+      <div class="pending" id="pending" style="display:none"></div>
       <div class="bar">
         <span><label>City</label><select id="citysel"><option value="">All cities</option></select></span>
         <span><label>Hub</label><select id="hubsel"><option value="">All hubs</option></select></span>
-        <span><label>Day</label><select id="daysel"><option value="both" selected>Today + yesterday</option><option value="0">Today</option><option value="1">Yesterday</option></select> <input type="date" id="daypick" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
+        <span><label>Day</label><select id="daysel"><option value="both">Today + yesterday</option><option value="0" selected>Today</option><option value="1">Yesterday</option></select> <input type="date" id="daypick" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
         <span class="muted" id="rstatus"></span>
         <span class="spacer"></span>
         <button class="btn" id="more">Load 5 more bikes</button>
@@ -108,6 +110,7 @@ td.clk{cursor:pointer}td.clk:hover{background:#fef2f2}
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="card" id="sumcard"><div class="card-hd"><span>By hub</span><span class="muted" style="font-weight:400">Sorted with the most problems first &middot; click a hub or a number to see the raw data</span></div><div class="scroll" id="sumbody"></div></div>
+      <div class="card" id="pplcard"><div class="card-hd"><span>By person <span class="muted" id="pplcount" style="font-weight:400"></span></span><span style="display:flex;gap:8px;align-items:center"><input type="text" id="pplsearch" placeholder="Search name or hub" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"><button class="btn" id="pplcsv">Download CSV</button></span></div><div class="scroll" id="pplbody"></div></div>
       <div id="rawpanel" style="display:none"></div>
       <div class="guide" id="sumguide" style="margin-bottom:0"><b>How to read this:</b> <i>Reviewed</i> = photos a reviewer has checked. <i>Match %</i> = share of reviewed photos where the PSI on the gauge equals the PSI entered. <i>Different</i> = the photo shows another number. <i>Bad photo</i> = black, blank, or no gauge reading. Click a hub or a number to see the raw tyre checks behind it.</div>
     </div>
@@ -218,9 +221,9 @@ function renderProgress(){
   $('prog').style.display='';
   var yd=new Date(PROG.today+'T12:00:00Z'); yd.setUTCDate(yd.getUTCDate()-1); var yest=yd.toISOString().slice(0,10);
   $('prog').innerHTML=PROG.by_day.map(function(d,i){
-    var pct=d.photos?Math.round(100*d.reviewed/d.photos):0;
+    var pct=d.bikes?Math.round(100*d.bikes_done/d.bikes):0;
     var name=(d.day===PROG.today?'Today':(d.day===yest?'Yesterday':new Date(d.day+'T12:00:00Z').toLocaleDateString('en-IN',{weekday:'long',timeZone:'UTC'})))+' ('+fmtDay(d.day)+')';
-    return '<div class="pg"><div class="pg-top"><b>'+name+'</b><span>'+d.reviewed+' of '+d.photos+' photos reviewed</span></div><div class="pg-bar"><i style="width:'+pct+'%"></i></div></div>';
+    return '<div class="pg"><div class="pg-top"><b>'+name+'</b><span>'+d.bikes_done+' of '+d.bikes+' bikes fully reviewed ('+pct+'%) &middot; '+d.reviewed+' of '+d.photos+' photos</span></div><div class="pg-bar"><i style="width:'+pct+'%"></i></div></div>';
   }).join('');
 }
 async function loadProgress(){
@@ -228,12 +231,26 @@ async function loadProgress(){
   var r=await rpc('tyre_review_progress',pargs);
   if(r.ok){ PROG=r.data; renderProgress(); }
 }
-function bumpProgress(it){
+function bumpProgress(it,bikeDone){
   if(!PROG||!PROG.by_day) return;
   var day=new Date(it.created_at).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
-  PROG.by_day.forEach(function(d){ if(d.day===day) d.reviewed++; });
+  PROG.by_day.forEach(function(d){ if(d.day===day){ d.reviewed++; if(bikeDone) d.bikes_done++; } });
   renderProgress();
+  if(bikeDone) bumpPending(it);
 }
+/* Left to review, per hub: tap a hub to work through only that hub */
+var PEND=null;
+async function loadPending(){
+  var dsel=selectedDay(); var a={}; if(dsel) a.p_day=dsel; else a.p_days=2; if(selectedCity()) a.p_city=selectedCity();
+  var r=await rpc('tyre_review_pending_hubs',a); if(r.ok){ PEND=r.data.hubs||[]; renderPending(); }
+}
+function renderPending(){
+  if(!PEND) return; var el=$('pending'); el.style.display='';
+  var total=0, left=0; PEND.forEach(function(h){ total+=h.bikes; left+=h.left; });
+  el.innerHTML='<b>Left to review: '+left+' of '+total+' bikes</b> <span class="muted">&middot; tap a hub to review only that hub</span><div class="pchips"><span class="pchip" data-hub="">All hubs</span>'+
+    PEND.map(function(h){ return '<span class="pchip'+(h.left?'':' done')+'" data-hub="'+esc(h.hub)+'">'+esc(h.hub)+'<b>'+(h.left?h.left:'&#10003;')+'</b></span>'; }).join('')+'</div>';
+}
+function bumpPending(it){ if(!PEND) return; PEND.forEach(function(h){ if(h.hub===it.hub_name&&h.left>0) h.left--; }); renderPending(); }
 /* The photo links redirect and forbid embedding on other sites, so photos come through a signed-in relay (edge function). */
 function photoFail(i,side,it,why){
   var el=$('ph'+i+side.charAt(0)); if(!el) return;
@@ -267,6 +284,7 @@ async function loadBatch(append){
   $('rstatus').textContent=left+' bike'+(left===1?'':'s')+' to review';
   if(!HUBS_FILLED) fillHubs();
   loadProgress();
+  if(!append) loadPending();
 }
 var HUBLIST=[], CITY_DIRTY=false;
 function selectedCity(){ return $('citysel').value||null; }
@@ -294,7 +312,7 @@ async function verdict(i,side,v,seen){
   sd._busy=false; if(box) box.style.opacity='';
   if(!r.ok){ toast('Could not save ('+r.msg+')'); return false; }
   sd.reviewed=true; sd.verdict=v; sd.seen_psi=(seen==null?null:seen);
-  bumpProgress(it);
+  bumpProgress(it,!pending(it));
   if(box){ box.classList.add('done'); var ct=$('ct'+i+k); if(ct) ct.innerHTML='<div class="saved">Saved: '+esc(verdictText(v,sd.seen_psi))+'</div>'; }
   var bo=$('bo'+i); if(bo) bo.innerHTML='';
   var left=QUEUE.filter(pending).length;
@@ -358,6 +376,31 @@ function renderSummary(){
       '<td'+(mp==null?'':ck(h.hub,'match'))+'>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
       cell(h.different,'bad','different',h.hub)+cell(h.bad_photo,'warn','bad_photo',h.hub)+'</tr>';
   }).join('')+'</tbody></table>';
+  renderPeople();
+}
+function renderPeople(){
+  var all=(SUM&&SUM.people)||[], q=($('pplsearch').value||'').trim().toLowerCase();
+  var list=all.filter(function(p){ return !q||(p.person||'').toLowerCase().indexOf(q)>=0||(p.hub||'').toLowerCase().indexOf(q)>=0; });
+  $('pplcount').textContent='· '+list.length+(q?' of '+all.length:'')+' people';
+  if(!list.length){ $('pplbody').innerHTML='<div class="msg muted">No people for this selection.</div>'; return; }
+  function ck(p,metric){ return p.pid==null?'':' class="clk" data-person="'+p.pid+'" data-pname="'+esc(p.person)+'" data-metric="'+metric+'" title="Click to see the raw data"'; }
+  function plain(p,n,metric){ return '<td'+(n?ck(p,metric):'')+'>'+(n?n:'<span class="muted">0</span>')+'</td>'; }
+  function cell(p,n,cls,metric){ return '<td'+(n?ck(p,metric):'')+'>'+(n?'<span class="pill '+cls+'">'+n+'</span>':'<span class="muted">0</span>')+'</td>'; }
+  $('pplbody').innerHTML='<table><thead><tr><th class="l">Person</th><th>Checks</th><th>Reviewed</th><th>Match %</th><th>Different</th><th>Bad photo</th></tr></thead><tbody>'+
+  list.map(function(p){
+    var rv=p.match+p.different+p.bad_photo, mp=pct(p.match,rv), mc=mp==null?'na':(mp>=95?'ok':(mp>=85?'warn':'bad'));
+    var nameTd='<td class="l'+(p.pid==null?'':' clk')+'"'+(p.pid==null?'':' data-person="'+p.pid+'" data-pname="'+esc(p.person)+'" data-metric="checks" title="Click to see all checks of this person"')+'>';
+    return '<tr>'+nameTd+'<span class="hubname">'+esc(p.person)+'</span>'+(p.hub?'<br><span class="citysub">'+esc(p.hub)+(p.city?' &middot; '+esc(p.city):'')+'</span>':'')+'</td>'+
+      plain(p,p.checks,'checks')+plain(p,rv,'reviewed')+'<td'+(mp==null?'':ck(p,'match'))+'>'+(mp==null?'<span class="pill na">—</span>':'<span class="pill '+mc+'">'+mp+'%</span>')+'</td>'+
+      cell(p,p.different,'bad','different')+cell(p,p.bad_photo,'warn','bad_photo')+'</tr>';
+  }).join('')+'</tbody></table>';
+}
+function peopleCsv(){
+  var rows=[['Person','Hub','City','Checks','Reviewed','Match','Different','Bad photo']];
+  ((SUM&&SUM.people)||[]).forEach(function(p){ rows.push([p.person,p.hub||'',p.city||'',p.checks,p.match+p.different+p.bad_photo,p.match,p.different,p.bad_photo]); });
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'}));
+  a.download='tyre-photo-review-by-person-'+(SUM&&SUM.day?SUM.day:(SUM?SUM.days+'d':''))+(SUM&&SUM.city?'-'+SUM.city:'')+'.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
 }
 /* ---------- Raw data behind a summary number ---------- */
 var RAW=null, RAWQ=null;
@@ -370,22 +413,22 @@ function periodArgs(){
 }
 function periodLabel(){ return SUM&&SUM.day?fmtDay(SUM.day):'last '+(SUM?SUM.days:'')+' days'; }
 function istStamp(iso){ return iso?new Date(iso).toLocaleString('sv-SE',{timeZone:'Asia/Kolkata'}).slice(0,16):''; }
-async function openRaw(hub,metric){
+async function openRaw(hub,metric,person,pname){
   var pa=periodArgs(); if(!pa) return;
-  RAWQ={hub:hub,metric:metric};
-  $('kpis').style.display='none'; $('sumcard').style.display='none'; $('sumguide').style.display='none'; $('rawpanel').style.display='';
+  RAWQ={hub:hub,metric:metric,person:person||null,pname:pname||''};
+  $('kpis').style.display='none'; $('sumcard').style.display='none'; $('pplcard').style.display='none'; $('sumguide').style.display='none'; $('rawpanel').style.display='';
   $('rawpanel').innerHTML='<div class="card"><div class="msg muted">Loading raw data…</div></div>';
-  var r=await rpc('tyre_review_raw',Object.assign({p_hub:hub||null,p_metric:metric||'checks'},pa,($('sumcity').value?{p_city:$('sumcity').value}:{})));
+  var r=await rpc('tyre_review_raw',Object.assign({p_hub:hub||null,p_metric:metric||'checks'},pa,($('sumcity').value?{p_city:$('sumcity').value}:{}),(person?{p_person:+person}:{})));
   if(!r.ok){ $('rawpanel').innerHTML='<div class="card"><div class="msg"><span class="err">Could not load ('+esc(r.msg)+').</span> <button class="btn" data-raw="close">Back to summary</button></div></div>'; return; }
   RAW=r.data; renderRaw();
 }
 function closeRaw(){
   RAW=null; var p=$('rawpanel'); if(p){ p.style.display='none'; p.innerHTML=''; }
-  $('kpis').style.display=''; $('sumcard').style.display=''; $('sumguide').style.display='';
+  $('kpis').style.display=''; $('sumcard').style.display=''; $('pplcard').style.display=''; $('sumguide').style.display='';
 }
 function renderRaw(){
   var q=RAWQ, n=RAW.rows.length;
-  var title=esc(q.hub||($('sumcity').value?'All '+$('sumcity').value+' hubs':'All hubs'))+' &middot; '+esc(METRIC_LABEL[q.metric]||q.metric)+' &middot; '+esc(periodLabel());
+  var title=esc(q.person?q.pname:(q.hub||($('sumcity').value?'All '+$('sumcity').value+' hubs':'All hubs')))+' &middot; '+esc(METRIC_LABEL[q.metric]||q.metric)+' &middot; '+esc(periodLabel());
   function rv(x){ return x.verdict?esc(verdictText(x.verdict,x.seen_psi)):'<span class="muted">not reviewed</span>'; }
   var body=RAW.rows.map(function(r){
     return '<tr><td class="l">'+esc(fmtWhen(r.created_at))+'</td>'+(q.hub?'':'<td class="l">'+esc(r.hub)+'</td>')+'<td class="l">'+esc(r.reg_number||'')+'</td><td class="l">'+esc(r.done_by||'—')+'</td>'+
@@ -406,7 +449,7 @@ function rawCsv(){
     function side(x){ return [x.psi,x.verdict||'',x.seen_psi==null?'':x.seen_psi,x.reviewed_by||'',istStamp(x.reviewed_at),x.url]; }
     rows.push([r.check_id,istStamp(r.created_at),r.hub,r.city||'',r.reg_number||'',r.done_by||'',r.result||''].concat(side(r.front),side(r.rear)));
   });
-  var nm=('tyre-raw-'+(RAWQ.hub||('all-hubs'+($('sumcity').value?'-'+$('sumcity').value:'')))+'-'+RAWQ.metric+'-'+(SUM&&SUM.day?SUM.day:(SUM?SUM.days+'d':''))).replace(/[^A-Za-z0-9_\-]+/g,'-')+'.csv';
+  var nm=('tyre-raw-'+(RAWQ.person?RAWQ.pname:(RAWQ.hub||('all-hubs'+($('sumcity').value?'-'+$('sumcity').value:''))))+'-'+RAWQ.metric+'-'+(SUM&&SUM.day?SUM.day:(SUM?SUM.days+'d':''))).replace(/[^A-Za-z0-9_\-]+/g,'-')+'.csv';
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8'})); a.download=nm;
   document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
 }
@@ -423,6 +466,9 @@ $('csv').onclick=function(){
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'),function(b){ b.onclick=function(){ showTab(b.getAttribute('data-tab')); }; });
 $('more').onclick=function(){ loadBatch(true); };
 $('sumbody').addEventListener('click',function(e){ var td=e.target.closest('td.clk'); if(!td) return; openRaw(td.getAttribute('data-hub'),td.getAttribute('data-metric')); });
+$('pplbody').addEventListener('click',function(e){ var td=e.target.closest('td.clk'); if(!td) return; openRaw(null,td.getAttribute('data-metric'),td.getAttribute('data-person'),td.getAttribute('data-pname')); });
+$('pplsearch').oninput=renderPeople; $('pplcsv').onclick=peopleCsv;
+$('pending').addEventListener('click',function(e){ var c=e.target.closest('.pchip'); if(!c) return; $('hubsel').value=c.getAttribute('data-hub')||''; loadBatch(false); });
 $('rawpanel').addEventListener('click',function(e){ var b=e.target.closest('[data-raw]'); if(!b) return; var a=b.getAttribute('data-raw'); if(a==='close') closeRaw(); else if(a==='csv') rawCsv(); });
 $('hubsel').onchange=function(){ loadBatch(false); };
 $('citysel').onchange=function(){ setCity($('citysel').value); loadBatch(false); };
