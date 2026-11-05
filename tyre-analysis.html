@@ -468,7 +468,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
           <div class="fg"><label>Show</label><div class="seg" id="odb-show"><button class="on" data-v="both" onclick="setOdbShow(this)">% and count</button><button data-v="pct" onclick="setOdbShow(this)">%</button><button data-v="n" onclick="setOdbShow(this)">Count</button></div></div>
         </div>
         <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px"><span id="odb-rowsnote">Rows = the bike's <b>odometer at the time of replacement</b></span><span id="odb-colnote">; columns = month replaced. <b>%</b> = share of that month's replacements of this part (each column adds up to 100%). Follows the City at the top. The current month is month-to-date. Click any number to see the bikes.</span></div>
-        <div class="tbl-wrap"><div id="odb-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+        <div class="tbl-wrap" style="max-height:none;overflow-y:visible"><div id="odb-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
         <div id="odb-list"></div>
       </div>
 
