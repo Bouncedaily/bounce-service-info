@@ -58,6 +58,16 @@ td.l,th.l{text-align:left}
 .rv .diff{display:none;gap:8px;align-items:center;flex-wrap:wrap}.rv .diff.open{display:flex}
 .rv .diff input{width:90px}
 .rv.done{opacity:.45;pointer-events:none}
+.rv.bike{display:block;padding:16px}
+.rv .bikehead{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:flex-start;margin-bottom:10px}
+.rv .bikehead .meta{flex:1;min-width:260px}
+.rv .sides{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rv .side{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.rv .side h4{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2)}
+.rv .side.done{background:#f0fdf4;border-color:#bbf7d0}
+.rv .side .ph{min-height:200px}.rv .side .ph img{max-height:360px}
+.rv .saved{font-size:13px;font-weight:700;color:#15803d}
+@media(max-width:900px){.rv .sides{grid-template-columns:1fr}}
 .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}.pg{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px}.pg-top{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:6px}.pg-top span{color:var(--muted)}.pg-bar{height:8px;background:#eef2f7;border-radius:4px;overflow:hidden}.pg-bar i{display:block;height:100%;background:var(--green);transition:width .25s}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
 @media(max-width:760px){.wrap{padding:12px}.rv{grid-template-columns:1fr;padding:12px}.kpi-val{font-size:20px}.rv .acts .btn{flex:1}}
@@ -82,7 +92,7 @@ td.l,th.l{text-align:left}
         <span><label>Day</label><select id="daysel"><option value="both" selected>Today + yesterday</option><option value="0">Today</option><option value="1">Yesterday</option></select> <input type="date" id="daypick" title="Pick any date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit"></span>
         <span class="muted" id="rstatus"></span>
         <span class="spacer"></span>
-        <button class="btn" id="more">Load 10 more</button>
+        <button class="btn" id="more">Load 5 more bikes</button>
       </div>
       <div id="rvbody"></div>
     </div>
@@ -164,17 +174,31 @@ function flagChips(f){
   if(f.small_photo) h+='<span class="chip amber">Very small photo file (may be dark or blank)</span>';
   return h;
 }
+function verdictText(v,seen){
+  if(v==='match') return 'Matches';
+  if(v==='bad_photo') return 'Bad photo';
+  return 'Different'+(seen!=null?' (photo shows '+num(seen)+')':' (not readable)');
+}
+function pending(it){ return !!((it.front&&!it.front.reviewed)||(it.rear&&!it.rear.reviewed)); }
+function sideHtml(i,side,s){
+  s=s||{}; var k=side.charAt(0);
+  var ctl=s.reviewed
+    ? '<div class="saved">Saved: '+esc(verdictText(s.verdict,s.seen_psi))+'</div>'
+    : '<div class="acts"><button class="btn ok" data-act="match">Matches</button><button class="btn" data-act="different">Different</button><button class="btn bad" data-act="bad_photo">Bad photo</button></div>'+
+      '<div class="diff"><label class="muted">PSI shown in the photo</label><input type="number" step="0.5" min="0" inputmode="decimal" placeholder="e.g. 27.5"><button class="btn primary" data-act="save_diff">Save</button><button class="btn" data-act="skip_diff">Not readable</button></div>';
+  return '<div class="side'+(s.reviewed?' done':'')+'" id="sd'+i+k+'" data-side="'+side+'"><h4>'+(side==='front'?'Front tyre':'Rear tyre')+'</h4>'+
+    '<div class="ph" id="ph'+i+k+'"><div class="fail">Loading photo…</div></div>'+
+    '<div>'+flagChips(s.flags||{})+'</div>'+
+    '<div class="entered"><b>'+esc(num(s.entered_psi))+'</b><span>PSI entered for the '+side+' tyre</span></div>'+
+    '<div id="ct'+i+k+'">'+ctl+'</div></div>';
+}
 function cardHtml(it,i){
-  var f=it.flags||{};
-  return '<div class="card rv" id="rv'+i+'" data-i="'+i+'">'+
-    '<div class="ph" id="ph'+i+'"><div class="fail">Loading photo…</div></div>'+
-    '<div class="info">'+
-      '<div>'+flagChips(f)+'</div>'+
-      '<div class="meta"><div><span>Hub</span>'+esc(it.hub_name)+(it.city?' <span class="citysub" style="display:inline;text-transform:none;letter-spacing:0">('+esc(it.city)+')</span>':'')+'</div><div><span>Done by</span>'+esc(it.performed_by_name||'—')+'</div><div><span>Tyre</span>'+(it.side==='front'?'Front':'Rear')+'</div><div><span>Bike</span>'+esc(it.reg_number||'')+'</div><div><span>When</span>'+esc(fmtWhen(it.created_at))+'</div><div><span>Result</span>'+(it.result==='hold'?'<span class="pill warn" style="margin:0">hold</span>':'<span class="pill ok" style="margin:0">pass</span>')+'</div></div>'+
-      '<div class="entered"><b>'+esc(num(it.entered_psi))+'</b><span>PSI entered for the '+(it.side==='front'?'front':'rear')+' tyre</span></div>'+
-      '<div class="acts"><button class="btn ok" data-act="match">Matches</button><button class="btn" data-act="different">Different</button><button class="btn bad" data-act="bad_photo">Bad photo</button></div>'+
-      '<div class="diff"><label class="muted">PSI shown in the photo</label><input type="number" step="0.5" min="0" inputmode="decimal" placeholder="e.g. 27.5"><button class="btn primary" data-act="save_diff">Save</button><button class="btn" data-act="skip_diff">Not readable</button></div>'+
-    '</div></div>';
+  var bothOpen=!!(it.front&&!it.front.reviewed&&it.rear&&!it.rear.reviewed);
+  return '<div class="card rv bike" id="rv'+i+'" data-i="'+i+'">'+
+    '<div class="bikehead"><div class="meta"><div><span>Hub</span>'+esc(it.hub_name)+(it.city?' <span class="citysub" style="display:inline;text-transform:none;letter-spacing:0">('+esc(it.city)+')</span>':'')+'</div><div><span>Done by</span>'+esc(it.performed_by_name||'—')+'</div><div><span>Bike</span>'+esc(it.reg_number||'')+'</div><div><span>When</span>'+esc(fmtWhen(it.created_at))+'</div><div><span>Result</span>'+(it.result==='hold'?'<span class="pill warn" style="margin:0">hold</span>':'<span class="pill ok" style="margin:0">pass</span>')+'</div></div>'+
+    '<div id="bo'+i+'">'+(bothOpen?'<button class="btn ok" data-act="both_match">Both match</button>':'')+'</div></div>'+
+    (it.fast_flip?'<div style="margin-bottom:8px">'+flagChips({fast_flip:true})+'</div>':'')+
+    '<div class="sides">'+sideHtml(i,'front',it.front)+sideHtml(i,'rear',it.rear)+'</div></div>';
 }
 
 
@@ -217,26 +241,26 @@ function bumpProgress(it){
   renderProgress();
 }
 /* The photo links redirect and forbid embedding on other sites, so photos come through a signed-in relay (edge function). */
-function photoFail(i,it,why){
-  var el=$('ph'+i); if(!el) return;
-  el.innerHTML='<div class="fail">Photo could not be loaded'+(why?' ('+esc(why)+')':'')+'.<br><a target="_blank" rel="noopener" href="'+esc(it.photo_url)+'">Open the original link</a></div>';
+function photoFail(i,side,it,why){
+  var el=$('ph'+i+side.charAt(0)); if(!el) return;
+  el.innerHTML='<div class="fail">Photo could not be loaded'+(why?' ('+esc(why)+')':'')+'.<br><a target="_blank" rel="noopener" href="'+esc((it[side]||{}).photo_url||'')+'">Open the original link</a></div>';
 }
-async function loadPhoto(i,it){
+async function loadPhoto(i,side,it){
   try{
     var tok=await validToken();
-    var r=await fetch(SB+'/functions/v1/tyre-photo-proxy?id='+encodeURIComponent(it.check_id)+'&side='+encodeURIComponent(it.side),{headers:{Authorization:'Bearer '+tok,apikey:ANON}});
-    if(r.status===401||r.status===403){ photoFail(i,it,'no access'); return; }
-    if(!r.ok){ photoFail(i,it,'HTTP '+r.status); return; }
-    var b=await r.blob(); var u=URL.createObjectURL(b); var el=$('ph'+i); if(!el) return;
+    var r=await fetch(SB+'/functions/v1/tyre-photo-proxy?id='+encodeURIComponent(it.check_id)+'&side='+encodeURIComponent(side),{headers:{Authorization:'Bearer '+tok,apikey:ANON}});
+    if(r.status===401||r.status===403){ photoFail(i,side,it,'no access'); return; }
+    if(!r.ok){ photoFail(i,side,it,'HTTP '+r.status); return; }
+    var b=await r.blob(); var u=URL.createObjectURL(b); var el=$('ph'+i+side.charAt(0)); if(!el) return;
     el.innerHTML='<img alt="Tyre gauge photo" src="'+u+'">';
     el.firstChild.onclick=function(){ window.open(u,'_blank'); };
-    el.firstChild.onerror=function(){ photoFail(i,it,'file is not a readable image'); };
-  }catch(e){ photoFail(i,it,'no connection'); }
+    el.firstChild.onerror=function(){ photoFail(i,side,it,'file is not a readable image'); };
+  }catch(e){ photoFail(i,side,it,'no connection'); }
 }
 async function loadBatch(append){
   $('rstatus').textContent='Loading…'; $('more').disabled=true;
-  var dsel=selectedDay(); var nargs={p_hub:$('hubsel').value||null,p_n:10}; if(dsel) nargs.p_day=dsel;
-  var r=await rpc('tyre_review_next',nargs);
+  var dsel=selectedDay(); var nargs={p_hub:$('hubsel').value||null,p_n:5}; if(dsel) nargs.p_day=dsel;
+  var r=await rpc('tyre_review_next_bikes',nargs);
   $('more').disabled=false;
   if(!r.ok){ if(!LOADED) { fail(r,'the review queue'); } else { $('rstatus').innerHTML='<span class="err">Could not load ('+esc(r.msg)+')</span>'; } return; }
   LOADED=true; $('msg').innerHTML=''; $('main').style.display='';
@@ -244,9 +268,9 @@ async function loadBatch(append){
   if(!append){ QUEUE=[]; $('rvbody').innerHTML=''; }
   var base=QUEUE.length; QUEUE=QUEUE.concat(items);
   if(!items.length && !QUEUE.length){ $('rvbody').innerHTML='<div class="card"><div class="msg">Nothing left to review'+($('hubsel').value?' for this hub':'')+(selectedDay()?' on this day':'')+'. Check back after more tyre checks come in.</div></div>'; }
-  else { $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join('')); items.forEach(function(it,k){ loadPhoto(base+k,it); }); }
-  var left=QUEUE.filter(function(x){return !x._done;}).length;
-  $('rstatus').textContent=left+' to review';
+  else { $('rvbody').insertAdjacentHTML('beforeend',items.map(function(it,k){return cardHtml(it,base+k);}).join('')); items.forEach(function(it,k){ ['front','rear'].forEach(function(sd){ loadPhoto(base+k,sd,it); }); }); }
+  var left=QUEUE.filter(pending).length;
+  $('rstatus').textContent=left+' bike'+(left===1?'':'s')+' to review';
   if(!HUBS_FILLED) fillHubs();
   loadProgress();
 }
@@ -256,24 +280,35 @@ async function fillHubs(){
   $('hubsel').innerHTML='<option value="">All hubs</option>'+(r.data.hubs||[]).map(function(h){return '<option value="'+esc(h.hub)+'">'+esc(h.hub)+(h.city?' ('+esc(h.city)+')':'')+'</option>';}).join('');
   if(cur) $('hubsel').value=cur;
 }
-async function verdict(i,v,seen){
-  var it=QUEUE[i]; if(!it||it._done) return;
-  var card=$('rv'+i); card.classList.add('done');
-  var r=await rpc('tyre_review_submit',{p_check_id:it.check_id,p_side:it.side,p_verdict:v,p_seen_psi:(seen==null?null:seen),p_note:null});
-  if(!r.ok){ card.classList.remove('done'); toast('Could not save ('+r.msg+')'); return; }
-  it._done=true; bumpProgress(it); toast(v==='match'?'Saved: matches':(v==='different'?'Saved: different':'Saved: bad photo'));
-  var left=QUEUE.filter(function(x){return !x._done;}).length;
-  $('rstatus').textContent=left+' to review';
-  setTimeout(function(){ card.style.display='none'; if(left===0) loadBatch(true); },350);
+async function verdict(i,side,v,seen){
+  var it=QUEUE[i]; if(!it||!it[side]||it[side].reviewed||it[side]._busy) return false;
+  var sd=it[side], k=side.charAt(0); sd._busy=true;
+  var box=$('sd'+i+k); if(box) box.style.opacity='.5';
+  var r=await rpc('tyre_review_submit',{p_check_id:it.check_id,p_side:side,p_verdict:v,p_seen_psi:(seen==null?null:seen),p_note:null});
+  sd._busy=false; if(box) box.style.opacity='';
+  if(!r.ok){ toast('Could not save ('+r.msg+')'); return false; }
+  sd.reviewed=true; sd.verdict=v; sd.seen_psi=(seen==null?null:seen);
+  bumpProgress(it);
+  if(box){ box.classList.add('done'); var ct=$('ct'+i+k); if(ct) ct.innerHTML='<div class="saved">Saved: '+esc(verdictText(v,sd.seen_psi))+'</div>'; }
+  var bo=$('bo'+i); if(bo) bo.innerHTML='';
+  var left=QUEUE.filter(pending).length;
+  $('rstatus').textContent=left+' bike'+(left===1?'':'s')+' to review';
+  if(!pending(it)){
+    var card=$('rv'+i); if(card) card.classList.add('done');
+    setTimeout(function(){ if(card) card.style.display='none'; if(QUEUE.filter(pending).length===0) loadBatch(true); },450);
+  }
+  return true;
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
   var card=b.closest('.rv'); if(!card) return; var i=+card.getAttribute('data-i'), act=b.getAttribute('data-act');
-  if(act==='match') verdict(i,'match');
-  else if(act==='bad_photo') verdict(i,'bad_photo');
-  else if(act==='different'){ var d=card.querySelector('.diff'); d.classList.toggle('open'); var inp=d.querySelector('input'); if(d.classList.contains('open')) inp.focus(); }
-  else if(act==='save_diff'){ var v=card.querySelector('.diff input').value; if(v===''){ toast('Type the PSI you see, or tap Not readable'); return; } verdict(i,'different',parseFloat(v)); }
-  else if(act==='skip_diff') verdict(i,'different',null);
+  if(act==='both_match'){ var it=QUEUE[i]; if(!it) return; ['front','rear'].forEach(function(sd){ if(it[sd]&&!it[sd].reviewed) verdict(i,sd,'match'); }); return; }
+  var sideEl=b.closest('.side'); if(!sideEl) return; var side=sideEl.getAttribute('data-side');
+  if(act==='match') verdict(i,side,'match');
+  else if(act==='bad_photo') verdict(i,side,'bad_photo');
+  else if(act==='different'){ var d=sideEl.querySelector('.diff'); d.classList.toggle('open'); var inp=d.querySelector('input'); if(d.classList.contains('open')) inp.focus(); }
+  else if(act==='save_diff'){ var v=sideEl.querySelector('.diff input').value; if(v===''){ toast('Type the PSI you see, or tap Not readable'); return; } verdict(i,side,'different',parseFloat(v)); }
+  else if(act==='skip_diff') verdict(i,side,'different',null);
 });
 
 /* ---------- Summary ---------- */
