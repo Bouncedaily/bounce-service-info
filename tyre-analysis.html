@@ -1618,11 +1618,12 @@ function renderOdb(){
     h += rowOf(medLbl, st.median, v => Math.round(v).toLocaleString('en-IN') + unit, 'Middle value of this month\'s replacements (first changes counted from new)');
     if (D.by !== 'usage') h += rowOf('Average km per day', st.avg_use, v => Math.round(v) + ' km/day', 'Average km/day (last 30 days, from the job card) of the bikes replaced this month');
     h += rowOf('120+ km/day share', st.pct120, v => v + '%', 'Share of this month\'s replacements (with usage data) on bikes doing 120+ km/day');
-    if (st.pct_unlim) {   // 5 Nov 2026: rider's plan at the time of replacement, from the bookings export (Aug–Oct 2026 so far)
-      h += '<tr><td class="sub" title="Share of this month\'s replacements where the rider was on an unlimited-km plan (any plan name with &quot;unlim&quot;) around the replacement date. Based on the bookings export loaded so far.">Unlimited plan share</td>' + ms.map((m, i) => {
-        const v = st.pct_unlim[i], np = (st.n_plan || [])[i] || 0, t = tot[i] || 0;
-        return np < 20 ? `<td class="num sub" style="font-size:11px" title="${np ? np + ' of ' + t + ' replacements matched to a booking: too few' : 'No booking data for this month yet'}">${np ? 'few' : 'no data'}</td>`
-          : `<td class="num" style="font-size:12px;font-weight:600" title="${np} of ${t} replacements matched to a booking">${v}%<div class="sub" style="font-size:10px;font-weight:400">${Math.round(np / t * 100)}% matched</div></td>`; }).join('') + '</tr>';
+    if (st.unlim_days) {   // 5 Nov 2026: of all bike-days on rent in the month, the share on unlimited plans (bookings export; follows City, Bike model, Deployed year)
+      h += '<tr><td class="sub" title="Of all the days bikes were out on rent in the month, the share on an unlimited-km plan (any plan name with &quot;unlim&quot;). Fleet-wide: follows City, Bike model and Deployed year, not the part. Source: bookings export (Aug–Oct 2026 so far).">Unlimited plan days share</td>' + ms.map((m, i) => {
+        const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
+        if (!u.rented || cov < 0.5) return `<td class="num sub" style="font-size:11px" title="${cov >= 0.05 ? 'Only part of this month is in the bookings export' : 'No booking data for this month yet'}">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
+        const pc = (u.unlim / u.rented * 100).toFixed(1);
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.unlim).toLocaleString('en-IN')} unlimited of ${Math.round(u.rented).toLocaleString('en-IN')} rented bike-days">${pc}%<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.unlim / 1000).toLocaleString('en-IN')}k of ${Math.round(u.rented / 1000).toLocaleString('en-IN')}k days</div></td>`; }).join('') + '</tr>';
     }
   }
   const rnN = +(D.rn || 0), tp = D.totals_pre || [], tSum = tot.reduce((a, b) => a + b, 0), pSum = tp.reduce((a, b) => a + b, 0);
