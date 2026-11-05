@@ -1616,7 +1616,7 @@ function renderOdb(){
     const rowOf = (lbl, arr, fmtv, tip) => '<tr><td class="sub" title="' + tip + '">' + lbl + '</td>' + ms.map((m, i) => { const v = (arr || [])[i];
         return `<td class="num" style="font-size:12px;font-weight:600">${v == null ? '–' : fmtv(v)}</td>`; }).join('') + '</tr>';
     h += rowOf(medLbl, st.median, v => Math.round(v).toLocaleString('en-IN') + unit, 'Middle value of this month\'s replacements (first changes counted from new)');
-    h += rowOf('Average km per day', st.avg_use, v => Math.round(v) + ' km/day', 'Average km/day (last 30 days, from the job card) of the bikes replaced this month');
+    if (D.by !== 'usage') h += rowOf('Average km per day', st.avg_use, v => Math.round(v) + ' km/day', 'Average km/day (last 30 days, from the job card) of the bikes replaced this month');
     h += rowOf('120+ km/day share', st.pct120, v => v + '%', 'Share of this month\'s replacements (with usage data) on bikes doing 120+ km/day');
   }
   const rnN = +(D.rn || 0), tp = D.totals_pre || [], tSum = tot.reduce((a, b) => a + b, 0), pSum = tp.reduce((a, b) => a + b, 0);
