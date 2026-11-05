@@ -1534,7 +1534,9 @@ function applyBikeClientFilters() {
 const esc = typeof window.esc === 'function' ? window.esc : (v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
 const ODB = { data: null, show: 'both', pctOf: 'row', base: 'repl' };
 function setOdbBase(b){ document.querySelectorAll('#odb-base button').forEach(x => x.classList.toggle('on', x === b)); ODB.base = b.dataset.v;
-  const pf = document.getElementById('odb-pctof-fg'); if (pf && ODB.data && ODB.data.xtab) pf.style.display = ODB.base === 'bikes' ? 'none' : ''; renderOdb(); }
+  const pf = document.getElementById('odb-pctof-fg'); if (pf && ODB.data && ODB.data.xtab) pf.style.display = ODB.base === 'bikes' ? 'none' : '';
+  if (ODB.base === 'bikes' && ODB.data && !(ODB.data.xtab ? ODB.data.cohort_bm : ODB.data.cohort_m)) { loadOdb(); return; }   // fetch the bike counts on first use
+  renderOdb(); }
 function setOdbPctOf(b){ document.querySelectorAll('#odb-pctof button').forEach(x => x.classList.toggle('on', x === b)); ODB.pctOf = b.dataset.v; renderOdb(); }
 function setOdbShow(b){ document.querySelectorAll('#odb-show button').forEach(x => x.classList.toggle('on', x === b)); ODB.show = b.dataset.v; renderOdb(); }
 async function loadOdb(){
@@ -1566,7 +1568,8 @@ async function loadOdb(){
   document.getElementById('odb-colnote').innerHTML = cols === 'month' ? ODB.colNote
     : '; columns = <b>' + ({ km: 'km since the previous change', days: 'days since the previous change' }[cols]) + '</b> of the same part, over the chosen months. Use <b>% of Row / Column</b> to read across or down. Follows the City at the top. Click any number to see the bikes.';
   const common = { p_part: document.getElementById('odb-part').value, p_months: _single ? 6 : +document.getElementById('odb-months').value, p_city: document.getElementById('top-city').value || null,
-                   p_deploy_year: document.getElementById('odb-year').value || null, p_step: step, p_rn: +document.getElementById('odb-rn').value };
+                   p_deploy_year: document.getElementById('odb-year').value || null, p_step: step, p_rn: +document.getElementById('odb-rn').value,
+                   p_with_cohort: ODB.base === 'bikes' };   // 5 Nov 2026: month-end bike counts only when that base is chosen (they are the expensive part)
   try { ODB.data = cols === 'month' ? await rpcU('wear_tear_part_matrix', Object.assign({ p_by: by }, common))
                                     : await rpcU('wear_tear_part_xtab', Object.assign({ p_rows: by, p_cols: cols, p_col_step: 5000, p_month: _single }, common)); }
   catch (e) { body.innerHTML = `<div class="error-msg">Could not load (${esc(e.message)}).</div>`; return; }
