@@ -1552,13 +1552,20 @@ async function loadOdb(){
   let cols = document.getElementById('odb-cols').value;
   if (cols === by) { cols = 'month'; document.getElementById('odb-cols').value = 'month'; }   // rows and columns can't be the same thing
   document.getElementById('odb-pctof-fg').style.display = cols === 'month' ? 'none' : '';
+  (function(){ const sel = document.getElementById('odb-months'), want = cols === 'month' ? 'ranges' : 'all';
+    if (sel.dataset.mode !== want) { const cur = sel.value; let o = '<option value="3">Last 3</option><option value="6">Last 6</option><option value="12">Last 12</option>';
+      if (want === 'all') { o += '<optgroup label="Single month">'; const n = new Date();
+        for (let i = 0; i < 12; i++) { const d = new Date(n.getFullYear(), n.getMonth() - i, 1), v = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+          o += `<option value="m:${v}">${d.toLocaleString('en-IN', { month: 'short', year: 'numeric' })}${i === 0 ? ' (so far)' : ''}</option>`; } o += '</optgroup>'; }
+      sel.innerHTML = o; sel.value = [...sel.options].some(x => x.value === cur) ? cur : '6'; sel.dataset.mode = want; } })();
+  const _mv = document.getElementById('odb-months').value, _single = _mv.startsWith('m:') ? _mv.slice(2) : null;
   if (!ODB.colNote) ODB.colNote = document.getElementById('odb-colnote').innerHTML;
   document.getElementById('odb-colnote').innerHTML = cols === 'month' ? ODB.colNote
     : '; columns = <b>' + ({ km: 'km since the previous change', days: 'days since the previous change' }[cols]) + '</b> of the same part, over the chosen months. Use <b>% of Row / Column</b> to read across or down. Follows the City at the top. Click any number to see the bikes.';
-  const common = { p_part: document.getElementById('odb-part').value, p_months: +document.getElementById('odb-months').value, p_city: document.getElementById('top-city').value || null,
+  const common = { p_part: document.getElementById('odb-part').value, p_months: _single ? 6 : +document.getElementById('odb-months').value, p_city: document.getElementById('top-city').value || null,
                    p_deploy_year: document.getElementById('odb-year').value || null, p_step: step, p_rn: +document.getElementById('odb-rn').value };
   try { ODB.data = cols === 'month' ? await rpcU('wear_tear_part_matrix', Object.assign({ p_by: by }, common))
-                                    : await rpcU('wear_tear_part_xtab', Object.assign({ p_rows: by, p_cols: cols, p_col_step: 5000 }, common)); }
+                                    : await rpcU('wear_tear_part_xtab', Object.assign({ p_rows: by, p_cols: cols, p_col_step: 5000, p_month: _single }, common)); }
   catch (e) { body.innerHTML = `<div class="error-msg">Could not load (${esc(e.message)}).</div>`; return; }
   renderOdb();
 }
@@ -1625,7 +1632,8 @@ async function loadOdbList(bk, mon, cbk){
   const mLbl = D.xtab ? ({ km: 'km since last change', days: 'days since last change' }[D.cols_by] + ' ' + (col ? col.label : '')) : new Date(mon + '-01T00:00:00').toLocaleString('en-IN', { month: 'short', year: 'numeric' });
   box.innerHTML = '<div class="loading-state" style="padding:16px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   let rows; try { rows = D.xtab
-      ? await rpcU('wear_tear_part_xtab_list', { p_part: D.part, p_rows: D.by, p_cols: D.cols_by, p_bk: bk, p_cbk: cbk, p_months: +document.getElementById('odb-months').value,
+      ? await rpcU('wear_tear_part_xtab_list', { p_part: D.part, p_rows: D.by, p_cols: D.cols_by, p_bk: bk, p_cbk: cbk, p_months: (+document.getElementById('odb-months').value || 6),
+          p_month: (D.period && D.period.from.slice(0, 7) === D.period.to.slice(0, 7)) ? D.period.from.slice(0, 7) : null,
           p_city: document.getElementById('top-city').value || null, p_deploy_year: document.getElementById('odb-year').value || null, p_step: D.step, p_col_step: D.col_step, p_rn: +(D.rn || 0) })
       : await rpcU('wear_tear_part_matrix_list', { p_part: D.part, p_by: D.by || 'odo', p_month: mon, p_bk: bk, p_city: document.getElementById('top-city').value || null,
       p_deploy_year: document.getElementById('odb-year').value || null, p_step: D.step, p_rn: +(D.rn || 0) }); }
