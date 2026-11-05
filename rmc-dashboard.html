@@ -495,7 +495,7 @@ function val(amt, city, month){
   if(state.unit==='rs') return amt;
   var d=den(city, month, state.unit); return d ? amt/d : null;
 }
-function fmt(v){ if(v==null||isNaN(v)) return '\u2013'; if(state.unit==='km') return v.toFixed(3);   // 5 Nov 2026: 3 decimals per km if(state.unit==='rs') return Math.round(v).toLocaleString('en-IN'); return v.toFixed(1); }
+function fmt(v){ if(v==null||isNaN(v)) return '\u2013'; if(state.unit==='km') return v.toFixed(3); /* 5 Nov 2026: 3 decimals per km */ if(state.unit==='rs') return Math.round(v).toLocaleString('en-IN'); return v.toFixed(1); }
 function unitName(){ return state.unit==='bike'?'per bike':state.unit==='km'?'per km':'total \u20b9'; }
 function heat(v,mn,mx){ if(v==null||mx===mn) return ''; var t=(v-mn)/(mx-mn),r,g,b; if(t<.5){var k=t/.5;r=99+k*156;g=190+k*45;b=123-k*3;}else{var k2=(t-.5)/.5;r=255-k2*25;g=235-k2*115;b=120-k2*10;} return 'background:rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')'; }
 // value + share of a total, by the Display switch (Value / % / Value + %)
