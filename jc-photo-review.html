@@ -40,6 +40,19 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 #zoom{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}
 #zoom img{max-width:94vw;max-height:92vh;border-radius:6px}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:8px;font-size:12.5px;display:none;z-index:100}
+.chd{cursor:pointer}.chd:hover{background:#f8fafc}
+#side{position:fixed;top:0;right:0;height:100%;width:min(520px,96vw);background:#fff;border-left:1px solid var(--border);box-shadow:-12px 0 30px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .2s ease;z-index:60;display:flex;flex-direction:column}
+#side.open{transform:none}
+#side .sh{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+#side .sh b{font-size:15px}#side .sh .x{margin-left:auto;border:0;background:none;font-size:22px;cursor:pointer;color:var(--muted)}
+#side .sb{overflow:auto;padding:6px 10px 18px}
+#side table{width:100%;border-collapse:collapse;font-size:12.5px}
+#side th{position:sticky;top:0;background:#eef2f7;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.03em;padding:7px 8px;text-align:left}
+#side td{padding:6px 8px;border-bottom:1px solid var(--border)}#side td.n,#side th.n{text-align:right}
+#side tr.grp td{background:#f8fafc;font-weight:700;font-size:11.5px;color:var(--text2)}
+#side tr.tot td{font-weight:800;border-top:2px solid var(--border2)}
+.cat{display:inline-block;min-width:18px;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;background:#f1f5f9;color:var(--text2)}
+.cat.P{background:#fee2e2;color:#b91c1c}.cat.A{background:#e2e8f0;color:#0f172a}.cat.C{background:#ede9fe;color:#6d28d9}.cat.W{background:#dcfce7;color:#15803d}
 @media(max-width:900px){.ph{grid-template-columns:repeat(2,1fr)}.ph img,.ph .fail{height:160px}}
 </style></head><body><div class="wrap">
 <h1>JC Photo Review</h1>
@@ -56,6 +69,7 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 <div style="text-align:center;margin:10px 0 30px"><button class="btn" id="more" style="display:none">Load 30 more</button></div>
 </div>
 <div id="zoom"><img alt=""></div><div id="toast"></div>
+<div id="side"><div class="sh"><div><b id="sTitle">Parts</b><div class="muted" id="sSub" style="font-size:12px;margin-top:2px"></div></div><button class="x" id="sClose" title="Close">×</button></div><div class="sb" id="sBody"></div></div>
 <script>
 var SB='https://fuslpeyhpmofzijrotkb.supabase.co';
 var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1c2xwZXlocG1vZnppanJvdGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDg0NDgsImV4cCI6MjA5NDMyNDQ0OH0.IGtWV-bus0Tc1i3z7hWuFZEda06q8L31YyBgiOFujbs';
@@ -127,7 +141,7 @@ function photo(url,lbl){ if(!url) return '<figure><div class="fail">No '+lbl.toL
   return '<figure><img loading="lazy" src="'+esc(url)+'" data-z="'+esc(url)+'" alt="'+lbl+'" onerror="this.outerHTML=\'<div class=fail>Photo did not load</div>\'"><figcaption>'+lbl+'</figcaption></figure>'; }
 function cardHtml(x,i){
   var v=x.verdict;
-  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd"><div class="cost">'+inr(x.cost)+'</div>'
+  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd" data-parts="'+i+'" title="Click for the parts on this job card"><div class="cost">'+inr(x.cost)+'</div>'
     +'<div class="m"><span>Reg</span><b>'+esc(x.reg||'–')+'</b></div><div class="m"><span>JC</span>'+esc(x.jc_no||x.draft_jc_id)+'</div>'
     +'<div class="m"><span>Hub</span>'+esc(x.hub||'')+', '+esc(x.city||'')+'</div><div class="m"><span>Type</span>'+esc(x.stype||'–')+'</div>'
     +'<div class="m"><span>Closed</span>'+fmtWhen(x.closed_at)+'</div>'
@@ -139,7 +153,26 @@ function cardHtml(x,i){
     +'<button class="btn v-medium'+(v==='medium'?' on':'')+'" data-i="'+i+'" data-v="medium">2 · Medium damage</button>'
     +'<button class="btn v-major'+(v==='major'?' on':'')+'" data-i="'+i+'" data-v="major">3 · Major accident</button>'
     +'<input id="n'+i+'" placeholder="Note (optional)" value="'+esc(x.note||'')+'">'
-    +(v?'<button class="btn" data-i="'+i+'" data-v="clear" title="Remove the verdict">Clear</button>':'')+'</div></div>';
+    +(v?'<button class="btn" data-i="'+i+'" data-v="clear" title="Remove the verdict">Clear</button>':'')+'<button class="btn" data-parts="'+i+'"><i class="ti ti-list-details"></i> Parts</button></div></div>';
+}
+var CATN={A:'Wear & tear',P:'Rider-payable',C:'Company',W:'Warranty',F:'Free of cost','':'No category'};
+async function openParts(i){
+  var x=ROWS[i]; if(!x) return; var side=$('side');
+  $('sTitle').textContent=(x.reg||'')+' · JC '+(x.jc_no||x.draft_jc_id);
+  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' total';
+  $('sBody').innerHTML='<div class="msg muted">Loading…</div>'; side.classList.add('open');
+  var r=await rpc('jc_review_parts',{p_jc:x.draft_jc_id});
+  if(!r.ok){ $('sBody').innerHTML='<div class="msg" style="color:#b91c1c">'+esc(r.msg)+'</div>'; return; }
+  var L=r.data||[], parts=L.filter(function(l){ return l.type==='Part'; }), lab=L.filter(function(l){ return l.type!=='Part'; });
+  var sum=function(a,k){ return a.reduce(function(s,l){ return s+(+l[k]||0); },0); };
+  var row=function(l){ return '<tr><td>'+esc(l.item||'–')+'</td><td><span class="cat '+esc(l.cat)+'" title="'+esc(CATN[l.cat]||l.cat)+'">'+esc(l.cat||'–')+'</span></td><td class="n">'+(+l.qty||0).toLocaleString('en-IN')+'</td><td class="n">'+inr(l.amount)+'</td></tr>'; };
+  var byCat={}; L.forEach(function(l){ byCat[l.cat]=(byCat[l.cat]||0)+(+l.amount||0); });
+  var h='<table><thead><tr><th>Item</th><th>Cat.</th><th class="n">Count</th><th class="n">Amount</th></tr></thead><tbody>'
+    +'<tr class="grp"><td colspan="2">Parts ('+parts.length+')</td><td class="n">'+sum(parts,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(parts,'amount'))+'</td></tr>'+parts.map(row).join('')
+    +'<tr class="grp"><td colspan="2">Labour ('+lab.length+')</td><td class="n">'+sum(lab,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(lab,'amount'))+'</td></tr>'+lab.map(row).join('')
+    +'<tr class="tot"><td colspan="2">Total</td><td class="n"></td><td class="n">'+inr(sum(L,'amount'))+'</td></tr></tbody></table>'
+    +'<div style="margin-top:12px;font-size:12px;color:var(--text2)"><b>By category:</b> '+Object.keys(byCat).sort().map(function(c){ return '<span class="cat '+esc(c)+'">'+esc(c||'–')+'</span> '+esc(CATN[c]||c)+' '+inr(byCat[c]); }).join(' &nbsp;·&nbsp; ')+'</div>';
+  $('sBody').innerHTML=L.length?h:'<div class="msg muted">No lines found for this job card.</div>';
 }
 function render(){ $('list').innerHTML=ROWS.length?ROWS.map(cardHtml).join(''):'<div class="msg muted">Nothing to review for this selection.</div>'; }
 async function save(i,v){
@@ -152,12 +185,14 @@ async function save(i,v){
   if(v!=='clear' && $('fStatus').value==='pending'){ var nx=ROWS.findIndex(function(y){ return !y._done; }); var ne=nx>=0?$('c'+nx):null; if(ne) ne.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
 document.addEventListener('click',function(e){
+  if(e.target.closest('#sClose')){ $('side').classList.remove('open'); return; }
+  var pb=e.target.closest('[data-parts]'); if(pb){ openParts(+pb.dataset.parts); return; }
   var b=e.target.closest('[data-v]'); if(b){ save(+b.dataset.i,b.dataset.v); return; }
   var z=e.target.closest('[data-z]'); if(z){ var o=$('zoom'); o.querySelector('img').src=z.dataset.z; o.style.display='flex'; return; }
   if(e.target.closest('#zoom')) $('zoom').style.display='none';
 });
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){ $('zoom').style.display='none'; return; }
+  if(e.key==='Escape'){ $('zoom').style.display='none'; $('side').classList.remove('open'); return; }
   if(/input|select|textarea/i.test((document.activeElement||{}).tagName||'')) return;
   var m={'1':'minor','2':'medium','3':'major'}[e.key]; if(!m) return;
   var i=ROWS.findIndex(function(y){ return !y._done && !y.verdict; }); if(i>=0) save(i,m);
