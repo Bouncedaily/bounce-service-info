@@ -35,6 +35,7 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 .acts{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px}
 .acts input{flex:1;min-width:220px}
 .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.t-unclear{background:#e2e8f0;color:#334155}.v-unclear{border-color:#cbd5e1;color:#475569}.v-unclear.on,.v-unclear:hover{background:#475569;color:#fff;border-color:#475569}
 .t-minor{background:#dcfce7;color:#15803d}.t-medium{background:#fef3c7;color:#a16207}.t-major{background:#fee2e2;color:#b91c1c}
 .muted{color:var(--muted)}.msg{padding:18px;line-height:1.6}
 #zoom{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}
@@ -70,16 +71,21 @@ table.st th.s{cursor:pointer}
 </style></head><body><div class="wrap">
 <h1>JC Photo Review</h1>
 <div class="tabs"><button class="tab on" data-tab="review">Review</button><button class="tab" data-tab="summary">Summary: draft vs billed</button></div>
-<div class="psub">Job cards with the highest parts cost first (warranty parts and labour not included). Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major, for the first card still to review. Click a photo to enlarge it.</div>
+<div class="psub">Job cards with the highest parts cost first (warranty parts and labour not included). Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major · <b>4</b> Photos unclear / wrong bike, for the first card still to review. Click a photo to enlarge it.</div>
 <div class="bar">
   <div><label>Month</label><select id="fMonth"></select></div>
   <div><label>City</label><select id="fCity"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
   <div><label>Hub</label><select id="fHub"><option value="">All hubs</option></select></div>
   <div><label>HO approver</label><select id="fHo"><option value="">All approvers</option></select></div>
+  <div><label>Type</label><select id="fStype"><option value="">All types</option></select></div>
+  <div><label>Cost</label><select id="fBand"><option value="">Any cost</option><option value="gt15k">₹15k and above</option><option value="5to15k">₹5k–15k</option><option value="1to5k">₹1k–5k</option><option value="lt1k">Under ₹1k</option></select></div>
+  <div><label>Draft</label><select id="fDraft"><option value="">Any</option><option value="less">Billed less than draft</option><option value="more">Billed more than draft</option><option value="match">Billed = draft</option><option value="nodraft">No draft</option></select></div>
   <div><label>Show</label><select id="fStatus"><option value="pending">To review</option><option value="reviewed">Reviewed</option><option value="all">All</option></select></div>
+  <div id="wVerdict" style="display:none"><label>Verdict</label><select id="fVerdict"><option value="">Any verdict</option><option value="minor">Minor damage</option><option value="medium">Medium damage</option><option value="major">Major accident</option><option value="unclear">Photos unclear / wrong bike</option></select></div>
+  <div><label>Sort</label><select id="fSort"><option value="cost">Parts cost ↓</option><option value="p_cost">Rider-payable parts ↓</option><option value="draft_gap">Draft vs billed gap ↓</option><option value="fee_gap">P cost minus fee charged ↓</option></select></div>
   <div style="flex:1"></div><div class="muted" id="info"></div>
 </div>
-<div id="pane-review"><div class="kpis" id="kpis"></div>
+<div id="pane-review"><div class="kpis" id="kpis"></div><div id="revLine" style="font-size:12px;color:var(--text2);margin:-6px 0 14px"></div>
 <div id="list"><div class="msg muted">Loading…</div></div>
 <div style="text-align:center;margin:10px 0 30px"><button class="btn" id="more" style="display:none">Load 30 more</button></div></div>
 <div id="pane-summary" style="display:none">
@@ -136,22 +142,26 @@ async function rpc(fn,args){
   }catch(e){ return {ok:false,status:0,msg:'No connection'}; }
 }
 var ROWS=[], TOTAL=0, OFFSET=0, PAGE=30;
-var VL={minor:'Minor damage',medium:'Medium damage',major:'Major accident'};
+var VL={minor:'Minor damage',medium:'Medium damage',major:'Major accident',unclear:'Photos unclear / wrong bike'};
 function inr(v){ return v==null?'–':'₹'+Math.round(+v).toLocaleString('en-IN'); }
 function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
 function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},2400); }
-function params(){ return {p_month:$('fMonth').value, p_city:$('fCity').value||null, p_hub:$('fHub').value||null, p_status:$('fStatus').value, p_ho:$('fHo').value||null}; }
+function params(){ var st=$('fStatus').value; return {p_month:$('fMonth').value, p_city:$('fCity').value||null, p_hub:$('fHub').value||null, p_status:st, p_ho:$('fHo').value||null,
+  p_stype:$('fStype').value||null, p_band:$('fBand').value||null, p_verdict:(st==='pending'?null:($('fVerdict').value||null)), p_draft:$('fDraft').value||null, p_sort:$('fSort').value}; }
 (function months(){ var d=new Date(), s=''; for(var i=0;i<3;i++){ var x=new Date(d.getFullYear(), d.getMonth()-i, 1), k=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');
   s+='<option value="'+k+'">'+x.toLocaleDateString('en-IN',{month:'short',year:'numeric'})+(i===0?' (so far)':'')+'</option>'; } $('fMonth').innerHTML=s; })();
 async function loadSummary(){
   var r=await rpc('jc_review_summary',{p_month:$('fMonth').value,p_city:$('fCity').value||null}); if(!r.ok){ $('kpis').innerHTML=''; return; }
   var b=r.data.by_verdict||{}, tot=r.data.total_jcs||0, rev=0, k=function(v){ return b[v]||{n:0,cost:0}; };
-  ['minor','medium','major'].forEach(function(v){ rev+=k(v).n; });
+  ['minor','medium','major','unclear'].forEach(function(v){ rev+=k(v).n; });
   var card=function(val,lbl,sub,col){ return '<div class="kpi"><b style="color:'+(col||'inherit')+'">'+val+'</b><span>'+lbl+'</span><i>'+sub+'</i></div>'; };
   $('kpis').innerHTML=card(rev.toLocaleString('en-IN'),'Reviewed','of '+tot.toLocaleString('en-IN')+' job cards with photos')
     +card(k('minor').n,'Minor damage',inr(k('minor').cost)+' job card cost','#15803d')
     +card(k('medium').n,'Medium damage',inr(k('medium').cost)+' job card cost','#a16207')
-    +card(k('major').n,'Major accident',inr(k('major').cost)+' job card cost','#b91c1c');
+    +card(k('major').n,'Major accident',inr(k('major').cost)+' job card cost','#b91c1c')
+    +card(k('unclear').n,'Photos unclear',inr(k('unclear').cost)+' job card cost','#475569');
+  var rv=await rpc('jc_review_reviewers',{p_month:$('fMonth').value});
+  var rl=(rv.ok&&rv.data)||[]; $('revLine').innerHTML=rl.length?'<b>Reviewed by:</b> '+rl.map(function(x){ return esc(hoName(x.who))+' <b>'+x.n.toLocaleString('en-IN')+'</b>'+(x.today?' <span class="muted">('+x.today+' today)</span>':''); }).join(' &nbsp;·&nbsp; '):'';
 }
 async function load(reset){
   if(reset){ OFFSET=0; ROWS=[]; $('list').innerHTML='<div class="msg muted">Loading…</div>'; }
@@ -160,6 +170,7 @@ async function load(reset){
   if(!r.ok){ $('list').innerHTML='<div class="msg" style="color:#b91c1c">'+(r.denied?'You don’t have access to JC photo review. Ask the admin for the “JC photo review” permission.':esc(r.msg))+'</div>'; return; }
   var d=r.data; TOTAL=d.total||0; ROWS=ROWS.concat(d.rows||[]); OFFSET=ROWS.length;
   if(reset){ var cur=$('fHub').value; $('fHub').innerHTML='<option value="">All hubs</option>'+(d.hubs||[]).map(function(h){ return '<option'+(h===cur?' selected':'')+'>'+esc(h)+'</option>'; }).join('');
+    var cs=$('fStype').value; $('fStype').innerHTML='<option value="">All types</option>'+(d.stypes||[]).map(function(h){ return '<option'+(h===cs?' selected':'')+'>'+esc(h)+'</option>'; }).join('');
     var ch=$('fHo').value; $('fHo').innerHTML='<option value="">All approvers</option>'+(d.hos||[]).map(function(h){ return '<option value="'+esc(h)+'"'+(h===ch?' selected':'')+'>'+esc(hoName(h))+'</option>'; }).join(''); }
   $('info').textContent=TOTAL.toLocaleString('en-IN')+' job cards · list updated '+fmtWhen(d.refreshed_at);
   render(); $('more').style.display=OFFSET<TOTAL?'':'none';
@@ -187,6 +198,7 @@ function cardHtml(x,i){
     +'<div class="acts"><button class="btn v-minor'+(v==='minor'?' on':'')+'" data-i="'+i+'" data-v="minor">1 · Minor damage</button>'
     +'<button class="btn v-medium'+(v==='medium'?' on':'')+'" data-i="'+i+'" data-v="medium">2 · Medium damage</button>'
     +'<button class="btn v-major'+(v==='major'?' on':'')+'" data-i="'+i+'" data-v="major">3 · Major accident</button>'
+    +'<button class="btn v-unclear'+(v==='unclear'?' on':'')+'" data-i="'+i+'" data-v="unclear" title="Photos unclear, missing parts of the bike, or a different bike">4 · Photos unclear</button>'
     +'<input id="n'+i+'" placeholder="Note (optional)" value="'+esc(x.note||'')+'">'
     +(v?'<button class="btn" data-i="'+i+'" data-v="clear" title="Remove the verdict">Clear</button>':'')+'<button class="btn" data-parts="'+i+'"><i class="ti ti-list-details"></i> Parts</button></div></div>';
 }
@@ -228,12 +240,15 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){ $('zoom').style.display='none'; $('side').classList.remove('open'); return; }
   if(/input|select|textarea/i.test((document.activeElement||{}).tagName||'')) return;
-  var m={'1':'minor','2':'medium','3':'major'}[e.key]; if(!m) return;
+  var m={'1':'minor','2':'medium','3':'major','4':'unclear'}[e.key]; if(!m) return;
   var i=ROWS.findIndex(function(y){ return !y._done && !y.verdict; }); if(i>=0) save(i,m);
 });
 ['fMonth','fCity','fStatus'].forEach(function(id){ $(id).addEventListener('change',function(){ if(id!=='fStatus'){ $('fHub').value=''; $('fHo').value=''; } load(true); loadSummary(); }); });
 $('fHub').addEventListener('change',function(){ load(true); });
 $('fHo').addEventListener('change',function(){ load(true); });
+['fStype','fBand','fDraft','fVerdict','fSort'].forEach(function(id){ $(id).addEventListener('change',function(){ load(true); }); });
+function syncVerdictFilter(){ $('wVerdict').style.display=$('fStatus').value==='pending'?'none':''; }
+$('fStatus').addEventListener('change',syncVerdictFilter);
 $('more').addEventListener('click',function(){ load(false); });
 load(true); loadSummary();
 
@@ -241,7 +256,7 @@ var RAW={rows:[],sk:'diff',sd:1,label:''};
 var BK={less:'Less than draft',more:'More than draft',match:'Match',nodraft:'No draft'};
 function showTab(t){ document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
   $('pane-review').style.display=t==='review'?'':'none'; $('pane-summary').style.display=t==='summary'?'':'none';
-  document.querySelectorAll('#fHub,#fHo,#fStatus').forEach(function(el){ el.parentNode.style.display=t==='review'?'':'none'; });
+  document.querySelectorAll('#fHub,#fHo,#fStatus,#fStype,#fBand,#fDraft,#fSort').forEach(function(el){ el.parentNode.style.display=t==='review'?'':'none'; }); $('wVerdict').style.display=(t==='review'&&$('fStatus').value!=='pending')?'':'none';
   if(t==='summary') loadDraftSummary(); }
 async function loadDraftSummary(){
   var tb=$('sumTbl'); tb.innerHTML='<tr><td class="l muted">Loading…</td></tr>'; $('rawCard').style.display='none';
