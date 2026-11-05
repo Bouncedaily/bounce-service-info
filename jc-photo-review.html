@@ -57,7 +57,7 @@ select,input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;f
 @media(max-width:900px){.ph{grid-template-columns:repeat(2,1fr)}.ph img,.ph .fail{height:160px}}
 </style></head><body><div class="wrap">
 <h1>JC Photo Review</h1>
-<div class="psub">Job cards with the highest cost first. Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major, for the first card still to review. Click a photo to enlarge it.</div>
+<div class="psub">Job cards with the highest parts cost first (warranty parts and labour not included). Look at the four end-of-booking photos and mark each job card <b>Minor damage</b>, <b>Medium damage</b> or <b>Major accident</b>. Keyboard: <b>1</b> Minor · <b>2</b> Medium · <b>3</b> Major, for the first card still to review. Click a photo to enlarge it.</div>
 <div class="bar">
   <div><label>Month</label><select id="fMonth"></select></div>
   <div><label>City</label><select id="fCity"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option><option>Mumbai</option></select></div>
@@ -149,7 +149,7 @@ function cardHtml(x,i){
     +'<div class="m"><span>Reg</span><b>'+esc(x.reg||'–')+'</b></div><div class="m"><span>JC</span>'+esc(x.jc_no||x.draft_jc_id)+'</div>'
     +'<div class="m"><span>Hub</span>'+esc(x.hub||'')+', '+esc(x.city||'')+'</div><div class="m"><span>Type</span>'+esc(x.stype||'–')+'</div>'
     +'<div class="m"><span>Closed</span>'+fmtWhen(x.closed_at)+'</div>'
-    +'<div class="m"><span>Parts</span>'+inr(x.parts)+' · <span>Labour</span>'+inr(x.labour)+' · <span>Rider-payable</span>'+inr(x.p_cost)+'</div>'
+    +'<div class="m"><span>Rider-payable parts</span>'+inr(x.p_cost)+'</div>'
     +'<div class="m"><span>Damage fee</span>'+inr(x.fee_charged)+' charged · '+inr(x.fee_paid)+' paid</div>'
     +(v?'<div class="m"><span class="tag t-'+v+'">'+VL[v]+'</span> <span style="text-transform:none">by '+esc((x.reviewed_by||'').split('@')[0])+'</span></div>':'')+'</div>'
     +((x.ho_user||x.ho_remarks)?'<div class="ho"><span class="hol">HO approver</span><b>'+esc(hoName(x.ho_user)||'–')+'</b><span class="hol" style="margin-left:14px">HO remarks</span><span class="hor">'+esc(x.ho_remarks||'–')+'</span></div>':'')
@@ -164,18 +164,17 @@ var CATN={A:'Wear & tear',P:'Rider-payable',C:'Company',W:'Warranty',F:'Free of 
 async function openParts(i){
   var x=ROWS[i]; if(!x) return; var side=$('side');
   $('sTitle').textContent=(x.reg||'')+' · JC '+(x.jc_no||x.draft_jc_id);
-  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' total'+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
+  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' parts (excl. warranty)'+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
   $('sBody').innerHTML='<div class="msg muted">Loading…</div>'; side.classList.add('open');
   var r=await rpc('jc_review_parts',{p_jc:x.draft_jc_id});
   if(!r.ok){ $('sBody').innerHTML='<div class="msg" style="color:#b91c1c">'+esc(r.msg)+'</div>'; return; }
-  var L=r.data||[], parts=L.filter(function(l){ return l.type==='Part'; }), lab=L.filter(function(l){ return l.type!=='Part'; });
+  var L=(r.data||[]).filter(function(l){ return l.type==='Part' && l.cat!=='W'; }), parts=L;
   var sum=function(a,k){ return a.reduce(function(s,l){ return s+(+l[k]||0); },0); };
   var row=function(l){ return '<tr><td>'+esc(l.item||'–')+'</td><td><span class="cat '+esc(l.cat)+'" title="'+esc(CATN[l.cat]||l.cat)+'">'+esc(l.cat||'–')+'</span></td><td class="n">'+(+l.qty||0).toLocaleString('en-IN')+'</td><td class="n">'+inr(l.amount)+'</td></tr>'; };
   var byCat={}; L.forEach(function(l){ byCat[l.cat]=(byCat[l.cat]||0)+(+l.amount||0); });
   var h='<table><thead><tr><th>Item</th><th>Cat.</th><th class="n">Count</th><th class="n">Amount</th></tr></thead><tbody>'
     +'<tr class="grp"><td colspan="2">Parts ('+parts.length+')</td><td class="n">'+sum(parts,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(parts,'amount'))+'</td></tr>'+parts.map(row).join('')
-    +'<tr class="grp"><td colspan="2">Labour ('+lab.length+')</td><td class="n">'+sum(lab,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(lab,'amount'))+'</td></tr>'+lab.map(row).join('')
-    +'<tr class="tot"><td colspan="2">Total</td><td class="n"></td><td class="n">'+inr(sum(L,'amount'))+'</td></tr></tbody></table>'
+    +'<tr class="tot"><td colspan="2">Total</td><td class="n">'+sum(L,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(L,'amount'))+'</td></tr></tbody></table>'
     +'<div style="margin-top:12px;font-size:12px;color:var(--text2)"><b>By category:</b> '+Object.keys(byCat).sort().map(function(c){ return '<span class="cat '+esc(c)+'">'+esc(c||'–')+'</span> '+esc(CATN[c]||c)+' '+inr(byCat[c]); }).join(' &nbsp;·&nbsp; ')+'</div>';
   $('sBody').innerHTML=L.length?h:'<div class="msg muted">No lines found for this job card.</div>';
 }
