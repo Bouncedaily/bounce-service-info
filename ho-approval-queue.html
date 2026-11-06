@@ -193,7 +193,11 @@ tr.row-flag:hover{background:#fee2e2}
   <button id="hqtab-nithish-btn" class="hqtab-btn" onclick="hqTab('nithish')">Special Approval</button>
   <button id="hqtab-history-btn" class="hqtab-btn" onclick="hqTab('history')">Service History</button>
   <button id="hqtab-manual-btn" class="hqtab-btn" onclick="hqTab('manual')">Manual JC</button>
+  <button id="hqtab-jcphoto-btn" class="hqtab-btn" onclick="hqTab('jcphoto')" style="display:none">JC Photo Review</button>
 </div>
+<!-- JC Photo Review (moved in 6 Nov 2026): its own page, loaded once in a frame when the tab is first opened.
+     The tab shows only for admins or users with the jc_photo_review permission. -->
+<div id="hqtab-jcphoto" style="display:none;margin:0 -4px"><iframe id="jcphoto-frame" title="JC Photo Review" style="width:100%;border:0;display:block;background:#f4f6f9"></iframe></div>
 
 <div id="hqtab-queue">
 <div class="psub">Job cards currently <strong>Open – Waiting for HO Approval</strong>, most-aged first. Record the HO decision and remarks here; the action in DMS still needs to be done separately.</div>
@@ -1044,20 +1048,27 @@ function setAllJC(open){
 }
 load();
 setInterval(load, 120000); // auto-refresh every 2 minutes; load() only resets the date filter on the true first call, so this won't repeatedly hide older pending JCs or disturb the person's own filter/search selections
-try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality'||_lt==='nithish') setTimeout(()=>hqTab(_lt), 0); }catch(e){}
+try{ var _lt=localStorage.getItem('hq_last_tab'); if(_lt==='perf'||_lt==='quality'||_lt==='nithish'||(_lt==='jcphoto'&&jcPhotoAllowed())) setTimeout(()=>hqTab(_lt), 0); }catch(e){}
 setInterval(renderSyncedAt, 30000); // keep "X min ago" current between full reloads
 
 // ══════════════════ HO Approval Performance tab ══════════════════
 let PF_INIT=false;
 let QUALITY_INIT=false;
 let NITHISH_INIT=false;
+function jcPhotoAllowed(){ try{ var s=JSON.parse(localStorage.getItem('sb_session')||sessionStorage.getItem('sb_session')||'{}'); return s.role==='admin' || !!(s.permissions&&s.permissions.jc_photo_review); }catch(e){ return false; } }
+(function(){ var b=document.getElementById('hqtab-jcphoto-btn'); if(b && jcPhotoAllowed()) b.style.display=''; })();
 function hqTab(t){
+  if(t==='jcphoto' && !jcPhotoAllowed()) t='queue';
   document.getElementById('hqtab-queue').style.display=(t==='queue')?'':'none';
   document.getElementById('hqtab-perf').style.display=(t==='perf')?'':'none';
   document.getElementById('hqtab-quality').style.display=(t==='quality')?'':'none';
   document.getElementById('hqtab-nithish').style.display=(t==='nithish')?'':'none';
   document.getElementById('hqtab-history').style.display=(t==='history')?'':'none';
   document.getElementById('hqtab-manual').style.display=(t==='manual')?'':'none';
+  document.getElementById('hqtab-jcphoto').style.display=(t==='jcphoto')?'':'none';
+  document.getElementById('hqtab-jcphoto-btn').classList.toggle('active', t==='jcphoto');
+  if(t==='jcphoto'){ var fr=document.getElementById('jcphoto-frame'); var h=0; try{ h=window.top.innerHeight; }catch(e){ h=window.innerHeight; }
+    fr.style.height=Math.max(700,(h||900)-120)+'px'; if(!fr.getAttribute('src')) fr.setAttribute('src','jc-photo-review.html?embed=1'); }
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
   document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
