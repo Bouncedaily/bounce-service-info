@@ -1616,8 +1616,11 @@ function renderOdb(){
     const rowOf = (lbl, arr, fmtv, tip) => '<tr><td class="sub" title="' + tip + '">' + lbl + '</td>' + ms.map((m, i) => { const v = (arr || [])[i];
         return `<td class="num" style="font-size:12px;font-weight:600">${v == null ? '–' : fmtv(v)}</td>`; }).join('') + '</tr>';
     h += rowOf(medLbl, st.median, v => Math.round(v).toLocaleString('en-IN') + unit, 'Middle value of this month\'s replacements (first changes counted from new)');
-    if (D.by !== 'usage') h += rowOf('Average km per day', st.avg_use, v => Math.round(v) + ' km/day', 'Average km/day (km driven in the month ÷ days) of the bikes replaced this month');
-    h += rowOf('120+ km/day share', st.pct120, v => v + '%', 'Share of this month\'s replacements (with usage data) on bikes doing 120+ km/day');
+    if (st.fleet_use) {   // 5 Nov 2026: whole fleet (every bike with km that month, from bike_monthly_km), not only replaced bikes
+      const fu = st.fleet_use, cellF = (i, f) => { const u = fu[i] || {}; return !u.bikes ? '<td class="num sub" style="font-size:11px" title="No monthly km data for this month yet">no data</td>' : `<td class="num" style="font-size:12px;font-weight:600" title="${u.bikes.toLocaleString('en-IN')} bikes with km this month">${f(u)}</td>`; };
+      h += '<tr><td class="sub" title="Whole fleet: average of every bike\'s km driven in the month ÷ days in the month (monthly km data). Follows City, Bike model and Deployed year.">Average km per day (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.avg + ' km/day')).join('') + '</tr>';
+      h += '<tr><td class="sub" title="Whole fleet: share of bikes averaging 120+ km per day in the month (monthly km data). Follows City, Bike model and Deployed year.">120+ km/day share (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.pct120 + '%')).join('') + '</tr>';
+    }
     if (st.unlim_days) {   // 5 Nov 2026: of all bike-days on rent in the month, the share on unlimited plans (bookings export; follows City, Bike model, Deployed year)
       h += '<tr><td class="sub" title="Of all the days bikes were out on rent in the month, the share on an unlimited-km plan (any plan name with &quot;unlim&quot;). Fleet-wide: follows City, Bike model and Deployed year, not the part. Source: bookings export (Aug–Oct 2026 so far).">Unlimited plan days share</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
