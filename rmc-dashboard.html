@@ -592,6 +592,55 @@ function ccGrossLabel(){ var nm={labour:'Labour',A:'A',P:'P',C:'C',W:'W',F:'F',o
 function ccHiddenBar(){ var hd=ccHidden(), ks=Object.keys(CC_LABELS).filter(function(k){ return hd[k]; }).concat(Object.keys(hd).filter(function(k){ return hd[k] && k.indexOf('drv:')===0; })); if(!ks.length) return '';
   return '<div style="margin:2px 0 10px;font-size:12px;color:#64748b">Hidden from the tables and totals: '+ks.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+(CC_LABELS[k]||k.slice(4))+'</span>'; }).join('')+'</div>'; }
 function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; } } return state.ccHide; }
+/* ---------- 6 Nov 2026: drill-down from City comparison: city/month -> hubs -> parts -> job cards ---------- */
+function ddPrev(m){ if(!/^\d{4}-\d{2}$/.test(m)) return null; var d=new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7)-2, 1)); return d.toISOString().slice(0,7); }
+function ddRows(){ var D=state.drill, cs=D.city==='ALL'?state.F.cities:[D.city], pm=ddPrev(D.m), ctxo=ctx(), out=[];
+  state.store.rows.forEach(function(r){ if(cs.indexOf(r.city)<0||r.cat==='Labour'||!r.hub) return; if(r.month!==D.m&&r.month!==pm) return; if(state.F.model&&r.model!==state.F.model) return;
+    var b=(r.issue==='P'||r.issue==='A')?ctxo.rule(r.pn,r.month,r.issue):(r.issue==='C'?'C':null); if(!b) return; if(D.b!=='ALL'&&b!==D.b) return;
+    out.push({city:r.city,hub:r.hub,pn:r.pn,cur:r.month===D.m,amt:r.amt,qty:r.qty}); }); return out; }
+function ddChg(a,b){ if(!b) return a?'<span class="sub">new</span>':''; var d=(a-b)/b*100; return '<span style="color:'+(d>0?'#b91c1c':'#15803d')+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(0)+'%</span>'; }
+function ddInr(v){ return v==null?'\u2013':'\u20b9'+Math.round(v).toLocaleString('en-IN'); }
+function drillHtml(){
+  var D=state.drill; if(!D) return '';
+  var pm=ddPrev(D.m), lab={P:'P: rider-payable parts',A:'A: wear & tear parts',C:'C: cost-to-company parts',ALL:'parts (A + P + C)'}[D.b], ml=C.monthLabel(D.m), pl=pm?C.monthLabel(pm):'';
+  var crumb='<a data-a="ddup" data-v="1" style="cursor:pointer;color:#2563eb">'+(D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city))+' \u00b7 '+ml+'</a>'+(D.hub?' \u203a '+(D.part?'<a data-a="ddup" data-v="2" style="cursor:pointer;color:#2563eb">'+esc(D.hub.split('|').pop())+'</a>':esc(D.hub.split('|').pop())):'')+(D.part?' \u203a '+esc(state.store.names[D.part]||D.part):'');
+  var h='<div class="card" id="rmc-drill" style="border:1px solid #93c5fd"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">Drill-down \u00b7 '+lab+'</h3><button data-a="ddclose" class="btn" style="padding:3px 10px">Close \u2715</button></div><p class="sub" style="margin:6px 0 10px">'+crumb+(pm?' \u00b7 change vs '+pl:'')+'</p>';
+  var R=ddRows();
+  if(!D.hub){   // level 1: hubs
+    var by={}; R.forEach(function(r){ var k=r.city+'|'+r.hub, e=by[k]||(by[k]={c:0,p:0}); if(r.cur) e.c+=r.amt; else e.p+=r.amt; });
+    var rows=Object.keys(by).map(function(k){ var kp=k.split('|'), c=kp[0], hb=kp.slice(1).join('|'), f=state.hubFleet[c+'|'+hb+'|'+D.m], fp=pm?state.hubFleet[c+'|'+hb+'|'+pm]:null, km=state.hubKm[c+'|'+hb+'|'+D.m], kmp=pm?state.hubKm[c+'|'+hb+'|'+pm]:null;
+      return {k:k, name:(D.city==='ALL'?c+' \u00b7 ':'')+hb, c:by[k].c, p:by[k].p, f:f, pb:f?by[k].c/f:null, pbp:fp?by[k].p/fp:null, pk:km?by[k].c/km:null, pkp:kmp?by[k].p/kmp:null}; }).filter(function(r){ return r.c>0||r.p>0; }).sort(function(a,b){ return b.c-a.c; });
+    if(!rows.length) return h+'<div class="empty">No hub-level cost for this selection.</div></div>';
+    h+='<div class="tw"><table><tr><th>Hub (click for parts)</th><th>'+ml+' \u20b9</th><th>vs '+pl+'</th><th>Bikes</th><th>\u20b9 / bike</th><th>vs '+pl+'</th><th>\u20b9 / km</th><th>vs '+pl+'</th></tr>';
+    rows.forEach(function(r){ h+='<tr data-a="ddhub" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+esc(r.name)+'</b> \u203a</td><td>'+ddInr(r.c)+'</td><td>'+ddChg(r.c,r.p)+'</td><td>'+(r.f?Math.round(r.f).toLocaleString('en-IN'):'\u2013')+'</td><td>'+ddInr(r.pb)+'</td><td>'+(r.pb!=null&&r.pbp?ddChg(r.pb,r.pbp):'')+'</td><td>'+(r.pk!=null?'\u20b9'+r.pk.toFixed(3):'\u2013')+'</td><td>'+(r.pk!=null&&r.pkp?ddChg(r.pk,r.pkp):'')+'</td></tr>'; });
+    return h+'</table></div><p class="sub" style="margin-top:6px">Bikes and km are the hub\'s figures for the month. Click a hub to see which parts drove its cost.</p></div>';
+  }
+  if(!D.part){   // level 2: parts at the hub
+    var bp={}; R.forEach(function(r){ if(r.city+'|'+r.hub!==D.hub) return; var e=bp[r.pn]||(bp[r.pn]={c:0,p:0,q:0,qp:0}); if(r.cur){ e.c+=r.amt; e.q+=r.qty; } else { e.p+=r.amt; e.qp+=r.qty; } });
+    var pr=Object.keys(bp).map(function(k){ return {pn:k, name:state.store.names[k]||k, c:bp[k].c, p:bp[k].p, q:bp[k].q, qp:bp[k].qp}; }).filter(function(r){ return r.c>0; }).sort(function(a,b){ return b.c-a.c; });
+    var tc=pr.reduce(function(a,r){ return a+r.c; },0);
+    h+='<div class="tw"><table><tr><th>Part (click for job cards)</th><th>'+ml+' qty</th><th>'+ml+' \u20b9</th><th>Share</th><th>vs '+pl+'</th><th>'+pl+' \u20b9</th><th>\u20b9 / unit</th></tr>';
+    pr.slice(0,30).forEach(function(r){ h+='<tr data-a="ddpart" data-v="'+esc(r.pn)+'" style="cursor:pointer"><td><b>'+esc(r.name)+'</b> \u203a</td><td>'+Math.round(r.q).toLocaleString('en-IN')+'</td><td>'+ddInr(r.c)+'</td><td>'+(tc?(r.c/tc*100).toFixed(1)+'%':'')+'</td><td>'+ddChg(r.c,r.p)+'</td><td>'+(r.p?ddInr(r.p):'\u2013')+'</td><td>'+(r.q?ddInr(r.c/r.q):'\u2013')+'</td></tr>'; });
+    return h+'</table></div>'+(pr.length>30?'<p class="sub">Top 30 of '+pr.length+' parts.</p>':'')+'</div>';
+  }
+  // level 3: job cards
+  var key=D.hub+'|'+D.m+'|'+D.part, J=(state.drillJC||{})[key];
+  if(!J) return h+'<div class="empty">Loading job cards\u2026</div></div>';
+  if(J.error) return h+'<div class="empty">Could not load job cards ('+esc(J.error)+').</div></div>';
+  h+='<p class="sub" style="margin:0 0 8px"><b>'+J.n+'</b> job card'+(J.n===1?'':'s')+' \u00b7 '+ddInr(J.amount)+' (from the job card data, matched on the part name)</p>';
+  if(!J.rows.length) return h+'<div class="empty">No job cards found with this part name at this hub. The DMS file and job card data may name the part differently.</div></div>';
+  h+='<div style="margin-bottom:6px"><button data-a="ddcsv" class="btn" style="padding:3px 10px">CSV</button></div><div class="tw"><table><tr><th>Job card</th><th>Bike</th><th>Model</th><th>Billed</th><th>Cat.</th><th>Qty</th><th>Amount</th><th>Came in by</th><th>Technician</th></tr>';
+  J.rows.forEach(function(x){ h+='<tr><td>'+esc(x[0])+'</td><td>'+esc(x[1]||'')+'</td><td>'+esc(x[8]||'')+'</td><td>'+esc(x[2]||'')+'</td><td>'+esc(x[3]||'')+'</td><td>'+(x[5]==null?'':x[5])+'</td><td>'+ddInr(x[4])+'</td><td>'+esc(x[6]||'')+'</td><td>'+esc(x[7]||'')+'</td></tr>'; });
+  return h+'</table></div>'+(J.n>J.rows.length?'<p class="sub">Showing the latest '+J.rows.length+' of '+J.n+'.</p>':'')+'</div>';
+}
+function drillLoadJC(){ var D=state.drill; if(!D||!D.part) return; var key=D.hub+'|'+D.m+'|'+D.part; state.drillJC=state.drillJC||{}; if(state.drillJC[key]) return;
+  var kp=D.hub.split('|'), city=CITY_FULL[kp[0]]||kp[0], hub=kp.slice(1).join('|');
+  rpc('rmc_drill_jobcards',{p_city:city,p_hub:hub,p_month:D.m.slice(0,7),p_item:state.store.names[D.part]||D.part}).then(function(r){
+    state.drillJC[key]=(r&&r.ok&&r.data)?{n:+r.data.n||0,amount:+r.data.amount||0,rows:r.data.rows||[]}:{error:(r&&r.msg)||'no reply'}; render(); }).catch(function(e){ state.drillJC[key]={error:String(e&&e.message||e)}; render(); }); }
+function drillCSV(){ var D=state.drill, J=D&&(state.drillJC||{})[D.hub+'|'+D.m+'|'+D.part]; if(!J||!J.rows) return;
+  var q=function(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  var csv=['Job card,Bike,Model,Billed,Category,Qty,Amount,Came in by,Technician'].concat(J.rows.map(function(x){ return [x[0],x[1],x[8],x[2],x[3],x[5],x[4],x[6],x[7]].map(q).join(','); })).join('\n');
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='rmc-jobcards-'+(D.hub.split('|').pop())+'-'+D.m+'.csv'; a.click(); }
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
   if(model.ALL) cities=['ALL'].concat(cities);   // 2 Nov 2026: Overall (all selected cities together) before the cities
@@ -632,7 +681,8 @@ function cityCompareHtml(model){
     var lab=kind==='less'?'color:#6b7280;padding-left:18px':(kind==='grey'?'color:#6b7280':(kind==='sub'?'padding-left:18px;color:#475569':''));
     var out='<tr'+(kind==='tot'?' class="tot"':'')+'><td style="'+lab+'">'+label+'</td>';
     cities.forEach(function(c){ var vals=cols.map(function(m){ return model[c][m]?getter(c,m):null; }), bg=shade(vals,kind==='grey'?0:dir), bdg=badge(vals,kind==='grey'?0:dir);
-      cols.forEach(function(m,i){ out+='<td style="'+bd(i)+bg[i]+(kind==='grey'?'color:#6b7280;':'')+'">'+fmtFn(vals[i])+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
+      var ddb=/^P:/.test(label)?'P':/^A:/.test(label)?'A':/^C:/.test(label)?'C':'ALL';   // 6 Nov 2026: click a cell to drill down
+      cols.forEach(function(m,i){ out+='<td data-a="dd" data-v="'+ddb+'|'+c+'|'+m+'" title="Click to see hubs, parts and job cards" style="cursor:pointer;'+bd(i)+bg[i]+(kind==='grey'?'color:#6b7280;':'')+'">'+fmtFn(vals[i])+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
     return out+'</tr>'; };
   var u=function(fn){ return function(c,m){ var v=fn(c,m,model[c][m]); return v==null?null:val(v,c,m); }; };
   // +/- on each cost line: a hidden line is greyed out and left out of Gross and Net (choice remembered in this browser)
@@ -770,7 +820,7 @@ function whatChangedHtml(model){
   } catch(e){ console.warn('whatChanged', e); return ''; }
 }
 function viewOverview(model){
-  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model):'');
+  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model)+drillHtml():'');
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
@@ -1143,6 +1193,12 @@ function csv(){
 }
 root.addEventListener('click',function(e){
   var el=e.target.closest('[data-a]'); if(!el) return; var a=el.getAttribute('data-a'), v=el.getAttribute('data-v');
+  if(a==='dd'){ var q=v.split('|'); state.drill={b:q[0],city:q[1],m:q[2],hub:null,part:null}; render(); var pn=document.getElementById('rmc-drill'); if(pn) pn.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+  if(a==='ddhub'){ state.drill.hub=v; state.drill.part=null; render(); return; }
+  if(a==='ddpart'){ state.drill.part=v; render(); drillLoadJC(); return; }
+  if(a==='ddup'){ if(v==='1'){ state.drill.hub=null; state.drill.part=null; } else state.drill.part=null; render(); return; }
+  if(a==='ddclose'){ state.drill=null; render(); return; }
+  if(a==='ddcsv'){ drillCSV(); return; }
   if(a==='tab') state.tab=v;
   else if(a==='city'){ var ac=allCities();
     if(v==='ALL') state.F.cities=ac.slice();
