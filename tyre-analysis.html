@@ -1621,6 +1621,12 @@ function renderOdb(){
       h += '<tr><td class="sub" title="Whole fleet: average of every bike\'s km driven in the month ÷ days in the month (monthly km data). Follows City, Bike model and Deployed year.">Average km per day (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.avg + ' km/day')).join('') + '</tr>';
       h += '<tr><td class="sub" title="Whole fleet: share of bikes averaging 120+ km per day in the month (monthly km data). Follows City, Bike model and Deployed year.">120+ km/day share (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.pct120 + '%')).join('') + '</tr>';
     }
+    if (st.unlim_days) {   // 5 Nov 2026: utilisation = active rental bike-days / (fleet x days)
+      h += '<tr><td class="sub" title="Active rental bike-days (bookings export) ÷ (bikes deployed × days in the month). Bikes deployed = average daily bike count (as in the RMC Dashboard); with a Bike model or Deployed year filter, the month-end fleet.">Utilisation</td>' + ms.map((m, i) => {
+        const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
+        if (!u.rented || cov < 0.5 || u.util == null) return `<td class="num sub" style="font-size:11px">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} rental days ÷ ${Math.round(u.fleet).toLocaleString('en-IN')} bikes">${u.util}%<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.fleet).toLocaleString('en-IN')} bikes</div></td>`; }).join('') + '</tr>';
+    }
     if (st.unlim_days) {   // 5 Nov 2026: of all bike-days on rent in the month, the share on unlimited plans (bookings export; follows City, Bike model, Deployed year)
       h += '<tr><td class="sub" title="Of all the days bikes were out on rent in the month, the share on an unlimited-km plan (any plan name with &quot;unlim&quot;). Fleet-wide: follows City, Bike model and Deployed year, not the part. Source: bookings export (Aug–Oct 2026 so far).">Unlimited plan days share</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
