@@ -1610,35 +1610,43 @@ function renderOdb(){
   h += '<tr><td class="sub">Median band</td>' + ms.map((m, i) => { const t = tot[i]; if (!t) return '<td class="num sub">–</td>';
       let acc = 0, lab = '–'; const valid = D.rows.filter(r => r.bk >= 0), vt = valid.reduce((a, r) => a + r.counts[i], 0); for (const r of valid) { acc += r.counts[i]; if (vt && acc >= vt / 2) { lab = r.label.replace(' km', ''); break; } }
       return `<td class="num sub" style="font-size:11px">${esc(lab)}</td>`; }).join('') + '</tr>';
+  // 6 Nov 2026: change vs the previous month, shown next to each summary value ('%' relative, 'pts' for values that are already %)
+  const mom = (cur, prev, mode) => {
+    if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || (mode !== 'pts' && !prev)) return '';
+    const d = mode === 'pts' ? cur - prev : (cur - prev) / prev * 100;
+    if (Math.abs(d) < 0.05) return ' <span style="font-size:10px;color:#94a3b8;font-weight:500">0</span>';
+    return ` <span style="font-size:10px;font-weight:600;color:${d > 0 ? '#0f766e' : '#b45309'}" title="vs previous month">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(1)}${mode === 'pts' ? ' pts' : '%'}</span>`;
+  };
   if (D.stats) {   // 5 Nov 2026: plain-number summaries per month
     const unit = { odo: ' km', km: ' km', days: ' d', age: ' mo', usage: ' km/day' }[D.by] || '', st = D.stats;
     const medLbl = { odo: 'Median odometer at replacement', km: 'Median km since last change', days: 'Median days since last change', age: 'Median bike age', usage: 'Median daily usage' }[D.by] || 'Median';
     const rowOf = (lbl, arr, fmtv, tip) => '<tr><td class="sub" title="' + tip + '">' + lbl + '</td>' + ms.map((m, i) => { const v = (arr || [])[i];
-        return `<td class="num" style="font-size:12px;font-weight:600">${v == null ? '–' : fmtv(v)}</td>`; }).join('') + '</tr>';
+        return `<td class="num" style="font-size:12px;font-weight:600">${v == null ? '–' : fmtv(v) + (i ? mom(+v, +(arr || [])[i - 1], '%') : '')}</td>`; }).join('') + '</tr>';
     h += rowOf(medLbl, st.median, v => Math.round(v).toLocaleString('en-IN') + unit, 'Middle value of this month\'s replacements (first changes counted from new)');
     if (st.fleet_use) {   // 5 Nov 2026: whole fleet (every bike with km that month, from bike_monthly_km), not only replaced bikes
-      const fu = st.fleet_use, cellF = (i, f) => { const u = fu[i] || {}; return !u.bikes ? '<td class="num sub" style="font-size:11px" title="No monthly km data for this month yet">no data</td>' : `<td class="num" style="font-size:12px;font-weight:600" title="${u.bikes.toLocaleString('en-IN')} bikes with km this month">${f(u)}</td>`; };
-      h += '<tr><td class="sub" title="Whole fleet: average of every bike\'s km driven in the month ÷ days in the month (monthly km data). Follows City, Bike model and Deployed year.">Average km per day (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.avg + ' km/day')).join('') + '</tr>';
-      h += '<tr><td class="sub" title="Whole fleet: share of bikes averaging 120+ km per day in the month (monthly km data). Follows City, Bike model and Deployed year.">120+ km/day share (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.pct120 + '%')).join('') + '</tr>';
+      const fu = st.fleet_use, cellF = (i, f, key, mode) => { const u = fu[i] || {}, pu = i ? (fu[i - 1] || {}) : {}; return !u.bikes ? '<td class="num sub" style="font-size:11px" title="No monthly km data for this month yet">no data</td>' : `<td class="num" style="font-size:12px;font-weight:600" title="${u.bikes.toLocaleString('en-IN')} bikes with km this month">${f(u)}${pu.bikes ? mom(+u[key], +pu[key], mode) : ''}</td>`; };
+      h += '<tr><td class="sub" title="Whole fleet: average of every bike\'s km driven in the month ÷ days in the month (monthly km data). Follows City, Bike model and Deployed year.">Average km per day (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.avg + ' km/day', 'avg', '%')).join('') + '</tr>';
+      h += '<tr><td class="sub" title="Whole fleet: share of bikes averaging 120+ km per day in the month (monthly km data). Follows City, Bike model and Deployed year.">120+ km/day share (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.pct120 + '%', 'pct120', 'pts')).join('') + '</tr>';
     }
+    const UD = st.unlim_days || [], okU = i => { const u = UD[i] || {}; return u.rented && (+u.cov || 0) >= 0.5; };
     if (st.unlim_days) {   // 6 Nov 2026: active rental days = bike-days on rent in the month (bookings export, any plan)
       h += '<tr><td class="sub" title="Total bike-days on rent in the month, on any plan (bookings export). Follows City, Bike model and Deployed year.">Active rental days</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
         if (!u.rented || cov < 0.5) return `<td class="num sub" style="font-size:11px">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
-        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} bike-days on rent">${Math.round(u.rented).toLocaleString('en-IN')}</td>`; }).join('') + '</tr>';
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} bike-days on rent">${Math.round(u.rented).toLocaleString('en-IN')}${i && okU(i - 1) ? mom(+u.rented, +UD[i - 1].rented, '%') : ''}</td>`; }).join('') + '</tr>';
     }
     if (st.unlim_days) {   // 5 Nov 2026: utilisation = active rental bike-days / (fleet x days)
       h += '<tr><td class="sub" title="Active rental bike-days (bookings export) ÷ (bikes deployed × days in the month). Bikes deployed = average daily bike count (as in the RMC Dashboard); with a Bike model or Deployed year filter, the month-end fleet.">Utilisation</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
         if (!u.rented || cov < 0.5 || u.util == null) return `<td class="num sub" style="font-size:11px">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
-        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} rental days ÷ ${Math.round(u.fleet).toLocaleString('en-IN')} bikes">${u.util}%<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.fleet).toLocaleString('en-IN')} bikes</div></td>`; }).join('') + '</tr>';
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} rental days ÷ ${Math.round(u.fleet).toLocaleString('en-IN')} bikes">${u.util}%${i && okU(i - 1) && UD[i - 1].util != null ? mom(+u.util, +UD[i - 1].util, 'pts') : ''}<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.fleet).toLocaleString('en-IN')} bikes</div></td>`; }).join('') + '</tr>';
     }
     if (st.unlim_days) {   // 5 Nov 2026: of all bike-days on rent in the month, the share on unlimited plans (bookings export; follows City, Bike model, Deployed year)
       h += '<tr><td class="sub" title="Of all the days bikes were out on rent in the month, the share on an unlimited-km plan (any plan name with &quot;unlim&quot;). Fleet-wide: follows City, Bike model and Deployed year, not the part. Source: bookings export (Aug–Oct 2026 so far).">Unlimited plan days share</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
         if (!u.rented || cov < 0.5) return `<td class="num sub" style="font-size:11px" title="${cov >= 0.05 ? 'Only part of this month is in the bookings export' : 'No booking data for this month yet'}">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
         const pc = (u.unlim / u.rented * 100).toFixed(1);
-        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.unlim).toLocaleString('en-IN')} unlimited of ${Math.round(u.rented).toLocaleString('en-IN')} rented bike-days">${pc}%<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.unlim / 1000).toLocaleString('en-IN')}k of ${Math.round(u.rented / 1000).toLocaleString('en-IN')}k days</div></td>`; }).join('') + '</tr>';
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.unlim).toLocaleString('en-IN')} unlimited of ${Math.round(u.rented).toLocaleString('en-IN')} rented bike-days">${pc}%${i && okU(i - 1) ? mom(+pc, +(UD[i - 1].unlim / UD[i - 1].rented * 100), 'pts') : ''}<div class="sub" style="font-size:10px;font-weight:400">${Math.round(u.unlim / 1000).toLocaleString('en-IN')}k of ${Math.round(u.rented / 1000).toLocaleString('en-IN')}k days</div></td>`; }).join('') + '</tr>';
     }
   }
   const rnN = +(D.rn || 0), tp = D.totals_pre || [], tSum = tot.reduce((a, b) => a + b, 0), pSum = tp.reduce((a, b) => a + b, 0);
