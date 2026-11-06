@@ -246,7 +246,7 @@ var state = {
   store:C.newStore(), rules:[], fleet:{}, ops:{}, km:{},
   hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), loading:true,
   F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:'overview', msg:'',
-  parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:'ALL',m:'',b:'ALL',by:'bike'}
+  parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:'ALL',m:'',b:'ALL',by:'bike',sk:'rank',sd:1}
 };
 var CITIES=['BLR','NCR','HYD','MUM'], COLORS={A:'#dc2626',P:'#EB6834',C:'#7A5CC7',L:'#9aa3b2'}, NAMES={A:'A: Wear & Tear',P:'P: Rider-payable',C:'C: Cost to company',W:'W: Warranty',F:'F: Free of cost'};
 
@@ -1106,12 +1106,21 @@ function viewHubs(model){   // 6 Nov 2026: hub league table: hubs ranked by cost
     +sel('hby',[['bike','Rank by \u20b9 per bike'],['km','Rank by \u20b9 per km']],H.by)+'</div>'
     +'<p class="sub">Hubs ranked from the highest cost '+(H.by==='km'?'per km':'per bike')+' (rank 1) to the lowest, for '+C.monthLabel(H.m)+(pm?', with the change and rank movement vs '+C.monthLabel(pm):'')+'. Bikes and km are the hub\'s figures for the month. Hubs with fewer than '+MIN+' bikes are listed separately. Click a hub to see its parts and job cards.</p>';
   if(!ranked.length&&!small.length) return h+'<div class="empty">No hub cost for this selection.</div></div>';
-  h+='<div class="tw"><table><tr><th>#</th><th>Move</th><th>Hub</th><th>Bikes</th><th>Km</th><th>'+C.monthLabel(H.m)+' \u20b9</th><th>\u20b9 / bike</th><th>vs prev</th><th>\u20b9 / km</th><th>vs prev</th><th>A / P / C split</th></tr>';
+  // 6 Nov 2026: every column sorts (click again to reverse); rank numbers stay as ranked by 'Rank by'
+  var TH=function(k,lab,tip){ var on=H.sk===k; return '<th data-a="hsort" data-v="'+k+'" style="cursor:pointer;white-space:nowrap" title="'+(tip||'Sort by this column')+'">'+lab+(on?(H.sd>0?' \u25b2':' \u25bc'):' <span style="opacity:.35">\u21c5</span>')+'</th>'; };
+  h+='<div class="tw"><table><tr>'+TH('rank','#','Rank (1 = costliest)')+TH('move','Move')+TH('hub','Hub')+TH('bikes','Bikes')+TH('km','Km')+TH('cur',C.monthLabel(H.m)+' \u20b9')+TH('pb','\u20b9 / bike')+TH('pbc','vs prev')+TH('pk','\u20b9 / km')+TH('pkc','vs prev')+TH('split','A / P / C split','Sort by the P (rider-payable) share')+'</tr>';
   var rowH=function(r,rank){ var pr=prevRank[r.k], mv=rank&&pr?pr-rank:null;
     var mvs=mv==null?'<span class="sub">\u2013</span>':mv===0?'<span class="sub">=</span>':'<span style="color:'+(mv>0?'#b91c1c':'#15803d')+';font-weight:600" title="'+(mv>0?'moved up (costlier)':'moved down (cheaper)')+'">'+(mv>0?'\u25b2':'\u25bc')+Math.abs(mv)+'</span>';
     var sp=r.tot?[r.A,r.P,r.C].map(function(x){ return Math.round(x/r.tot*100); }).join(' / ')+'%':'';
     return '<tr data-a="hubdd" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+(rank||'')+'</b></td><td>'+mvs+'</td><td><b>'+esc(r.hub)+'</b>'+(H.city==='ALL'?' <span class="sub">'+r.c+'</span>':'')+' \u203a</td><td>'+(r.f?Math.round(r.f).toLocaleString('en-IN'):'\u2013')+'</td><td>'+(r.km?Math.round(r.km).toLocaleString('en-IN'):'\u2013')+'</td><td>'+ddInr(r.cur)+'</td><td style="'+(H.by==='bike'?heat(r.pb):'')+'">'+ddInr(r.pb)+'</td><td>'+(r.pb!=null&&r.pbp?ddChg(r.pb,r.pbp):'')+'</td><td style="'+(H.by==='km'?heat(r.pk):'')+'">'+(r.pk!=null?'\u20b9'+r.pk.toFixed(3):'\u2013')+'</td><td>'+(r.pk!=null&&r.pkp?ddChg(r.pk,r.pkp):'')+'</td><td class="sub">'+sp+'</td></tr>'; };
-  ranked.forEach(function(r,i){ h+=rowH(r,i+1); });
+  ranked.forEach(function(r,i){ r.rank=i+1; var pr=prevRank[r.k]; r.mv=pr?pr-r.rank:null; });
+  var sv=function(r){ switch(H.sk){ case 'move': return r.mv; case 'hub': return (r.hub||'').toLowerCase(); case 'bikes': return r.f; case 'km': return r.km; case 'cur': return r.cur;
+      case 'pb': return r.pb; case 'pbc': return (r.pb!=null&&r.pbp)?(r.pb-r.pbp)/r.pbp:null; case 'pk': return r.pk; case 'pkc': return (r.pk!=null&&r.pkp)?(r.pk-r.pkp)/r.pkp:null;
+      case 'split': return r.tot?r.P/r.tot:null; default: return r.rank; } };
+  var srt=function(list){ return list.slice().sort(function(a,b){ var x=sv(a), y=sv(b); if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+      var c=typeof x==='string'?x.localeCompare(y):x-y; return c*H.sd; }); };
+  srt(ranked).forEach(function(r){ h+=rowH(r,r.rank); });
+  small=srt(small);
   if(small.length){ h+='<tr><td colspan="11" class="sub" style="padding-top:12px"><b>Small hubs (under '+MIN+' bikes) or without bike / km figures, not ranked</b></td></tr>'; small.forEach(function(r){ h+=rowH(r,null); }); }
   h+='</table></div></div>';
   return h+(state.drill&&state.drill.from==='league'?drillHtml():'');
@@ -1219,6 +1228,7 @@ root.addEventListener('click',function(e){
   var el=e.target.closest('[data-a]'); if(!el) return; var a=el.getAttribute('data-a'), v=el.getAttribute('data-v');
   if(a==='dd'){ var q=v.split('|'); state.drill={b:q[0],city:q[1],m:q[2],hub:null,part:null}; render(); var pn=document.getElementById('rmc-drill'); if(pn) pn.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if(a==='ddhub'){ state.drill.hub=v; state.drill.part=null; render(); return; }
+  if(a==='hsort'){ var H2=state.hubs; if(H2.sk===v) H2.sd=-H2.sd; else { H2.sk=v; H2.sd=(v==='rank'||v==='hub')?1:-1; } render(); return; }
   if(a==='hubdd'){ state.drill={b:state.hubs.b,city:v.split('|')[0],m:state.hubs.m,hub:v,part:null,from:'league'}; render(); var dp=document.getElementById('rmc-drill'); if(dp) dp.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if(a==='ddpart'){ state.drill.part=v; render(); drillLoadJC(); return; }
   if(a==='ddup'){ if(v==='1'){ state.drill.hub=null; state.drill.part=null; } else state.drill.part=null; render(); return; }
