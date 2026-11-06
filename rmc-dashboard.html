@@ -1108,9 +1108,10 @@ function embBox(k){   // one frame per embedded dashboard, created once, never m
   // 5 Nov 2026: the frame grows to fit its page, so only the RMC page scrolls (no scrolling inside the tab)
   fr.addEventListener('load', function(){
     try {
-      var doc=fr.contentDocument, fit=function(){ var hh=Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0); if(hh>200) fr.style.height=(hh+8)+'px'; };
+      // 6 Nov 2026: measure the content itself (the document is never shorter than the frame, so it could only grow)
+      var doc=fr.contentDocument, fit=function(){ var el=doc.querySelector('.main')||doc.body; if(!el) return; var hh=Math.ceil(el.getBoundingClientRect().height); if(hh>200 && Math.abs(hh+8-fr.offsetHeight)>4) fr.style.height=(hh+8)+'px'; };
       // the embedded page scrolls inside its own app shell: let it take its natural height
-      var st=doc.createElement('style'); st.textContent='html,body,.app,.content,.main{height:auto!important;max-height:none!important;overflow:visible!important}'; doc.head.appendChild(st);
+      var st=doc.createElement('style'); st.textContent='html,body,.app,.app-main,.content,.main{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}'; doc.head.appendChild(st);
       fit(); if(window.ResizeObserver){ new ResizeObserver(fit).observe(doc.body); } setInterval(fit, 1500);
     } catch(e){ /* different origin: keep the fixed height */ }
   });
