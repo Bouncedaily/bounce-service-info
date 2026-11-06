@@ -246,7 +246,7 @@ var state = {
   store:C.newStore(), rules:[], fleet:{}, ops:{}, km:{},
   hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), loading:true,
   F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:'overview', msg:'',
-  parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:''}
+  parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:'ALL',m:'',b:'ALL',by:'bike'}
 };
 var CITIES=['BLR','NCR','HYD','MUM'], COLORS={A:'#dc2626',P:'#EB6834',C:'#7A5CC7',L:'#9aa3b2'}, NAMES={A:'A: Wear & Tear',P:'P: Rider-payable',C:'C: Cost to company',W:'W: Warranty',F:'F: Free of cost'};
 
@@ -1078,19 +1078,43 @@ function viewMovers(model){
     return s+'</table></div>'; }
   return h+'<div class="grid2"><div><b>Top 10 increases</b>'+tbl(rows.filter(function(r){return r.d>0;}).slice(0,10),'Part')+'</div><div><b>Top 10 decreases</b>'+tbl(rows.filter(function(r){return r.d<0;}).reverse().slice(0,10),'Part')+'</div></div></div>';
 }
-function viewHubs(model){
-  var H=state.hubs; if(!validCity(H.city)) H.city=defCity();
-  var months=selMonths(), city=H.city, ctxo=ctx(), by={};
-  var inC=function(c){ return city==='ALL' ? state.F.cities.indexOf(c)>=0 : c===city; };
-  state.store.rows.forEach(function(r){ if(!inC(r.city)||!r.hub||months.indexOf(r.month)<0) return; if(state.F.model && r.model!==state.F.model) return; if(state.F.dyear && state.cohort && !cohortShare(r)) return; if(r.cat==='Labour') return;
-    var b= (r.issue==='P'||r.issue==='A')?ctxo.rule(r.pn,r.month,r.issue):null; if(!b) return; var hk=r.city+'|'+r.hub; (by[hk]=by[hk]||{A:0,P:0,C:0})[b]+=r.amt*((state.F.dyear&&state.cohort)?cohortShare(r):1); });
-  var rows=Object.keys(by).map(function(k){ var t=by[k].A+by[k].P+by[k].C, f=state.hubFleet[k], kp=k.split('|'); return {hub:(city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'),A:by[k].A,P:by[k].P,C:by[k].C,t:t,f:f,pb:f?t/(f*months.length):null}; }).sort(function(a,b){return b.t-a.t;});
-  var h='<div class="card"><h3>Hubs</h3><div class="row"><select data-a="hcity">'+cityOpts(city)+'</select></div><p class="sub">Parts cost by hub for '+months.map(C.monthLabel).join(', ')+'. Per bike per month uses the hub\'s current fleet from the fleet/km file.</p>';
-  if(!rows.length) return h+'<div class="empty">No hub data. The JC export needs a hub column (JC_Hub Name).</div></div>';
-  h+='<div class="tw"><table><tr><th>Hub</th><th>A \u20b9</th><th>P \u20b9</th><th>C \u20b9</th><th>Total \u20b9</th><th>Fleet</th><th>\u20b9 / bike / month</th></tr>';
-  var pbs=rows.map(function(r){return r.pb;}).filter(function(v){return v!=null;}), mn=Math.min.apply(null,pbs), mx=Math.max.apply(null,pbs);
-  rows.forEach(function(r){ h+='<tr><td>'+esc(r.hub)+'</td><td>'+Math.round(r.A).toLocaleString('en-IN')+'</td><td>'+Math.round(r.P).toLocaleString('en-IN')+'</td><td>'+Math.round(r.C).toLocaleString('en-IN')+'</td><td><b>'+Math.round(r.t).toLocaleString('en-IN')+'</b></td><td>'+(r.f||'\u2013')+'</td><td style="'+heat(r.pb,mn,mx)+'">'+(r.pb==null?'\u2013':r.pb.toFixed(1))+'</td></tr>'; });
-  return h+'</table></div></div>';
+function viewHubs(model){   // 6 Nov 2026: hub league table: hubs ranked by cost per bike or per km, change and rank movement vs the previous month
+  var H=state.hubs, ctxo=ctx();
+  var allM={}; state.store.rows.forEach(function(r){ if(/^\d{4}-\d{2}$/.test(r.month)&&r.hub) allM[r.month]=1; });
+  var mons=Object.keys(allM).sort(), full=mons.filter(function(m){ return !isPartialMonth(m); });
+  if(!H.m||mons.indexOf(H.m)<0) H.m=full.length?full[full.length-1]:mons[mons.length-1];
+  if(!H.m) return '<div class="card"><h3>Hub league</h3><div class="empty">No hub data yet.</div></div>';
+  var pm=ddPrev(H.m), cs=H.city==='ALL'?allCities():[H.city];
+  var by={}; state.store.rows.forEach(function(r){ if(!r.hub||cs.indexOf(r.city)<0||r.cat==='Labour'||(r.month!==H.m&&r.month!==pm)) return; if(state.F.model&&r.model!==state.F.model) return;
+    var b=(r.issue==='P'||r.issue==='A')?ctxo.rule(r.pn,r.month,r.issue):(r.issue==='C'?'C':null); if(!b) return;
+    var k=r.city+'|'+r.hub, e=by[k]||(by[k]={c:{A:0,P:0,C:0},p:{A:0,P:0,C:0}}); e[r.month===H.m?'c':'p'][b]+=r.amt; });
+  var pick=function(o){ return H.b==='ALL'?o.A+o.P+o.C:o[H.b]; };
+  var rows=Object.keys(by).map(function(k){ var kp=k.split('|'), c=kp[0], hb=kp.slice(1).join('|'), f=state.hubFleet[c+'|'+hb+'|'+H.m], km=state.hubKm[c+'|'+hb+'|'+H.m], fp=pm?state.hubFleet[c+'|'+hb+'|'+pm]:null, kmp=pm?state.hubKm[c+'|'+hb+'|'+pm]:null;
+    var cur=pick(by[k].c), prv=pick(by[k].p), tot=by[k].c.A+by[k].c.P+by[k].c.C;
+    return {k:k,c:c,hub:hb,f:f,km:km,cur:cur,prv:prv,A:by[k].c.A,P:by[k].c.P,C:by[k].c.C,tot:tot, pb:f?cur/f:null, pbp:fp?prv/fp:null, pk:km?cur/km:null, pkp:kmp?prv/kmp:null}; });
+  var MIN=20, val=function(r,prev){ return H.by==='km'?(prev?r.pkp:r.pk):(prev?r.pbp:r.pb); };
+  var ranked=rows.filter(function(r){ return r.f>=MIN&&val(r)!=null; }).sort(function(a,b){ return val(b)-val(a); });
+  var prevRank={}; rows.filter(function(r){ return val(r,true)!=null&&r.prv>0; }).sort(function(a,b){ return val(b,true)-val(a,true); }).forEach(function(r,i){ prevRank[r.k]=i+1; });
+  var small=rows.filter(function(r){ return ranked.indexOf(r)<0&&r.cur>0; }).sort(function(a,b){ return b.cur-a.cur; });
+  var vs=ranked.map(function(r){ return val(r); }), mn=Math.min.apply(null,vs), mx=Math.max.apply(null,vs);
+  var heat=function(v){ if(v==null||!isFinite(mn)||mx===mn) return ''; var t=(v-mn)/(mx-mn); return 'background:'+(t>0.5?'rgba(220,38,38,'+((t-0.5)*0.5).toFixed(2)+')':'rgba(22,163,74,'+((0.5-t)*0.4).toFixed(2)+')')+';'; };
+  var sel=function(a,opts,cur){ return '<select data-a="'+a+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; };
+  var h='<div class="card"><h3>Hub league</h3><div class="row" style="flex-wrap:wrap;gap:8px">'
+    +sel('hcity',[['ALL','All cities']].concat(allCities().map(function(c){ return [c,CITY_FULL[c]||c]; })),H.city)
+    +sel('hmonth',mons.slice().reverse().map(function(m){ return [m,C.monthLabel(m)+(isPartialMonth(m)?' (so far)':'')]; }),H.m)
+    +sel('hbucket',[['ALL','Parts A + P + C'],['A','A: wear & tear'],['P','P: rider-payable'],['C','C: cost to company']],H.b)
+    +sel('hby',[['bike','Rank by \u20b9 per bike'],['km','Rank by \u20b9 per km']],H.by)+'</div>'
+    +'<p class="sub">Hubs ranked from the highest cost '+(H.by==='km'?'per km':'per bike')+' (rank 1) to the lowest, for '+C.monthLabel(H.m)+(pm?', with the change and rank movement vs '+C.monthLabel(pm):'')+'. Bikes and km are the hub\'s figures for the month. Hubs with fewer than '+MIN+' bikes are listed separately. Click a hub to see its parts and job cards.</p>';
+  if(!ranked.length&&!small.length) return h+'<div class="empty">No hub cost for this selection.</div></div>';
+  h+='<div class="tw"><table><tr><th>#</th><th>Move</th><th>Hub</th><th>Bikes</th><th>Km</th><th>'+C.monthLabel(H.m)+' \u20b9</th><th>\u20b9 / bike</th><th>vs prev</th><th>\u20b9 / km</th><th>vs prev</th><th>A / P / C split</th></tr>';
+  var rowH=function(r,rank){ var pr=prevRank[r.k], mv=rank&&pr?pr-rank:null;
+    var mvs=mv==null?'<span class="sub">\u2013</span>':mv===0?'<span class="sub">=</span>':'<span style="color:'+(mv>0?'#b91c1c':'#15803d')+';font-weight:600" title="'+(mv>0?'moved up (costlier)':'moved down (cheaper)')+'">'+(mv>0?'\u25b2':'\u25bc')+Math.abs(mv)+'</span>';
+    var sp=r.tot?[r.A,r.P,r.C].map(function(x){ return Math.round(x/r.tot*100); }).join(' / ')+'%':'';
+    return '<tr data-a="hubdd" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+(rank||'')+'</b></td><td>'+mvs+'</td><td><b>'+esc(r.hub)+'</b>'+(H.city==='ALL'?' <span class="sub">'+r.c+'</span>':'')+' \u203a</td><td>'+(r.f?Math.round(r.f).toLocaleString('en-IN'):'\u2013')+'</td><td>'+(r.km?Math.round(r.km).toLocaleString('en-IN'):'\u2013')+'</td><td>'+ddInr(r.cur)+'</td><td style="'+(H.by==='bike'?heat(r.pb):'')+'">'+ddInr(r.pb)+'</td><td>'+(r.pb!=null&&r.pbp?ddChg(r.pb,r.pbp):'')+'</td><td style="'+(H.by==='km'?heat(r.pk):'')+'">'+(r.pk!=null?'\u20b9'+r.pk.toFixed(3):'\u2013')+'</td><td>'+(r.pk!=null&&r.pkp?ddChg(r.pk,r.pkp):'')+'</td><td class="sub">'+sp+'</td></tr>'; };
+  ranked.forEach(function(r,i){ h+=rowH(r,i+1); });
+  if(small.length){ h+='<tr><td colspan="11" class="sub" style="padding-top:12px"><b>Small hubs (under '+MIN+' bikes) or without bike / km figures, not ranked</b></td></tr>'; small.forEach(function(r){ h+=rowH(r,null); }); }
+  h+='</table></div></div>';
+  return h+(state.drill&&state.drill.from==='league'?drillHtml():'');
 }
 function viewDist(){
   var D=state.dist, yrs=[...new Set((state.store.dist||[]).map(function(r){return r.yr;}).filter(function(y){return y!=='all';}))].sort();
@@ -1139,8 +1163,8 @@ function viewSettings(){
 }
 function viewEmpty(){ return '<div class="empty">'+(state.loading?'Loading RMC data…':esc(state.msg||'No data'))+'</div>'; }
 function render(){
-  if(state.tab==='hubs' || state.tab==='dist') state.tab='overview';   // Replacement km tab removed (30 Oct 2026)
-  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
+  if(state.tab==='dist') state.tab='overview';   // Replacement km tab removed (30 Oct 2026); hubs is back as Hub league (6 Nov 2026)
+  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['hubs','Hub league','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
   var emb=EMBEDS[state.tab]; if(emb && !canSeeEmbed(state.tab)){ state.tab='overview'; emb=null; }
   var body=emb ? '' : !has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
   root.innerHTML='<div class="hd"><div><h1>RMC Dashboard</h1><p>Wear &amp; Tear (A), Rider-payable (P), Cost to company (C) from the DMS billing export · Net service cost with monthly inputs</p></div><div class="grp"><span class="status" id="svc-status">'+esc(state.msg)+'</span>'
@@ -1195,6 +1219,7 @@ root.addEventListener('click',function(e){
   var el=e.target.closest('[data-a]'); if(!el) return; var a=el.getAttribute('data-a'), v=el.getAttribute('data-v');
   if(a==='dd'){ var q=v.split('|'); state.drill={b:q[0],city:q[1],m:q[2],hub:null,part:null}; render(); var pn=document.getElementById('rmc-drill'); if(pn) pn.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if(a==='ddhub'){ state.drill.hub=v; state.drill.part=null; render(); return; }
+  if(a==='hubdd'){ state.drill={b:state.hubs.b,city:v.split('|')[0],m:state.hubs.m,hub:v,part:null,from:'league'}; render(); var dp=document.getElementById('rmc-drill'); if(dp) dp.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
   if(a==='ddpart'){ state.drill.part=v; render(); drillLoadJC(); return; }
   if(a==='ddup'){ if(v==='1'){ state.drill.hub=null; state.drill.part=null; } else state.drill.part=null; render(); return; }
   if(a==='ddclose'){ state.drill=null; render(); return; }
@@ -1240,7 +1265,10 @@ root.addEventListener('change',function(e){
   else if(a==='model') state.F.model=el.value;
   else if(a==='pcity') state.parts.city=el.value; else if(a==='ptop') state.parts.top=+el.value;
   else if(a==='mcity') state.mv.city=el.value; else if(a==='mb') state.mv.bucket=el.value; else if(a==='mx') state.mv.x=el.value; else if(a==='my') state.mv.y=el.value;
-  else if(a==='hcity') state.hubs.city=el.value;
+  else if(a==='hcity'){ state.hubs.city=el.value; state.drill=null; }
+  else if(a==='hmonth'){ state.hubs.m=el.value; state.drill=null; }
+  else if(a==='hbucket'){ state.hubs.b=el.value; state.drill=null; }
+  else if(a==='hby') state.hubs.by=el.value;
   else if(a==='fold'){ state.foldOn=el.checked; try { localStorage.setItem('rmc_fold_refurb', el.checked?'1':'0'); } catch(e){} }   // 3 Nov 2026: remember the choice
   
   render();
