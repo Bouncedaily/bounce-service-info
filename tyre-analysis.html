@@ -1621,6 +1621,12 @@ function renderOdb(){
       h += '<tr><td class="sub" title="Whole fleet: average of every bike\'s km driven in the month ÷ days in the month (monthly km data). Follows City, Bike model and Deployed year.">Average km per day (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.avg + ' km/day')).join('') + '</tr>';
       h += '<tr><td class="sub" title="Whole fleet: share of bikes averaging 120+ km per day in the month (monthly km data). Follows City, Bike model and Deployed year.">120+ km/day share (fleet)</td>' + ms.map((m, i) => cellF(i, u => u.pct120 + '%')).join('') + '</tr>';
     }
+    if (st.unlim_days) {   // 6 Nov 2026: active rental days = bike-days on rent in the month (bookings export, any plan)
+      h += '<tr><td class="sub" title="Total bike-days on rent in the month, on any plan (bookings export). Follows City, Bike model and Deployed year.">Active rental days</td>' + ms.map((m, i) => {
+        const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
+        if (!u.rented || cov < 0.5) return `<td class="num sub" style="font-size:11px">${cov >= 0.05 ? 'partial' : 'no data'}</td>`;
+        return `<td class="num" style="font-size:12px;font-weight:600" title="${Math.round(u.rented).toLocaleString('en-IN')} bike-days on rent">${Math.round(u.rented).toLocaleString('en-IN')}</td>`; }).join('') + '</tr>';
+    }
     if (st.unlim_days) {   // 5 Nov 2026: utilisation = active rental bike-days / (fleet x days)
       h += '<tr><td class="sub" title="Active rental bike-days (bookings export) ÷ (bikes deployed × days in the month). Bikes deployed = average daily bike count (as in the RMC Dashboard); with a Bike model or Deployed year filter, the month-end fleet.">Utilisation</td>' + ms.map((m, i) => {
         const u = st.unlim_days[i] || {}, cov = +u.cov || 0;
