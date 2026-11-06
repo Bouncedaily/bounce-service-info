@@ -1585,7 +1585,7 @@ function renderOdb(){
   const d = D.data_as_of; document.getElementById('odb-updated').textContent = d ? 'Data as of ' + new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   const ms = D.months || [], tot = D.totals || [], cur = new Date().toISOString().slice(0, 7);
   const mLbl = m => new Date(m + '-01T00:00:00').toLocaleString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-') + (m === cur ? ' (so far)' : '');
-  const show = ODB.show, rows = D.rows.filter(r => r.bk >= 0 || r.counts.some(n => n > 0));
+  const show = ODB.show, rows = D.rows.filter(r => r.bk >= 0 || r.counts.some(n => n > 0) || ((D.cohort || {})[String(r.bk)] || 0) > 0);
   // heat: shade by share of the month (darkest = biggest band), not for tiny months
   const byBikes = ODB.base === 'bikes' && D.cohort_m, cm = D.cohort_m || {};
   // bikes base: % = replacements / bikes in that band at that month end; shading relative to the highest rate in the table
