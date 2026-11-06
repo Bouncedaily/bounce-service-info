@@ -1105,16 +1105,7 @@ function embBox(k){   // one frame per embedded dashboard, created once, never m
   root.parentNode.insertBefore(box, root.nextSibling);
   var fr=box.querySelector('iframe');
   fr.src=EMBEDS[k].file+'?embed=1&v='+Date.now();   // 5 Nov 2026: always the latest version (the embedded page was served from browser cache)
-  // 5 Nov 2026: the frame grows to fit its page, so only the RMC page scrolls (no scrolling inside the tab)
-  fr.addEventListener('load', function(){
-    try {
-      // 6 Nov 2026: measure the content itself (the document is never shorter than the frame, so it could only grow)
-      var doc=fr.contentDocument, fit=function(){ var el=doc.querySelector('.main')||doc.body; if(!el) return; var hh=Math.ceil(el.getBoundingClientRect().height); if(hh>200 && Math.abs(hh+8-fr.offsetHeight)>4) fr.style.height=(hh+8)+'px'; };
-      // the embedded page scrolls inside its own app shell: let it take its natural height
-      var st=doc.createElement('style'); st.textContent='html,body,.app,.app-main,.content,.main{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}'; doc.head.appendChild(st);
-      fit(); if(window.ResizeObserver){ new ResizeObserver(fit).observe(doc.body); } setInterval(fit, 1500);
-    } catch(e){ /* different origin: keep the fixed height */ }
-  });
+  // 6 Nov 2026: back to a screen-height frame that scrolls inside (auto-sizing the frame to its content made scrolling jerky)
   return box;
 }
 function embPlace(box, on){   // shown: in the page flow under the tabs; not shown: kept loaded off-screen at full width (charts size correctly)
