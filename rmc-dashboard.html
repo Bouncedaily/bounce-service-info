@@ -245,7 +245,7 @@ function migrateFleet(f){ if(!f) return f; var old={BLR:10503,NCR:2097,HYD:1140}
 var state = {
   store:C.newStore(), rules:[], fleet:{}, ops:{}, km:{},
   hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), loading:true,
-  F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:'overview', msg:'',
+  F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:(ls('tab')||'overview'), msg:'',   /* 10 Nov 2026: reopen the last tab */
   parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:'ALL',m:'',b:'ALL',by:'bike',sk:'rank',sd:1}
 };
 var CITIES=['BLR','NCR','HYD','MUM'], COLORS={A:'#dc2626',P:'#EB6834',C:'#7A5CC7',L:'#9aa3b2'}, NAMES={A:'A: Wear & Tear',P:'P: Rider-payable',C:'C: Cost to company',W:'W: Warranty',F:'F: Free of cost'};
@@ -1234,7 +1234,7 @@ root.addEventListener('click',function(e){
   if(a==='ddup'){ if(v==='1'){ state.drill.hub=null; state.drill.part=null; } else state.drill.part=null; render(); return; }
   if(a==='ddclose'){ state.drill=null; render(); return; }
   if(a==='ddcsv'){ drillCSV(); return; }
-  if(a==='tab') state.tab=v;
+  if(a==='tab'){ state.tab=v; ls('tab',v); }
   else if(a==='city'){ var ac=allCities();
     if(v==='ALL') state.F.cities=ac.slice();
     else if(state.F.cities.length===ac.length) state.F.cities=[v];
