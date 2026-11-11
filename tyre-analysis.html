@@ -1115,7 +1115,7 @@ function kmbTotalRow(rows) {
     const on = KMB.sel && KMB.sel.part === 'all' && KMB.sel.b === k; const txt = KMB.show === 'pct' ? (all ? Math.round(v / all * 100) : 0) + '%' : v.toLocaleString('en-IN');
     return `<a href="#" onclick="openKmb('all','${k}');return false" style="font-weight:800;color:inherit;text-decoration:${on ? 'underline' : 'none'}" title="${v} replacements, all parts">${txt}</a>`; };
   return `<tr style="border-top:2px solid var(--border2,#cbd5e1);background:#f8fafc"><td style="text-align:left;font-weight:800">Total (all parts)</td>${KMB_COLS.map(([k]) => `<td style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] + '55' : ''}">${cellT(k)}</td>`).join('')}
-    <td style="text-align:right"><a href="#" onclick="openKmb('all','all');return false" style="font-weight:800;color:inherit;text-decoration:none">${all.toLocaleString('en-IN')}</a></td><td style="text-align:right">—</td></tr>`;
+    <td style="text-align:right"><a href="#" onclick="openKmb('all','all');return false" style="font-weight:800;color:inherit;text-decoration:none">${all.toLocaleString('en-IN')}</a></td><td style="text-align:right">—</td><td style="text-align:right">—</td><td style="text-align:right">—</td><td style="text-align:right">—</td></tr>`;
 }
 function renderKmb() {
   const rows = (KMB.data && KMB.data.rows) || [];
@@ -1123,9 +1123,9 @@ function renderKmb() {
     const pct = r.total ? Math.round(v / r.total * 100) : 0; const txt = KMB.show === 'pct' ? pct + '%' : v.toLocaleString('en-IN');
     const on = KMB.sel && KMB.sel.part === r.part && KMB.sel.b === k;
     return `<a href="#" onclick="openKmb('${r.part.replace(/'/g, "\\'")}','${k}');return false" style="font-weight:${on ? 800 : 600};color:inherit;text-decoration:${on ? 'underline' : 'none'}" title="${v} replacements · ${pct}% of this part">${txt}</a>`; };
-  document.getElementById('kmb-body').innerHTML = `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th>${KMB_COLS.map(([k, l]) => `<th style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] : ''}">${l}</th>`).join('')}<th style="text-align:right">Total</th><th style="text-align:right">Median km</th></tr></thead>
+  document.getElementById('kmb-body').innerHTML = `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Part</th>${KMB_COLS.map(([k, l]) => `<th style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] : ''}">${l}</th>`).join('')}<th style="text-align:right">Total</th><th style="text-align:right">Median km</th><th style="text-align:right" title="Average billed cost of one replacement">Avg cost</th><th style="text-align:right" title="Cost of replacements ÷ km the previous part lasted (only replacements with a known previous change)">₹ / km</th><th style="text-align:right" title="Replacements with a known previous change and cost, used for ₹ / km">Based on</th></tr></thead>
     <tbody>${rows.map(r => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[r.part] || r.part}</td>${KMB_COLS.map(([k]) => `<td style="text-align:right;${KMB_TINT[k] ? 'background:' + KMB_TINT[k] + '55' : ''}">${cell(r, k)}</td>`).join('')}
-      <td style="text-align:right"><a href="#" onclick="openKmb('${r.part.replace(/'/g, "\\'")}','all');return false" style="font-weight:700;color:inherit;text-decoration:none">${(+r.total || 0).toLocaleString('en-IN')}</a></td><td style="text-align:right">${r.median_km != null ? (+r.median_km).toLocaleString('en-IN') : '—'}</td></tr>`).join('')}${kmbTotalRow(rows)}</tbody></table>`;
+      <td style="text-align:right"><a href="#" onclick="openKmb('${r.part.replace(/'/g, "\\'")}','all');return false" style="font-weight:700;color:inherit;text-decoration:none">${(+r.total || 0).toLocaleString('en-IN')}</a></td><td style="text-align:right">${r.median_km != null ? (+r.median_km).toLocaleString('en-IN') : '—'}</td><td style="text-align:right">${r.avg_cost != null ? '₹' + (+r.avg_cost).toLocaleString('en-IN') : '—'}</td><td style="text-align:right;font-weight:600" title="${r.cost_per_km != null ? '₹' + (+r.cost_per_km).toFixed(4) + ' per km · ₹' + (+r.cost_known || 0).toLocaleString('en-IN') + ' over ' + (+r.km_known || 0).toLocaleString('en-IN') + ' km' : ''}">${r.cost_per_km != null ? '₹' + (+r.cost_per_km).toFixed(4) : '—'}</td><td style="text-align:right;${(+r.n_known || 0) < 100 ? 'color:#b45309' : 'color:var(--text2,#64748b)'}" title="${(+r.n_known || 0) < 100 ? 'Fewer than 100 replacements: read ₹ / km with care' : ''}">${(+r.n_known || 0).toLocaleString('en-IN')}</td></tr>`).join('')}${kmbTotalRow(rows)}</tbody></table>`;
 }
 async function openKmb(part, b) {
   KMB.sel = { part, b }; renderKmb();
@@ -1152,7 +1152,7 @@ function kmbDownload(name, rows) {
 }
 function exportKmbCSV() {
   const rows = (KMB.data && KMB.data.rows) || [];
-  kmbDownload(`km-since-last-change-${document.getElementById('kmb-month').value}.csv`, [['Part', ...KMB_COLS.map(c => c[1]), 'Total', 'Median km'], ...rows.map(r => [KMB_NAME[r.part] || r.part, ...KMB_COLS.map(c => r[c[0]]), r.total, r.median_km])]);
+  kmbDownload(`km-since-last-change-${document.getElementById('kmb-month').value}.csv`, [['Part', ...KMB_COLS.map(c => c[1]), 'Total', 'Median km', 'Avg cost (Rs)', 'Rs per km', 'Based on (replacements)'], ...rows.map(r => [KMB_NAME[r.part] || r.part, ...KMB_COLS.map(c => r[c[0]]), r.total, r.median_km, r.avg_cost, r.cost_per_km, r.n_known])]);
 }
 function exportKmbList() {
   const L = KMB.list || [];
