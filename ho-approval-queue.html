@@ -986,6 +986,13 @@ function missingInfoChips(jc){
   else if(photos<4) out+='<span class="chip amber" title="Only '+photos+' of 4 end-of-job photos uploaded">'+photos+'/4 photos</span>';
   return out;
 }
+/* Brake type of the bike (from the engine number, JC history or a confirmed override), shown next to the model */
+function brakeBadge(jc){
+  var t=jc&&jc.brake_type; if(!t) return '';
+  var st = t==='Disc' ? 'background:#fee2e2;color:#991b1b' : (t==='Drum' ? 'background:#f1f5f9;color:#334155' : 'background:#fef3c7;color:#92400e');
+  var label = (t==='Disc'||t==='Drum') ? t : t+' (check)';
+  return ' <span style="'+st+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle" title="Brake type: '+esc(t)+(jc.brake_type_source?' ('+esc(jc.brake_type_source)+')':'')+'">'+esc(label)+'</span>';
+}
 function renderJC(jc){
   var s=sid(jc.job_card_number);
   var chips=tatChip(jc.tat_days)+'<span class="chip parts">'+jc.part_count+' part'+(jc.part_count===1?'':'s')+'</span>'+
@@ -1020,7 +1027,7 @@ function renderJC(jc){
       '<div class="jc-hd-left">'+
         '<span class="jc-status-icon '+statusClass+'">'+statusIcon+'</span>'+
         '<div style="min-width:0">'+
-          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
+          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span>'+brakeBadge(jc)+' <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
           '<div class="jc-summary-line">'+esc(jc.hub||'')+', '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · '+summaryBits.join(' · ')+'</div>'+
         '</div>'+
       '</div>'+
@@ -2625,7 +2632,7 @@ function nithishCard(jc){
     '<div class="jc-hd" style="cursor:default">'+
       '<div class="jc-hd-left">'+
         '<div style="min-width:0">'+
-          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span> <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
+          '<div class="jc-title">JC '+esc(jc.job_card_number)+' &nbsp;·&nbsp; '+esc(jc.reg_number)+' <span style="color:var(--muted);font-weight:500">('+esc(jc.bike_model||'')+')</span>'+brakeBadge(jc)+' <span style="color:var(--muted2);font-weight:500;font-size:12px">&nbsp;·&nbsp; DMS JC '+esc(jc.dms_jc_id||'—')+'</span></div>'+
           '<div class="jc-summary-line">'+esc(jc.jc_status||'')+' · '+esc(jc.hub||'')+', '+esc(jc.city||'')+' · Tech: '+esc(jc.technician||'—')+' · '+esc(jc.submission_type||'')+' · '+nf(jc.km_at_jc)+' km'+((jc.rejection_count||0)>0?' · rejected '+jc.rejection_count+'x before':'')+'</div>'+
         '</div>'+
       '</div>'+
