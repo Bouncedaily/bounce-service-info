@@ -1488,18 +1488,26 @@ function applyHubMerge(rows) {
 }
 
 async function fetchData() {
-  // Q1: summary — only city/model/status, all bikes (~11K rows, 3 tiny cols)
+  // Q1: summary — bike counts by city/hub/model/status (expanded to one entry per bike below)
   // Q2: OOS detail — only OOS bikes with aging/repair cols (~464 rows)
   // Q3+4: inflow/outflow — small tables
   const [summaryR, oosR, inflowR, outflowR] = await Promise.all([
-    fetchWithTimeout(`${SB}/rest/v1/bike_fleet?select=reg_number,city,hub_name,model_name,status&limit=20000`, { headers: HDR }, 15000),
+    fetchWithTimeout(`${SB}/rest/v1/rpc/get_bike_summary_counts`, { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR), body: '{}' }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/bike_fleet?select=city,hub_name,model_name,oos_aging_bucket,repair_category,oos_age,reg_number,oos_sub_status,current_odometer,latest_oos_date,total_labour_hrs&status=eq.OOS&limit=2000`, { headers: HDR }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/inflow_today?select=*&data_date=eq.${todayISTDate()}&order=event_time.desc`, { headers: HDR }, 15000),
     fetchWithTimeout(`${SB}/rest/v1/outflow_today?select=*&data_date=eq.${todayISTDate()}&order=repaired_datetime.desc`, { headers: HDR }, 15000),
   ]);
-  const [summary, oosDetail, inflow, outflow] = await Promise.all([
+  if (!summaryR.ok) throw new Error('bike summary HTTP ' + summaryR.status);   // falls back to the last good data instead of showing zeros
+  const [summaryAgg, oosDetail, inflow, outflow] = await Promise.all([
     summaryR.json(), oosR.json(), inflowR.json(), outflowR.json()
   ]);
+  // The server now sends bike COUNTS (about 350 rows, ~40 KB) instead of every bike (about 15,000 rows, ~1.7 MB).
+  // Expand them back into one entry per bike so everything below works exactly as before.
+  const summary = [];
+  (Array.isArray(summaryAgg) ? summaryAgg : []).forEach(function(a) {
+    const o = { city: a.city, hub_name: a.hub_name, model_name: a.model_name, status: a.status };
+    for (let i = 0; i < a.n; i++) summary.push(o);
+  });
   HUB_TO_PARENT = buildHubToParent((Array.isArray(summary) ? summary : []).map(r => r.hub_name));
   applyHubMerge(summary); applyHubMerge(oosDetail); applyHubMerge(inflow); applyHubMerge(outflow);
   return { summary, oosDetail, inflow, outflow };
@@ -3641,6 +3649,7 @@ function loadOOSCache() {
 }
 
 async function refresh() {
+  LAST_AUTO = Date.now();
   const btn = document.getElementById('sync-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '&#8635; Syncing…'; }
   try {
@@ -3669,8 +3678,18 @@ async function refresh() {
     if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync'; }
   }
 }
+var LAST_AUTO = Date.now();
 refresh();
-setInterval(refresh, 2 * 60 * 1000); // auto-refresh every 2 minutes
+// Auto-refresh every ~2 minutes, but only while this tab is actually on screen. Many people leave the dashboard open in a
+// background tab; those used to refresh too, moving a lot of data and slowing the database for everyone (worst in the evening).
+// Coming back to a tab refreshes it straight away if its data is more than ~2 minutes old.
+function autoRefreshTick() {
+  if (document.visibilityState !== 'visible') return;
+  if (Date.now() - LAST_AUTO < 110000) return;
+  refresh();
+}
+setInterval(autoRefreshTick, 30 * 1000);
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') autoRefreshTick(); });
 
 // Sidebar
 function getSidebar() { return document.getElementById('sidebar'); }
