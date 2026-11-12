@@ -1068,7 +1068,7 @@ function hqTab(t){
   document.getElementById('hqtab-jcphoto').style.display=(t==='jcphoto')?'':'none';
   document.getElementById('hqtab-jcphoto-btn').classList.toggle('active', t==='jcphoto');
   if(t==='jcphoto'){ var fr=document.getElementById('jcphoto-frame'); var h=0; try{ h=window.top.innerHeight; }catch(e){ h=window.innerHeight; }
-    fr.style.height=Math.max(700,(h||900)-120)+'px'; if(!fr.getAttribute('src')) fr.setAttribute('src','jc-photo-review.html?embed=1'); }
+    fr.style.height=Math.max(700,(h||900)-120)+'px'; if(!fr.getAttribute('src')) fr.setAttribute('src','jc-photo-review.html?embed=1&v='+Date.now()); }
   document.getElementById('hqtab-queue-btn').classList.toggle('active', t==='queue');
   document.getElementById('hqtab-perf-btn').classList.toggle('active', t==='perf');
   document.getElementById('hqtab-quality-btn').classList.toggle('active', t==='quality');
