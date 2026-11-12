@@ -733,28 +733,31 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   var pctJ=function(n,tn){ return tn?' <span class="sub">('+Math.round(n/tn*100)+'%)</span>':''; };
   var G='style="text-align:right;color:#475569"', Rt='style="text-align:right"';
   var pair=function(curH,prevH){ return (np?'':'<td '+G+'>'+prevH+'</td>')+'<td '+Rt+'>'+curH+'</td>'; };
-  // service TAT buckets (job card opened to billed): under 2 days, 2-5, 5-10, 10-30, over 30 - each with the two months side by side, like every other group
+  // two breakups in the same format: by parts cost per job card, and by service TAT (job card opened to billed)
   var TB=['< 2 days','2\u20135 days','5\u201310 days','10\u201330 days','> 30 days'];
-  var ktv=function(o,kb,t){ return o?(+((o.kt||{})[kb+'_'+t])||0):0; };
   var avg=function(c,n){ return n>0?R(c/n):'\u2013'; };
+  var pct=function(c,t){ return t>0?(c/t*100).toFixed(1)+'%':'\u2013'; };
   var SEP='border-left:1px solid #e2e8f0;', HB='border-left:1px solid #475569;';
   var pairS=function(curH,prevH){ return np?'<td style="text-align:right;'+SEP+'">'+curH+'</td>':'<td style="text-align:right;color:#475569;'+SEP+'">'+prevH+'</td><td '+Rt+'>'+curH+'</td>'; };
-  var tsum=[0,0,0,0,0], tsumP=[0,0,0,0,0];
-  var bkRows=''; BK.forEach(function(d){ var kb=+d[1].slice(1), nc=+cur[d[1]]||0, cc=(+cur[d[2]]||0)*tc.fx, np2=prv?(+prv[d[1]]||0):0, cp=prv?(+prv[d[2]]||0)*tp.fx:0;
-    var t5=''; for(var j=1;j<=5;j++){ t5+=pairS(N(ktv(cur,kb,j)),N(ktv(prv,kb,j))); tsum[j-1]+=ktv(cur,kb,j); tsumP[j-1]+=ktv(prv,kb,j); }
-    bkRows+='<tr><td>'+d[0]+'</td>'+pairS(N(nc)+pctJ(nc,tc.n), N(np2)+pctJ(np2,tp?tp.n:0))+pairS(R(cc), R(cp))+pairS(avg(cc,nc), avg(cp,np2))
-      +pairS(tc.c?(cc/tc.c*100).toFixed(1)+'%':'\u2013', tp&&tp.c?(cp/tp.c*100).toFixed(1)+'%':'\u2013')+t5+'</tr>'; });
-  var tt5=''; for(var j2=0;j2<5;j2++) tt5+=pairS(N(tsum[j2]),N(tsumP[j2]));
-  bkRows+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td>All job cards</td>'+pairS(N(tc.n), tp?N(tp.n):'')+pairS(R(tc.c), tp?R(tp.c):'')+pairS(avg(tc.c,tc.n), tp?avg(tp.c,tp.n):'')+pairS('100%','100%')+tt5+'</tr>';
   var span=np?1:2;
-  var gh=function(label,cols,rows){ return '<th colspan="'+cols+'"'+(rows>1?' rowspan="'+rows+'"':'')+' style="text-align:center;'+HB+'">'+label+'</th>'; };
+  var gh=function(label){ return '<th colspan="'+span+'" style="text-align:center;'+HB+'">'+label+'</th>'; };
   var mh=function(){ return np?'<th style="'+HB+'">'+C.monthLabel(a.cur)+'</th>':'<th style="'+HB+'">'+pl+'</th><th>'+C.monthLabel(a.cur)+'</th>'; };
-  var months=''; for(var g=0;g<9;g++) months+=mh();
-  var right='<div style="max-width:100%;overflow-x:auto"><div style="font-weight:700;margin-bottom:6px">Breakup by '+(one?cat+' parts':'parts')+' cost per job card'+(one?'':' (A+P+C)')+'</div><table style="width:auto;min-width:560px">'
-    +'<tr><th rowspan="3" style="text-align:left">'+(one?cat+' parts':'Parts')+' cost of the job card</th>'+gh('Job cards',span,2)+gh('Cost \u20b9',span,2)+gh('Avg cost / job card',span,2)+gh('% of cost',span,2)+gh('Job cards by service TAT',5*span,1)+'</tr>'
-    +'<tr>'+TB.map(function(x){ return gh(x,span,1); }).join('')+'</tr><tr>'+months+'</tr>'+bkRows+'</table><p class="sub" style="margin:6px 0 0">'
-    +(one?'Each job card sits in the bucket of its own '+cat+' parts cost; job cards with no '+cat+' parts are in the first row. Cost = the '+cat+' parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+cat+' parts cost for this type.':'Each job card sits in the bucket of its own total parts cost. Cost = the parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all parts cost for this type.')
-    +' Avg cost / job card = cost \u00f7 job cards in that row (the total row divides by all job cards). Service TAT = job card opened to billed, in days; the TAT columns count job cards.</p></div></div>';
+  // rows = [label, job cards this month, cost this month, job cards last month, cost last month]
+  var mkTable=function(title,first,rows,note,top){
+    var sum=function(i){ return rows.reduce(function(x,r){ return x+(+r[i]||0); },0); };
+    var nC=sum(1), cC=sum(2), nP=sum(3), cP=sum(4), body='';
+    rows.forEach(function(r){ body+='<tr><td>'+r[0]+'</td>'+pairS(N(r[1])+pctJ(r[1],nC), N(r[3])+pctJ(r[3],nP))+pairS(R(r[2]), R(r[4]))+pairS(avg(r[2],r[1]), avg(r[4],r[3]))+pairS(pct(r[2],cC), pct(r[4],cP))+'</tr>'; });
+    body+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td>All job cards</td>'+pairS(N(nC), N(nP))+pairS(R(cC), R(cP))+pairS(avg(cC,nC), avg(cP,nP))+pairS('100%','100%')+'</tr>';
+    return '<div style="font-weight:700;margin:'+(top?'0':'20px')+' 0 6px">'+title+'</div><table style="width:auto;min-width:560px"><tr><th rowspan="2" style="text-align:left">'+first+'</th>'+gh('Job cards')+gh('Cost \u20b9')+gh('Avg cost / job card')+gh('% of cost')+'</tr><tr>'+mh()+mh()+mh()+mh()+'</tr>'+body+'</table><p class="sub" style="margin:6px 0 0">'+note+'</p>';
+  };
+  var costRows=BK.map(function(d){ return [d[0], +cur[d[1]]||0, (+cur[d[2]]||0)*tc.fx, prv?(+prv[d[1]]||0):0, prv?(+prv[d[2]]||0)*tp.fx:0]; });
+  var tatRows=TB.map(function(x,j){ var k=j+1; return [x, +cur['tn'+k]||0, (+cur['ts'+k]||0)*tc.fx, prv?(+prv['tn'+k]||0):0, prv?(+prv['ts'+k]||0)*tp.fx:0]; });
+  var what=one?cat+' parts':'parts';
+  var noteCost=(one?'Each job card sits in the bucket of its own '+cat+' parts cost; job cards with no '+cat+' parts are in the first row. ':'Each job card sits in the bucket of its own total parts cost. ')+'Cost = the '+what+' cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+what+' cost for this type. Avg cost / job card = cost \u00f7 job cards in that row (the total row divides by all job cards).';
+  var noteTat='Each job card sits in the bucket of its service TAT (job card opened to billed). Cost = the '+what+' cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+what+' cost for this type. Job cards with no '+(one?cat+' ':'')+'parts are included.';
+  var right='<div style="max-width:100%;overflow-x:auto">'
+    +mkTable('Breakup by '+what+' cost per job card'+(one?'':' (A+P+C)'), (one?cat+' parts':'Parts')+' cost of the job card', costRows, noteCost, true)
+    +mkTable('Breakup by service TAT'+(one?' ('+cat+' parts cost)':' (A+P+C parts cost)'), 'Job cards by service TAT', tatRows, noteTat, false)+'</div>';
   var cityTxt=D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city);
   return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+' Average part cost = the \u20b9 above \u00f7 parts quantity; average parts per job card = parts quantity \u00f7 all job cards of this type.'+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p>';
 }
