@@ -339,7 +339,7 @@ async function loadAll(){
   // 6 Nov 2026: active rental days + utilisation per city and month (bookings export): [month, city, rental days, utilisation %, bikes deployed]
   state.rental={}; (D.rental||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(c) state.rental[c+'|'+x[0]]={rd:+x[2]||0, util:x[3]==null?null:+x[3], fleet:+x[4]||0}; });
   state.extras={}; (D.extras||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0]+'|'+(x[7]||'')+'|'+(x[8]||''), e=state.extras[k]||(state.extras[k]={st:{},jcs:0,rr:0,rr7:0,tat:0,tatn:0});
-    e.st[x[2]]={jcs:+x[3]||0, amt:+x[4]||0, rr:+x[5]||0, rr7:+x[6]||0, tat:+x[9]||0, tatn:+x[10]||0, sm:+x[11]||0, lc:+x[12]||0, ap3:+x[13]||0}; e.jcs+=+x[3]||0; e.rr+=+x[5]||0; e.rr7+=+x[6]||0; e.tat+=+x[9]||0; e.tatn+=+x[10]||0; });
+    e.st[x[2]]={jcs:+x[3]||0, amt:+x[4]||0, rr:+x[5]||0, rr7:+x[6]||0, tat:+x[9]||0, tatn:+x[10]||0, sm:+x[11]||0, lc:+x[12]||0, ap3:+x[13]||0, b1:+x[14]||0, b2:+x[15]||0, b3:+x[16]||0, b4:+x[17]||0}; e.jcs+=+x[3]||0; e.rr+=+x[5]||0; e.rr7+=+x[6]||0; e.tat+=+x[9]||0; e.tatn+=+x[10]||0; });
   state.mfleet={}; (D.mfleet||[]).forEach(function(x){ var c=CITY_CODE[x[0]]; if(!c) return; var o=state.mfleet[c]||(state.mfleet[c]={_t:0}); o[x[1]]=(o[x[1]]||0)+(+x[2]||0); o._t+=(+x[2]||0); });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
@@ -743,6 +743,13 @@ function cityCompareHtml(model){
   STs.forEach(function(t){ h+=dline('Parts \u20b9 per job card \u00b7 '+t,function(c,m){ var e=extrasFor(c,m), o=e&&e.st[t]; return (o&&o.jcs)?o.amt/o.jcs:null; },F0,1); });
   h+=dline('Bikes serviced',dv('bikes'),F0,0,'grey');
   h+=dline('Job cards',dv('jcs'),F0,0,'grey');
+  // job cards by parts cost, Recovery and Rider Submission: count (share of that type's job cards)
+  h+=sec('Job cards by parts cost \u00b7 Recovery and Rider Submission <span style="font-weight:400;font-size:12px;color:#64748b">\u2014 parts A+P+C per job card; shown as job cards (share of that type\u2019s job cards); job cards with no parts count in \u20b90\u20132.5k</span>');
+  ['Recovery','Rider Submission'].forEach(function(t){ BK_DEFS.forEach(function(b){
+    var label=t+' \u00b7 '+b[1], k='drv:'+label; if(!ccOn(k)) return;
+    h+='<tr><td style="padding-left:18px;color:#475569">'+ccBtn(k)+label+'</td>';
+    cities.forEach(function(c){ cols.forEach(function(m,i){ h+='<td style="'+bd(i)+'">'+(model[c][m]?bkCellHtml(c,m,t,b[0]):'\u2013')+'</td>'; }); });
+    h+='</tr>'; }); });
   // P category (rider-payable) breakup, in the selected unit
   var PV={}; cities.forEach(function(c){ cols.forEach(function(m){ PV[c+'|'+m]=pSplitVal(c,m); }); });
   var pv=function(fn){ return function(c,m){ var v=PV[c+'|'+m]; return v?val(fn(v),c,m):null; }; };
@@ -891,9 +898,16 @@ function filtShare(c,m){ if(!useFS()) return null; var a=exJcs(c,m,state.F.dyear
 function modelFleetShare(c){ var o=(state.mfleet||{})[c]; if(!o||!o._t) return null; return (o[state.F.model]||0)/o._t; }
 function rowW(r){ if(state.F.model && r.model!==state.F.model) return 0; var f=state.F.shareFn; return f?f(r):1; }
 function periodDays(m){ if(/p$/.test(m) || isPartialMonth(m)) return window.RMC_PARTIAL_DAYS||null; var p=m.split('-'); return new Date(+p[0], +p[1], 0).getDate(); }
+/* Job cards by parts cost per job card (parts A+P+C), for Recovery and Rider Submission (12 Nov 2026) */
+var BK_DEFS=[['b1','\u20b90\u20132.5k'],['b2','\u20b92.5k\u20135k'],['b3','\u20b95k\u201310k'],['b4','Above \u20b910k']];
+function bkCellHtml(city, m, type, bk){
+  var e=extrasFor(city,m), o=e&&e.st[type]; if(!o||!o.jcs) return '\u2013';
+  var n=o[bk]||0;
+  return n.toLocaleString('en-IN')+' <span style="font-size:11px;color:#6b7280">('+(100*n/o.jcs).toFixed(1)+'%)</span>';
+}
 function extrasFor(city, m){ var cs=city==='ALL'?state.F.cities:[city], out=null, sel=(state.stSel||[]);
   cs.forEach(function(c){ var e=(state.extras||{})[c+'|'+m+'|'+(state.F.dyear||'')+'|'+(state.F.model||'')]; if(!e) return; out=out||{st:{},jcs:0,rr:0,rr7:0,tat:0,tatn:0,sm:0,smd:0,lc:0,ap3:0};
-    Object.keys(e.st).forEach(function(t){ var o=out.st[t]||(out.st[t]={jcs:0,amt:0}); o.jcs+=e.st[t].jcs; o.amt+=e.st[t].amt;
+    Object.keys(e.st).forEach(function(t){ var o=out.st[t]||(out.st[t]={jcs:0,amt:0,b1:0,b2:0,b3:0,b4:0}); o.jcs+=e.st[t].jcs; o.amt+=e.st[t].amt; o.b1+=e.st[t].b1||0; o.b2+=e.st[t].b2||0; o.b3+=e.st[t].b3||0; o.b4+=e.st[t].b4||0;
       if(!sel.length || sel.indexOf(t)>=0){ out.rr+=e.st[t].rr||0; out.rr7+=e.st[t].rr7||0; out.tat+=e.st[t].tat||0; out.tatn+=e.st[t].tatn||0; out.sm+=e.st[t].sm||0; out.smd+=e.st[t].jcs||0; out.lc+=e.st[t].lc||0; out.ap3+=e.st[t].ap3||0; } });
     out.jcs+=e.jcs; }); return out; }
 // refurb penetration: refurbished units / (refurbished + new) for parts that have a refurbished version; top-10 parts share of parts cost
