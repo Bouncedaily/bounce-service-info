@@ -623,8 +623,8 @@ function ddFac(D,rows,tok){   // per category (A, P, C): the clicked cell's amou
   return f; }
 function ddScale(D,a,rows){ return {cur:ddFac(D,rows,a.cur), prev:a.prev?ddFac(D,rows,a.prev):{A:1,P:1,C:1}}; }
 function ddAmt(D,x,f,i){ var A=(+x[i]||0)*f.A, P=(+x[i+1]||0)*f.P, C=(+x[i+2]||0)*f.C; return D.b==='A'?A:(D.b==='P'?P:(D.b==='C'?C:A+P+C)); }
-function ddFacNote(sc){ var f=sc.cur, big=['A','P','C'].some(function(k){ return Math.abs(f[k]-1)>0.1; });
-  return 'Amounts are job-card figures adjusted to the monthly cost file so that they add up to the number you clicked (A \u00d7'+f.A.toFixed(2)+', P \u00d7'+f.P.toFixed(2)+', C \u00d7'+f.C.toFixed(2)+')'+(big?' \u2014 the two sources differ noticeably for this city and month':'')+'.'; }
+function ddFacNote(sc,only){ var f=sc.cur, ks=only?[only]:['A','P','C'], big=ks.some(function(k){ return Math.abs(f[k]-1)>0.1; });
+  return 'Amounts are job-card figures adjusted to the monthly cost file so that they add up to the number you clicked ('+ks.map(function(k){ return k+' \u00d7'+f[k].toFixed(2); }).join(', ')+')'+(big?' \u2014 the two sources differ noticeably for this city and month':'')+'.'; }
 function ddKey(kind,extra){ var D=state.drill, k=[kind,D.city,D.m,state.F.model||'']; if(kind!=='T') k.push(D.st); if(kind==='P'||kind==='P2'||kind==='J') k.push(D.b,D.hub); if(kind==='J') k.push(D.part); if(extra) k.push(extra); return k.join('|'); }
 function ddFetch(kind,fn,args,extra){ state.drillT=state.drillT||{}; var key=ddKey(kind,extra); if(state.drillT[key]) return; state.drillT[key]={loading:true};
   rpc(fn,args).then(function(r){ state.drillT[key]=(r&&r.ok)?{data:r.data}:{error:(r&&r.msg)||'no reply'}; render(); }).catch(function(e){ state.drillT[key]={error:String(e&&e.message||e)}; render(); }); }
@@ -687,11 +687,12 @@ function ddLvlTypes(D,h){   // level 0: submission types, each number with last 
     body+='<tr data-a="ddtype" data-v="'+esc(r.t)+'" style="cursor:pointer"><td><span data-a="ddexp" data-v="'+esc(r.t)+'" title="Details and last-month comparison" style="cursor:pointer;color:#2563eb;margin-right:6px">'+(open?'\u25be':'\u25b8')+'</span><b>'+esc(r.t)+'</b> \u203a</td>'+cells(r.c,r.p,T,TP)+'</tr>';
     if(open) body+='<tr><td colspan="9" style="background:#f8fafc;padding:8px 14px">'+ddDetailHtml(D,a,r.t)+'</td></tr>'; });
   var tot='<tr class="tot"><td><b>All types</b></td>'+cells(T,TP,T,TP)+'</tr>';
-  var note=ddFacNote(sc);
+  var note=ddFacNote(sc,D.b!=='ALL'?D.b:null);
   return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th></tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath. TAT = job card opened to billed. '+note+'</p></div>';
 }
-function ddDetailHtml(D,a,t){   // the details panel of one submission type: this month, last month, change
-  var S=ddGet('D',t); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null},t); return '<span class="sub">Loading details\u2026</span>'; }
+function ddDetailHtml(D,a,t){   // the details panel of one submission type: this month, last month, change; only the clicked category when it is A, P or C
+  var cat=D.b||'ALL', one=(cat!=='ALL'), ck=t+'|'+cat;
+  var S=ddGet('D',ck); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null,p_cat:cat},ck); return '<span class="sub">Loading details\u2026</span>'; }
   if(S.error) return '<span class="sub">Could not load details ('+esc(S.error)+')</span>';
   var cur=null, prv=null; (S.data||[]).forEach(function(o){ if(o.m===a.cur) cur=o; else prv=o; });
   if(!cur) return '<span class="sub">No job cards.</span>';
@@ -701,30 +702,40 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   var jcs=function(o){ return o.jcs; };
   // label, value, formatter, dir, share base, compare as points of share
   var L=[['Job cards',function(o){return o.jcs;},N,0,null,false],
-    ['Job cards with parts',function(o){return o.wp;},N,0,jcs,true],
-    ['Parts \u20b9 \u00b7 A (wear & tear)',function(o,f){return o.a*f.A;},R,1,null,false],
-    ['Parts \u20b9 \u00b7 P (rider-payable)',function(o,f){return o.p*f.P;},R,1,null,false],
-    ['Parts \u20b9 \u00b7 C (company)',function(o,f){return o.c*f.C;},R,1,null,false],
-    ['Job cards with A+P parts over \u20b93,000',function(o){return o.ap3;},N,1,jcs,false],
-    ['Job cards by parts cost \u00b7 \u20b90\u20132.5k',function(o){return o.b1;},N,-1,jcs,true],
-    ['Job cards by parts cost \u00b7 \u20b92.5k\u20135k',function(o){return o.b2;},N,1,jcs,true],
-    ['Job cards by parts cost \u00b7 \u20b95k\u201310k',function(o){return o.b3;},N,1,jcs,true],
-    ['Job cards by parts cost \u00b7 above \u20b910k',function(o){return o.b4;},N,1,jcs,true],
-    ['Average TAT',function(o){return o.tn?o.tsum/o.tn:null;},ddH,1,null,false],
+    [one?'Job cards with '+cat+' parts':'Job cards with parts',function(o){return o.wp;},N,0,jcs,true]];
+  if(!one||cat==='A') L.push(['Parts \u20b9 \u00b7 A (wear & tear)',function(o,f){return o.a*f.A;},R,1,null,false]);
+  if(!one||cat==='P') L.push(['Parts \u20b9 \u00b7 P (rider-payable)',function(o,f){return o.p*f.P;},R,1,null,false]);
+  if(!one||cat==='C') L.push(['Parts \u20b9 \u00b7 C (company)',function(o,f){return o.c*f.C;},R,1,null,false]);
+  L.push([one?'Job cards with '+cat+' parts over \u20b93,000':'Job cards with A+P parts over \u20b93,000',function(o){return o.ap3;},N,1,jcs,false]);
+  if(one){   // same split as the table on the right: job cards with none of this category first, then the ranges
+    var bl='Job cards by '+cat+' parts cost \u00b7 ';
+    L.push(['Job cards with no '+cat+' parts',function(o){return o.k0;},N,-1,jcs,true],
+      [bl+'\u20b90\u20132.5k',function(o){return o.k1;},N,-1,jcs,true],
+      [bl+'\u20b92.5k\u20135k',function(o){return o.k2;},N,1,jcs,true],
+      [bl+'\u20b95k\u201310k',function(o){return (+o.k3||0)+(+o.k4||0);},N,1,jcs,true],
+      [bl+'above \u20b910k',function(o){return o.k5;},N,1,jcs,true]);
+  } else {
+    L.push(['Job cards by parts cost \u00b7 \u20b90\u20132.5k',function(o){return o.b1;},N,-1,jcs,true],
+      ['Job cards by parts cost \u00b7 \u20b92.5k\u20135k',function(o){return o.b2;},N,1,jcs,true],
+      ['Job cards by parts cost \u00b7 \u20b95k\u201310k',function(o){return o.b3;},N,1,jcs,true],
+      ['Job cards by parts cost \u00b7 above \u20b910k',function(o){return o.b4;},N,1,jcs,true]);
+  }
+  L.push(['Average TAT',function(o){return o.tn?o.tsum/o.tn:null;},ddH,1,null,false],
     ['Median TAT',function(o){return o.med;},ddH,1,null,false],
     ['90th percentile TAT',function(o){return o.p90;},ddH,1,null,false],
     ['Closed within 24 h',function(o){return o.w24;},N,-1,jcs,true],
-    ['Open 30+ days',function(o){return o.l30;},N,1,null,false],
-    ['Rider damage fee charged',function(o){return o.fc;},R,0,null,false],
-    ['Rider damage fee collected',function(o){return o.fp;},R,-1,function(o){return o.fc;},false]];
+    ['Open 30+ days',function(o){return o.l30;},N,1,null,false]);
+  var fee=(!one||cat==='P');   // damage fee belongs to rider-payable parts
+  if(fee) L.push(['Rider damage fee charged',function(o){return o.fc;},R,0,null,false],
+    ['Rider damage fee collected',function(o){return o.fp;},R,-1,function(o){return o.fc;},false]);
   if(cur.rr>0) L.push(['7-day comeback (back within 7 days)',function(o){return o.back7;},N,1,function(o){return o.rr;},true]);
   var cellTxt=function(g,fm,sb,o,f){ if(!o) return '\u2013'; var v=g(o,f), b=sb?sb(o):null; return fm(v)+((sb&&b&&v!=null)?' <span class="sub">('+Math.round(v/b*100)+'%)</span>':''); };
   var body=''; L.forEach(function(d){ var g=d[1], fm=d[2], sb=d[4], pts=d[5], vc=g(cur,sc.cur), vp=prv?g(prv,sc.prev):null, shC=(sb&&sb(cur))?vc/sb(cur):null, shP=(prv&&sb&&sb(prv))?vp/sb(prv):null;
     var delta=pts?ddPts(shC,shP,d[3]):ddDir(vc,vp,d[3]);
     body+='<tr><td>'+esc(d[0])+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
   // breakup of the job cards by what each job card cost in parts (A+P+C): job cards, cost and share of cost, this month and last month
-  var ft=function(o,f){ var raw=(+o.a||0)+(+o.p||0)+(+o.c||0); return raw>0?((+o.a||0)*f.A+(+o.p||0)*f.P+(+o.c||0)*f.C)/raw:1; };
-  var BK=[['\u20b90\u20132.5k','k1','s1'],['\u20b92.5k\u20135k','k2','s2'],['\u20b95k\u20137.5k','k3','s3'],['\u20b97.5k\u201310k','k4','s4'],['Above \u20b910k','k5','s5']];
+  var ft=function(o,f){ if(one) return f[cat]; var raw=(+o.a||0)+(+o.p||0)+(+o.c||0); return raw>0?((+o.a||0)*f.A+(+o.p||0)*f.P+(+o.c||0)*f.C)/raw:1; };
+  var BK=(one?[['No '+cat+' parts','k0','s0']]:[]).concat([['\u20b90\u20132.5k','k1','s1'],['\u20b92.5k\u20135k','k2','s2'],['\u20b95k\u20137.5k','k3','s3'],['\u20b97.5k\u201310k','k4','s4'],['Above \u20b910k','k5','s5']]);
   var tot=function(o,f){ var fx=ft(o,f), n=0, c=0; BK.forEach(function(d){ n+=(+o[d[1]]||0); c+=(+o[d[2]]||0)*fx; }); return {n:n,c:c,fx:fx}; };
   var tc=tot(cur,sc.cur), tp=prv?tot(prv,sc.prev):null;
   var pctJ=function(n,tn){ return tn?' <span class="sub">('+Math.round(n/tn*100)+'%)</span>':''; };
@@ -736,9 +747,9 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   bkRows+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td>All job cards</td>'+pair(N(tc.n), tp?N(tp.n):'')+pair(R(tc.c), tp?R(tp.c):'')+pair('100%','100%')+'</tr>';
   var th=function(label){ return '<th colspan="'+(np?1:2)+'" style="text-align:center">'+label+'</th>'; };
   var mh=function(){ return (np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'; };
-  var right='<div><div style="font-weight:700;margin-bottom:6px">Breakup by parts cost per job card (A+P+C)</div><table style="width:auto;min-width:560px"><tr><th rowspan="2" style="text-align:left">Parts cost of the job card</th>'+th('Job cards')+th('Cost \u20b9')+th('% of cost')+'</tr><tr>'+mh()+mh()+mh()+'</tr>'+bkRows+'</table><p class="sub" style="margin:6px 0 0">Each job card sits in the bucket of its own total parts cost. Cost = the parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all parts cost for this type.</p></div>';
+  var right='<div><div style="font-weight:700;margin-bottom:6px">Breakup by '+(one?cat+' parts':'parts')+' cost per job card'+(one?'':' (A+P+C)')+'</div><table style="width:auto;min-width:560px"><tr><th rowspan="2" style="text-align:left">'+(one?cat+' parts':'Parts')+' cost of the job card</th>'+th('Job cards')+th('Cost \u20b9')+th('% of cost')+'</tr><tr>'+mh()+mh()+mh()+'</tr>'+bkRows+'</table><p class="sub" style="margin:6px 0 0">'+(one?'Each job card sits in the bucket of its own '+cat+' parts cost; job cards with no '+cat+' parts are in the first row. Cost = the '+cat+' parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+cat+' parts cost for this type.':'Each job card sits in the bucket of its own total parts cost. Cost = the parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all parts cost for this type.')+'</p></div>';
   var cityTxt=D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city);
-  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. A / P / C amounts use the same adjustment as the table above, so they add up to the headline. '+ddFacNote(sc)+' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.</p>';
+  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p>';
 }
 function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month beneath
   var a=ddPair(D), S=ddGet('H'), T=ddGet('T'); if(!S||!T){ ddLoadHubs(); ddLoadTypes(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
@@ -753,7 +764,7 @@ function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month 
     +ddTwo(ddInr(r.c.amt), ddInr(r.p.amt), ddDir(r.c.amt,r.p.amt,1), pl, np)
     +ddTwo(r.c.j?ddInr(r.c.amt/r.c.j):'\u2013', r.p.j?ddInr(r.p.amt/r.p.j):'\u2013', ddDir(perJ(r.c),perJ(r.p),1), pl, np)
     +ddTwo(ddTat(r.c.tat), ddH(r.p.tat), ddDir(r.c.tat,r.p.tat,1), pl, np)+'</tr>'; });
-  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath. TAT = job card opened to billed.'+' '+ddFacNote(sc)+' Click a hub to see which parts drove its cost.</p></div>';
+  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath. TAT = job card opened to billed.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+' Click a hub to see which parts drove its cost.</p></div>';
 }
 function ddLvlParts(D,h){   // level 2: parts at the hub for this submission type, last month beneath
   var a=ddPair(D), S=ddGet('P'), S2=a.prev?ddGet('P2'):null, T=ddGet('T'); if(!S||!T||(a.prev&&!S2)){ ddLoadParts(); ddLoadTypes(); return ddLoading(h,'Loading parts\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
@@ -769,7 +780,7 @@ function ddLvlParts(D,h){   // level 2: parts at the hub for this submission typ
       +ddTwo(ddInr(r.amt), ddInr(p.amt), ddDir(r.amt,p.amt,1), pl, np)
       +'<td>'+(tc?(r.amt/tc*100).toFixed(1)+'%':'')+'</td>'
       +ddTwo(uc==null?'\u2013':ddInr(uc), up==null?'\u2013':ddInr(up), ddDir(uc,up,1), pl, np)+'</tr>'; });
-  return h+'<div class="tw"><table><tr><th>Part (click for job cards)</th><th>'+C.monthLabel(a.cur)+' qty</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>Share</th><th>\u20b9 / unit</th></tr>'+body+'</table></div>'+(pr.length>30?'<p class="sub">Top 30 of '+pr.length+' parts.</p>':'')+'<p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only, from the job-card data. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath.'+' '+ddFacNote(sc)+'</p></div>';
+  return h+'<div class="tw"><table><tr><th>Part (click for job cards)</th><th>'+C.monthLabel(a.cur)+' qty</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>Share</th><th>\u20b9 / unit</th></tr>'+body+'</table></div>'+(pr.length>30?'<p class="sub">Top 30 of '+pr.length+' parts.</p>':'')+'<p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only, from the job-card data. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+'</p></div>';
 }
 function ddLvlJC(D,h){   // level 3: job cards, with TAT
   var S=ddGet('J'); if(!S){ ddLoadJC(); return ddLoading(h,'Loading job cards\u2026'); } if(S.error) return ddErr(h,S.error);
