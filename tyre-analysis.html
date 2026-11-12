@@ -443,6 +443,14 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
         <div id="kmb-list"></div>
       </div>
 
+      <!-- 12 Nov 2026: cost per km since last change, by part and month (month-on-month change) -->
+      <div class="card" data-sec="life" style="margin-bottom:20px">
+        <div class="card-hd"><h2>₹ / km by month</h2><span class="sub">cost ÷ km the previous part lasted · follows the City and Deployed Year filters above</span>
+          <div style="display:flex;gap:6px;margin-left:auto"><button class="btn-export" onclick="exportCpkCSV()"><i class="ti ti-table-export"></i> CSV</button></div></div>
+        <div style="font-size:11px;color:var(--muted,#64748b);padding:0 16px 8px">Each month: billed cost of the replacements done that month (with a known previous change) ÷ km the previous parts lasted. Arrow = change vs the previous month: <span style="color:#b91c1c">▲ costlier per km</span>, <span style="color:#15803d">▼ cheaper per km</span>. Grey = based on fewer than 30 replacements. Job-card history starts Jan 2026, so early months under-count long-lasting parts (tyres): their ₹ / km reads high in Jun–Aug.</div>
+        <div class="tbl-wrap"><div id="cpk-body"><div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div></div></div>
+      </div>
+
       <!-- Replacements by Odometer (3 Nov 2026): one part; rows = bike odometer at replacement, columns = months -->
       <div class="card" data-sec="life" style="margin-bottom:20px">
         <div class="card-hd"><h2 id="odb-title">Replacements by Odometer</h2><span class="sub" id="odb-updated">—</span>
@@ -1096,7 +1104,43 @@ function kmbInitMonths() {
   sel.innerHTML = out.join('');
 }
 function setKmbShow(btn) { document.querySelectorAll('#kmb-show button').forEach(b => b.classList.toggle('on', b === btn)); KMB.show = btn.dataset.v; renderKmb(); }
+// ₹ / km by month (12 Nov 2026)
+let CPK = { data: null, key: '' };
+async function loadCpk() {
+  const city = document.getElementById('top-city').value || null, yr = (document.getElementById('kmb-year') || {}).value || null;
+  const key = (city || '') + '|' + (yr || ''); if (CPK.key === key && CPK.data) return; CPK.key = key;
+  const box = document.getElementById('cpk-body'); if (!box) return;
+  box.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
+  try { CPK.data = await rpcU('wear_tear_cost_per_km_monthly', { p_months: 6, p_city: city, p_deploy_year: yr }); }
+  catch (e) { box.innerHTML = '<div style="padding:16px;color:#b91c1c">Could not load: ' + (e.message || e) + '</div>'; CPK.key = ''; return; }
+  renderCpk();
+}
+function renderCpk() {
+  const box = document.getElementById('cpk-body'), D = CPK.data; if (!box || !D) return;
+  const months = D.months || [], by = {}; (D.rows || []).forEach(r => { (by[r.part] = by[r.part] || {})[r.mon] = r; });
+  const order = ['Front Brake Pad','Rear Brake Pad','Fr Brake Shoe Set - Drum','Rr Brake Shoe Set - Drum','Front Tyre (12 Inch / Zoom)','Rear Tyre (Energy Ride / 12Inch)','Rear Tyre 12 Inch (Zoom)','Cone Set Assy','Front Wheel Bearing'];
+  const parts = order.filter(p => by[p]).concat(Object.keys(by).filter(p => !order.includes(p)));
+  const mLbl = m => { const d = new Date(m + '-01T00:00:00'); return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); };
+  const cur = (() => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); })();
+  const cell = (part, i) => {
+    const r = (by[part] || {})[months[i]]; if (!r || r.cost_per_km == null) return '<td class="num" style="color:#cbd5e1">–</td>';
+    const v = +r.cost_per_km, thin = (+r.n_known || 0) < 30;
+    let d = ''; for (let j = i - 1; j >= 0; j--) { const p = (by[part] || {})[months[j]]; if (p && p.cost_per_km != null) { const pv = +p.cost_per_km; if (pv > 0) { const pc = (v - pv) / pv * 100;
+      d = Math.abs(pc) < 0.5 ? '<span style="color:#94a3b8;font-size:10.5px"> 0%</span>' : `<span style="color:${pc > 0 ? '#b91c1c' : '#15803d'};font-size:10.5px"> ${pc > 0 ? '▲' : '▼'}${Math.abs(pc).toFixed(0)}%</span>`; } break; } }
+    const tip = `₹${v.toFixed(4)} per km · ₹${(+r.cost_known || 0).toLocaleString('en-IN')} over ${(+r.km_known || 0).toLocaleString('en-IN')} km · based on ${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_total || 0).toLocaleString('en-IN')} replacements · avg cost ₹${r.avg_cost != null ? (+r.avg_cost).toLocaleString('en-IN') : '–'}`;
+    return `<td class="num" title="${tip}" style="${thin ? 'color:#94a3b8' : ''}">₹${v.toFixed(4)}${d}<div class="sub" style="font-size:10px;color:#94a3b8">${(+r.n_known || 0).toLocaleString('en-IN')} repl.</div></td>`;
+  };
+  box.innerHTML = `<table><thead><tr><th style="text-align:left">Part</th>${months.map(m => `<th class="num">${mLbl(m)}${m === cur ? ' (so far)' : ''}</th>`).join('')}</tr></thead><tbody>${
+    parts.map(p => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[p] || p}</td>${months.map((m, i) => cell(p, i)).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function exportCpkCSV() {
+  const D = CPK.data; if (!D) return; const months = D.months || [], by = {}; (D.rows || []).forEach(r => { (by[r.part] = by[r.part] || {})[r.mon] = r; });
+  const rows = [['Part', ...months.flatMap(m => [m + ' Rs per km', m + ' based on'])]];
+  Object.keys(by).forEach(p => rows.push([KMB_NAME[p] || p, ...months.flatMap(m => { const r = by[p][m]; return [r && r.cost_per_km != null ? r.cost_per_km : '', r ? r.n_known : '']; })]));
+  kmbDownload('cost-per-km-by-month.csv', rows);
+}
 async function loadKmb() {
+  loadCpk();
   kmbInitMonths();
   const body = document.getElementById('kmb-body');
   body.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
