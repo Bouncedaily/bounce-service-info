@@ -706,20 +706,12 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   if(!one||cat==='A') L.push(['Parts \u20b9 \u00b7 A (wear & tear)',function(o,f){return o.a*f.A;},R,1,null,false]);
   if(!one||cat==='P') L.push(['Parts \u20b9 \u00b7 P (rider-payable)',function(o,f){return o.p*f.P;},R,1,null,false]);
   if(!one||cat==='C') L.push(['Parts \u20b9 \u00b7 C (company)',function(o,f){return o.c*f.C;},R,1,null,false]);
+  var qn=function(o){ return +o.q||0; }, N2=function(v){ return (v==null||!isFinite(v))?'\u2013':v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  L.push([one?cat+' parts quantity':'Parts quantity',qn,N,1,null,false],
+    [one?'Average '+cat+' part cost (\u20b9 per part)':'Average part cost (\u20b9 per part)',function(o,f){ var q=qn(o), c=one?(cat==='A'?o.a*f.A:(cat==='P'?o.p*f.P:o.c*f.C)):(o.a*f.A+o.p*f.P+o.c*f.C); return q>0?c/q:null; },R,1,null,false],
+    [one?'Avg '+cat+' parts per job card':'Avg parts per job card',function(o){ return o.jcs?qn(o)/o.jcs:null; },N2,1,null,false]);
   L.push([one?'Job cards with '+cat+' parts over \u20b93,000':'Job cards with A+P parts over \u20b93,000',function(o){return o.ap3;},N,1,jcs,false]);
-  if(one){   // same split as the table on the right: job cards with none of this category first, then the ranges
-    var bl='Job cards by '+cat+' parts cost \u00b7 ';
-    L.push(['Job cards with no '+cat+' parts',function(o){return o.k0;},N,-1,jcs,true],
-      [bl+'\u20b90\u20132.5k',function(o){return o.k1;},N,-1,jcs,true],
-      [bl+'\u20b92.5k\u20135k',function(o){return o.k2;},N,1,jcs,true],
-      [bl+'\u20b95k\u201310k',function(o){return (+o.k3||0)+(+o.k4||0);},N,1,jcs,true],
-      [bl+'above \u20b910k',function(o){return o.k5;},N,1,jcs,true]);
-  } else {
-    L.push(['Job cards by parts cost \u00b7 \u20b90\u20132.5k',function(o){return o.b1;},N,-1,jcs,true],
-      ['Job cards by parts cost \u00b7 \u20b92.5k\u20135k',function(o){return o.b2;},N,1,jcs,true],
-      ['Job cards by parts cost \u00b7 \u20b95k\u201310k',function(o){return o.b3;},N,1,jcs,true],
-      ['Job cards by parts cost \u00b7 above \u20b910k',function(o){return o.b4;},N,1,jcs,true]);
-  }
+  if(one) L.push(['Job cards with no '+cat+' parts',function(o){return o.k0;},N,-1,jcs,true]);   // the cost ranges are in the table on the right
   L.push(['Average TAT',function(o){return o.tn?o.tsum/o.tn:null;},ddH,1,null,false],
     ['Median TAT',function(o){return o.med;},ddH,1,null,false],
     ['90th percentile TAT',function(o){return o.p90;},ddH,1,null,false],
@@ -749,7 +741,7 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   var mh=function(){ return (np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'; };
   var right='<div><div style="font-weight:700;margin-bottom:6px">Breakup by '+(one?cat+' parts':'parts')+' cost per job card'+(one?'':' (A+P+C)')+'</div><table style="width:auto;min-width:560px"><tr><th rowspan="2" style="text-align:left">'+(one?cat+' parts':'Parts')+' cost of the job card</th>'+th('Job cards')+th('Cost \u20b9')+th('% of cost')+'</tr><tr>'+mh()+mh()+mh()+'</tr>'+bkRows+'</table><p class="sub" style="margin:6px 0 0">'+(one?'Each job card sits in the bucket of its own '+cat+' parts cost; job cards with no '+cat+' parts are in the first row. Cost = the '+cat+' parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+cat+' parts cost for this type.':'Each job card sits in the bucket of its own total parts cost. Cost = the parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all parts cost for this type.')+'</p></div>';
   var cityTxt=D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city);
-  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p>';
+  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+' Average part cost = the \u20b9 above \u00f7 parts quantity; average parts per job card = parts quantity \u00f7 all job cards of this type.'+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p>';
 }
 function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month beneath
   var a=ddPair(D), S=ddGet('H'), T=ddGet('T'); if(!S||!T){ ddLoadHubs(); ddLoadTypes(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
