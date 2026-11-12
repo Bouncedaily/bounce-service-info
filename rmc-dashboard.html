@@ -353,6 +353,7 @@ async function loadAll(){
   var res=[{data:L}];
   state.store=st; state.loading=false;
   state.F.cities=allCities(); state.parts.city=state.mv.city=state.hubs.city=defCity();
+  (function(){ var sm=ls('months'); if(!Array.isArray(sm)) return; var am=allMonths(), keep=sm.filter(function(m){ return am.indexOf(m)>=0; }); state.F.months=(keep.length&&keep.length<am.length)?keep:[]; })();   // 12 Nov 2026: the month filter you used last
   if(state.partial&&state.partial.city){ var pk=state.partial.base+'p';   // [city, avg bikes, km, job cards, with parts, bikes serviced, refurb saving]
     state.partial.city.forEach(function(x){ var c=CITY_CODE[x[0]]; if(!c) return;
       if(x[1]!=null)(state.fleet[c]=state.fleet[c]||{})[pk]=+x[1]; if(x[2]!=null)(state.km[c]=state.km[c]||{})[pk]=+x[2];
@@ -720,24 +721,24 @@ function ddDetailHtml(D,a,t){   // the details panel of one submission type: thi
   var cellTxt=function(g,fm,sb,o,f){ if(!o) return '\u2013'; var v=g(o,f), b=sb?sb(o):null; return fm(v)+((sb&&b&&v!=null)?' <span class="sub">('+Math.round(v/b*100)+'%)</span>':''); };
   var body=''; L.forEach(function(d){ var g=d[1], fm=d[2], sb=d[4], pts=d[5], vc=g(cur,sc.cur), vp=prv?g(prv,sc.prev):null, shC=(sb&&sb(cur))?vc/sb(cur):null, shP=(prv&&sb&&sb(prv))?vp/sb(prv):null;
     var delta=pts?ddPts(shC,shP,d[3]):ddDir(vc,vp,d[3]);
-    body+='<tr><td>'+esc(d[0])+'</td><td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td><td style="text-align:right">'+delta+'</td>')+'</tr>'; });
+    body+='<tr><td>'+esc(d[0])+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
   // breakup of the job cards by what each job card cost in parts (A+P+C): job cards, cost and share of cost, this month and last month
   var ft=function(o,f){ var raw=(+o.a||0)+(+o.p||0)+(+o.c||0); return raw>0?((+o.a||0)*f.A+(+o.p||0)*f.P+(+o.c||0)*f.C)/raw:1; };
   var BK=[['\u20b90\u20132.5k','k1','s1'],['\u20b92.5k\u20135k','k2','s2'],['\u20b95k\u20137.5k','k3','s3'],['\u20b97.5k\u201310k','k4','s4'],['Above \u20b910k','k5','s5']];
   var tot=function(o,f){ var fx=ft(o,f), n=0, c=0; BK.forEach(function(d){ n+=(+o[d[1]]||0); c+=(+o[d[2]]||0)*fx; }); return {n:n,c:c,fx:fx}; };
   var tc=tot(cur,sc.cur), tp=prv?tot(prv,sc.prev):null;
   var pctJ=function(n,tn){ return tn?' <span class="sub">('+Math.round(n/tn*100)+'%)</span>':''; };
+  var G='style="text-align:right;color:#475569"', Rt='style="text-align:right"';
+  var pair=function(curH,prevH){ return (np?'':'<td '+G+'>'+prevH+'</td>')+'<td '+Rt+'>'+curH+'</td>'; };
   var bkRows=''; BK.forEach(function(d){ var nc=+cur[d[1]]||0, cc=(+cur[d[2]]||0)*tc.fx, np2=prv?(+prv[d[1]]||0):0, cp=prv?(+prv[d[2]]||0)*tp.fx:0;
-    bkRows+='<tr><td>'+d[0]+'</td><td style="text-align:right">'+N(nc)+pctJ(nc,tc.n)+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+N(np2)+pctJ(np2,tp.n)+'</td>')
-      +'<td style="text-align:right">'+R(cc)+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+R(cp)+'</td>')
-      +'<td style="text-align:right">'+(tc.c?(cc/tc.c*100).toFixed(1)+'%':'\u2013')+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+(tp&&tp.c?(cp/tp.c*100).toFixed(1)+'%':'\u2013')+'</td>')+'</tr>'; });
-  bkRows+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td>All job cards</td><td style="text-align:right">'+N(tc.n)+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+N(tp.n)+'</td>')
-    +'<td style="text-align:right">'+R(tc.c)+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+R(tp.c)+'</td>')+'<td style="text-align:right">100%</td>'+(np?'':'<td style="text-align:right;color:#475569">100%</td>')+'</tr>';
-  var th=function(label,span){ return '<th colspan="'+(np?1:2)+'" style="text-align:center">'+label+'</th>'; };
-  var mh=function(){ return '<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>'+pl+'</th>'); };
+    bkRows+='<tr><td>'+d[0]+'</td>'+pair(N(nc)+pctJ(nc,tc.n), N(np2)+pctJ(np2,tp?tp.n:0))+pair(R(cc), R(cp))
+      +pair(tc.c?(cc/tc.c*100).toFixed(1)+'%':'\u2013', tp&&tp.c?(cp/tp.c*100).toFixed(1)+'%':'\u2013')+'</tr>'; });
+  bkRows+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td>All job cards</td>'+pair(N(tc.n), tp?N(tp.n):'')+pair(R(tc.c), tp?R(tp.c):'')+pair('100%','100%')+'</tr>';
+  var th=function(label){ return '<th colspan="'+(np?1:2)+'" style="text-align:center">'+label+'</th>'; };
+  var mh=function(){ return (np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'; };
   var right='<div><div style="font-weight:700;margin-bottom:6px">Breakup by parts cost per job card (A+P+C)</div><table style="width:auto;min-width:560px"><tr><th rowspan="2" style="text-align:left">Parts cost of the job card</th>'+th('Job cards')+th('Cost \u20b9')+th('% of cost')+'</tr><tr>'+mh()+mh()+mh()+'</tr>'+bkRows+'</table><p class="sub" style="margin:6px 0 0">Each job card sits in the bucket of its own total parts cost. Cost = the parts cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all parts cost for this type.</p></div>';
   var cityTxt=D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city);
-  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+C.monthLabel(a.cur)+(np?'':' vs '+pl)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th><th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>'+pl+'</th><th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. A / P / C amounts use the same adjustment as the table above, so they add up to the headline. '+ddFacNote(sc)+' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.</p>';
+  return '<div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start"><div><table style="width:auto;min-width:520px"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0">\u25b2\u25bc % = change in the amount; pts = change in the share. A / P / C amounts use the same adjustment as the table above, so they add up to the headline. '+ddFacNote(sc)+' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.</p>';
 }
 function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month beneath
   var a=ddPair(D), S=ddGet('H'), T=ddGet('T'); if(!S||!T){ ddLoadHubs(); ddLoadTypes(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
@@ -1476,7 +1477,7 @@ root.addEventListener('click',function(e){
     else { toggle(state.F.cities,v); if(!state.F.cities.length) state.F.cities=ac.slice(); }
     state.F.cities=ac.filter(function(c){ return state.F.cities.indexOf(c)>=0; });
     state.parts.city=state.mv.city=state.hubs.city=defCity(); state.F.hub=''; state.F.hubs=[]; }
-  else if(a==='month'){ var all=allMonths(); if(!state.F.months.length) state.F.months=all.slice(); toggle(state.F.months,v); if(!state.F.months.length||state.F.months.length===all.length) state.F.months=[]; }
+  else if(a==='month'){ var all=allMonths(); if(!state.F.months.length) state.F.months=all.slice(); toggle(state.F.months,v); if(!state.F.months.length||state.F.months.length===all.length) state.F.months=[]; ls('months',state.F.months); }   // 12 Nov 2026: remember the month filter in this browser
   else if(a==='unit'){ state.unit=v; if(state.disp==='pct') state.disp=state.withPct?'both':'val'; }
   else if(a==='psub'){ if(!v) state.psub=[]; else toggle(state.psub, v); }
   else if(a==='cchide'){ var hd=ccHidden(); hd[v]=!hd[v]; try{ localStorage.setItem('rmc_cc_hide', JSON.stringify(hd)); }catch(e2){} }
