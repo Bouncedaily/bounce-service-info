@@ -856,6 +856,12 @@ function drillCSV(){ if(ddTyped(state.drill)) return ddCsvTyped(); var D=state.d
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='rmc-jobcards-'+(D.hub.split('|').pop())+'-'+D.m+'.csv'; a.click(); }
 /* ---------- parts cost by bike model (13 Nov 2026) ---------- */
 // Bikes (or km) of one model: the city's bikes x the model's share of the city fleet (today's mix), the same method as the Model filter.
+function modelCostsNow(){   // parts cost by model for the current filters; computed once per render
+  if(state._mc!==undefined && state._mc!==null) return state._mc;
+  if(state.F.model || state.F.hub || state.F.dyear) return null;
+  var models=modelsOf(); if(!models.length) return null;
+  var cx=ctx(), cost={}; models.forEach(function(md){ cost[md]=C.compute(state.store,cx,Object.assign({},state.F,{model:md})); });
+  return (state._mc={models:models, cost:cost}); }
 function denModel(c, m, unit, md){ var sv=state.F.model; state.F.model=md; var d=null; try{ d=den(c,m,unit); }catch(e){ d=null; } state.F.model=sv; return d; }
 function modelCostHtml(model){
   var card=function(inner){ return '<div class="card"><h3>Parts cost by bike model</h3>'+inner+'</div>'; };
@@ -869,7 +875,7 @@ function modelCostHtml(model){
   var idx=(pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
   var mC=cols[idx[1]], mP=idx[0]>=0?cols[idx[0]]:null; if(!mC) return '';
   var models=modelsOf(); if(!models.length) return '';
-  var cx=ctx(), cost={}; models.forEach(function(md){ cost[md]=C.compute(state.store,cx,Object.assign({},state.F,{model:md})); });
+  var MC0=modelCostsNow(), cost=MC0?MC0.cost:{}; if(!MC0) return '';
   var one=function(md,c,m){ var d=cost[md][c]&&cost[md][c][m], b=denModel(c,m,'bike',md); if(!d||!b) return null;   // no bikes of this model in that city
     return {amt:d.A+d.P+d.C, A:d.A, P:d.P, C:d.C, bikes:b, jcs:exJcs(c,m,'',md,state.stSel)}; };
   var get=function(md,c,m){ if(!m) return null; if(c!=='ALL') return one(md,c,m);
@@ -997,7 +1003,7 @@ function cityCompareHtml(model){
   h+=dline('Job cards billed this month that were opened this month',dv('smo'),FP,-1);
   // job-card mix by submission type
   var STs=(state.stTypes||['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']);
-  h+=sec('Job-card mix by submission type');
+  h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model</span>');
   STs.forEach(function(t){ h+=dline('% of job cards \u00b7 '+t,function(c,m){ var e=extrasFor(c,m); return (e&&e.jcs)?((e.st[t]||{}).jcs||0)/e.jcs:null; },FP,0); });
   STs.forEach(function(t){ h+=dline('Parts \u20b9 per job card \u00b7 '+t,function(c,m){ var e=extrasFor(c,m), o=e&&e.st[t]; return (o&&o.jcs)?o.amt/o.jcs:null; },F0,1); });
   // 12 Nov 2026: parts cost (A+P+C) by submission type follows the Show filter: \u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value
@@ -1020,6 +1026,33 @@ function cityCompareHtml(model){
         else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
         h+='<td style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
     h+='</tr>'; });
+  // 13 Nov 2026: the same mix by bike model: share of job cards, parts per job card, parts cost in the Show unit (not shown while a Model, Hub or Deployed-year filter is on)
+  var MC=modelCostsNow();
+  if(MC && MC.models.length>1){
+    var mAmt=function(md,c,m){ var cs2=c==='ALL'?state.F.cities:[c], t=0, any=false; cs2.forEach(function(x){ var d=MC.cost[md][x]&&MC.cost[md][x][m]; if(d){ t+=d.A+d.P+d.C; any=true; } }); return any?t:null; };
+    var mJcs=function(md,c,m){ var cs2=c==='ALL'?state.F.cities:[c], t=0, any=false; cs2.forEach(function(x){ var n=exJcs(x,m,'',md,state.stSel); if(n!=null){ t+=n; any=true; } }); return any?t:null; };
+    var order=MC.models.filter(function(md){ return cities.some(function(c){ return cols.some(function(m){ return (mJcs(md,c,m)||0)>0 || (mAmt(md,c,m)||0)>0; }); }); });
+    order.sort(function(a,b){ var f=function(md){ return cities.reduce(function(t,c){ return t+(c==='ALL'?0:(mAmt(md,c,latest)||0)); },0); }; return f(b)-f(a); });
+    if(order.length>1){
+      h+='<tr><td colspan="'+nCols+'" style="padding:8px 8px 2px;font-weight:600;color:#475569">By bike model <span style="font-weight:400;font-size:12px;color:#64748b">\u2014 parts A+P+C; per bike = the model\u2019s parts cost \u00f7 all the city\u2019s bikes, so the models add up to the total (cost per bike of each model is in the card below)</span></td></tr>';
+      var totJ=function(c,m){ var cs2=c==='ALL'?state.F.cities:[c], t=0, any=false; cs2.forEach(function(x){ var n=exJcs(x,m,'','',state.stSel); if(n!=null){ t+=n; any=true; } }); return any?t:null; };
+      order.forEach(function(md){ h+=dline('% of job cards \u00b7 '+md,function(c,m){ var a=mJcs(md,c,m), b=totJ(c,m); return (a!=null&&b)?a/b:null; },FP,0); });
+      order.forEach(function(md){ h+=dline('Parts \u20b9 per job card \u00b7 '+md,function(c,m){ var a=mAmt(md,c,m), n=mJcs(md,c,m); return (a!=null&&n)?a/n:null; },F0,1); });
+      order.forEach(function(md){
+        var k='drv:Parts cost \u00b7 '+md; if(!ccOn(k)) return;
+        var label=(state.disp==='pct'?'Share of parts cost':'Parts cost ('+unitName()+')')+' \u00b7 '+md;
+        h+='<tr><td>'+ccBtn(k)+label+'</td>';
+        cities.forEach(function(c){
+          var cells=cols.map(function(m){ if(!model[c][m]) return null; var a=mAmt(md,c,m), d=model[c][m], tot=d.A+d.P+d.C; return (a!=null&&tot)?{v:val(a,c,m), s:a/tot}:null; });
+          var pctMode=state.disp==='pct', base=cells.map(function(x){ return x?(pctMode?x.s:x.v):null; }), dir=pctMode?0:1, bg=shade(base,dir), bdg=badge(base,dir);
+          cols.forEach(function(m,i){ var x=cells[i], txt;
+            if(!x||(!pctMode&&!ok(x.v))) txt='\u2013';
+            else if(pctMode) txt=typeShare(x.s);
+            else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
+            h+='<td style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
+        h+='</tr>'; });
+    }
+  }
   h+=dline('Bikes serviced',dv('bikes'),F0,0,'grey');
   h+=dline('Job cards',dv('jcs'),F0,0,'grey');
   // job cards by parts cost, Recovery and Rider Submission: job cards (share beside it only when ticked); colours compare the SHARE, latest vs previous month
@@ -1477,7 +1510,7 @@ function viewSettings(){
 function viewEmpty(){ return '<div class="empty">'+(state.loading?'Loading RMC data…':esc(state.msg||'No data'))+'</div>'; }
 function render(){
   if(state.tab==='dist') state.tab='overview';   // Replacement km tab removed (30 Oct 2026); hubs is back as Hub league (6 Nov 2026)
-  state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['hubs','Hub league','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
+  state._mc=null; state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['hubs','Hub league','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
   var emb=EMBEDS[state.tab]; if(emb && !canSeeEmbed(state.tab)){ state.tab='overview'; emb=null; }
   var body=emb ? '' : !has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
   root.innerHTML='<div class="hd"><div><h1>RMC Dashboard</h1><p>Wear &amp; Tear (A), Rider-payable (P), Cost to company (C) from the DMS billing export · Net service cost with monthly inputs</p></div><div class="grp"><span class="status" id="svc-status">'+esc(state.msg)+'</span>'
