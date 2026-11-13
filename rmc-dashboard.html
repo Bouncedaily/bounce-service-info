@@ -859,57 +859,12 @@ function drillCSV(){ if(ddTyped(state.drill)) return ddCsvTyped(); var D=state.d
   var csv=['Job card,Bike,Model,Billed,Category,Qty,Amount,Came in by,Technician'].concat(J.rows.map(function(x){ return [x[0],x[1],x[8],x[2],x[3],x[5],x[4],x[6],x[7]].map(q).join(','); })).join('\n');
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='rmc-jobcards-'+(D.hub.split('|').pop())+'-'+D.m+'.csv'; a.click(); }
 /* ---------- parts cost by bike model (13 Nov 2026) ---------- */
-// Bikes (or km) of one model: the city's bikes x the model's share of the city fleet (today's mix), the same method as the Model filter.
 function modelCostsNow(){   // parts cost by model for the current filters; computed once per render
   if(state._mc!==undefined && state._mc!==null) return state._mc;
   if(state.F.model || state.F.hub || state.F.dyear) return null;
   var models=modelsOf(); if(!models.length) return null;
   var cx=ctx(), cost={}; models.forEach(function(md){ cost[md]=C.compute(state.store,cx,Object.assign({},state.F,{model:md})); });
   return (state._mc={models:models, cost:cost}); }
-function denModel(c, m, unit, md){ var sv=state.F.model; state.F.model=md; var d=null; try{ d=den(c,m,unit); }catch(e){ d=null; } state.F.model=sv; return d; }
-function modelCostHtml(model){
-  var card=function(inner){ return '<div class="card"><h3>Parts cost by bike model</h3>'+inner+'</div>'; };
-  if(state.F.model || state.F.hub || state.F.dyear) return card('<p class="sub">Clear the Model, Hub and Deployed-year filters to compare bike models.</p>');
-  var cities=state.F.cities.filter(function(c){ return model[c]; }); if(!cities.length) return '';
-  var list=(cities.length>1?['ALL']:[]).concat(cities), all={};
-  list.forEach(function(c){ Object.keys(model[c]||{}).forEach(function(m){ all[m]=1; }); });
-  var ms=selMonths().filter(function(m){ return all[m]; }); if(!ms.length) return '';
-  var latest=ms[ms.length-1], pk=ms.filter(function(m){ return /p$/.test(m); })[0], full=ms.filter(function(m){ return !/p$/.test(m) && !isPartialMonth(m); });
-  var cols=full.slice(-3); if(pk) cols.push(pk); if(cols.indexOf(latest)<0) cols.push(latest);   // the same pair of columns as the city comparison
-  var idx=(pk && isPartialMonth(latest)) ? [cols.indexOf(pk), cols.indexOf(latest)] : [cols.length-2, cols.length-1];
-  var mC=cols[idx[1]], mP=idx[0]>=0?cols[idx[0]]:null; if(!mC) return '';
-  var models=modelsOf(); if(!models.length) return '';
-  var MC0=modelCostsNow(), cost=MC0?MC0.cost:{}; if(!MC0) return '';
-  var one=function(md,c,m){ var d=cost[md][c]&&cost[md][c][m], b=denModel(c,m,'bike',md); if(!d||!b) return null;   // no bikes of this model in that city
-    return {amt:d.A+d.P+d.C, A:d.A, P:d.P, C:d.C, bikes:b, jcs:exJcs(c,m,'',md,state.stSel)}; };
-  var get=function(md,c,m){ if(!m) return null; if(c!=='ALL') return one(md,c,m);
-    var t={amt:0,A:0,P:0,C:0,bikes:0,jcs:0}, any=false, jok=true;
-    cities.forEach(function(x){ var o=one(md,x,m); if(!o) return; any=true; ['amt','A','P','C','bikes'].forEach(function(k){ t[k]+=o[k]; }); if(o.jcs==null) jok=false; else t.jcs+=o.jcs; });
-    if(!any) return null; if(!jok) t.jcs=null; return t; };
-  var cityTot=function(c,m){ if(!m||!model[c]||!model[c][m]) return null; var d=model[c][m], b=den(c,m,'bike'); if(!b) return null;
-    var j=null; if(c==='ALL'){ var t=0, ok2=true; cities.forEach(function(x){ var q=exJcs(x,m,'','',state.stSel); if(q==null) ok2=false; else t+=q; }); j=ok2?t:null; } else j=exJcs(c,m,'','',state.stSel);
-    return {amt:d.A+d.P+d.C, A:d.A, P:d.P, C:d.C, bikes:b, jcs:j}; };
-  var ok=function(v){ return v!=null && isFinite(v); };
-  var R0=function(v){ return ok(v)?'\u20b9'+Math.round(v).toLocaleString('en-IN'):'\u2013'; }, N0=function(v){ return ok(v)?Math.round(v).toLocaleString('en-IN'):'\u2013'; };
-  var P0=function(v){ return ok(v)?Math.round(v*100)+'%':'\u2013'; }, F2=function(v){ return ok(v)?v.toFixed(2):'\u2013'; };
-  var chg=function(v){ if(!ok(v)) return '\u2013'; var p=Math.round(v*100); if(!p) return '<span style="color:#64748b">0%</span>'; return '<span style="font-weight:700;color:'+(p>0?'#b91c1c':'#15803d')+'">'+(p>0?'\u25b2':'\u25bc')+Math.abs(p)+'%</span>'; };
-  var vsAvg=function(v){ if(!ok(v)) return '\u2013'; var p=Math.round(v*100); return '<span style="color:'+(p>=10?'#b91c1c':(p<=-10?'#15803d':'#475569'))+';font-weight:600">'+(p>0?'+':(p<0?'\u2212':''))+Math.abs(p)+'%</span>'; };
-  var L='style="text-align:left"', body='';
-  var rowHtml=function(label,mdLabel,x,xp,tot,bold){ var pb=x&&x.bikes?x.amt/x.bikes:null, pp=xp&&xp.bikes?xp.amt/xp.bikes:null, avg=tot&&tot.bikes?tot.amt/tot.bikes:null, st=bold?' style="font-weight:700;border-top:1px solid #cbd5e1"':'';
-    return '<tr'+st+'><td '+L+'>'+label+'</td><td '+L+'>'+mdLabel+'</td><td>'+(bold?'100%':P0(x&&tot&&tot.bikes?x.bikes/tot.bikes:null))+'</td><td>'+N0(x&&x.bikes)+'</td><td>'+N0(x&&x.jcs)+'</td><td>'+F2(x&&x.jcs!=null&&x.bikes?x.jcs/x.bikes:null)+'</td><td>'+R0(x&&x.jcs?x.amt/x.jcs:null)+'</td>'
-      +'<td style="color:#475569">'+R0(pp)+'</td><td style="font-weight:700">'+R0(pb)+'</td><td>'+chg(ok(pb)&&ok(pp)&&pp?(pb-pp)/pp:null)+'</td><td>'+(bold?'\u2013':vsAvg(ok(pb)&&ok(avg)&&avg?pb/avg-1:null))+'</td>'
-      +'<td>'+R0(x&&x.bikes?x.A/x.bikes:null)+'</td><td>'+R0(x&&x.bikes?x.P/x.bikes:null)+'</td><td>'+R0(x&&x.bikes?x.C/x.bikes:null)+'</td></tr>'; };
-  list.forEach(function(c){
-    var tot=cityTot(c,mC), rows=models.map(function(md){ return {md:md, x:get(md,c,mC), xp:get(md,c,mP)}; }).filter(function(r){ return r.x; }).sort(function(a,b){ return b.x.bikes-a.x.bikes; });
-    if(!rows.length) return;
-    rows.forEach(function(r,i){ body+=rowHtml(i?'':(c==='ALL'?'Overall':cityName(c)), esc(r.md), r.x, r.xp, tot, false); });
-    if(tot) body+=rowHtml('', 'All models', tot, cityTot(c,mP), tot, true);
-  });
-  if(!body) return '';
-  return card('<p class="sub">Parts cost (A+P+C) per bike of each model, '+(mP?C.monthLabel(mP)+' \u2192 ':'')+C.monthLabel(mC)+'. Per bike = the model\u2019s parts cost \u00f7 that model\u2019s bikes; bikes of a model = the city\u2019s bikes \u00d7 the model\u2019s share of today\u2019s fleet (the same method as the Model filter). Red = costs more than the city average; the change column is ordered the same way as the rest of the page (red = up).</p>'
-    +'<div class="tw"><table><tr><th '+L+'>City</th><th '+L+'>Model</th><th>Fleet share</th><th>Bikes</th><th>Job cards</th><th>Job cards per bike</th><th>Parts \u20b9 per job card</th><th>Parts \u20b9/bike '+(mP?C.monthLabel(mP):'')+'</th><th>Parts \u20b9/bike '+C.monthLabel(mC)+'</th><th>Change</th><th>vs city average</th><th>A \u20b9/bike</th><th>P \u20b9/bike</th><th>C \u20b9/bike</th></tr>'+body+'</table></div>'
-    +'<p class="sub" style="margin-top:6px">Fleet mix is a current snapshot, so a model whose share of the fleet changed during the period is slightly mis-stated. Job cards per model come from the same data as the Model filter.</p>');
-}
 function cityCompareHtml(model){
   var cities=state.F.cities.filter(function(c){ return model[c]; }); if(cities.length<2) return '';
   if(model.ALL) cities=['ALL'].concat(cities);   // 2 Nov 2026: Overall (all selected cities together) before the cities
@@ -1042,7 +997,7 @@ function cityCompareHtml(model){
     var order=MC.models.filter(function(md){ return cities.some(function(c){ return cols.some(function(m){ return (mJcs(md,c,m)||0)>0 || (mAmt(md,c,m)||0)>0; }); }); });
     order.sort(function(a,b){ var f=function(md){ return cities.reduce(function(t,c){ return t+(c==='ALL'?0:(mAmt(md,c,latest)||0)); },0); }; return f(b)-f(a); });
     if(order.length>1){
-      h+='<tr><td colspan="'+nCols+'" style="padding:8px 8px 2px;font-weight:600;color:#475569">By bike model <span style="font-weight:400;font-size:12px;color:#64748b">\u2014 parts A+P+C; per bike = the model\u2019s parts cost \u00f7 all the city\u2019s bikes, so the models add up to the total (cost per bike of each model is in the card below)</span></td></tr>';
+      h+='<tr><td colspan="'+nCols+'" style="padding:8px 8px 2px;font-weight:600;color:#475569">By bike model <span style="font-weight:400;font-size:12px;color:#64748b">\u2014 parts A+P+C; per bike = the model\u2019s parts cost \u00f7 all the city\u2019s bikes, so the models add up to the total</span></td></tr>';
       var totJ=function(c,m){ var cs2=c==='ALL'?state.F.cities:[c], t=0, any=false; cs2.forEach(function(x){ var n=exJcs(x,m,'','',state.stSel); if(n!=null){ t+=n; any=true; } }); return any?t:null; };
       order.forEach(function(md){
         var k='drv:Parts cost \u00b7 '+md; if(!ccOn(k)) return;
@@ -1075,19 +1030,6 @@ function cityCompareHtml(model){
   h+=line('Extra fee collected (not part of P cost)',pv(function(v){return v.extra;}),FM,-1,'grey');
   h+=line('Job cards with P-category lines',function(c,m){ var v=PV[c+'|'+m]; return v?v.jcs:null; },F0,0,'grey');
   h+='</table></div>';
-  var bi=cmpIdx[0], bj=cmpIdx[1];
-  if(cols[bi] && cols[bj]){
-    h+='<h3 style="margin-top:18px">What moved parts cost per bike \u00b7 '+C.monthLabel(cols[bi])+' \u2192 '+C.monthLabel(cols[bj])+'</h3><div class="tw"><table><tr><th>City</th><th>Parts \u20b9/bike before</th><th>Job cards per bike</th><th>Parts per job card</th><th>Cost per part</th><th>Parts \u20b9/bike after</th></tr>';
-    cities.forEach(function(c){ var a=DV[c+'|'+cols[bi]], b=DV[c+'|'+cols[bj]];
-      var ok3=a&&b&&a.fleet&&b.fleet&&a.jcs&&b.jcs&&a.units&&b.units&&a.parts&&b.parts;
-      if(!ok3){ h+='<tr><td>'+cityName(c)+'</td><td colspan="5" style="color:#6b7280">\u2013 (job card or part counts incomplete)</td></tr>'; return; }
-      var f=[[a.jcs/a.fleet,b.jcs/b.fleet],[a.units/a.jcs,b.units/b.jcs],[a.parts/a.units,b.parts/b.units]];
-      var pa=a.parts/a.fleet, pb=b.parts/b.fleet, d=pb-pa, L=Math.log(pb/pa);
-      var parts3=f.map(function(x){ return Math.abs(L)<1e-9?0:d*Math.log(x[1]/x[0])/L; });
-      var cellB=function(v){ var col=v>0?'#b91c1c':'#15803d'; return '<td style="color:'+col+';font-weight:600">'+(v>0?'+':'\u2212')+'\u20b9'+Math.abs(Math.round(v))+'</td>'; };
-      h+='<tr><td>'+cityName(c)+'</td><td>\u20b9'+Math.round(pa)+'</td>'+parts3.map(cellB).join('')+'<td style="font-weight:700">\u20b9'+Math.round(pb)+' <span style="font-size:11px;color:'+(d>0?'#b91c1c':'#15803d')+'">('+(d>0?'+':'\u2212')+'\u20b9'+Math.abs(Math.round(d))+')</span></td></tr>'; });
-    h+='</table></div><p class="sub">Parts cost (A+P+C) per bike = job cards per bike \u00d7 parts per job card \u00d7 cost per part; each column is that factor\u2019s share of the change (red = pushed cost up, green = brought it down).</p>';
-  }
   return h+'<p class="sub">Same rules as each city\u2019s own cards below (\u2013 where job card counts are incomplete, e.g. the current partial month). The P breakup follows the submission-type chips on the P breakup card.</p></div>';
 }
 // ---- What changed: moves of 20%+ vs the same days last month (29 Oct 2026) ----
@@ -1138,7 +1080,7 @@ function whatChangedHtml(model){
   } catch(e){ console.warn('whatChanged', e); return ''; }
 }
 function viewOverview(model){
-  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model)+drillHtml()+modelCostHtml(model):'');
+  var months=selMonths(), h=ccHiddenBar()+(multi()?cityCompareHtml(model)+drillHtml():'');
   (multi()?['ALL']:[]).concat(state.F.cities).forEach(function(city){
     if(!model[city]) return;
     var ms=months.filter(function(m){return model[city][m];}), last=ms[ms.length-1], prev=ms[ms.length-2];
@@ -1178,7 +1120,6 @@ function viewOverview(model){
     if(!state.F.hub && !state.F.model && !state.F.dyear && !state.F.st) h+='<tr><td>% of job cards with parts</td>'+ms.map(function(m){ var p=sumC(city,state.store.jc,m), t=sumC(city,state.store.jcAll,m); return '<td style="color:#6b7280" title="'+(p!=null&&t?(p.toLocaleString('en-IN')+' of '+t.toLocaleString('en-IN')+' job cards'):'')+'">'+((p!=null&&t)?Math.round(p/t*100)+'%':'\u2013')+'</td>'; }).join('')+'</tr>';
     h+='</table></div></div>'+driversHtml(city, ms, model)+pSplitHtml(city, ms)+'<div class="note">Gross cost = Labour (as per payroll) + A + P + C + Other maintenance, the same as the report. Net service cost (less damage fee) = gross cost \u2212 revenue damage fee; (less recovery + damage fee) deducts both revenue recovery and the damage fee (recovery data from May 2026). Scrap and insurance claims are already deducted inside Other maintenance; \u2020 = input blank, portal figure used; * = not entered). Labour and Other maintenance are city-level monthly inputs (Jan–Aug from the Service Cost Analysis sheet, where Labour = LabCost + COCO; September from the report); enter new months under Rules &amp; settings. * = an input not entered yet (hover to see which). Per bike uses the sheet\'s average deployed bikes where given, otherwise the daily-bikes average. Labour and Other show as a dash with a model filter on.</div></div>';
   });
-  if(!multi()) h+=modelCostHtml(model);
   return h||'<div class="empty">No data for the current filters.</div>';
 }
 
