@@ -1007,9 +1007,16 @@ function cityCompareHtml(model){
   h+=dline('Job cards billed this month that were opened this month',dv('smo'),FP,-1);
   // job-card mix by submission type
   var STs=(state.stTypes||['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']);
-  h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model \u2014 every row follows the Show filter (\u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value); hover a cell for the job cards and parts \u20b9 per job card</span>');
+  h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model \u2014 every row follows the Show filter (\u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value); hover a cell for the job cards and parts \u20b9 per job card. Rows add up to the Parts total: the job-card data decides each type\u2019s share, applied to the cost-file total</span>');
   // 12 Nov 2026: parts cost (A+P+C) by submission type follows the Show filter: \u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value
   var tipOf=function(x,name){ if(!x||!x.N) return ''; var n=x.n||0, pj=n?x.a/n:null; return ' title="'+esc(name)+': '+n.toLocaleString('en-IN')+' job cards ('+Math.round(100*n/x.N)+'% of job cards)'+(pj!=null?' \u00b7 parts \u20b9'+Math.round(pj).toLocaleString('en-IN')+' per job card':'')+'"'; };
+  var typeCell=function(c,m,t){   // job-card data gives the split between types; it is applied to the cost-file total so the rows add up to the Parts total (job-card data alone is 5-40% lower in some cities)
+    var cs2=c==='ALL'?state.F.cities:[c], amt=0, tot=0, n=0, N=0, any=false, miss=false;
+    cs2.forEach(function(x){ var d=model[x]&&model[x][m]; if(!d) return;
+      var e=extrasFor(x,m), grand=d.A+d.P+d.C, jt=0; if(e) Object.keys(e.st).forEach(function(q){ jt+=e.st[q].amt||0; });
+      if(!e||!jt){ if(grand) miss=true; return; }   // cost but no job-card split for this city: the column would not add up, so show a dash
+      var o=e.st[t]; amt+=grand*((o?o.amt:0)/jt); tot+=grand; n+=(o?o.jcs:0)||0; N+=e.jcs||0; any=true; });
+    return (miss||!any||!tot||(amt===0&&!n))?null:{v:val(amt,c,m), s:amt/tot, n:n, N:N, a:amt}; };
   var typeShare=function(v){ return ok(v)?(v<0.1?(v*100).toFixed(1):Math.round(v*100))+'%':'\u2013'; };
   STs.forEach(function(t){
     var k='drv:Parts cost \u00b7 '+t; if(!ccOn(k)) return;
@@ -1018,9 +1025,7 @@ function cityCompareHtml(model){
     cities.forEach(function(c){
       var cells=cols.map(function(m){
         if(!model[c][m]) return null;
-        var e=extrasFor(c,m); if(!e||!e.st[t]) return null;
-        var tot=0; Object.keys(e.st).forEach(function(q){ tot+=e.st[q].amt||0; });
-        return tot?{v:val(e.st[t].amt,c,m), s:e.st[t].amt/tot, n:e.st[t].jcs, N:e.jcs, a:e.st[t].amt}:null; });
+        return typeCell(c,m,t); });
       var pctMode=state.disp==='pct', base=cells.map(function(x){ return x?(pctMode?x.s:x.v):null; });
       var dir=pctMode?0:1, bg=shade(base,dir), bdg=badge(base,dir);
       cols.forEach(function(m,i){ var x=cells[i], txt;
