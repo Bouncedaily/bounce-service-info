@@ -592,7 +592,10 @@ function ccBtn(k){ return '<span data-a="cchide" data-v="'+k+'" title="Hide this
 function ccGrossLabel(){ var nm={labour:'Labour',A:'A',P:'P',C:'C',W:'W',F:'F',other:'Other'}, on=['labour','A','P','C','W','F','other'].filter(ccOn).map(function(k){return nm[k];}); return 'Gross cost ('+(on.length?on.join(' + '):'nothing selected')+')'; }
 function ccHiddenBar(){ var hd=ccHidden(), ks=Object.keys(CC_LABELS).filter(function(k){ return hd[k]; }).concat(Object.keys(hd).filter(function(k){ return hd[k] && k.indexOf('drv:')===0; })); if(!ks.length) return '';
   return '<div style="margin:2px 0 10px;font-size:12px;color:#64748b">Hidden from the tables and totals: '+ks.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+(CC_LABELS[k]||k.slice(4))+'</span>'; }).join('')+'</div>'; }
-function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; } } return state.ccHide; }
+function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorage.getItem('rmc_cc_hide')||'{}')||{}; }catch(e){ state.ccHide={}; }
+    // 13 Nov 2026 (once): the job-card mix rows were merged into one Show-filter row per type / model, so forget the old hide choices for the retired rows
+    try{ if(localStorage.getItem('rmc_cc_hide_v')!=='2'){ var ch=false; Object.keys(state.ccHide).forEach(function(k){ if(/^drv:(% of job cards|Parts \u20b9 per job card|Parts cost) \u00b7 /.test(k)){ delete state.ccHide[k]; ch=true; } }); if(ch) localStorage.setItem('rmc_cc_hide', JSON.stringify(state.ccHide)); localStorage.setItem('rmc_cc_hide_v','2'); } }catch(e){} }
+  return state.ccHide; }
 /* ---------- 6 Nov 2026: drill-down from City comparison: city/month -> hubs -> parts -> job cards ---------- */
 function ddPrev(m){ if(!/^\d{4}-\d{2}$/.test(m)) return null; var d=new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7)-2, 1)); return d.toISOString().slice(0,7); }
 function ddRows(){ var D=state.drill, cs=D.city==='ALL'?state.F.cities:[D.city], pm=ddPrev(D.m), ctxo=ctx(), out=[];
@@ -1003,10 +1006,9 @@ function cityCompareHtml(model){
   h+=dline('Job cards billed this month that were opened this month',dv('smo'),FP,-1);
   // job-card mix by submission type
   var STs=(state.stTypes||['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']);
-  h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model</span>');
-  STs.forEach(function(t){ h+=dline('% of job cards \u00b7 '+t,function(c,m){ var e=extrasFor(c,m); return (e&&e.jcs)?((e.st[t]||{}).jcs||0)/e.jcs:null; },FP,0); });
-  STs.forEach(function(t){ h+=dline('Parts \u20b9 per job card \u00b7 '+t,function(c,m){ var e=extrasFor(c,m), o=e&&e.st[t]; return (o&&o.jcs)?o.amt/o.jcs:null; },F0,1); });
+  h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model \u2014 every row follows the Show filter (\u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value); hover a cell for the job cards and parts \u20b9 per job card</span>');
   // 12 Nov 2026: parts cost (A+P+C) by submission type follows the Show filter: \u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value
+  var tipOf=function(x,name){ if(!x||!x.N) return ''; var n=x.n||0, pj=n?x.a/n:null; return ' title="'+esc(name)+': '+n.toLocaleString('en-IN')+' job cards ('+Math.round(100*n/x.N)+'% of job cards)'+(pj!=null?' \u00b7 parts \u20b9'+Math.round(pj).toLocaleString('en-IN')+' per job card':'')+'"'; };
   var typeShare=function(v){ return ok(v)?(v<0.1?(v*100).toFixed(1):Math.round(v*100))+'%':'\u2013'; };
   STs.forEach(function(t){
     var k='drv:Parts cost \u00b7 '+t; if(!ccOn(k)) return;
@@ -1017,14 +1019,14 @@ function cityCompareHtml(model){
         if(!model[c][m]) return null;
         var e=extrasFor(c,m); if(!e||!e.st[t]) return null;
         var tot=0; Object.keys(e.st).forEach(function(q){ tot+=e.st[q].amt||0; });
-        return tot?{v:val(e.st[t].amt,c,m), s:e.st[t].amt/tot}:null; });
+        return tot?{v:val(e.st[t].amt,c,m), s:e.st[t].amt/tot, n:e.st[t].jcs, N:e.jcs, a:e.st[t].amt}:null; });
       var pctMode=state.disp==='pct', base=cells.map(function(x){ return x?(pctMode?x.s:x.v):null; });
       var dir=pctMode?0:1, bg=shade(base,dir), bdg=badge(base,dir);
       cols.forEach(function(m,i){ var x=cells[i], txt;
         if(!x||(!pctMode&&!ok(x.v))) txt='\u2013';
         else if(pctMode) txt=typeShare(x.s);
         else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
-        h+='<td style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
+        h+='<td'+tipOf(x,t)+' style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
     h+='</tr>'; });
   // 13 Nov 2026: the same mix by bike model: share of job cards, parts per job card, parts cost in the Show unit (not shown while a Model, Hub or Deployed-year filter is on)
   var MC=modelCostsNow();
@@ -1036,20 +1038,18 @@ function cityCompareHtml(model){
     if(order.length>1){
       h+='<tr><td colspan="'+nCols+'" style="padding:8px 8px 2px;font-weight:600;color:#475569">By bike model <span style="font-weight:400;font-size:12px;color:#64748b">\u2014 parts A+P+C; per bike = the model\u2019s parts cost \u00f7 all the city\u2019s bikes, so the models add up to the total (cost per bike of each model is in the card below)</span></td></tr>';
       var totJ=function(c,m){ var cs2=c==='ALL'?state.F.cities:[c], t=0, any=false; cs2.forEach(function(x){ var n=exJcs(x,m,'','',state.stSel); if(n!=null){ t+=n; any=true; } }); return any?t:null; };
-      order.forEach(function(md){ h+=dline('% of job cards \u00b7 '+md,function(c,m){ var a=mJcs(md,c,m), b=totJ(c,m); return (a!=null&&b)?a/b:null; },FP,0); });
-      order.forEach(function(md){ h+=dline('Parts \u20b9 per job card \u00b7 '+md,function(c,m){ var a=mAmt(md,c,m), n=mJcs(md,c,m); return (a!=null&&n)?a/n:null; },F0,1); });
       order.forEach(function(md){
         var k='drv:Parts cost \u00b7 '+md; if(!ccOn(k)) return;
         var label=(state.disp==='pct'?'Share of parts cost':'Parts cost ('+unitName()+')')+' \u00b7 '+md;
         h+='<tr><td>'+ccBtn(k)+label+'</td>';
         cities.forEach(function(c){
-          var cells=cols.map(function(m){ if(!model[c][m]) return null; var a=mAmt(md,c,m), d=model[c][m], tot=d.A+d.P+d.C; return (a!=null&&tot)?{v:val(a,c,m), s:a/tot}:null; });
+          var cells=cols.map(function(m){ if(!model[c][m]) return null; var a=mAmt(md,c,m), d=model[c][m], tot=d.A+d.P+d.C; return (a!=null&&tot)?{v:val(a,c,m), s:a/tot, n:mJcs(md,c,m), N:totJ(c,m), a:a}:null; });
           var pctMode=state.disp==='pct', base=cells.map(function(x){ return x?(pctMode?x.s:x.v):null; }), dir=pctMode?0:1, bg=shade(base,dir), bdg=badge(base,dir);
           cols.forEach(function(m,i){ var x=cells[i], txt;
             if(!x||(!pctMode&&!ok(x.v))) txt='\u2013';
             else if(pctMode) txt=typeShare(x.s);
             else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
-            h+='<td style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
+            h+='<td'+tipOf(x,md)+' style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
         h+='</tr>'; });
     }
   }
