@@ -310,7 +310,7 @@ async function loadAll(){
     toast('Database busy, retrying ('+_try+' of 3)\u2026'); await new Promise(function(res){ setTimeout(res, 3000*_try); }); r=await rpc('rmc_dashboard_data',{}); }
   if(!r.ok){ state.loading=false; toast(r.status===401||r.status===403||/access/i.test(r.msg||'')?'No access: the RMC Dashboard is admin-only for now.':'Could not load: '+r.msg); render(); return; }
   var D=r.data||{}, L=(D.lines||[]).slice();
-  state.partial=D.partial||null; window.RMC_PARTIAL_DAYS=state.partial?state.partial.days:null;
+  state.partial=D.partial||null; window.RMC_PARTIAL_DAYS=state.partial?state.partial.days:null; state.jcb=null; state.jcbLoading=false;
   window.RMC_LATEST_PARTIAL=null; if(state.partial){ var bp=state.partial.base.split('-'), nx=new Date(Date.UTC(+bp[0], +bp[1], 1)); window.RMC_LATEST_PARTIAL=nx.toISOString().slice(0,7); }   // e.g. '2026-10' when Oct has 1-20
   if(state.partial&&state.partial.lines) L=L.concat(state.partial.lines);   // same days of the previous month, e.g. Sep 1-20 (month key '2026-09p')
   var st=C.newStore(), agg={};
@@ -1252,6 +1252,12 @@ function partRows(model, city, bucket, months){
   var map={}; months.forEach(function(m){ var d=model[city]&&model[city][m]; if(!d) return; Object.keys(d.parts[bucket]).forEach(function(k){ var e=d.parts[bucket][k]; (map[k]=map[k]||{label:e.label,by:{}}).by[m]=e; }); });
   return Object.keys(map).map(function(k){ return {key:k,label:map[k].label,by:map[k].by}; });
 }
+// 13 Nov 2026: job cards by cost bucket of A / P / C per city-month (for the Part breakup tab), loaded on first use
+function jcbEnsure(){ if(state.jcb||state.jcbLoading) return; state.jcbLoading=true;
+  rpc('rmc_jc_buckets',{p_days:state.partial?state.partial.days:null, p_base:state.partial?state.partial.base:null}).then(function(r){ state.jcbLoading=false;
+    if(r&&r.ok&&Array.isArray(r.data)){ var ix={}; r.data.forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; ix[x[0]+'|'+c+'|'+x[2]+'|'+x[3]]={n:+x[4]||0, a:+x[5]||0}; ix['seen|'+x[0]+'|'+c]=true; }); state.jcb={ix:ix}; }
+    else state.jcb={err:(r&&r.msg)||'no reply'};
+    render(); }).catch(function(e){ state.jcbLoading=false; state.jcb={err:String(e&&e.message||e)}; render(); }); }
 function viewParts(model){
   var P=state.parts, months=selMonths(); if(!validCity(P.city)) P.city=defCity();
   var city=P.city, ms=months.filter(function(m){return model[city]&&model[city][m];}), last=ms[ms.length-1], rows=partRows(model,city,P.bucket,ms);
@@ -1318,6 +1324,36 @@ function viewParts(model){
   if(meas==='p100s' && state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': serviced bikes = bikes deployed in '+esc(state.F.dyear)+' that had a job card that month. Not available for the same-days column (e.g. Sep 1\u201320).</p>';
   if((meas==='p100'||meas==='p100s') && ms.some(isPartialMonth)) h+='<p class="sub">* Partial months (e.g. Sep 1\u201320, the current month) cover fewer days, so their rates are lower than a full month.</p>';
   h+='</div>';
+  // 13 Nov 2026: job cards by cost bucket of this category, same buckets as the drill-down; follows the Measure chips, the months and the change column above
+  var jbBn=P.bucket, jbBlock=(state.F.hub||state.F.model||state.F.dyear||state.F.st);
+  h+='<div class="card"><h3>Job cards by '+jbBn+' cost \u00b7 '+cityName(city)+'</h3>';
+  if(jbBlock){ h+='<p class="sub">Clear the Hub, Model, Deployed-year and Submission-type filters to see job cards by cost bucket.</p></div>'; }
+  else { jcbEnsure(); var jbJ=state.jcb;
+    if(!jbJ){ h+='<p class="sub">Loading the job-card buckets\u2026</p></div>'; }
+    else if(jbJ.err){ h+='<p class="sub">Could not load the job-card buckets ('+esc(jbJ.err)+').</p></div>'; }
+    else {
+      var jbCs=city==='ALL'?state.F.cities:[city], jbBL=[['No '+jbBn+' parts',0],['\u20b90\u20132.5k',1],['\u20b92.5k\u20135k',2],['\u20b95k\u20137.5k',3],['\u20b97.5k\u201310k',4],['More than \u20b910k',5]];
+      var jbCnt=function(b,m){ var t=0; for(var i=0;i<jbCs.length;i++){ if(!jbJ.ix['seen|'+m+'|'+jbCs[i]]) return null; var e=jbJ.ix[m+'|'+jbCs[i]+'|'+jbBn+'|'+b]; t+=e?e.n:0; } return t; };
+      // job-card data decides the bucket and the split; the rupees are scaled to the cost-file total of this category so the rows add up to the Total above
+      var jbAmt=function(b,m){ var t=0; for(var i=0;i<jbCs.length;i++){ var c=jbCs[i]; if(!jbJ.ix['seen|'+m+'|'+c]) return null; var cf=(model[c]&&model[c][m])?(model[c][m][jbBn]||0):0, raw=0;
+          for(var k=0;k<6;k++){ var q=jbJ.ix[m+'|'+c+'|'+jbBn+'|'+k]; raw+=q?q.a:0; }
+          if(!raw){ if(cf>0) return null; continue; } var e=jbJ.ix[m+'|'+c+'|'+jbBn+'|'+b]; t+=(e?e.a:0)*cf/raw; } return t; };
+      var jbCells=function(cn, am){
+        if(meas==='qty') return qtyCells(cn);
+        if(meas==='p100'||meas==='p100s'){ var rv=cn.map(function(q,i){ return (q!=null&&dn[i])?q/dn[i]*100:null; }), nn=rv.filter(function(v){return v!=null;}), a1=Math.min.apply(null,nn), a2=Math.max.apply(null,nn);
+          return rv.map(function(v){ return '<td style="'+heat(v,a1,a2)+'">'+r1(v)+'</td>'; }).join('')+diffCell(rv, r1); }
+        var sh=am.map(function(a,i){ return (a!=null&&bt[i])?a/bt[i]:null; });
+        if(meas==='pct'){ var n2=sh.filter(function(v){return v!=null;}), b1=Math.min.apply(null,n2), b2=Math.max.apply(null,n2);
+          return sh.map(function(v){ return '<td style="'+heat(v,b1,b2)+'">'+(v==null?'\u2013':(v*100).toFixed(1)+'%')+'</td>'; }).join('')+diffCell(sh.map(function(v){return v==null?null:v*100;}), function(x){return x.toFixed(1);}, ' pp'); }
+        var vv=am.map(function(a,i){ return a==null?null:val(a,city,ms[i]); });
+        return rowCellsS(vv, sh, true)+diffCell(vv, function(x){ return fmt(x); }); };
+      var jbBody='', jbAllC=ms.map(function(){return 0;}), jbAllA=ms.map(function(){return 0;});
+      jbBL.forEach(function(x){ var cn=ms.map(function(m){ return jbCnt(x[1],m); }), am=ms.map(function(m){ return jbAmt(x[1],m); });
+        cn.forEach(function(v,i){ jbAllC[i]=(jbAllC[i]==null||v==null)?null:jbAllC[i]+v; }); am.forEach(function(v,i){ jbAllA[i]=(jbAllA[i]==null||v==null)?null:jbAllA[i]+v; });
+        jbBody+='<tr><td>'+esc(x[0])+'</td>'+jbCells(cn,am)+'</tr>'; });
+      jbBody+='<tr class="tot"><td>All job cards</td>'+jbCells(jbAllC,jbAllA)+'</tr>';
+      h+='<p class="sub">Each job card sits in the bucket of its own '+jbBn+' cost; job cards with no '+jbBn+' parts are in the first row. Shown as the Measure above: \u20b9 value and % of category use the '+jbBn+' cost in each bucket, Count = job cards'+(meas==='p100'||meas==='p100s'?', and the per-100-bikes measures count job cards':'')+'. The bucket and the split come from job-card data; the \u20b9 are scaled to the cost-file total of this category so they add up to the Total '+jbBn+' row above (job-card data alone is lower in some cities). A dash means no job-card data for that month.</p>'
+        +'<div class="tw"><table><tr><th style="text-align:left">Cost bucket</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'<th>'+diffLbl+'</th></tr>'+jbBody+'</table></div></div>'; } }
   return h;
 }
 function viewMovers(model){
