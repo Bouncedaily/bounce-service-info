@@ -642,7 +642,12 @@ function ddGet(kind,extra){ var S=(state.drillT||{})[ddKey(kind,extra)]; return 
 function ddMonths(a){ return [a.cur].concat(a.prev?[a.prev]:[]).concat(a.prev2?[a.prev2]:[]); }
 function ddLoadTypes(){ var D=state.drill, a=ddPair(D); ddFetch('T','rmc_drill_types',{p_cities:ddCities(D),p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null}); }
 function ddLoadHubs(){ var D=state.drill, a=ddPair(D); ddFetch('H','rmc_drill_type_hubs',{p_cities:ddCities(D),p_type:D.st,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null}); }
-function ddLoadRec(){ var D=state.drill, a=ddPair(D); ddFetch('R','rmc_recovered_by_hub',{p_cities:ddCities(D),p_months:ddMonths(a),p_days:a.days,p_partial_cur:(state.partial&&isPartialMonth(a.cur))?a.cur:null,p_model:state.F.model||null}); }   // 16 Nov 2026: vehicles recovered = Recovery inflow rows per hub and month
+function ddLoadRec(){ var D=state.drill, a=ddPair(D); ddFetch('R','rmc_inflow_by_type',{p_cities:ddCities(D),p_months:ddMonths(a),p_days:a.days,p_partial_cur:(state.partial&&isPartialMonth(a.cur))?a.cur:null,p_model:state.F.model||null}); }   // 16 Nov 2026: rows [month, city, hub, type, vehicles (hub inflow), job cards billed the same month for those vehicles]
+var INFL={'Recovery':'recovered','Rider Submission':'rider submitted','RR & BE':'RR & BE'};   // submission types that have hub inflow, and how the vehicles are called
+function ddVLabel(t){ return 'Vehicles '+(INFL[t]||''); }
+function ddInfl(R,tok,grp){ var n=0,sm=0; ((R&&!R.error&&R.data)||[]).forEach(function(x){ if(x[0]===tok&&(!grp||x[3]===grp)){ n+=(+x[4]||0); sm+=(+x[5]||0); } }); return {n:n,s:sm}; }
+function ddFrac(x){ return x&&x.n>0?x.s/x.n:null; }
+function ddPctTxt(f){ return f==null?'\u2013':Math.round(f*100)+'%'; }
 function ddLoadParts(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'), base={p_city:CITY_FULL[kp[0]]||kp[0],p_hub:kp.slice(1).join('|'),p_type:D.st,p_days:a.days,p_model:state.F.model||null,p_cat:D.b==='ALL'?null:D.b};
   ddFetch('P','rmc_drill_type_parts',Object.assign({p_month:a.cur},base)); if(a.prev) ddFetch('P2','rmc_drill_type_parts',Object.assign({p_month:a.prev},base)); if(a.prev2) ddFetch('P3','rmc_drill_type_parts',Object.assign({p_month:a.prev2},base)); }
 function ddLoadJC(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'); ddFetch('J','rmc_drill_type_jobcards',{p_city:CITY_FULL[kp[0]]||kp[0],p_hub:kp.slice(1).join('|'),p_type:D.st,p_month:a.cur,p_item:D.part,p_days:a.days,p_model:state.F.model||null,p_cat:D.b==='ALL'?null:D.b}); }
@@ -671,18 +676,27 @@ function ddTwo(cur,prev,delta,pl,noPrev,p2,pl2){ return '<td>'+cur+(noPrev?'':'<
 function ddH(v){ return (v==null||!isFinite(v))?'\u2013':v.toFixed(1)+' h'; }
 function ddExpKey(t){ var D=state.drill; return [D.city,D.m,t].join('|'); }
 function ddLvlTypes(D,h){   // level 0: submission types, each number with last month beneath
-  var a=ddPair(D), S=ddGet('T'); if(!S){ ddLoadTypes(); return ddLoading(h,'Loading submission types\u2026'); } if(S.error) return ddErr(h,S.error);
+  var a=ddPair(D), S=ddGet('T'), RI=ddGet('R'); if(!S||!RI){ ddLoadTypes(); ddLoadRec(); return ddLoading(h,'Loading submission types\u2026'); } if(S.error) return ddErr(h,S.error);
+  var infOn=!!(RI&&!RI.error);
   var rows=S.data||[], cur={}, prv={}, prv2={}; rows.forEach(function(x){ (x[0]===a.cur?cur:(x[0]===a.prev?prv:prv2))[x[1]]=x; });
-  var order=['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']; Object.keys(cur).concat(Object.keys(prv)).concat(Object.keys(prv2)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
+  var order=['Recovery','Rider Submission','RR & BE','Manual JC']; Object.keys(cur).concat(Object.keys(prv)).concat(Object.keys(prv2)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
   var sc=ddScale(D,a,rows), bike=den(D.city,a.cur,'bike'), km=den(D.city,a.cur,'km'), bikeP=a.prev?den(D.city,a.prev,'bike'):null, kmP=a.prev?den(D.city,a.prev,'km'):null, bikeQ=a.prev2?den(D.city,a.prev2,'bike'):null, kmQ=a.prev2?den(D.city,a.prev2,'km'):null;
   var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!a.prev2;
   var mk=function(x,f){ return x?{j:+x[2], amt:ddAmt(D,x,f,3), ts:+x[6], tn:+x[7], l30:+x[8]}:{j:0,amt:0,ts:0,tn:0,l30:0}; };
   var list=[], T={j:0,amt:0,ts:0,tn:0,l30:0}, TP={j:0,amt:0,ts:0,tn:0,l30:0}, TQ={j:0,amt:0,ts:0,tn:0,l30:0};
+  var IT={c:{n:0,s:0},p:{n:0,s:0},q:{n:0,s:0}};   // vehicles from hub inflow and job cards billed for them the same month, all types together
   order.forEach(function(t){ var c=cur[t], p=prv[t], q=prv2[t]; if(!c&&!p) return; var cc=mk(c,sc.cur), pp=mk(p,sc.prev), qq=mk(q,sc.prev2);
+    if(INFL[t]&&infOn){ [['c',a.cur],['p',a.prev],['q',a.prev2]].forEach(function(z){ if(z[1]){ var v=ddInfl(RI,z[1],t); IT[z[0]].n+=v.n; IT[z[0]].s+=v.s; } }); }
     ['j','amt','ts','tn','l30'].forEach(function(k){ T[k]+=cc[k]; TP[k]+=pp[k]; TQ[k]+=qq[k]; }); list.push({t:t,c:cc,p:pp,q:qq}); });
+  var infCells=function(t,all){ if(!infOn) return '';
+    if(!all&&!INFL[t]) return ddTwo('\u2013','\u2013','',pl,np,hasQ?'\u2013':null,pl2)+ddTwo('\u2013','\u2013','',pl,np,hasQ?'\u2013':null,pl2);
+    var vc=all?IT.c:ddInfl(RI,a.cur,t), vp=a.prev?(all?IT.p:ddInfl(RI,a.prev,t)):{n:0,s:0}, vq=a.prev2?(all?IT.q:ddInfl(RI,a.prev2,t)):{n:0,s:0};
+    var fc=ddFrac(vc), fp=ddFrac(vp), fq=ddFrac(vq), Q=function(v){ return hasQ?v:null; };
+    return ddTwo(vc.n.toLocaleString('en-IN'), vp.n.toLocaleString('en-IN'), ddDir(vc.n,vp.n,0), pl, np, Q(vq.n.toLocaleString('en-IN')), pl2)
+      +ddTwo(ddPctTxt(fc), ddPctTxt(fp), ddPts(fc,fp,-1), pl, np, Q(ddPctTxt(fq)), pl2); };
   if(!list.length) return ddLoading(h,'No job cards for this selection.');
   var tat=function(o){ return o.tn?o.ts/o.tn:null; };
-  var cells=function(c,p,q,tc,tp,tq){
+  var cells=function(c,p,q,tc,tp,tq,extra){
     var shC=tc.j?c.j/tc.j:null, shP=(a.prev&&tp.j)?p.j/tp.j:null, shQ=(hasQ&&tq.j)?q.j/tq.j:null, perJ=function(o){ return o.j?o.amt/o.j:null; };
     var pj=function(o,d){ return (d&&o.j)?o.amt/d:null; }, Q=function(v){ return hasQ?v:null; };
     return ddTwo(c.j.toLocaleString('en-IN'), p.j.toLocaleString('en-IN'), ddDir(c.j,p.j,0), pl, np, Q(q.j.toLocaleString('en-IN')), pl2)
@@ -692,22 +706,22 @@ function ddLvlTypes(D,h){   // level 0: submission types, each number with last 
       +ddTwo(bike&&c.j?ddInr(c.amt/bike):'\u2013', bikeP&&p.j?ddInr(p.amt/bikeP):'\u2013', ddDir(pj(c,bike),pj(p,bikeP),1), pl, np, Q(bikeQ&&q.j?ddInr(q.amt/bikeQ):'\u2013'), pl2)
       +ddTwo(km&&c.j?'\u20b9'+(c.amt/km).toFixed(3):'\u2013', kmP&&p.j?'\u20b9'+(p.amt/kmP).toFixed(3):'\u2013', ddDir(pj(c,km),pj(p,kmP),1), pl, np, Q(kmQ&&q.j?'\u20b9'+(q.amt/kmQ).toFixed(3):'\u2013'), pl2)
       +ddTwo(ddTat(tat(c)), ddH(tat(p)), ddDir(tat(c),tat(p),1), pl, np, Q(ddH(tat(q))), pl2)
-      +ddTwo(String(c.l30), String(p.l30), ddDir(c.l30,p.l30,1), pl, np, Q(String(q.l30)), pl2); };
+      +ddTwo(String(c.l30), String(p.l30), ddDir(c.l30,p.l30,1), pl, np, Q(String(q.l30)), pl2)+(extra||''); };
   var body='';
   list.forEach(function(r){ var open=!!(state.drillExp||{})[ddExpKey(r.t)];
-    body+='<tr data-a="ddtype" data-v="'+esc(r.t)+'" style="cursor:pointer"><td><span data-a="ddexp" data-v="'+esc(r.t)+'" title="Details and last-month comparison" style="cursor:pointer;color:#2563eb;margin-right:6px">'+(open?'\u25be':'\u25b8')+'</span><b>'+esc(r.t)+'</b> \u203a</td>'+cells(r.c,r.p,r.q,T,TP,TQ)+'</tr>';
-    if(open) body+='<tr><td colspan="9" style="background:#f8fafc;padding:8px 14px">'+ddDetailHtml(D,a,r.t)+'</td></tr>'; });
-  var tot='<tr class="tot"><td><b>All types</b></td>'+cells(T,TP,TQ,T,TP,TQ)+'</tr>';
+    body+='<tr data-a="ddtype" data-v="'+esc(r.t)+'" style="cursor:pointer"><td><span data-a="ddexp" data-v="'+esc(r.t)+'" title="Details and last-month comparison" style="cursor:pointer;color:#2563eb;margin-right:6px">'+(open?'\u25be':'\u25b8')+'</span><b>'+esc(r.t)+'</b> \u203a</td>'+cells(r.c,r.p,r.q,T,TP,TQ,infCells(r.t))+'</tr>';
+    if(open) body+='<tr><td colspan="'+(infOn?11:9)+'" style="background:#f8fafc;padding:8px 14px">'+ddDetailHtml(D,a,r.t)+'</td></tr>'; });
+  var tot='<tr class="tot"><td><b>All types</b></td>'+cells(T,TP,TQ,T,TP,TQ,infCells(null,true))+'</tr>';
   var note=ddFacNote(sc,D.b!=='ALL'?D.b:null);
-  return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th></tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed. '+note+'</p></div>';
+  return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th>'+(infOn?'<th style="white-space:normal;min-width:120px">Vehicles in (hub inflow)</th><th style="white-space:normal;min-width:150px">Job cards billed as % of vehicles, same month</th>':'')+'</tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed. '+(infOn?'Vehicles = hub inflow rows of that type (recovered, rider submitted, RR & BE); the same-month share = job cards of that type billed in the month for vehicles that came in that month \u00f7 those vehicles. Manual JC has no hub inflow. ':'')+(RI&&RI.error?'Vehicles from hub inflow could not be loaded ('+esc(RI.error)+'). ':'')+note+'</p></div>';
 }
 function ddDetailHtml(D,a,t){
   if(!document.getElementById('ddc-css')){ var stl=document.createElement('style'); stl.id='ddc-css'; stl.textContent='#svc table.ddc{font-size:11.5px;width:auto;margin:0}#svc table.ddc th,#svc table.ddc td{padding:5px 5px}#svc table.ddc th{white-space:normal;line-height:1.25}#svc table.ddc td.dl{white-space:normal;text-align:left;min-width:70px;max-width:150px}'; document.head.appendChild(stl); }   // the details panel of one submission type: this month, last month, change; only the clicked category when it is A, P or C
   var cat=D.b||'ALL', one=(cat!=='ALL'), ck=t+'|'+cat;
   var S=ddGet('D',ck); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null,p_cat:cat},ck); return '<span class="sub">Loading details\u2026</span>'; }
   if(S.error) return '<span class="sub">Could not load details ('+esc(S.error)+')</span>';
-  var isRecT=(t==='Recovery'), RR=isRecT?ddGet('R'):null; if(isRecT&&!RR) ddLoadRec();
-  var recTot=function(tok){ var n=0; ((RR&&!RR.error&&RR.data)||[]).forEach(function(x){ if(x[0]===tok) n+=(+x[3]||0); }); return n; };
+  var isRecT=!!INFL[t], RR=isRecT?ddGet('R'):null; if(isRecT&&!RR) ddLoadRec();
+  var recTot=function(tok){ return ddInfl(RR,tok,t).n; }, recSame=function(tok){ return ddInfl(RR,tok,t).s; };
   var cur=null, prv=null, prv2=null; (S.data||[]).forEach(function(o){ if(o.m===a.cur) cur=o; else if(o.m===a.prev) prv=o; else if(o.m===a.prev2) prv2=o; });
   if(!cur) return '<span class="sub">No job cards.</span>';
   var Tt=ddGet('T'), sc=Tt?ddScale(D,a,Tt.data||[]):{cur:{A:1,P:1,C:1},prev:{A:1,P:1,C:1},prev2:{A:1,P:1,C:1}};
@@ -720,7 +734,7 @@ function ddDetailHtml(D,a,t){
   if(!one||cat==='A') L.push(['Parts \u20b9 \u00b7 A (wear & tear)',function(o,f){return o.a*f.A;},R,1,null,false]);
   if(!one||cat==='P') L.push(['Parts \u20b9 \u00b7 P (rider-payable)',function(o,f){return o.p*f.P;},R,1,null,false]);
   if(!one||cat==='C') L.push(['Parts \u20b9 \u00b7 C (company)',function(o,f){return o.c*f.C;},R,1,null,false]);
-  if(isRecT&&RR&&!RR.error) L.splice(1,0,['Vehicles recovered (inflow)',function(o){ return recTot(o.m); },N,0,null,false]);
+  if(isRecT&&RR&&!RR.error) L.splice(1,0,[ddVLabel(t)+' (hub inflow)',function(o){ return recTot(o.m); },N,0,null,false],['Job cards billed for vehicles in the same month, % of vehicles',function(o){ return recSame(o.m); },N,-1,function(o){ return recTot(o.m); },true]);
   var qn=function(o){ return +o.q||0; }, N2=function(v){ return (v==null||!isFinite(v))?'\u2013':v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
   L.push([one?cat+' parts quantity':'Parts quantity',qn,N,1,null,false],
     [one?'Average '+cat+' part cost (\u20b9 per part)':'Average part cost (\u20b9 per part)',function(o,f){ var q=qn(o), c=one?(cat==='A'?o.a*f.A:(cat==='P'?o.p*f.P:o.c*f.C)):(o.a*f.A+o.p*f.P+o.c*f.C); return q>0?c/q:null; },R,1,null,false],
@@ -781,24 +795,25 @@ function ddDetailHtml(D,a,t){
   return '<div style="width:0;min-width:100%;overflow-x:auto"><div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(q3?pl2+' \u2192 ':'')+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:18px 20px;flex-wrap:wrap;align-items:flex-start"><div style="flex:none"><div style="font-weight:700;margin:0 0 6px">Key figures</div><table class="ddc" style="width:auto"><tr><th style="text-align:left">Detail</th>'+(q3?'<th>'+pl2+'</th>':'')+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0;width:0;min-width:100%;white-space:normal">\u25b2\u25bc % = change in the amount (this month vs '+(pl||'last month')+'); pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+' Average part cost = the \u20b9 above \u00f7 parts quantity; average parts per job card = parts quantity \u00f7 all job cards of this type.'+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p></div>';
 }
 function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month beneath
-  var a=ddPair(D), S=ddGet('H'), T=ddGet('T'), isRec=(D.st==='Recovery'), R=isRec?ddGet('R'):null; if(!S||!T||(isRec&&!R)){ ddLoadHubs(); ddLoadTypes(); if(isRec) ddLoadRec(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
+  var a=ddPair(D), S=ddGet('H'), T=ddGet('T'), isRec=!!INFL[D.st], R=isRec?ddGet('R'):null; if(!S||!T||(isRec&&!R)){ ddLoadHubs(); ddLoadTypes(); if(isRec) ddLoadRec(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
   var sc=ddScale(D,a,T.data||[]), by={}, np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!a.prev2, Q=function(v){ return hasQ?v:null; };
   (S.data||[]).forEach(function(x){ var k=(CITY_CODE[x[1]]||x[1])+'|'+x[2], e=by[k]||(by[k]={cur:null,prv:null,prv2:null}); if(x[0]===a.cur) e.cur=x; else if(x[0]===a.prev) e.prv=x; else e.prv2=x; });
   // vehicles recovered per hub (Recovery inflow); hubs with recoveries but no job cards this month are listed too
-  var recOn=!!(isRec&&R&&!R.error), rc={cur:{},prv:{},prv2:{}};
-  if(recOn) (R.data||[]).forEach(function(x){ var k=(CITY_CODE[x[1]]||x[1])+'|'+x[2], b=(x[0]===a.cur?rc.cur:(x[0]===a.prev?rc.prv:rc.prv2)); b[k]=(b[k]||0)+(+x[3]||0); });
+  var recOn=!!(isRec&&R&&!R.error), rc={cur:{},prv:{},prv2:{}}, rs={cur:{},prv:{},prv2:{}};   // rc = vehicles from hub inflow, rs = job cards billed for them the same month
+  if(recOn) (R.data||[]).forEach(function(x){ if(x[3]!==D.st) return; var k=(CITY_CODE[x[1]]||x[1])+'|'+x[2], w=(x[0]===a.cur?'cur':(x[0]===a.prev?'prv':'prv2')); rc[w][k]=(rc[w][k]||0)+(+x[4]||0); rs[w][k]=(rs[w][k]||0)+(+x[5]||0); });
   if(recOn) Object.keys(rc.cur).forEach(function(k){ if(!by[k]) by[k]={cur:null,prv:null,prv2:null}; });
   var mk=function(x,f){ return x?{j:+x[3], amt:ddAmt(D,x,f,4), tat:(+x[8])?+x[7]/+x[8]:null}:{j:0,amt:0,tat:null}; };
-  var rows=Object.keys(by).map(function(k){ var e=by[k], kp=k.split('|'); return {k:k, name:(D.city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'), c:mk(e.cur,sc.cur), p:mk(e.prv,sc.prev), q:mk(e.prv2,sc.prev2), rc:{c:rc.cur[k]||0, p:rc.prv[k]||0, q:rc.prv2[k]||0}}; }).filter(function(r){ return r.c.j>0 || (recOn&&r.rc.c>0); }).sort(function(x,y){ return y.c.amt-x.c.amt; });
+  var rows=Object.keys(by).map(function(k){ var e=by[k], kp=k.split('|'); return {k:k, name:(D.city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'), c:mk(e.cur,sc.cur), p:mk(e.prv,sc.prev), q:mk(e.prv2,sc.prev2), rc:{c:rc.cur[k]||0, p:rc.prv[k]||0, q:rc.prv2[k]||0}, rs:{c:rs.cur[k]||0, p:rs.prv[k]||0, q:rs.prv2[k]||0}}; }).filter(function(r){ return r.c.j>0 || (recOn&&r.rc.c>0); }).sort(function(x,y){ return y.c.amt-x.c.amt; });
   if(!rows.length) return ddLoading(h,'No hubs for this selection.');
   var perJ=function(o){ return o.j?o.amt/o.j:null; }, body='';
   rows.forEach(function(r){ body+='<tr data-a="ddhub" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+esc(r.name)+'</b> \u203a</td>'
-    +(recOn?ddTwo(r.rc.c.toLocaleString('en-IN'), r.rc.p.toLocaleString('en-IN'), ddDir(r.rc.c,r.rc.p,0), pl, np, Q(r.rc.q.toLocaleString('en-IN')), pl2):'')
+    +(recOn?ddTwo(r.rc.c.toLocaleString('en-IN'), r.rc.p.toLocaleString('en-IN'), ddDir(r.rc.c,r.rc.p,0), pl, np, Q(r.rc.q.toLocaleString('en-IN')), pl2)
+      +ddTwo(ddPctTxt(ddFrac({n:r.rc.c,s:r.rs.c})), ddPctTxt(ddFrac({n:r.rc.p,s:r.rs.p})), ddPts(ddFrac({n:r.rc.c,s:r.rs.c}),ddFrac({n:r.rc.p,s:r.rs.p}),-1), pl, np, Q(ddPctTxt(ddFrac({n:r.rc.q,s:r.rs.q}))), pl2):'')
     +ddTwo(r.c.j.toLocaleString('en-IN'), r.p.j.toLocaleString('en-IN'), ddDir(r.c.j,r.p.j,0), pl, np, Q(r.q.j.toLocaleString('en-IN')), pl2)
     +ddTwo(ddInr(r.c.amt), ddInr(r.p.amt), ddDir(r.c.amt,r.p.amt,1), pl, np, Q(ddInr(r.q.amt)), pl2)
     +ddTwo(r.c.j?ddInr(r.c.amt/r.c.j):'\u2013', r.p.j?ddInr(r.p.amt/r.p.j):'\u2013', ddDir(perJ(r.c),perJ(r.p),1), pl, np, Q(r.q.j?ddInr(r.q.amt/r.q.j):'\u2013'), pl2)
     +ddTwo(ddTat(r.c.tat), ddH(r.p.tat), ddDir(r.c.tat,r.p.tat,1), pl, np, Q(ddH(r.q.tat)), pl2)+'</tr>'; });
-  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th>'+(recOn?'<th>Vehicles recovered</th>':'')+'<th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+(recOn?' Vehicles recovered = Recovery inflow at the hub in the month (Inflow data, counted the way the Inflow page counts, so a vehicle that comes in twice counts twice; the month to date uses the same days as the comparison).':'')+(isRec&&R&&R.error?' Vehicles recovered could not be loaded ('+esc(R.error)+').':'')+' Click a hub to see which parts drove its cost.</p></div>';
+  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th>'+(recOn?'<th style="white-space:normal;min-width:120px">'+ddVLabel(D.st)+' (hub inflow)</th><th style="white-space:normal;min-width:150px">Job cards billed as % of vehicles, same month</th>':'')+'<th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+(recOn?' '+ddVLabel(D.st)+' = hub inflow rows of this type in the month (counted the way the Inflow page counts, so a vehicle that comes in twice counts twice; the month to date uses the same days as the comparison). Billed same month = job cards of this type billed in the month for vehicles that came in that month \u00f7 those vehicles.':'')+(isRec&&R&&R.error?' Vehicles recovered could not be loaded ('+esc(R.error)+').':'')+' Click a hub to see which parts drove its cost.</p></div>';
 }
 function ddLvlParts(D,h){   // level 2: parts at the hub for this submission type, last month beneath
   var a=ddPair(D), S=ddGet('P'), S2=a.prev?ddGet('P2'):null, S3=a.prev2?ddGet('P3'):null, T=ddGet('T'); if(!S||!T||(a.prev&&!S2)||(a.prev2&&!S3)){ ddLoadParts(); ddLoadTypes(); return ddLoading(h,'Loading parts\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
