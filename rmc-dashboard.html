@@ -299,6 +299,9 @@ function rpc(fn,args){ return api('/rest/v1/rpc/'+fn,{method:'POST',body:args||{
 
 /* ---------- data from the portal (DMS billing lines, job cards, fleet / km, ops costs, rules) ---------- */
 var CITY_CODE={Bangalore:'BLR',NCR:'NCR',Hyderabad:'HYD',Mumbai:'MUM'}, CITY_FULL={BLR:'Bangalore',NCR:'NCR',HYD:'Hyderabad',MUM:'Mumbai'};
+// 16 Nov 2026: Running Repair and Bike Exchange are shown together as 'RR & BE' in the Overview (the drill-down still lists them separately)
+var TYPE_MERGE={'Running Repair':'RR & BE','Bike Exchange':'RR & BE'};
+function stName(t){ return TYPE_MERGE[t]||t; }
 var OPS_IN=[['labour','Labour (as per payroll)',0],['coco','COCO',1],['porter','Porter',1],['ins_iot','Insurance & IOT',1],['warr_prov','Warranty provision',1],['ins_claim','Insurance claim',-1],['scrap','Scrap',-1],['warr_claim','Warranty claim',-1],['other','Other maintenance',0],['rev_damage_fee','Revenue damage fee',0],['rev_recovery','Revenue recovery',0]];
 function persist(){}
 async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||'',p:!!x.p};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
@@ -332,14 +335,15 @@ async function loadAll(){
   Object.keys(Object.assign({},jcHub,jcCity)).forEach(function(k){ var e=jcCity[k]||jcHub[k]; st.jc[k]=e.p; if(e.t!=null) st.jcAll[k]=e.t; if(e.b!=null) st.bikes[k]=e.b; });
   // P category (rider-payable) breakup per city-month: [month, city, jcs, p_parts, p_labour, hidden, rev_p, rev_l, cnc_p, cnc_l, cap_p, cap_l, nc_p, nc_l, extra]
   state.psplit={}; var stTypes={}; (D.psplit||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=['jcs','pp','pl','hid','rev_p','rev_l','cnc_p','cnc_l','cap_p','cap_l','nc_p','nc_l','extra','cap_paid','cap_unpaid'], o={};
-    k.forEach(function(f,i){ o[f]=+x[i+2]||0; }); var st=x[17]||'All'; stTypes[st]=(stTypes[st]||0)+(o.pp+o.pl);
-    var cm=(state.psplit[c]=state.psplit[c]||{}), mm=(cm[x[0]]=cm[x[0]]||{}); mm[st]=o; });
-  state.stTypes=['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC'];   // fixed list and order (23 Oct 2026)
+    k.forEach(function(f,i){ o[f]=+x[i+2]||0; }); var st=stName(x[17]||'All'); stTypes[st]=(stTypes[st]||0)+(o.pp+o.pl);
+    var cm=(state.psplit[c]=state.psplit[c]||{}), mm=(cm[x[0]]=cm[x[0]]||{}); if(mm[st]){ Object.keys(o).forEach(function(q){ mm[st][q]=(mm[st][q]||0)+o[q]; }); } else mm[st]=o; });
+  state.stTypes=['Recovery','Rider Submission','RR & BE','Manual JC'];   // fixed list and order (23 Oct 2026); Running Repair + Bike Exchange merged on 16 Nov 2026
   state.recov={}; (D.recov||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.recov[c]=state.recov[c]||{})[x[0]]={rider:x[2]==null?null:+x[2],scrap:x[3]==null?null:+x[3]}; });
   // 6 Nov 2026: active rental days + utilisation per city and month (bookings export): [month, city, rental days, utilisation %, bikes deployed]
   state.rental={}; (D.rental||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(c) state.rental[c+'|'+x[0]]={rd:+x[2]||0, util:x[3]==null?null:+x[3], fleet:+x[4]||0}; });
   state.extras={}; (D.extras||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var k=c+'|'+x[0]+'|'+(x[7]||'')+'|'+(x[8]||''), e=state.extras[k]||(state.extras[k]={st:{},jcs:0,rr:0,rr7:0,tat:0,tatn:0});
-    e.st[x[2]]={jcs:+x[3]||0, amt:+x[4]||0, rr:+x[5]||0, rr7:+x[6]||0, tat:+x[9]||0, tatn:+x[10]||0, sm:+x[11]||0, lc:+x[12]||0, ap3:+x[13]||0, b1:+x[14]||0, b2:+x[15]||0, b3:+x[16]||0, b4:+x[17]||0}; e.jcs+=+x[3]||0; e.rr+=+x[5]||0; e.rr7+=+x[6]||0; e.tat+=+x[9]||0; e.tatn+=+x[10]||0; });
+    var tn=stName(x[2]), nv={jcs:+x[3]||0, amt:+x[4]||0, rr:+x[5]||0, rr7:+x[6]||0, tat:+x[9]||0, tatn:+x[10]||0, sm:+x[11]||0, lc:+x[12]||0, ap3:+x[13]||0, b1:+x[14]||0, b2:+x[15]||0, b3:+x[16]||0, b4:+x[17]||0};
+    if(e.st[tn]){ Object.keys(nv).forEach(function(q){ e.st[tn][q]+=nv[q]; }); } else e.st[tn]=nv; e.jcs+=+x[3]||0; e.rr+=+x[5]||0; e.rr7+=+x[6]||0; e.tat+=+x[9]||0; e.tatn+=+x[10]||0; });
   state.mfleet={}; (D.mfleet||[]).forEach(function(x){ var c=CITY_CODE[x[0]]; if(!c) return; var o=state.mfleet[c]||(state.mfleet[c]={_t:0}); o[x[1]]=(o[x[1]]||0)+(+x[2]||0); o._t+=(+x[2]||0); });
   state.refurb={}; (D.refurb||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; (state.refurb[c]=state.refurb[c]||{})[x[0]]=+x[2]||0; });
   state.fleet={}; state.km={}; state.hubFleet={}; state.hubKm={};
@@ -427,8 +431,8 @@ function partsShare(city, m){   // share of the city's job card parts cost (fall
 async function loadSubtype(){
   var r=await rpc('rmc_subtype_data',{}); if(!r.ok){ toast('Could not load submission type data: '+r.msg); state.stSel=[]; state.F.st=''; render(); return; }
   var D=r.data||{}, L3={}, L2={}, L1={}, add=function(map,k,y,v){ var e=map[k]||(map[k]={t:0,y:{}}); e.t+=v; e.y[y]=(e.y[y]||0)+v; };
-  (D.parts||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var v=+x[5]||0; if(v<=0) return;
-    add(L3,c+'|'+x[0]+'|'+x[2]+'|'+x[3],x[4],v); add(L2,c+'|'+x[0]+'|'+x[2],x[4],v); add(L1,c+'|'+x[0],x[4],v); });
+  (D.parts||[]).forEach(function(x){ var c=CITY_CODE[x[1]]; if(!c) return; var v=+x[5]||0; if(v<=0) return; var ty=stName(x[4]);
+    add(L3,c+'|'+x[0]+'|'+x[2]+'|'+x[3],ty,v); add(L2,c+'|'+x[0]+'|'+x[2],ty,v); add(L1,c+'|'+x[0],ty,v); });
   state.subtype={L3:L3,L2:L2,L1:L1}; render();
 }
 function stShare(r){ var S=state.subtype; if(!S) return 0; var rm=baseMonth(r.month);
@@ -596,6 +600,7 @@ function ccHidden(){ if(!state.ccHide){ try{ state.ccHide=JSON.parse(localStorag
     // 13 Nov 2026 (once): the job-card mix rows were merged into one Show-filter row per type / model, so forget the old hide choices for the retired rows
     try{ if(localStorage.getItem('rmc_cc_hide_v')!=='2'){ var ch=false; Object.keys(state.ccHide).forEach(function(k){ if(/^drv:(% of job cards|Parts \u20b9 per job card|Parts cost) \u00b7 /.test(k)){ delete state.ccHide[k]; ch=true; } }); if(ch) localStorage.setItem('rmc_cc_hide', JSON.stringify(state.ccHide)); localStorage.setItem('rmc_cc_hide_v','2'); } }catch(e){} }
     try{ if(localStorage.getItem('rmc_cc_hide_v3')!=='1'){ var ch3=false; Object.keys(state.ccHide).forEach(function(k){ if(/^drv:(Recovery|Rider Submission) \u00b7 /.test(k)){ delete state.ccHide[k]; ch3=true; } }); if(ch3) localStorage.setItem('rmc_cc_hide', JSON.stringify(state.ccHide)); localStorage.setItem('rmc_cc_hide_v3','1'); } }catch(e){}   // 13 Nov 2026: 'Job cards by parts cost' section removed
+    try{ if(localStorage.getItem('rmc_cc_hide_v4')!=='1'){ var ch4=false; Object.keys(state.ccHide).forEach(function(k){ if(/^drv:(% of job cards|Parts \u20b9 per job card|Parts cost) \u00b7 (Running Repair|Bike Exchange)$/.test(k)){ delete state.ccHide[k]; ch4=true; } }); if(ch4) localStorage.setItem('rmc_cc_hide', JSON.stringify(state.ccHide)); localStorage.setItem('rmc_cc_hide_v4','1'); } }catch(e){}   // 16 Nov 2026: Running Repair and Bike Exchange rows merged into RR & BE
   return state.ccHide; }
 /* ---------- 6 Nov 2026: drill-down from City comparison: city/month -> hubs -> parts -> job cards ---------- */
 function ddPrev(m){ if(!/^\d{4}-\d{2}$/.test(m)) return null; var d=new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7)-2, 1)); return d.toISOString().slice(0,7); }
@@ -667,7 +672,7 @@ function ddExpKey(t){ var D=state.drill; return [D.city,D.m,t].join('|'); }
 function ddLvlTypes(D,h){   // level 0: submission types, each number with last month beneath
   var a=ddPair(D), S=ddGet('T'); if(!S){ ddLoadTypes(); return ddLoading(h,'Loading submission types\u2026'); } if(S.error) return ddErr(h,S.error);
   var rows=S.data||[], cur={}, prv={}, prv2={}; rows.forEach(function(x){ (x[0]===a.cur?cur:(x[0]===a.prev?prv:prv2))[x[1]]=x; });
-  var order=(state.stTypes||[]).slice(); Object.keys(cur).concat(Object.keys(prv)).concat(Object.keys(prv2)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
+  var order=['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']; Object.keys(cur).concat(Object.keys(prv)).concat(Object.keys(prv2)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
   var sc=ddScale(D,a,rows), bike=den(D.city,a.cur,'bike'), km=den(D.city,a.cur,'km'), bikeP=a.prev?den(D.city,a.prev,'bike'):null, kmP=a.prev?den(D.city,a.prev,'km'):null, bikeQ=a.prev2?den(D.city,a.prev2,'bike'):null, kmQ=a.prev2?den(D.city,a.prev2,'km'):null;
   var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!a.prev2;
   var mk=function(x,f){ return x?{j:+x[2], amt:ddAmt(D,x,f,3), ts:+x[6], tn:+x[7], l30:+x[8]}:{j:0,amt:0,ts:0,tn:0,l30:0}; };
@@ -965,7 +970,7 @@ function cityCompareHtml(model){
   h+=dline('Job cards open 30+ days (billed this month)',dv('lc30'),function(v){ return v==null||!isFinite(v)?'\u2013':Math.round(v).toLocaleString('en-IN'); },1);
   h+=dline('Job cards billed this month that were opened this month',dv('smo'),FP,-1);
   // job-card mix by submission type
-  var STs=(state.stTypes||['Recovery','Rider Submission','Bike Exchange','Running Repair','Manual JC']);
+  var STs=(state.stTypes||['Recovery','Rider Submission','RR & BE','Manual JC']);
   h+=sec('Job-card mix by submission type <span style="font-weight:400;font-size:12px;color:#64748b">and bike model \u2014 every row follows the Show filter (\u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value); hover a cell for the job cards and parts \u20b9 per job card. Rows add up to the Parts total: the job-card data decides each type\u2019s share, applied to the cost-file total</span>');
   // 12 Nov 2026: parts cost (A+P+C) by submission type follows the Show filter: \u20b9 / bike, \u20b9 / km, \u20b9 total, % share, add % beside value
   var tipOf=function(x,name){ if(!x||!x.N) return ''; var n=x.n||0, pj=n?x.a/n:null; return ' title="'+esc(name)+': '+n.toLocaleString('en-IN')+' job cards ('+Math.round(100*n/x.N)+'% of job cards)'+(pj!=null?' \u00b7 parts \u20b9'+Math.round(pj).toLocaleString('en-IN')+' per job card':'')+'"'; };
