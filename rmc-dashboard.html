@@ -612,7 +612,8 @@ function ddPair(D){   // the column you clicked and the one it is compared with
   var m=D.m;
   if(/p$/.test(m)) return {cur:m, prev:null, days:state.partial?state.partial.days:null};
   if(isPartialMonth(m) && state.partial) return {cur:m, prev:state.partial.base+'p', days:state.partial.days};   // month to date vs the same days of last month
-  return {cur:m, prev:ddPrev(m), days:null};
+  var p1=ddPrev(m), p2=p1?ddPrev(p1):null; if(p2&&allMonths().indexOf(p2)<0) p2=null;   // 13 Nov 2026: also the month before last month (e.g. Aug when Oct is clicked), when it has data
+  return {cur:m, prev:p1, prev2:p2, days:null};
 }
 function ddBk(b,a,p,c){ return b==='A'?a:(b==='P'?p:(b==='C'?c:a+p+c)); }
 function ddBucketTotal(D,tok){   // what the cell you clicked holds: cost-file lines in this bucket
@@ -625,19 +626,19 @@ function ddFac(D,rows,tok){   // per category (A, P, C): the clicked cell's amou
   (rows||[]).forEach(function(x){ if(x[0]!==tok) return; raw.A+=+x[3]; raw.P+=+x[4]; raw.C+=+x[5]; });
   ['A','P','C'].forEach(function(b){ var cell=ddBucketTotal({city:D.city,b:b},tok); if(raw[b]>0&&cell>0) f[b]=cell/raw[b]; });
   return f; }
-function ddScale(D,a,rows){ return {cur:ddFac(D,rows,a.cur), prev:a.prev?ddFac(D,rows,a.prev):{A:1,P:1,C:1}}; }
+function ddScale(D,a,rows){ return {cur:ddFac(D,rows,a.cur), prev:a.prev?ddFac(D,rows,a.prev):{A:1,P:1,C:1}, prev2:a.prev2?ddFac(D,rows,a.prev2):{A:1,P:1,C:1}}; }
 function ddAmt(D,x,f,i){ var A=(+x[i]||0)*f.A, P=(+x[i+1]||0)*f.P, C=(+x[i+2]||0)*f.C; return D.b==='A'?A:(D.b==='P'?P:(D.b==='C'?C:A+P+C)); }
 function ddFacNote(sc,only){ var f=sc.cur, ks=only?[only]:['A','P','C'], big=ks.some(function(k){ return Math.abs(f[k]-1)>0.1; });
   return 'Amounts are job-card figures adjusted to the monthly cost file so that they add up to the number you clicked ('+ks.map(function(k){ return k+' \u00d7'+f[k].toFixed(2); }).join(', ')+')'+(big?' \u2014 the two sources differ noticeably for this city and month':'')+'.'; }
-function ddKey(kind,extra){ var D=state.drill, k=[kind,D.city,D.m,state.F.model||'']; if(kind!=='T') k.push(D.st); if(kind==='P'||kind==='P2'||kind==='J') k.push(D.b,D.hub); if(kind==='J') k.push(D.part); if(extra) k.push(extra); return k.join('|'); }
+function ddKey(kind,extra){ var D=state.drill, k=[kind,D.city,D.m,state.F.model||'']; if(kind!=='T') k.push(D.st); if(kind==='P'||kind==='P2'||kind==='P3'||kind==='J') k.push(D.b,D.hub); if(kind==='J') k.push(D.part); if(extra) k.push(extra); return k.join('|'); }
 function ddFetch(kind,fn,args,extra){ state.drillT=state.drillT||{}; var key=ddKey(kind,extra); if(state.drillT[key]) return; state.drillT[key]={loading:true};
   rpc(fn,args).then(function(r){ state.drillT[key]=(r&&r.ok)?{data:r.data}:{error:(r&&r.msg)||'no reply'}; render(); }).catch(function(e){ state.drillT[key]={error:String(e&&e.message||e)}; render(); }); }
 function ddGet(kind,extra){ var S=(state.drillT||{})[ddKey(kind,extra)]; return (S&&!S.loading)?S:null; }
-function ddMonths(a){ return [a.cur].concat(a.prev?[a.prev]:[]); }
+function ddMonths(a){ return [a.cur].concat(a.prev?[a.prev]:[]).concat(a.prev2?[a.prev2]:[]); }
 function ddLoadTypes(){ var D=state.drill, a=ddPair(D); ddFetch('T','rmc_drill_types',{p_cities:ddCities(D),p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null}); }
 function ddLoadHubs(){ var D=state.drill, a=ddPair(D); ddFetch('H','rmc_drill_type_hubs',{p_cities:ddCities(D),p_type:D.st,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null}); }
 function ddLoadParts(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'), base={p_city:CITY_FULL[kp[0]]||kp[0],p_hub:kp.slice(1).join('|'),p_type:D.st,p_days:a.days,p_model:state.F.model||null,p_cat:D.b==='ALL'?null:D.b};
-  ddFetch('P','rmc_drill_type_parts',Object.assign({p_month:a.cur},base)); if(a.prev) ddFetch('P2','rmc_drill_type_parts',Object.assign({p_month:a.prev},base)); }
+  ddFetch('P','rmc_drill_type_parts',Object.assign({p_month:a.cur},base)); if(a.prev) ddFetch('P2','rmc_drill_type_parts',Object.assign({p_month:a.prev},base)); if(a.prev2) ddFetch('P3','rmc_drill_type_parts',Object.assign({p_month:a.prev2},base)); }
 function ddLoadJC(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'); ddFetch('J','rmc_drill_type_jobcards',{p_city:CITY_FULL[kp[0]]||kp[0],p_hub:kp.slice(1).join('|'),p_type:D.st,p_month:a.cur,p_item:D.part,p_days:a.days,p_model:state.F.model||null,p_cat:D.b==='ALL'?null:D.b}); }
 function ddTat(h){ return (h==null||!isFinite(h))?'\u2013':h.toFixed(1)+' h'+(h>=48?' <span class="sub">('+(h/24).toFixed(1)+' d)</span>':''); }
 function ddLoading(h,msg){ return h+'<div class="empty">'+msg+'</div></div>'; }
@@ -660,49 +661,49 @@ function ddPts(a,b,dir){
   var d=(a-b)*100; if(Math.abs(d)<0.05) return '<span style="color:#64748b">0 pts</span>';
   var col=!dir?'#64748b':(((d>0)===(dir>0))?'#b91c1c':'#15803d');
   return '<span style="color:'+col+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(1)+' pts</span>'; }
-function ddTwo(cur,prev,delta,pl,noPrev){ return '<td>'+cur+(noPrev?'':'<div style="font-size:10.5px;color:#64748b;font-weight:500;line-height:1.35">'+pl+': '+prev+' '+delta+'</div>')+'</td>'; }
+function ddTwo(cur,prev,delta,pl,noPrev,p2,pl2){ return '<td>'+cur+(noPrev?'':'<div style="font-size:10.5px;color:#64748b;font-weight:500;line-height:1.35">'+pl+': '+prev+' '+delta+'</div>'+((p2!=null&&pl2)?'<div style="font-size:10.5px;color:#94a3b8;font-weight:500;line-height:1.35">'+pl2+': '+p2+'</div>':''))+'</td>'; }
 function ddH(v){ return (v==null||!isFinite(v))?'\u2013':v.toFixed(1)+' h'; }
 function ddExpKey(t){ var D=state.drill; return [D.city,D.m,t].join('|'); }
 function ddLvlTypes(D,h){   // level 0: submission types, each number with last month beneath
   var a=ddPair(D), S=ddGet('T'); if(!S){ ddLoadTypes(); return ddLoading(h,'Loading submission types\u2026'); } if(S.error) return ddErr(h,S.error);
-  var rows=S.data||[], cur={}, prv={}; rows.forEach(function(x){ (x[0]===a.cur?cur:prv)[x[1]]=x; });
-  var order=(state.stTypes||[]).slice(); Object.keys(cur).concat(Object.keys(prv)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
-  var sc=ddScale(D,a,rows), bike=den(D.city,a.cur,'bike'), km=den(D.city,a.cur,'km'), bikeP=a.prev?den(D.city,a.prev,'bike'):null, kmP=a.prev?den(D.city,a.prev,'km'):null;
-  var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'';
+  var rows=S.data||[], cur={}, prv={}, prv2={}; rows.forEach(function(x){ (x[0]===a.cur?cur:(x[0]===a.prev?prv:prv2))[x[1]]=x; });
+  var order=(state.stTypes||[]).slice(); Object.keys(cur).concat(Object.keys(prv)).concat(Object.keys(prv2)).forEach(function(t){ if(order.indexOf(t)<0) order.push(t); });
+  var sc=ddScale(D,a,rows), bike=den(D.city,a.cur,'bike'), km=den(D.city,a.cur,'km'), bikeP=a.prev?den(D.city,a.prev,'bike'):null, kmP=a.prev?den(D.city,a.prev,'km'):null, bikeQ=a.prev2?den(D.city,a.prev2,'bike'):null, kmQ=a.prev2?den(D.city,a.prev2,'km'):null;
+  var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!a.prev2;
   var mk=function(x,f){ return x?{j:+x[2], amt:ddAmt(D,x,f,3), ts:+x[6], tn:+x[7], l30:+x[8]}:{j:0,amt:0,ts:0,tn:0,l30:0}; };
-  var list=[], T={j:0,amt:0,ts:0,tn:0,l30:0}, TP={j:0,amt:0,ts:0,tn:0,l30:0};
-  order.forEach(function(t){ var c=cur[t], p=prv[t]; if(!c&&!p) return; var cc=mk(c,sc.cur), pp=mk(p,sc.prev);
-    ['j','amt','ts','tn','l30'].forEach(function(k){ T[k]+=cc[k]; TP[k]+=pp[k]; }); list.push({t:t,c:cc,p:pp}); });
+  var list=[], T={j:0,amt:0,ts:0,tn:0,l30:0}, TP={j:0,amt:0,ts:0,tn:0,l30:0}, TQ={j:0,amt:0,ts:0,tn:0,l30:0};
+  order.forEach(function(t){ var c=cur[t], p=prv[t], q=prv2[t]; if(!c&&!p) return; var cc=mk(c,sc.cur), pp=mk(p,sc.prev), qq=mk(q,sc.prev2);
+    ['j','amt','ts','tn','l30'].forEach(function(k){ T[k]+=cc[k]; TP[k]+=pp[k]; TQ[k]+=qq[k]; }); list.push({t:t,c:cc,p:pp,q:qq}); });
   if(!list.length) return ddLoading(h,'No job cards for this selection.');
   var tat=function(o){ return o.tn?o.ts/o.tn:null; };
-  var cells=function(c,p,tc,tp){
-    var shC=tc.j?c.j/tc.j:null, shP=(a.prev&&tp.j)?p.j/tp.j:null, perJ=function(o){ return o.j?o.amt/o.j:null; };
-    var pj=function(o,d){ return (d&&o.j)?o.amt/d:null; };
-    return ddTwo(c.j.toLocaleString('en-IN'), p.j.toLocaleString('en-IN'), ddDir(c.j,p.j,0), pl, np)
-      +ddTwo(shC==null?'':(shC*100).toFixed(1)+'%', shP==null?'\u2013':(shP*100).toFixed(1)+'%', ddPts(shC,shP,0), pl, np)
-      +ddTwo(ddInr(c.amt), ddInr(p.amt), ddDir(c.amt,p.amt,1), pl, np)
-      +ddTwo(c.j?ddInr(c.amt/c.j):'\u2013', p.j?ddInr(p.amt/p.j):'\u2013', ddDir(perJ(c),perJ(p),1), pl, np)
-      +ddTwo(bike&&c.j?ddInr(c.amt/bike):'\u2013', bikeP&&p.j?ddInr(p.amt/bikeP):'\u2013', ddDir(pj(c,bike),pj(p,bikeP),1), pl, np)
-      +ddTwo(km&&c.j?'\u20b9'+(c.amt/km).toFixed(3):'\u2013', kmP&&p.j?'\u20b9'+(p.amt/kmP).toFixed(3):'\u2013', ddDir(pj(c,km),pj(p,kmP),1), pl, np)
-      +ddTwo(ddTat(tat(c)), ddH(tat(p)), ddDir(tat(c),tat(p),1), pl, np)
-      +ddTwo(String(c.l30), String(p.l30), ddDir(c.l30,p.l30,1), pl, np); };
+  var cells=function(c,p,q,tc,tp,tq){
+    var shC=tc.j?c.j/tc.j:null, shP=(a.prev&&tp.j)?p.j/tp.j:null, shQ=(hasQ&&tq.j)?q.j/tq.j:null, perJ=function(o){ return o.j?o.amt/o.j:null; };
+    var pj=function(o,d){ return (d&&o.j)?o.amt/d:null; }, Q=function(v){ return hasQ?v:null; };
+    return ddTwo(c.j.toLocaleString('en-IN'), p.j.toLocaleString('en-IN'), ddDir(c.j,p.j,0), pl, np, Q(q.j.toLocaleString('en-IN')), pl2)
+      +ddTwo(shC==null?'':(shC*100).toFixed(1)+'%', shP==null?'\u2013':(shP*100).toFixed(1)+'%', ddPts(shC,shP,0), pl, np, Q(shQ==null?'\u2013':(shQ*100).toFixed(1)+'%'), pl2)
+      +ddTwo(ddInr(c.amt), ddInr(p.amt), ddDir(c.amt,p.amt,1), pl, np, Q(ddInr(q.amt)), pl2)
+      +ddTwo(c.j?ddInr(c.amt/c.j):'\u2013', p.j?ddInr(p.amt/p.j):'\u2013', ddDir(perJ(c),perJ(p),1), pl, np, Q(q.j?ddInr(q.amt/q.j):'\u2013'), pl2)
+      +ddTwo(bike&&c.j?ddInr(c.amt/bike):'\u2013', bikeP&&p.j?ddInr(p.amt/bikeP):'\u2013', ddDir(pj(c,bike),pj(p,bikeP),1), pl, np, Q(bikeQ&&q.j?ddInr(q.amt/bikeQ):'\u2013'), pl2)
+      +ddTwo(km&&c.j?'\u20b9'+(c.amt/km).toFixed(3):'\u2013', kmP&&p.j?'\u20b9'+(p.amt/kmP).toFixed(3):'\u2013', ddDir(pj(c,km),pj(p,kmP),1), pl, np, Q(kmQ&&q.j?'\u20b9'+(q.amt/kmQ).toFixed(3):'\u2013'), pl2)
+      +ddTwo(ddTat(tat(c)), ddH(tat(p)), ddDir(tat(c),tat(p),1), pl, np, Q(ddH(tat(q))), pl2)
+      +ddTwo(String(c.l30), String(p.l30), ddDir(c.l30,p.l30,1), pl, np, Q(String(q.l30)), pl2); };
   var body='';
   list.forEach(function(r){ var open=!!(state.drillExp||{})[ddExpKey(r.t)];
-    body+='<tr data-a="ddtype" data-v="'+esc(r.t)+'" style="cursor:pointer"><td><span data-a="ddexp" data-v="'+esc(r.t)+'" title="Details and last-month comparison" style="cursor:pointer;color:#2563eb;margin-right:6px">'+(open?'\u25be':'\u25b8')+'</span><b>'+esc(r.t)+'</b> \u203a</td>'+cells(r.c,r.p,T,TP)+'</tr>';
+    body+='<tr data-a="ddtype" data-v="'+esc(r.t)+'" style="cursor:pointer"><td><span data-a="ddexp" data-v="'+esc(r.t)+'" title="Details and last-month comparison" style="cursor:pointer;color:#2563eb;margin-right:6px">'+(open?'\u25be':'\u25b8')+'</span><b>'+esc(r.t)+'</b> \u203a</td>'+cells(r.c,r.p,r.q,T,TP,TQ)+'</tr>';
     if(open) body+='<tr><td colspan="9" style="background:#f8fafc;padding:8px 14px">'+ddDetailHtml(D,a,r.t)+'</td></tr>'; });
-  var tot='<tr class="tot"><td><b>All types</b></td>'+cells(T,TP,T,TP)+'</tr>';
+  var tot='<tr class="tot"><td><b>All types</b></td>'+cells(T,TP,TQ,T,TP,TQ)+'</tr>';
   var note=ddFacNote(sc,D.b!=='ALL'?D.b:null);
-  return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th></tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath. TAT = job card opened to billed. '+note+'</p></div>';
+  return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th></tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed. '+note+'</p></div>';
 }
 function ddDetailHtml(D,a,t){
   if(!document.getElementById('ddc-css')){ var stl=document.createElement('style'); stl.id='ddc-css'; stl.textContent='#svc table.ddc{font-size:11.5px;width:auto;margin:0}#svc table.ddc th,#svc table.ddc td{padding:5px 5px}#svc table.ddc th{white-space:normal;line-height:1.25}#svc table.ddc td.dl{white-space:normal;text-align:left;min-width:70px;max-width:150px}'; document.head.appendChild(stl); }   // the details panel of one submission type: this month, last month, change; only the clicked category when it is A, P or C
   var cat=D.b||'ALL', one=(cat!=='ALL'), ck=t+'|'+cat;
   var S=ddGet('D',ck); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null,p_cat:cat},ck); return '<span class="sub">Loading details\u2026</span>'; }
   if(S.error) return '<span class="sub">Could not load details ('+esc(S.error)+')</span>';
-  var cur=null, prv=null; (S.data||[]).forEach(function(o){ if(o.m===a.cur) cur=o; else prv=o; });
+  var cur=null, prv=null, prv2=null; (S.data||[]).forEach(function(o){ if(o.m===a.cur) cur=o; else if(o.m===a.prev) prv=o; else if(o.m===a.prev2) prv2=o; });
   if(!cur) return '<span class="sub">No job cards.</span>';
-  var Tt=ddGet('T'), sc=Tt?ddScale(D,a,Tt.data||[]):{cur:{A:1,P:1,C:1},prev:{A:1,P:1,C:1}};
-  var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'';
+  var Tt=ddGet('T'), sc=Tt?ddScale(D,a,Tt.data||[]):{cur:{A:1,P:1,C:1},prev:{A:1,P:1,C:1},prev2:{A:1,P:1,C:1}};
+  var np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', q3=!!(a.prev2&&prv2), pl2=q3?C.monthLabel(a.prev2):'';   // q3: the month before last month is shown too
   var N=function(v){ return (v==null||!isFinite(v))?'\u2013':Math.round(v).toLocaleString('en-IN'); }, R=function(v){ return ddInr(v); };
   var jcs=function(o){ return o.jcs; };
   // label, value, formatter, dir, share base, compare as points of share
@@ -729,12 +730,12 @@ function ddDetailHtml(D,a,t){
   var cellTxt=function(g,fm,sb,o,f){ if(!o) return '\u2013'; var v=g(o,f), b=sb?sb(o):null; return fm(v)+((sb&&b&&v!=null)?' <span class="sub">('+Math.round(v/b*100)+'%)</span>':''); };
   var body=''; L.forEach(function(d){ var g=d[1], fm=d[2], sb=d[4], pts=d[5], vc=g(cur,sc.cur), vp=prv?g(prv,sc.prev):null, shC=(sb&&sb(cur))?vc/sb(cur):null, shP=(prv&&sb&&sb(prv))?vp/sb(prv):null;
     var delta=pts?ddPts(shC,shP,d[3]):ddDir(vc,vp,d[3]);
-    body+='<tr><td class="dl">'+esc(d[0])+'</td>'+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
+    body+='<tr><td class="dl">'+esc(d[0])+'</td>'+(q3?'<td style="text-align:right;color:#94a3b8">'+cellTxt(g,fm,sb,prv2,sc.prev2)+'</td>':'')+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
   // breakup of the job cards by what each job card cost in parts (A+P+C): job cards, cost and share of cost, this month and last month
   var ft=function(o,f){ if(one) return f[cat]; var raw=(+o.a||0)+(+o.p||0)+(+o.c||0); return raw>0?((+o.a||0)*f.A+(+o.p||0)*f.P+(+o.c||0)*f.C)/raw:1; };
   var BK=(one?[['No '+cat+' parts','k0','s0']]:[]).concat([['\u20b90\u20132.5k','k1','s1'],['\u20b92.5k\u20135k','k2','s2'],['\u20b95k\u20137.5k','k3','s3'],['\u20b97.5k\u201310k','k4','s4'],['Above \u20b910k','k5','s5']]);
   var tot=function(o,f){ var fx=ft(o,f), n=0, c=0; BK.forEach(function(d){ n+=(+o[d[1]]||0); c+=(+o[d[2]]||0)*fx; }); return {n:n,c:c,fx:fx}; };
-  var tc=tot(cur,sc.cur), tp=prv?tot(prv,sc.prev):null;
+  var tc=tot(cur,sc.cur), tp=prv?tot(prv,sc.prev):null, tq=q3?tot(prv2,sc.prev2):null;
   var pctJ=function(n,tn){ return tn?' <span class="sub">('+Math.round(n/tn*100)+'%)</span>':''; };
   var pctJ2=function(n,tn){ return tn?'<br><span class="sub" style="font-size:10.5px">('+Math.round(n/tn*100)+'%)</span>':''; };
   var G='style="text-align:right;color:#475569"', Rt='style="text-align:right"';
@@ -744,60 +745,63 @@ function ddDetailHtml(D,a,t){
   var avg=function(c,n){ return n>0?R(c/n):'\u2013'; };
   var pct=function(c,t){ return t>0?(c/t*100).toFixed(1)+'%':'\u2013'; };
   var SEP='border-left:1px solid #e2e8f0;', HB='border-left:1px solid #475569;';
-  var pairS=function(curH,prevH){ return np?'<td style="text-align:right;'+SEP+'">'+curH+'</td>':'<td style="text-align:right;color:#475569;'+SEP+'">'+prevH+'</td><td '+Rt+'>'+curH+'</td>'; };
-  var span=np?1:2;
+  var pairS=function(curH,prevH,p2H){ var cs=[]; if(q3) cs.push(['#94a3b8',p2H]); if(!np) cs.push(['#475569',prevH]); cs.push([null,curH]);
+    return cs.map(function(x,i){ return '<td style="text-align:right;'+(x[0]?'color:'+x[0]+';':'')+(i===0?SEP:'')+'">'+x[1]+'</td>'; }).join(''); };
+  var span=(q3?1:0)+(np?0:1)+1;
   var gh=function(label){ return '<th colspan="'+span+'" style="text-align:center;'+HB+'">'+label+'</th>'; };
-  var mh=function(){ return np?'<th style="'+HB+'">'+C.monthLabel(a.cur)+'</th>':'<th style="'+HB+'">'+pl+'</th><th>'+C.monthLabel(a.cur)+'</th>'; };
-  // rows = [label, job cards this month, cost this month, job cards last month, cost last month]
+  var mh=function(){ var hs=[]; if(q3) hs.push(pl2); if(!np) hs.push(pl); hs.push(C.monthLabel(a.cur)); return hs.map(function(x,i){ return '<th'+(i===0?' style="'+HB+'"':'')+'>'+x+'</th>'; }).join(''); };
+  // rows = [label, job cards this month, cost this month, job cards last month, cost last month, job cards the month before, cost the month before]
   var mkTable=function(title,first,rows,note,top){
     var sum=function(i){ return rows.reduce(function(x,r){ return x+(+r[i]||0); },0); };
-    var nC=sum(1), cC=sum(2), nP=sum(3), cP=sum(4), body='';
-    rows.forEach(function(r){ body+='<tr><td class="dl">'+r[0]+'</td>'+pairS(N(r[1])+pctJ2(r[1],nC), N(r[3])+pctJ2(r[3],nP))+pairS(R(r[2]), R(r[4]))+pairS(avg(r[2],r[1]), avg(r[4],r[3]))+pairS(pct(r[2],cC), pct(r[4],cP))+'</tr>'; });
-    body+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td class="dl">All job cards</td>'+pairS(N(nC), N(nP))+pairS(R(cC), R(cP))+pairS(avg(cC,nC), avg(cP,nP))+pairS('100%','100%')+'</tr>';
+    var nC=sum(1), cC=sum(2), nP=sum(3), cP=sum(4), nQ=sum(5), cQ=sum(6), body='';
+    rows.forEach(function(r){ body+='<tr><td class="dl">'+r[0]+'</td>'+pairS(N(r[1])+pctJ2(r[1],nC), N(r[3])+pctJ2(r[3],nP), N(r[5])+pctJ2(r[5],nQ))+pairS(R(r[2]), R(r[4]), R(r[6]))+pairS(avg(r[2],r[1]), avg(r[4],r[3]), avg(r[6],r[5]))+pairS(pct(r[2],cC), pct(r[4],cP), pct(r[6],cQ))+'</tr>'; });
+    body+='<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td class="dl">All job cards</td>'+pairS(N(nC), N(nP), N(nQ))+pairS(R(cC), R(cP), R(cQ))+pairS(avg(cC,nC), avg(cP,nP), avg(cQ,nQ))+pairS('100%','100%','100%')+'</tr>';
     return '<div style="font-weight:700;margin:'+(top?'0':'20px')+' 0 6px">'+title+'</div><table class="ddc" style="width:auto"><tr><th rowspan="2" style="text-align:left;width:84px">'+first+'</th>'+gh('Job cards')+gh('Cost \u20b9')+gh('Avg cost / job card')+gh('% of cost')+'</tr><tr>'+mh()+mh()+mh()+mh()+'</tr>'+body+'</table><p class="sub" style="margin:6px 0 0;width:0;min-width:100%;white-space:normal">'+note+'</p>';
   };
-  var costRows=BK.map(function(d){ return [d[0], +cur[d[1]]||0, (+cur[d[2]]||0)*tc.fx, prv?(+prv[d[1]]||0):0, prv?(+prv[d[2]]||0)*tp.fx:0]; });
-  var tatRows=TB.map(function(x,j){ var k=j+1; return [x, +cur['tn'+k]||0, (+cur['ts'+k]||0)*tc.fx, prv?(+prv['tn'+k]||0):0, prv?(+prv['ts'+k]||0)*tp.fx:0]; });
+  var costRows=BK.map(function(d){ return [d[0], +cur[d[1]]||0, (+cur[d[2]]||0)*tc.fx, prv?(+prv[d[1]]||0):0, prv?(+prv[d[2]]||0)*tp.fx:0, q3?(+prv2[d[1]]||0):0, q3?(+prv2[d[2]]||0)*tq.fx:0]; });
+  var tatRows=TB.map(function(x,j){ var k=j+1; return [x, +cur['tn'+k]||0, (+cur['ts'+k]||0)*tc.fx, prv?(+prv['tn'+k]||0):0, prv?(+prv['ts'+k]||0)*tp.fx:0, q3?(+prv2['tn'+k]||0):0, q3?(+prv2['ts'+k]||0)*tq.fx:0]; });
   var what=one?cat+' parts':'parts';
   var noteCost=(one?'Each job card sits in the bucket of its own '+cat+' parts cost; job cards with no '+cat+' parts are in the first row. ':'Each job card sits in the bucket of its own total parts cost. ')+'Cost = the '+what+' cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+what+' cost for this type. Avg cost / job card = cost \u00f7 job cards in that row (the total row divides by all job cards).';
   var noteTat='Each job card sits in the bucket of its service TAT (job card opened to billed). Cost = the '+what+' cost of the job cards in that bucket; % of cost = that bucket\u2019s share of all '+what+' cost for this type. Job cards with no '+(one?cat+' ':'')+'parts are included.';
   // the two breakups sit side by side (cost on the left, service TAT on its right); on a narrow screen the pair moves below the details together
-  var right='<div style="display:flex;gap:20px;flex-wrap:nowrap;align-items:flex-start">'
-    +'<div style="flex:none">'+mkTable('Breakup by '+what+' cost per job card'+(one?'':' (A+P+C)'), (one?cat+' parts':'Parts')+' cost of the job card', costRows, noteCost, true)+'</div>'
-    +'<div style="flex:none">'+mkTable('Breakup by service TAT'+(one?' ('+cat+' parts cost)':' (A+P+C parts cost)'), 'Job cards by service TAT', tatRows, noteTat, true)+'</div></div>';
+  // two months: Key figures, cost breakup and TAT breakup in one row (wrapping if the screen is too narrow); three months are wider, so the two breakups are stacked to the right of the Key figures
+  var costBlk=mkTable('Breakup by '+what+' cost per job card'+(one?'':' (A+P+C)'), (one?cat+' parts':'Parts')+' cost of the job card', costRows, noteCost, true),
+      tatBlk=mkTable('Breakup by service TAT'+(one?' ('+cat+' parts cost)':' (A+P+C parts cost)'), 'Job cards by service TAT', tatRows, noteTat, !q3);
+  var right=q3?'<div style="flex:none">'+costBlk+tatBlk+'</div>':'<div style="flex:none">'+costBlk+'</div><div style="flex:none">'+tatBlk+'</div>';
   var cityTxt=D.city==='ALL'?'All selected cities':esc(CITY_FULL[D.city]||D.city);
-  return '<div style="width:0;min-width:100%;overflow-x:auto"><div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:20px;flex-wrap:nowrap;align-items:flex-start"><div style="flex:none"><div style="font-weight:700;margin:0 0 6px">Key figures</div><table class="ddc" style="width:auto"><tr><th style="text-align:left">Detail</th>'+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+'<div style="flex:none">'+right+'</div></div><p class="sub" style="margin:6px 0 0;width:0;min-width:100%;white-space:normal">\u25b2\u25bc % = change in the amount; pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+' Average part cost = the \u20b9 above \u00f7 parts quantity; average parts per job card = parts quantity \u00f7 all job cards of this type.'+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p></div>';
+  return '<div style="width:0;min-width:100%;overflow-x:auto"><div style="font-weight:700;margin-bottom:6px">'+esc(t)+' \u00b7 '+cityTxt+' \u00b7 '+(q3?pl2+' \u2192 ':'')+(np?'':pl+' \u2192 ')+C.monthLabel(a.cur)+'</div><div style="display:flex;gap:18px 20px;flex-wrap:wrap;align-items:flex-start"><div style="flex:none"><div style="font-weight:700;margin:0 0 6px">Key figures</div><table class="ddc" style="width:auto"><tr><th style="text-align:left">Detail</th>'+(q3?'<th>'+pl2+'</th>':'')+(np?'':'<th>'+pl+'</th>')+'<th>'+C.monthLabel(a.cur)+'</th>'+(np?'':'<th>Change</th>')+'</tr>'+body+'</table></div>'+right+'</div><p class="sub" style="margin:6px 0 0;width:0;min-width:100%;white-space:normal">\u25b2\u25bc % = change in the amount (this month vs '+(pl||'last month')+'); pts = change in the share. '+(one?'The '+cat+' amount uses':'A / P / C amounts use')+' the same adjustment as the table above, so '+(one?'it adds':'they add')+' up to the headline. '+ddFacNote(sc,one?cat:null)+' Average part cost = the \u20b9 above \u00f7 parts quantity; average parts per job card = parts quantity \u00f7 all job cards of this type.'+(one?' Job cards, TAT and open 30+ days cover all job cards of this type.':'')+(fee?' Damage fee is as recorded on the job cards and can differ from the P breakup on the Overview, which applies the \u20b93,000 cap and other rules.':'')+'</p></div>';
 }
 function ddLvlHubs(D,h){   // level 1: hubs for one submission type, last month beneath
   var a=ddPair(D), S=ddGet('H'), T=ddGet('T'); if(!S||!T){ ddLoadHubs(); ddLoadTypes(); return ddLoading(h,'Loading hubs\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
-  var sc=ddScale(D,a,T.data||[]), by={}, np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'';
-  (S.data||[]).forEach(function(x){ var k=(CITY_CODE[x[1]]||x[1])+'|'+x[2], e=by[k]||(by[k]={cur:null,prv:null}); if(x[0]===a.cur) e.cur=x; else e.prv=x; });
+  var sc=ddScale(D,a,T.data||[]), by={}, np=!a.prev, pl=a.prev?C.monthLabel(a.prev):'', pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!a.prev2, Q=function(v){ return hasQ?v:null; };
+  (S.data||[]).forEach(function(x){ var k=(CITY_CODE[x[1]]||x[1])+'|'+x[2], e=by[k]||(by[k]={cur:null,prv:null,prv2:null}); if(x[0]===a.cur) e.cur=x; else if(x[0]===a.prev) e.prv=x; else e.prv2=x; });
   var mk=function(x,f){ return x?{j:+x[3], amt:ddAmt(D,x,f,4), tat:(+x[8])?+x[7]/+x[8]:null}:{j:0,amt:0,tat:null}; };
-  var rows=Object.keys(by).map(function(k){ var e=by[k], kp=k.split('|'); return {k:k, name:(D.city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'), c:mk(e.cur,sc.cur), p:mk(e.prv,sc.prev)}; }).filter(function(r){ return r.c.j>0; }).sort(function(x,y){ return y.c.amt-x.c.amt; });
+  var rows=Object.keys(by).map(function(k){ var e=by[k], kp=k.split('|'); return {k:k, name:(D.city==='ALL'?kp[0]+' \u00b7 ':'')+kp.slice(1).join('|'), c:mk(e.cur,sc.cur), p:mk(e.prv,sc.prev), q:mk(e.prv2,sc.prev2)}; }).filter(function(r){ return r.c.j>0; }).sort(function(x,y){ return y.c.amt-x.c.amt; });
   if(!rows.length) return ddLoading(h,'No hubs for this selection.');
   var perJ=function(o){ return o.j?o.amt/o.j:null; }, body='';
   rows.forEach(function(r){ body+='<tr data-a="ddhub" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+esc(r.name)+'</b> \u203a</td>'
-    +ddTwo(r.c.j.toLocaleString('en-IN'), r.p.j.toLocaleString('en-IN'), ddDir(r.c.j,r.p.j,0), pl, np)
-    +ddTwo(ddInr(r.c.amt), ddInr(r.p.amt), ddDir(r.c.amt,r.p.amt,1), pl, np)
-    +ddTwo(r.c.j?ddInr(r.c.amt/r.c.j):'\u2013', r.p.j?ddInr(r.p.amt/r.p.j):'\u2013', ddDir(perJ(r.c),perJ(r.p),1), pl, np)
-    +ddTwo(ddTat(r.c.tat), ddH(r.p.tat), ddDir(r.c.tat,r.p.tat,1), pl, np)+'</tr>'; });
-  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath. TAT = job card opened to billed.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+' Click a hub to see which parts drove its cost.</p></div>';
+    +ddTwo(r.c.j.toLocaleString('en-IN'), r.p.j.toLocaleString('en-IN'), ddDir(r.c.j,r.p.j,0), pl, np, Q(r.q.j.toLocaleString('en-IN')), pl2)
+    +ddTwo(ddInr(r.c.amt), ddInr(r.p.amt), ddDir(r.c.amt,r.p.amt,1), pl, np, Q(ddInr(r.q.amt)), pl2)
+    +ddTwo(r.c.j?ddInr(r.c.amt/r.c.j):'\u2013', r.p.j?ddInr(r.p.amt/r.p.j):'\u2013', ddDir(perJ(r.c),perJ(r.p),1), pl, np, Q(r.q.j?ddInr(r.q.amt/r.q.j):'\u2013'), pl2)
+    +ddTwo(ddTat(r.c.tat), ddH(r.p.tat), ddDir(r.c.tat,r.p.tat,1), pl, np, Q(ddH(r.q.tat)), pl2)+'</tr>'; });
+  return h+'<div class="tw"><table><tr><th>Hub (click for parts)</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>Avg TAT</th></tr>'+body+'</table></div><p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+' Click a hub to see which parts drove its cost.</p></div>';
 }
 function ddLvlParts(D,h){   // level 2: parts at the hub for this submission type, last month beneath
-  var a=ddPair(D), S=ddGet('P'), S2=a.prev?ddGet('P2'):null, T=ddGet('T'); if(!S||!T||(a.prev&&!S2)){ ddLoadParts(); ddLoadTypes(); return ddLoading(h,'Loading parts\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
-  var sc=ddScale(D,a,T.data||[]), np=!a.prev||!!(S2&&S2.error), pl=a.prev?C.monthLabel(a.prev):'', pm={};
+  var a=ddPair(D), S=ddGet('P'), S2=a.prev?ddGet('P2'):null, S3=a.prev2?ddGet('P3'):null, T=ddGet('T'); if(!S||!T||(a.prev&&!S2)||(a.prev2&&!S3)){ ddLoadParts(); ddLoadTypes(); return ddLoading(h,'Loading parts\u2026'); } if(S.error) return ddErr(h,S.error); if(T.error) return ddErr(h,T.error);
+  var sc=ddScale(D,a,T.data||[]), np=!a.prev||!!(S2&&S2.error), pl=a.prev?C.monthLabel(a.prev):'', pm={}, pm2={}, pl2=a.prev2?C.monthLabel(a.prev2):'', hasQ=!!(a.prev2&&S3&&!S3.error), Q=function(v){ return hasQ?v:null; };
   if(S2&&!S2.error) (S2.data||[]).forEach(function(x){ pm[x[0]]={q:+x[1]||0, amt:ddAmt(D,x,sc.prev,2), n:+x[5]||0}; });
+  if(hasQ) (S3.data||[]).forEach(function(x){ pm2[x[0]]={q:+x[1]||0, amt:ddAmt(D,x,sc.prev2,2), n:+x[5]||0}; });
   var pr=(S.data||[]).map(function(x){ return {name:x[0], q:+x[1]||0, amt:ddAmt(D,x,sc.cur,2), n:+x[5]||0}; }).filter(function(r){ return r.amt>0; }).sort(function(x,y){ return y.amt-x.amt; });
   if(!pr.length) return ddLoading(h,'No parts for this selection.');
   var tc=pr.reduce(function(s2,r){ return s2+r.amt; },0), body='';
-  pr.slice(0,30).forEach(function(r){ var p=pm[r.name]||{q:0,amt:0,n:0}, uc=r.q?r.amt/r.q:null, up=p.q?p.amt/p.q:null;
+  pr.slice(0,30).forEach(function(r){ var p=pm[r.name]||{q:0,amt:0,n:0}, w=pm2[r.name]||{q:0,amt:0,n:0}, uc=r.q?r.amt/r.q:null, up=p.q?p.amt/p.q:null, uw=w.q?w.amt/w.q:null;
     body+='<tr data-a="ddpart" data-v="'+esc(r.name)+'" style="cursor:pointer"><td><b>'+esc(r.name)+'</b> \u203a</td>'
-      +ddTwo(Math.round(r.q).toLocaleString('en-IN'), Math.round(p.q).toLocaleString('en-IN'), ddDir(r.q,p.q,0), pl, np)
-      +ddTwo(r.n.toLocaleString('en-IN'), p.n.toLocaleString('en-IN'), ddDir(r.n,p.n,0), pl, np)
-      +ddTwo(ddInr(r.amt), ddInr(p.amt), ddDir(r.amt,p.amt,1), pl, np)
+      +ddTwo(Math.round(r.q).toLocaleString('en-IN'), Math.round(p.q).toLocaleString('en-IN'), ddDir(r.q,p.q,0), pl, np, Q(Math.round(w.q).toLocaleString('en-IN')), pl2)
+      +ddTwo(r.n.toLocaleString('en-IN'), p.n.toLocaleString('en-IN'), ddDir(r.n,p.n,0), pl, np, Q(w.n.toLocaleString('en-IN')), pl2)
+      +ddTwo(ddInr(r.amt), ddInr(p.amt), ddDir(r.amt,p.amt,1), pl, np, Q(ddInr(w.amt)), pl2)
       +'<td>'+(tc?(r.amt/tc*100).toFixed(1)+'%':'')+'</td>'
-      +ddTwo(uc==null?'\u2013':ddInr(uc), up==null?'\u2013':ddInr(up), ddDir(uc,up,1), pl, np)+'</tr>'; });
-  return h+'<div class="tw"><table><tr><th>Part (click for job cards)</th><th>'+C.monthLabel(a.cur)+' qty</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>Share</th><th>\u20b9 / unit</th></tr>'+body+'</table></div>'+(pr.length>30?'<p class="sub">Top 30 of '+pr.length+' parts.</p>':'')+'<p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only, from the job-card data. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+'</p></div>';
+      +ddTwo(uc==null?'\u2013':ddInr(uc), up==null?'\u2013':ddInr(up), ddDir(uc,up,1), pl, np, Q(uw==null?'\u2013':ddInr(uw)), pl2)+'</tr>'; });
+  return h+'<div class="tw"><table><tr><th>Part (click for job cards)</th><th>'+C.monthLabel(a.cur)+' qty</th><th>Job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>Share</th><th>\u20b9 / unit</th></tr>'+body+'</table></div>'+(pr.length>30?'<p class="sub">Top 30 of '+pr.length+' parts.</p>':'')+'<p class="sub" style="margin-top:6px">'+esc(D.st)+' job cards only, from the job-card data. Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'.'+' '+ddFacNote(sc,D.b!=='ALL'?D.b:null)+'</p></div>';
 }
 function ddLvlJC(D,h){   // level 3: job cards, with TAT
   var S=ddGet('J'); if(!S){ ddLoadJC(); return ddLoading(h,'Loading job cards\u2026'); } if(S.error) return ddErr(h,S.error);
