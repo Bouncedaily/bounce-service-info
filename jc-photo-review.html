@@ -78,6 +78,7 @@ table.st th.s{cursor:pointer}
   <div><label>Hub</label><select id="fHub"><option value="">All hubs</option></select></div>
   <div><label>HO approver</label><select id="fHo"><option value="">All approvers</option></select></div>
   <div><label>Type</label><select id="fStype"><option value="">All types</option></select></div>
+  <div><label>DMS cat</label><select id="fCat" title="Shows only the part cost of this category"><option value="">All categories</option><option value="A">A · Wear &amp; tear</option><option value="P">P · Rider-payable</option><option value="C">C · Company</option><option value="F">F · Free of cost</option></select></div>
   <div><label>Cost</label><select id="fBand"><option value="">Any cost</option><option value="gt15k">₹15k and above</option><option value="5to15k">₹5k–15k</option><option value="1to5k">₹1k–5k</option><option value="lt1k">Under ₹1k</option></select></div>
   <div><label>Draft</label><select id="fDraft"><option value="">Any</option><option value="less">Billed less than draft</option><option value="more">Billed more than draft</option><option value="match">Billed = draft</option><option value="nodraft">No draft</option></select></div>
   <div><label>Show</label><select id="fStatus"><option value="pending">To review</option><option value="reviewed">Reviewed</option><option value="all">All</option></select></div>
@@ -92,7 +93,7 @@ table.st th.s{cursor:pointer}
   <div class="card" style="padding:0"><div style="padding:12px 16px;border-bottom:1px solid var(--border)"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><b style="font-size:14px" id="sumHead">Billed parts vs Draft JC part cost</b>
       <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-left:8px">Split by</label>
       <select id="fSplit"><option value="city">City</option><option value="stype">Submission type</option><option value="hub">Hub</option><option value="ho">HO approver</option><option value="model">Bike model</option><option value="week">Week</option></select></div>
-    <div class="muted" style="font-size:12px;margin-top:2px">Draft JC Part Cost (from Metabase) is compared with <b>billed part lines excluding warranty (W) + 18% GST</b> (A, P, C and F parts; labour not included). <b>Match</b> = within ±1% (or ±₹10). <b>No draft</b> = no draft part cost on the job card. Amounts include GST. Click any number for the job cards behind it.</div></div>
+    <div class="muted" style="font-size:12px;margin-top:2px">Draft JC Part Cost (from Metabase) <b>without GST</b> is compared with <b>billed part lines excluding warranty (W)</b>, also without GST (A, P, C and F parts; labour not included). <b>Match</b> = within ±1% (or ±₹10). <b>No draft</b> = no draft part cost on the job card. Amounts exclude GST. Click any number for the job cards behind it.</div></div>
     <div style="overflow:auto"><table class="st" id="sumTbl"></table></div></div>
   <div class="card" id="rawCard" style="display:none;padding:0"><div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:10px;align-items:center">
     <b id="rawTitle" style="font-size:14px"></b><input id="rawQ" type="search" placeholder="Search reg, JC, hub, approver…" style="width:240px">
@@ -147,46 +148,48 @@ function inr(v){ return v==null?'–':'₹'+Math.round(+v).toLocaleString('en-IN
 function fmtWhen(iso){ if(!iso) return ''; return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'}); }
 function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},2400); }
 function params(){ var st=$('fStatus').value; return {p_month:$('fMonth').value, p_city:$('fCity').value||null, p_hub:$('fHub').value||null, p_status:st, p_ho:$('fHo').value||null,
-  p_stype:$('fStype').value||null, p_band:$('fBand').value||null, p_verdict:(st==='pending'?null:($('fVerdict').value||null)), p_draft:$('fDraft').value||null, p_sort:$('fSort').value}; }
+  p_stype:$('fStype').value||null, p_band:$('fBand').value||null, p_verdict:(st==='pending'?null:($('fVerdict').value||null)), p_draft:$('fDraft').value||null, p_sort:$('fSort').value, p_cat:$('fCat').value||null}; }
+var CAT='';   // DMS category the loaded cards are for ('' = all); set from the database answer
+function catCost(x){ return x.cat_cost!=null?x.cat_cost:x.cost; }
 (function months(){ var d=new Date(), s=''; for(var i=0;i<3;i++){ var x=new Date(d.getFullYear(), d.getMonth()-i, 1), k=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');
   s+='<option value="'+k+'">'+x.toLocaleDateString('en-IN',{month:'short',year:'numeric'})+(i===0?' (so far)':'')+'</option>'; } $('fMonth').innerHTML=s; })();
 async function loadSummary(){
-  var r=await rpc('jc_review_summary',{p_month:$('fMonth').value,p_city:$('fCity').value||null}); if(!r.ok){ $('kpis').innerHTML=''; return; }
-  var b=r.data.by_verdict||{}, tot=r.data.total_jcs||0, rev=0, k=function(v){ return b[v]||{n:0,cost:0}; };
+  var r=await rpc('jc_review_summary_v2',{p_month:$('fMonth').value,p_city:$('fCity').value||null,p_cat:$('fCat').value||null}); if(!r.ok){ $('kpis').innerHTML=''; return; }
+  var b=r.data.by_verdict||{}, tot=r.data.total_jcs||0, rev=0, k=function(v){ return b[v]||{n:0,cost:0}; }, cw=$('fCat').value?($('fCat').value+' parts cost'):'job card cost';
   ['minor','medium','major','unclear'].forEach(function(v){ rev+=k(v).n; });
   var card=function(val,lbl,sub,col){ return '<div class="kpi"><b style="color:'+(col||'inherit')+'">'+val+'</b><span>'+lbl+'</span><i>'+sub+'</i></div>'; };
-  $('kpis').innerHTML=card(rev.toLocaleString('en-IN'),'Reviewed','of '+tot.toLocaleString('en-IN')+' job cards with photos')
-    +card(k('minor').n,'Minor damage',inr(k('minor').cost)+' job card cost','#15803d')
-    +card(k('medium').n,'Medium damage',inr(k('medium').cost)+' job card cost','#a16207')
-    +card(k('major').n,'Major accident',inr(k('major').cost)+' job card cost','#b91c1c')
-    +card(k('unclear').n,'Photos unclear',inr(k('unclear').cost)+' job card cost','#475569');
+  $('kpis').innerHTML=card(rev.toLocaleString('en-IN'),'Reviewed','of '+tot.toLocaleString('en-IN')+' job cards with photos'+($('fCat').value?' and '+$('fCat').value+' parts':''))
+    +card(k('minor').n,'Minor damage',inr(k('minor').cost)+' '+cw,'#15803d')
+    +card(k('medium').n,'Medium damage',inr(k('medium').cost)+' '+cw,'#a16207')
+    +card(k('major').n,'Major accident',inr(k('major').cost)+' '+cw,'#b91c1c')
+    +card(k('unclear').n,'Photos unclear',inr(k('unclear').cost)+' '+cw,'#475569');
   var rv=await rpc('jc_review_reviewers',{p_month:$('fMonth').value});
   var rl=(rv.ok&&rv.data)||[]; $('revLine').innerHTML=rl.length?'<b>Reviewed by:</b> '+rl.map(function(x){ return esc(hoName(x.who))+' <b>'+x.n.toLocaleString('en-IN')+'</b>'+(x.today?' <span class="muted">('+x.today+' today)</span>':''); }).join(' &nbsp;·&nbsp; '):'';
 }
 async function load(reset){
   if(reset){ OFFSET=0; ROWS=[]; $('list').innerHTML='<div class="msg muted">Loading…</div>'; }
   var p=params(); p.p_limit=PAGE; p.p_offset=OFFSET;
-  var r=await rpc('jc_review_queue',p);
+  var r=await rpc('jc_review_queue_v2',p);
   if(!r.ok){ $('list').innerHTML='<div class="msg" style="color:#b91c1c">'+(r.denied?'You don’t have access to JC photo review. Ask the admin for the “JC photo review” permission.':esc(r.msg))+'</div>'; return; }
-  var d=r.data; TOTAL=d.total||0; ROWS=ROWS.concat(d.rows||[]); OFFSET=ROWS.length;
+  var d=r.data; CAT=d.cat||''; TOTAL=d.total||0; ROWS=ROWS.concat(d.rows||[]); OFFSET=ROWS.length;
   if(reset){ var cur=$('fHub').value; $('fHub').innerHTML='<option value="">All hubs</option>'+(d.hubs||[]).map(function(h){ return '<option'+(h===cur?' selected':'')+'>'+esc(h)+'</option>'; }).join('');
     var cs=$('fStype').value; $('fStype').innerHTML='<option value="">All types</option>'+(d.stypes||[]).map(function(h){ return '<option'+(h===cs?' selected':'')+'>'+esc(h)+'</option>'; }).join('');
     var ch=$('fHo').value; $('fHo').innerHTML='<option value="">All approvers</option>'+(d.hos||[]).map(function(h){ return '<option value="'+esc(h)+'"'+(h===ch?' selected':'')+'>'+esc(hoName(h))+'</option>'; }).join(''); }
-  $('info').textContent=TOTAL.toLocaleString('en-IN')+' job cards · list updated '+fmtWhen(d.refreshed_at);
+  $('info').textContent=TOTAL.toLocaleString('en-IN')+' job cards'+(CAT?' with '+CAT+' parts':'')+' · list updated '+fmtWhen(d.refreshed_at);
   render(); $('more').style.display=OFFSET<TOTAL?'':'none';
 }
-function draftDiff(x){   // billed = part lines excluding warranty (W), plus 18% GST (12 Nov 2026)
-  var d=+x.draft_part_cost, f=Math.round((+(x.parts_no_w!=null?x.parts_no_w:x.parts_all)||0)*118)/100; if(!d) return '';
+function draftDiff(x){   // draft JC parts and billed parts both WITHOUT GST; billed = part lines excluding warranty (W)  (16 Nov 2026)
+  var d=+x.draft_ex_gst, f=+(x.billed_ex_gst!=null?x.billed_ex_gst:(x.parts_no_w!=null?x.parts_no_w:x.parts_all))||0; if(!d) return '';
   if(Math.abs(f-d)<=Math.max(10,d*0.01)) return '<span style="text-transform:none;font-size:11px;color:#64748b">(billed = draft)</span>';
   var pc=Math.round((f-d)/d*100);
-  return '<span style="text-transform:none;font-size:11px;color:'+(pc>0?'#b91c1c':'#15803d')+'">(billed '+inr(f)+' incl. GST, '+(pc>0?'+':'')+pc+'% vs draft)</span>'; }
+  return '<span style="text-transform:none;font-size:11px;color:'+(pc>0?'#b91c1c':'#15803d')+'">(billed '+inr(f)+', '+(pc>0?'+':'')+pc+'% vs draft)</span>'; }
 function hoName(u){ if(!u) return ''; var n=String(u).split('@')[0].replace(/[._]/g,' ').toLowerCase(); return n.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
 function photo(url,lbl){ if(!url) return '<figure><div class="fail">No '+lbl.toLowerCase()+' photo</div><figcaption>'+lbl+'</figcaption></figure>';
   return '<figure><img loading="lazy" src="'+esc(url)+'" data-z="'+esc(url)+'" alt="'+lbl+'" onerror="this.outerHTML=\'<div class=fail>Photo did not load</div>\'"><figcaption>'+lbl+'</figcaption></figure>'; }
 function cardHtml(x,i){
   var v=x.verdict;
-  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd" data-parts="'+i+'" title="Click for the parts on this job card"><div class="cost" title="Parts billed (excl. warranty)">'+inr(x.cost)+'</div>'
-    +(x.draft_part_cost!=null?'<div class="m"><span>Draft JC parts (incl. GST)</span><b>'+inr(x.draft_part_cost)+'</b> '+draftDiff(x)+'</div>':'')
+  return '<div class="card'+(x._done?' done':'')+'" id="c'+i+'"><div class="chd" data-parts="'+i+'" title="Click for the parts on this job card"><div class="cost" title="'+(CAT?'Parts billed in DMS category '+CAT:'Parts billed (excl. warranty)')+'">'+inr(catCost(x))+(CAT?' <span style="font-size:11px;font-weight:600;color:#64748b">'+CAT+' parts</span>':'')+'</div>'
+    +(!CAT&&x.draft_ex_gst!=null?'<div class="m"><span>Draft JC parts (excl. GST)</span><b>'+inr(x.draft_ex_gst)+'</b> '+draftDiff(x)+'</div>':'')
     +'<div class="m"><span>Reg</span><b>'+esc(x.reg||'–')+'</b></div><div class="m"><span>JC</span>'+esc(x.jc_no||x.draft_jc_id)+'</div>'
     +'<div class="m"><span>Hub</span>'+esc(x.hub||'')+', '+esc(x.city||'')+'</div><div class="m"><span>Type</span>'+esc(x.stype||'–')+'</div>'
     +'<div class="m"><span>Closed</span>'+fmtWhen(x.closed_at)+'</div>'
@@ -206,11 +209,11 @@ var CATN={A:'Wear & tear',P:'Rider-payable',C:'Company',W:'Warranty',F:'Free of 
 async function openParts(i){
   var x=ROWS[i]; if(!x) return; var side=$('side');
   $('sTitle').textContent=(x.reg||'')+' · JC '+(x.jc_no||x.draft_jc_id);
-  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(x.cost)+' parts billed (excl. warranty)'+(x.draft_part_cost!=null?' · draft '+inr(x.draft_part_cost):'')+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
+  $('sSub').textContent=(x.hub||'')+', '+(x.city||'')+' · '+(x.stype||'')+' · '+inr(catCost(x))+(CAT?' '+CAT+' parts billed (DMS category '+CAT+' only)':' parts billed (excl. warranty)')+(!CAT&&x.draft_ex_gst!=null?' · draft '+inr(x.draft_ex_gst)+' excl. GST':'')+(x.ho_user?' · HO: '+hoName(x.ho_user):'');
   $('sBody').innerHTML='<div class="msg muted">Loading…</div>'; side.classList.add('open');
   var r=await rpc('jc_review_parts',{p_jc:x.draft_jc_id});
   if(!r.ok){ $('sBody').innerHTML='<div class="msg" style="color:#b91c1c">'+esc(r.msg)+'</div>'; return; }
-  var L=(r.data||[]).filter(function(l){ return l.type==='Part' && l.cat!=='W'; }), parts=L;
+  var L=(r.data||[]).filter(function(l){ return l.type==='Part' && l.cat!=='W' && (!CAT||l.cat===CAT); }), parts=L;
   var sum=function(a,k){ return a.reduce(function(s,l){ return s+(+l[k]||0); },0); };
   var row=function(l){ return '<tr><td>'+esc(l.item||'–')+'</td><td><span class="cat '+esc(l.cat)+'" title="'+esc(CATN[l.cat]||l.cat)+'">'+esc(l.cat||'–')+'</span></td><td class="n">'+(+l.qty||0).toLocaleString('en-IN')+'</td><td class="n">'+inr(l.amount)+'</td></tr>'; };
   var byCat={}; L.forEach(function(l){ byCat[l.cat]=(byCat[l.cat]||0)+(+l.amount||0); });
@@ -218,7 +221,7 @@ async function openParts(i){
     +'<tr class="grp"><td colspan="2">Parts ('+parts.length+')</td><td class="n">'+sum(parts,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(parts,'amount'))+'</td></tr>'+parts.map(row).join('')
     +'<tr class="tot"><td colspan="2">Total</td><td class="n">'+sum(L,'qty').toLocaleString('en-IN')+'</td><td class="n">'+inr(sum(L,'amount'))+'</td></tr></tbody></table>'
     +'<div style="margin-top:12px;font-size:12px;color:var(--text2)"><b>By category:</b> '+Object.keys(byCat).sort().map(function(c){ return '<span class="cat '+esc(c)+'">'+esc(c||'–')+'</span> '+esc(CATN[c]||c)+' '+inr(byCat[c]); }).join(' &nbsp;·&nbsp; ')+'</div>';
-  $('sBody').innerHTML=L.length?h:'<div class="msg muted">No lines found for this job card.</div>';
+  $('sBody').innerHTML=L.length?h:'<div class="msg muted">No '+(CAT?CAT+' category ':'')+'lines found for this job card.</div>';
 }
 function render(){ $('list').innerHTML=ROWS.length?ROWS.map(cardHtml).join(''):'<div class="msg muted">Nothing to review for this selection.</div>'; }
 async function save(i,v){
@@ -245,6 +248,7 @@ document.addEventListener('keydown',function(e){
 });
 ['fMonth','fCity','fStatus'].forEach(function(id){ $(id).addEventListener('change',function(){ if(id!=='fStatus'){ $('fHub').value=''; $('fHo').value=''; } load(true); loadSummary(); }); });
 $('fHub').addEventListener('change',function(){ load(true); });
+$('fCat').addEventListener('change',function(){ load(true); loadSummary(); });
 $('fHo').addEventListener('change',function(){ load(true); });
 ['fStype','fBand','fDraft','fVerdict','fSort'].forEach(function(id){ $(id).addEventListener('change',function(){ load(true); }); });
 function syncVerdictFilter(){ $('wVerdict').style.display=$('fStatus').value==='pending'?'none':''; }
@@ -256,11 +260,11 @@ var RAW={rows:[],sk:'diff',sd:1,label:''};
 var BK={less:'Less than draft',more:'More than draft',match:'Match',nodraft:'No draft'};
 function showTab(t){ document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab===t); });
   $('pane-review').style.display=t==='review'?'':'none'; $('pane-summary').style.display=t==='summary'?'':'none';
-  document.querySelectorAll('#fHub,#fHo,#fStatus,#fStype,#fBand,#fDraft,#fSort').forEach(function(el){ el.parentNode.style.display=t==='review'?'':'none'; }); $('wVerdict').style.display=(t==='review'&&$('fStatus').value!=='pending')?'':'none';
+  document.querySelectorAll('#fHub,#fHo,#fStatus,#fStype,#fCat,#fBand,#fDraft,#fSort').forEach(function(el){ el.parentNode.style.display=t==='review'?'':'none'; }); $('wVerdict').style.display=(t==='review'&&$('fStatus').value!=='pending')?'':'none';
   if(t==='summary') loadDraftSummary(); }
 async function loadDraftSummary(){
   var tb=$('sumTbl'); tb.innerHTML='<tr><td class="l muted">Loading…</td></tr>'; $('rawCard').style.display='none';
-  var by=$('fSplit').value; var r=await rpc('jc_review_draft_summary',{p_month:$('fMonth').value,p_by:by,p_city:$('fCity').value||null});
+  var by=$('fSplit').value; var r=await rpc('jc_review_draft_summary_v2',{p_month:$('fMonth').value,p_by:by,p_city:$('fCity').value||null});
   if(!r.ok){ tb.innerHTML='<tr><td class="l" style="color:#b91c1c">'+esc(r.msg)+'</td></tr>'; return; }
   var L=r.data||[], pc=function(a,b){ return b?Math.round((a-b)/b*100)+'%':'–'; };
   var SPL={city:'City',stype:'Submission type',hub:'Hub',ho:'HO approver',model:'Bike model',week:'Week starting'};
@@ -282,7 +286,7 @@ async function openRaw(city,b){
   var gl=city?(by==='ho'?hoName(city):city):('All'+($('fCity').value?' ('+$('fCity').value+')':''));
   RAW.label=gl+' · '+(b?BK[b]:'All job cards');
   $('rawTitle').textContent=RAW.label+' · loading…'; $('rawTbl').innerHTML='';
-  var r=await rpc('jc_review_draft_list',{p_month:$('fMonth').value,p_by:by,p_grp:city||null,p_bucket:b||null,p_city:$('fCity').value||null});
+  var r=await rpc('jc_review_draft_list_v2',{p_month:$('fMonth').value,p_by:by,p_grp:city||null,p_bucket:b||null,p_city:$('fCity').value||null});
   if(!r.ok){ $('rawTitle').textContent=RAW.label+' · could not load ('+r.msg+')'; return; }
   RAW.rows=r.data||[]; renderRaw(); card.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -297,7 +301,7 @@ function renderRaw(){ var L=rawFiltered();
   if(L.length>2000) h+='<tr><td class="l muted" colspan="14">Showing the first 2,000; download the CSV for all '+L.length.toLocaleString('en-IN')+'.</td></tr>';
   $('rawTbl').innerHTML=h+'</tbody>'; }
 function rawCsv(){ var L=rawFiltered(), q=function(v){ var t=String(v==null?'':v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
-  var lines=[['Reg','JC no','Draft JC id','City','Hub','Visit type','Model','HO approver','Closed','Draft JC part cost','Billed parts excl warranty + GST','Billed - draft','%','Result','HO remarks'].join(',')]
+  var lines=[['Reg','JC no','Draft JC id','City','Hub','Visit type','Model','HO approver','Closed','Draft JC part cost excl GST','Billed parts excl warranty excl GST','Billed - draft','%','Result','HO remarks'].join(',')]
     .concat(L.map(function(x){ return [x.reg,x.jc_no,x.draft_jc_id,x.city,x.hub,x.stype,x.model,hoName(x.ho_user),x.closed_at,x.draft,x.billed,x.diff,x.pct,BK[x.bucket],x.ho_remarks].map(q).join(','); }));
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv'})); a.download='draft_vs_billed_'+$('fMonth').value+'_'+RAW.label.replace(/[^A-Za-z0-9]+/g,'_')+'.csv'; a.click(); }
 document.addEventListener('click',function(e){
