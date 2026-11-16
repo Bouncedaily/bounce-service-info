@@ -818,11 +818,11 @@ function renderRefurbRaw() {
   document.getElementById('rpraw-ctl').innerHTML = '<div class="seg">' + seg('all', 'All (' + d.rows.length + ')') + seg('refurb', 'Refurbished (' + nR + ')') + seg('new', 'New (' + nN + ')') + '</div><button class="btn" onclick="exportRefurbRawCSV()">\u2b07 Download CSV</button>';
   if (!rows.length) { body.innerHTML = '<div class="empty" style="padding:24px;text-align:center;color:var(--muted,#64748b)">No job-card lines for this selection.</div>'; return; }
   var blank = false;
-  var h = '<table><thead><tr><th>JC number</th><th>DMS JC</th><th>Reg number</th><th>Date</th><th>City</th><th>Hub</th><th>Part name</th><th>Type</th><th class="q">Qty</th><th>HO approver</th><th>HO approval remarks</th></tr></thead><tbody>';
+  var h = '<table><thead><tr><th>JC number</th><th>DMS JC</th><th>Reg number</th><th>Date</th><th>City</th><th>Hub</th><th>Part name</th><th>Type</th><th>DMS cat</th><th class="q">Qty</th><th>HO approver</th><th>HO approval remarks</th></tr></thead><tbody>';
   rows.forEach(function(x) {
     if (!x.ho_user) blank = true;
     h += '<tr><td>' + rpHtml(x.jc_number) + '</td><td>' + rpHtml(x.dms_jc_no || '\u2014') + '</td><td>' + rpHtml(x.reg_number) + '</td><td>' + rpHtml(rpDate(x.date)) + '</td><td>' + rpHtml(x.city) + '</td><td>' + rpHtml(x.hub) + '</td><td>' + rpHtml(x.part_name) + '</td>' +
-      '<td><span class="' + (x.type === 'Refurbished' ? 'tag-r' : 'tag-n') + '">' + rpHtml(x.type) + '</span></td><td class="q">' + rpHtml(x.qty) + '</td><td>' + (x.ho_user ? rpHtml(x.ho_user) : '<span style="color:var(--muted,#94a3b8)">\u2014</span>') + '</td><td class="rm">' + (x.ho_remarks ? rpHtml(x.ho_remarks) : '<span style="color:var(--muted,#94a3b8)">\u2014</span>') + '</td></tr>';
+      '<td><span class="' + (x.type === 'Refurbished' ? 'tag-r' : 'tag-n') + '">' + rpHtml(x.type) + '</span></td><td>' + (x.category ? rpHtml(x.category) : '<span style="color:var(--muted,#94a3b8)">\u2014</span>') + '</td><td class="q">' + rpHtml(x.qty) + '</td><td>' + (x.ho_user ? rpHtml(x.ho_user) : '<span style="color:var(--muted,#94a3b8)">\u2014</span>') + '</td><td class="rm">' + (x.ho_remarks ? rpHtml(x.ho_remarks) : '<span style="color:var(--muted,#94a3b8)">\u2014</span>') + '</td></tr>';
   });
   h += '</tbody></table>';
   if (blank) h += '<div style="padding:10px 12px;font-size:12px;color:var(--muted,#64748b)">\u2014 means nothing was recorded. The HO approver is only recorded in the source from about September 2026, so older months show no approver.</div>';
@@ -831,8 +831,8 @@ function renderRefurbRaw() {
 function exportRefurbRawCSV() {
   var d = RPRAW; if (!d) return;
   var rows = rpRowsFor(RPKIND);
-  var cols = ['JC number', 'DMS JC', 'Reg number', 'Date', 'City', 'Hub', 'Part name', 'Type', 'Qty', 'HO approver', 'HO approval remarks'];
-  var csv = '\ufeff' + [cols].concat(rows.map(function(x) { return [x.jc_number, x.dms_jc_no || '', x.reg_number, x.date || '', x.city, x.hub, x.part_name, x.type, x.qty, x.ho_user || '', x.ho_remarks || '']; })).map(function(row) {
+  var cols = ['JC number', 'DMS JC', 'Reg number', 'Date', 'City', 'Hub', 'Part name', 'Type', 'DMS cat', 'Qty', 'HO approver', 'HO approval remarks'];
+  var csv = '\ufeff' + [cols].concat(rows.map(function(x) { return [x.jc_number, x.dms_jc_no || '', x.reg_number, x.date || '', x.city, x.hub, x.part_name, x.type, x.category || '', x.qty, x.ho_user || '', x.ho_remarks || '']; })).map(function(row) {
     return row.map(function(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(',');
   }).join('\n');
   var a = document.createElement('a');
