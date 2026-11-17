@@ -1049,6 +1049,7 @@ function cityCompareHtml(model){
   var dline=function(label){ var k='drv:'+label; if(!ccOn(k)) return ''; var args=Array.prototype.slice.call(arguments); args[0]=ccBtn(k)+label; return line.apply(null,args); };
   h+=dline('Bikes deployed (avg fleet)',dv('fleet'),F0,0);   // 3 Nov 2026
   h+=dline('Bikes serviced',dv('bikes'),F0,0);
+  h+=dline('Job cards',dv('jcs'),F0,0);   // 17 Nov 2026: number of job cards in the Cost drivers
   h+=dline('Active rental days (bookings)',dv('rdays'),F0,-1);   // 6 Nov 2026
   h+=dline('Utilisation (active rental days \u00f7 bike-days)',dv('util'),FP,-1);
   h+=dline('Service rate (bikes serviced \u00f7 bikes deployed)',dv('sr'),FP,0);
