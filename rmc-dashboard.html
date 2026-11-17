@@ -1243,49 +1243,57 @@ function viewWeekly(){
       [['labour','lab','Labour'],['other','oth','Other maintenance']].forEach(function(f){ if(!ccOn(f[0])) return; if(o[f[1]]==null) miss.push(f[2]); else v+=o[f[1]]; });
       return {v:miss.length?null:v, miss:miss}; };
     var G=os.map(gross);
+    // colours as in the monthly comparison: each week against the week before (green = better, amber = worse by up to 5%, red = worse by more than 5%); partial weeks are not compared
+    var okN=function(v){ return v!=null&&isFinite(v); }, full=function(i){ return !!(os[i]&&os[i].days>=7); }, lf=weeks.length-1; while(lf>=0&&!full(lf)) lf--;
+    var shade=function(vals,dir){ return vals.map(function(v,i){ if(!dir||i===0||!okN(v)) return ''; var a=vals[i-1]; if(!okN(a)||!a) return ''; var p=(v-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ''; var worse=(p>0)===(dir>0); return 'background:'+(!worse?'#dcf3e3':(Math.abs(p)<=5?'#fef3c7':'#fde2e2'))+';'; }); };
+    var badge=function(vals,dir){ if(!dir||lf<1) return ''; var v=vals[lf], a=vals[lf-1]; if(!okN(a)||!okN(v)||!a) return ''; var p=(v-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ' <span style="font-size:11px;color:#64748b">0%</span>'; var worse=(p>0)===(dir>0);
+      return ' <span style="font-size:11px;font-weight:700;color:'+(!worse?'#166534':(Math.abs(p)<=5?'#b45309':'#b91c1c'))+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
     var head='<tr><th style="text-align:left">'+(state.disp==='pct'?'% of gross cost':unitName()+(state.disp==='both'?' \u00b7 % of gross':''))+'</th>'+weeks.map(function(wk,i){ var o=os[i];
       return '<th>'+wkLabel(wk)+(o&&o.days<7?'<br><span style="font-weight:500;font-size:10.5px;color:#b45309">'+o.days+' day'+(o.days===1?'':'s')+'</span>':'')+'</th>'; }).join('')+'</tr>';
-    var moneyRow=function(label,key,style,cls,ddb){ return '<tr'+(cls?' class="'+cls+'"':'')+'><td'+(style?' style="'+style+'"':'')+'>'+label+'</td>'+os.map(function(o,i){
+    var moneyRow=function(label,key,style,cls,ddb,dir){ var mvals=os.map(function(o,i){ var r0=o?(typeof key==='function'?key(o):o[key]):null; return (r0==null||!full(i))?null:mv(o,r0); }), mbg=shade(mvals,dir||0); return '<tr'+(cls?' class="'+cls+'"':'')+'><td'+(style?' style="'+style+'"':'')+'>'+label+'</td>'+os.map(function(o,i){
         var raw=o?(typeof key==='function'?key(o):o[key]):null; if(raw==null) return '<td'+(o?' title="Not entered for this month" style="color:#b45309"':'')+'>\u2013</td>';
-        var td=dispCell(mv(o,raw), G[i].v?raw/G[i].v:null, cls==='tot'?'font-weight:700':''); return ddb?ddTd(td,ddb,city,weeks[i]):td; }).join('')+'</tr>'; };
+        var td=dispCell(mv(o,raw), G[i].v?raw/G[i].v:null, (cls==='tot'?'font-weight:700;':'')+(mbg[i]||'')); if(i===lf) td=td.replace('</td>',badge(mvals,dir||0)+'</td>'); return ddb?ddTd(td,ddb,city,weeks[i]):td; }).join('')+'</tr>'; };
     var rows='';
     if(ccOn('labour')) rows+=moneyRow('Labour (as per payroll) \u00b7 est.','lab');
-    if(ccOn('P')) rows+=moneyRow('P: Rider-payable','p',null,null,'P');
-    if(ccOn('A')) rows+=moneyRow('A: Wear & Tear','a',null,null,'A');
-    if(ccOn('C')) rows+=moneyRow('C: Cost to company','c',null,null,'C');
+    if(ccOn('P')) rows+=moneyRow('P: Rider-payable','p',null,null,'P',1);
+    if(ccOn('A')) rows+=moneyRow('A: Wear & Tear','a',null,null,'A',1);
+    if(ccOn('C')) rows+=moneyRow('C: Cost to company','c',null,null,'C',1);
     if(ccOn('other')) rows+=moneyRow('Other maintenance \u00b7 est.','oth');
     var gl=['labour','P','A','C','other'].filter(ccOn).map(function(k){ return {labour:'Labour',P:'P',A:'A',C:'C',other:'Other'}[k]; });
+    var gv=os.map(function(o,i){ return (o&&full(i)&&G[i].v!=null)?mv(o,G[i].v):null; }), gb=shade(gv,1);
     rows+='<tr class="tot"><td>Gross cost ('+(gl.length?gl.join(' + '):'nothing selected')+')</td>'+os.map(function(o,i){ var g=G[i];
       if(!o) return '<td>\u2013</td>'; if(g.v==null) return '<td title="Not entered: '+esc(g.miss.join(', '))+'" style="color:#b45309">\u2013</td>';
-      return dispCell(mv(o,g.v), 1, 'font-weight:700'); }).join('')+'</tr>';
+      return dispCell(mv(o,g.v), 1, 'font-weight:700;'+(gb[i]||'')).replace('</td>',(i===lf?badge(gv,1):'')+'</td>'); }).join('')+'</tr>';
     if(ccOn('dmg')) rows+='<tr><td style="color:#6b7280;padding-left:18px">Less: revenue damage fee \u00b7 est.</td>'+os.map(function(o,i){ if(!o||o.dmg==null) return '<td style="color:#6b7280">\u2013</td>';
       return dispCell(mv(o,o.dmg), G[i].v?o.dmg/G[i].v:null, 'color:#6b7280').replace('</td>',(o.fb?'\u2020':'')+'</td>'); }).join('')+'</tr>';
     if(ccOn('rec')) rows+='<tr><td style="color:#6b7280;padding-left:18px">Less: revenue recovery \u00b7 est.</td>'+os.map(function(o,i){ if(!o||o.rec==null) return '<td style="color:#6b7280">\u2013</td>';
       return dispCell(mv(o,o.rec), G[i].v?o.rec/G[i].v:null, 'color:#6b7280'); }).join('')+'</tr>';
+    var nv=os.map(function(o,i){ var g=G[i]; if(!o||!full(i)||g.v==null) return null; var dm=ccOn('dmg')?(o.dmg||0):0, rc=ccOn('rec')?(o.rec||0):0; return mv(o,g.v-dm-rc); }), nb=shade(nv,1);
     rows+='<tr class="tot"><td>Net service cost ('+ccNetLabel()+')</td>'+os.map(function(o,i){ var g=G[i]; if(!o||g.v==null) return '<td'+(o&&g.miss.length?' title="Not entered: '+esc(g.miss.join(', '))+'" style="color:#b45309"':'')+'>\u2013</td>';
       var dm=ccOn('dmg')?(o.dmg||0):0, rc=ccOn('rec')?(o.rec||0):0, net=g.v-dm-rc, star=((ccOn('dmg')&&o.dmg==null)||(ccOn('rec')&&o.rec==null))?'*':'';
-      return dispCell(mv(o,net), g.v?net/g.v:null, 'font-weight:700').replace('</td>',(o.fb?'\u2020':'')+star+'</td>'); }).join('')+'</tr>';
+      return dispCell(mv(o,net), g.v?net/g.v:null, 'font-weight:700;'+(nb[i]||'')).replace('</td>',(o.fb?'\u2020':'')+star+(i===lf?badge(nv,1):'')+'</td>'); }).join('')+'</tr>';
     rows+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+os.map(function(o,i){ if(!o) return '<td>\u2013</td>'; var t=o.a+o.p+o.c; return ddTd(dispCell(mv(o,t), G[i].v?t/G[i].v:null, 'color:#6b7280'),'ALL',city,weeks[i]); }).join('')+'</tr>';
-    var drv=function(label,fn){ return '<tr><td>'+label+'</td>'+os.map(function(o){ return '<td>'+(o?fn(o):'\u2013')+'</td>'; }).join('')+'</tr>'; };
+    var drv=function(label,num,fm,dir){ var vals=os.map(function(o,i){ return (o&&full(i))?num(o):null; }), bg=shade(vals,dir||0);
+      return '<tr><td>'+label+'</td>'+os.map(function(o,i){ if(!o) return '<td>\u2013</td>'; return '<td'+(bg[i]?' style="'+bg[i]+'"':'')+'>'+fm(num(o))+(i===lf?badge(vals,dir||0):'')+'</td>'; }).join('')+'</tr>'; };
     rows+='<tr><td colspan="'+(weeks.length+1)+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">Cost drivers</td></tr>';
-    rows+=drv('Bikes deployed (avg fleet)',function(o){ return F0(o.fleet||null); });
-    rows+=drv('Bikes serviced (different bikes in the week)',function(o){ return F0(o.bikes); });
-    rows+=drv('Service rate (bikes serviced \u00f7 bikes deployed)',function(o){ return FP0(ratio(o.bikes,o.fleet)); });
-    rows+=drv('Job cards',function(o){ return F0(o.jcs); });
-    rows+=drv('Job cards per serviced bike',function(o){ return F2(ratio(o.jcs,o.bikes)); });
-    rows+=drv('% of job cards with parts',function(o){ return FP0(ratio(o.jcsp,o.jcs)); });
-    rows+=drv('Parts per job card (excl. items under \u20b910)',function(o){ return F2(ratio(o.units,o.jcs)); });
-    rows+=drv('Avg cost per part (\u20b9, A+P+C)',function(o){ return F1(ratio(o.a+o.p+o.c,o.units)); });
-    rows+=drv('Parts cost per job card (\u20b9)',function(o){ return F0(ratio(o.a+o.p+o.c,o.jcs)); });
-    rows+=drv('Job cards with A+P parts over \u20b93,000',function(o){ return FP1(ratio(o.ap3,o.jcs)); });
-    rows+=drv('Running repair + bike exchange back within 7 days',function(o){ return FP1(ratio(o.rr7,o.rr)); });
-    rows+=drv('Avg service TAT (hours)',function(o){ return F1(ratio(o.tatS,o.tatN)); });
-    rows+=drv('Km per bike per day \u00b7 est.',function(o){ return F1(ratio(ratio(o.km,o.fleet),o.days)); });
-    h+='<div class="card"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' weekly view</h3><p class="sub">Monday to Sunday, last '+weeks.length+' weeks ('+unitName()+'). Rows marked est. are monthly figures spread over the days. Click a P, A, C or Parts total cell for the drill-down (types, hubs, parts, job cards).</p>'
+    rows+=drv('Bikes deployed (avg fleet)',function(o){ return o.fleet||null; },F0,0);
+    rows+=drv('Bikes serviced (different bikes in the week)',function(o){ return o.bikes; },F0,0);
+    rows+=drv('Service rate (bikes serviced \u00f7 bikes deployed)',function(o){ return ratio(o.bikes,o.fleet); },FP0,0);
+    rows+=drv('Job cards',function(o){ return o.jcs; },F0,0);
+    rows+=drv('Job cards per serviced bike',function(o){ return ratio(o.jcs,o.bikes); },F2,1);
+    rows+=drv('% of job cards with parts',function(o){ return ratio(o.jcsp,o.jcs); },FP0,0);
+    rows+=drv('Parts per job card (excl. items under \u20b910)',function(o){ return ratio(o.units,o.jcs); },F2,1);
+    rows+=drv('Avg cost per part (\u20b9, A+P+C)',function(o){ return ratio(o.a+o.p+o.c,o.units); },F1,1);
+    rows+=drv('Parts cost per job card (\u20b9)',function(o){ return ratio(o.a+o.p+o.c,o.jcs); },F0,1);
+    rows+=drv('Job cards with A+P parts over \u20b93,000',function(o){ return ratio(o.ap3,o.jcs); },FP1,1);
+    rows+=drv('Running repair + bike exchange back within 7 days',function(o){ return ratio(o.rr7,o.rr); },FP1,1);
+    rows+=drv('Avg service TAT (hours)',function(o){ return ratio(o.tatS,o.tatN); },F1,1);
+    rows+=drv('Km per bike per day \u00b7 est.',function(o){ return ratio(ratio(o.km,o.fleet),o.days); },F1,0);
+    h+='<div class="card"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' weekly view</h3><p class="sub">Monday to Sunday, last '+weeks.length+' weeks ('+unitName()+'). Rows marked est. are monthly figures spread over the days. Click a P, A, C or Parts total cell for the drill-down (types, hubs, parts, job cards). Each week is compared with the week before: <span style="background:#dcf3e3;color:#14532d;padding:0 6px;border-radius:3px">better</span> <span style="background:#fef3c7;color:#78350f;padding:0 6px;border-radius:3px">worse by up to 5%</span> <span style="background:#fde2e2;color:#7f1d1d;padding:0 6px;border-radius:3px">worse by more than 5%</span>; the arrow beside the latest full week shows its change.</p>'
       +'<div class="tw"><table>'+head+rows+'</table></div></div>'; });
   h+='<div class="note">Weeks run Monday to Sunday; a week with fewer than 7 days is partial (job-card data starts on 1 Jul 2026, and the month in progress is covered up to the last day of its cost file). Parts (A, P, C) are each month\u2019s cost-file total split by each day\u2019s share of that month\u2019s job-card amounts, so the weeks add up to the month. Where a month\u2019s job-card data and its cost file differ a lot for a city (for example Mumbai in August), that month is spread evenly over its days instead of by job-card share. '
     +'Labour, other maintenance, damage fee, recovery and km are the monthly figure spread evenly over the days (est.); a dash means that month\u2019s input is not entered, and * means a damage fee or recovery input is missing. \u2020 = damage fee taken from the portal. Warranty (W) and free-of-cost (F) parts are not split by week. '
-    +'Bikes serviced counts different bikes within the week. Parts per job card counts part units of \u20b910 and above on A and P lines. Weekly view is by city; Hub, Model, Deployed-year and Submission-type filters do not apply.</div>';
+    +'Bikes serviced counts different bikes within the week. Parts per job card counts part units of \u20b910 and above on A and P lines. Weekly view is by city; Hub, Model, Deployed-year and Submission-type filters do not apply. Colours compare each week with the week before and are left off the rows marked est. (their changes only show where a month starts), the neutral rows, and partial weeks.</div>';
   return h; }
 
 function viewOverviewMonthly(model){
