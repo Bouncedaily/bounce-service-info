@@ -158,6 +158,7 @@ var SVCCore = (function(){
   function titleCase(s){ return String(s).toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,function(a,b,c){return b+c.toUpperCase();}); }
   function newStore(){ return {rows:[], names:{}, jc:{}, files:[]}; }
 
+  var LOC_CITY={BANASWADI:'BLR',BELLANDUR:'BLR',BILEKAHALLI:'BLR',ECITY:'BLR',HEBBALA:'BLR',HOODI:'BLR',INDRANAGAR:'BLR','RR NAGAR':'BLR','HSR LAYOUT':'BLR',RSA:'BLR',YESHWANTHPUR:'BLR',FATHENAGAR:'HYD',MIYAPUR:'HYD',GURUGRAM:'NCR',INDIRAPURAM:'NCR',OKHLA:'NCR',ROHINI:'NCR',SAKINAKA:'MUM'};   // 17 Nov 2026: city follows the location, not the City column
   function ingest(rows, header, store, fileName){
     var ix = detectCols(header), need=['city','desc','cat','amt','issue'], miss=need.filter(function(k){return ix[k]==null;});
     if (miss.length) throw new Error('Could not find column(s): '+miss.join(', ')+'. Is this the JC line-level export?');
@@ -165,7 +166,8 @@ var SVCCore = (function(){
     var agg={}, names={}, jcs={}, jcAll={}, bikes={}, covered={}, skipped=0, used=0;
     for (var i=0;i<rows.length;i++){
       var r=rows[i]; if(!r) continue;
-      var city=CITY[String(r[ix.city]==null?'':r[ix.city]).trim().toUpperCase()]; if(!city){skipped++;continue;}
+      var locKey=ix.loc!=null?String(r[ix.loc]==null?'':r[ix.loc]).replace(/^WICKEDRIDE\s+WR_/i,'').trim().toUpperCase():'';
+      var city=LOC_CITY[locKey]||CITY[String(r[ix.city]==null?'':r[ix.city]).trim().toUpperCase()]; if(!city){skipped++;continue;}
       var month = ix.month!=null ? parseMonth(r[ix.month]) : null;
       if(!month && ix.date!=null) month=parseMonth(r[ix.date]);
       if(!month){skipped++;continue;}
