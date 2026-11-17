@@ -2631,24 +2631,48 @@ function ddBadgeClass(cat) {
   return 'default';
 }
 
+// 17 Nov 2026: the page loads only bike COUNTS up front (fast), so the individual bikes of a count that is clicked are fetched here.
+// Before this, the detail view was built from the count placeholders and every row showed "—" for Reg No (and no repair or aging data).
+let CM_DD_SEQ = 0, CM_DD_LAST = null;
+function retryCityModelDrilldown() { if (CM_DD_LAST) openCityModelDrilldown(CM_DD_LAST[0], CM_DD_LAST[1], CM_DD_LAST[2]); return false; }
 async function openCityModelDrilldown(dimKey, dimValue, status) {
-  const rows = CM_SUMMARY.filter(r =>
-    (dimValue === null || r[dimKey] === dimValue) &&
-    (status === null || r.status === status)
-  ).map(r => Object.assign({}, r, CM_OOS_BY_REG[r.reg_number] || {}));
-  rows.sort((a, b) => (b.oos_age || 0) - (a.oos_age || 0));
-  DD_CURRENT_ROWS = rows;
-
+  DD_MODE = 'oos';
+  CM_DD_LAST = [dimKey, dimValue, status];
+  const seq = ++CM_DD_SEQ;
+  DD_CURRENT_ROWS = [];
   const valueLabel = dimValue === null ? 'All' : dimValue;
   const statusLabel = status === null ? 'All Bikes' : status === 'OOS' ? 'OOS' : status === 'pdi' ? 'PDI' : status === 'RFD' ? 'RFD' : 'Active Rental';
   DD_CURRENT_TITLE = `${valueLabel} — ${statusLabel}`;
 
   document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
-  document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
+  document.getElementById('dd-sub').textContent = 'Loading…';
   document.getElementById('dd-overlay').classList.add('open');
-  document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody>';
+  document.getElementById('dd-table').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--muted)">Loading vehicles…</td></tr></tbody>';
+
+  let rows;
+  try {
+    const r = await fetchWithTimeout(`${SB}/rest/v1/rpc/get_bike_drill_rows`, {
+      method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR),
+      body: JSON.stringify({ p_key: dimValue === null ? null : dimKey, p_value: dimValue, p_status: status })
+    }, 30000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    rows = await r.json();
+    if (!Array.isArray(rows)) throw new Error('unexpected reply');
+  } catch (e) {
+    if (seq !== CM_DD_SEQ) return;   // a newer click took over
+    console.error('openCityModelDrilldown error', e);
+    document.getElementById('dd-sub').innerHTML = `<span style="color:var(--red)">⚠ Could not load the vehicles. <a href="#" onclick="return retryCityModelDrilldown()" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
+    document.getElementById('dd-table').innerHTML = '';
+    return;
+  }
+  if (seq !== CM_DD_SEQ) return;
+  applyHubMerge(rows);   // partner sub-hubs report under their parent hub, as everywhere on this dashboard
+  rows.sort((a, b) => (b.oos_age || 0) - (a.oos_age || 0));
+  DD_CURRENT_ROWS = rows;
+  document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
 
   const remarksOk = await loadRemarksFor(rows);
+  if (seq !== CM_DD_SEQ) return;
   if (!remarksOk) {
     document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ Remarks failed to load — what you see below may be blank even where a remark exists. <a href="#" onclick="loadRemarksFor(DD_CURRENT_ROWS).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
   }
