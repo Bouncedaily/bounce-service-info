@@ -618,13 +618,20 @@ body { overflow:auto!important; }
 
   <!-- Inflow/Outflow trend -->
   <div class="card">
-    <div class="card-hd"><h2>Inflow by Type vs Outflow — last 30 days</h2><div class="sub">Click any line in the legend below to show/hide it · Net reduction above 0 = more bikes leaving OOS than entering · Outflow = OOS repairs only (PDI releases excluded)</div></div>
+    <div class="card-hd"><h2>Inflow by Type vs Outflow — last <span id="flow-days-lbl">30</span> days</h2><div class="sub">Click any line in the legend below to show/hide it · Net reduction above 0 = more bikes leaving OOS than entering · Outflow = OOS repairs only (PDI releases excluded)</div></div>
     <div style="padding:10px 16px 0;display:flex;gap:8px;flex-wrap:wrap">
       <button type="button" class="flow-pill on" id="flow-pill-inflow" onclick="toggleFlowPill('inflow')">Inflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-outflow" onclick="toggleFlowPill('outflow')">Outflow</button>
       <button type="button" class="flow-pill on" id="flow-pill-rr" onclick="toggleFlowPill('rr')">Running Repair</button>
       <button type="button" class="flow-pill" id="flow-pill-pdi" onclick="toggleFlowPill('pdi')">PDI Releases</button>
       <button type="button" class="flow-pill on" id="flow-pill-net" onclick="toggleFlowPill('net')">Net Reduction</button>
+      <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap" role="group" aria-label="Time window">
+        <span id="flow-days-note" style="font-size:11px;color:var(--text2)"></span>
+        <button type="button" class="flow-pill" id="flow-days-15" aria-pressed="false" onclick="setFlowDays(15)">15 days</button>
+        <button type="button" class="flow-pill on" id="flow-days-30" aria-pressed="true" onclick="setFlowDays(30)">30 days</button>
+        <button type="button" class="flow-pill" id="flow-days-60" aria-pressed="false" onclick="setFlowDays(60)">60 days</button>
+        <button type="button" class="flow-pill" id="flow-days-90" aria-pressed="false" onclick="setFlowDays(90)">90 days</button>
+      </span>
     </div>
     <div style="padding:12px 16px 16px;height:260px"><canvas id="flow-trend-chart"></canvas></div>
   </div>
@@ -1443,11 +1450,15 @@ function pfDrawHubs(rows){
 let RAW = null;
 let DAILY_FLOW = [];
 let INFLOW_BY_TYPE = [];
-async function fetchInflowByType() {
+// 17 Nov 2026: the Inflow vs Outflow chart has a 15 / 30 / 60 / 90 day window. Inflow by type is loaded for 30 days up front
+// (as before); a wider window is fetched when it is chosen. Outflow and the totals already cover about 95 days (fetchDailyFlow).
+var FLOW_DAYS = 30, INFLOW_DAYS_LOADED = 0, FLOW_REQ = 0;
+async function fetchInflowByType(days) {
+  var n = days || Math.max(30, FLOW_DAYS);
   try {
     var controller = new AbortController();
-    var timer = setTimeout(function(){ controller.abort(); }, 10000);
-    var r = await fetch(SB + '/rest/v1/rpc/get_inflow_by_submission_type', { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR), body: JSON.stringify({p_days: 30}), signal: controller.signal });
+    var timer = setTimeout(function(){ controller.abort(); }, n > 30 ? 20000 : 10000);
+    var r = await fetch(SB + '/rest/v1/rpc/get_inflow_by_submission_type', { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, HDR), body: JSON.stringify({p_days: n}), signal: controller.signal });
     clearTimeout(timer);
     var j = await r.json();
     return Array.isArray(j) ? j : [];
@@ -1924,7 +1935,7 @@ function renderFlowTrendChart() {
   var city = document.getElementById('f-city').value;
   var hub  = document.getElementById('f-hub').value;
   var today = todayISTDate();
-  var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 30);
+  var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - FLOW_DAYS);
   var cutoffStr = cutoff.toISOString().slice(0,10);
 
   var byDateOut = {};
@@ -1985,6 +1996,25 @@ var FLOW_CHART_DATA = null;
 var FLOW_PILLS = { inflow: true, outflow: true, rr: true, net: true, pdi: false };
 var SUB_TYPE_COLORS = { 'Rider Submission': '#2563eb', 'Bike Exchange': '#7c3aed', 'Recovery': '#0891b2' };
 
+function setFlowDays(n){
+  if (n === FLOW_DAYS) return Promise.resolve();
+  var req = ++FLOW_REQ, prev = FLOW_DAYS, note = document.getElementById('flow-days-note');
+  var apply = function(){
+    FLOW_DAYS = n;
+    [15, 30, 60, 90].forEach(function(d){ var b = document.getElementById('flow-days-' + d); if (b) { b.classList.toggle('on', d === n); b.setAttribute('aria-pressed', d === n ? 'true' : 'false'); } });
+    var lbl = document.getElementById('flow-days-lbl'); if (lbl) lbl.textContent = n;
+    if (note) note.textContent = '';
+    renderFlowTrendChart();
+  };
+  if (n <= INFLOW_DAYS_LOADED) { apply(); return Promise.resolve(); }
+  if (note) note.textContent = 'Loading ' + n + ' days\u2026';
+  return fetchInflowByType(n).then(function(rows){
+    if (req !== FLOW_REQ) return;   // a later click already took over
+    if (!rows.length) { if (note) note.textContent = 'Could not load ' + n + ' days, still showing ' + prev + '.'; return; }
+    INFLOW_BY_TYPE = rows; INFLOW_DAYS_LOADED = n; apply();
+  });
+}
+
 function toggleFlowPill(which){
   FLOW_PILLS[which] = !FLOW_PILLS[which];
   document.getElementById('flow-pill-' + which).classList.toggle('on', FLOW_PILLS[which]);
@@ -2004,27 +2034,28 @@ function rebuildFlowChart(){
   if (!canvas || typeof Chart === 'undefined') return;
   var d = FLOW_CHART_DATA;
   var datasets = [];
+  var PR = FLOW_DAYS > 30 ? 0 : 2, PRN = FLOW_DAYS > 30 ? 1.5 : 3;   // 60 / 90 days: no dots on every day
   var inflowIsolated = FLOW_PILLS.inflow && !FLOW_PILLS.outflow && !FLOW_PILLS.rr;
 
   if (FLOW_PILLS.inflow && inflowIsolated) {
-    datasets.push({ label: 'Inflow: Overall', data: d.overallInflow, borderColor: '#111827', backgroundColor: 'rgba(17,24,39,.06)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+    datasets.push({ label: 'Inflow: Overall', data: d.overallInflow, borderColor: '#111827', backgroundColor: 'rgba(17,24,39,.06)', borderWidth: 2, tension: .25, fill: true, pointRadius: PR });
     Object.keys(d.subTypes).forEach(function(t){
-      datasets.push({ label: 'Inflow: ' + t, data: d.subTypes[t], borderColor: SUB_TYPE_COLORS[t], backgroundColor: SUB_TYPE_COLORS[t] + '14', borderWidth: 2, tension: .25, fill: false, pointRadius: 2 });
+      datasets.push({ label: 'Inflow: ' + t, data: d.subTypes[t], borderColor: SUB_TYPE_COLORS[t], backgroundColor: SUB_TYPE_COLORS[t] + '14', borderWidth: 2, tension: .25, fill: false, pointRadius: PR });
     });
   } else if (FLOW_PILLS.inflow) {
-    datasets.push({ label: 'Inflow', data: d.overallInflow, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+    datasets.push({ label: 'Inflow', data: d.overallInflow, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: PR });
   }
   if (FLOW_PILLS.rr) {
-    datasets.push({ label: 'Running Repair', data: d.runningRepair, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: 2, borderDash: [4,3] });
+    datasets.push({ label: 'Running Repair', data: d.runningRepair, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: PR, borderDash: [4,3] });
   }
   if (FLOW_PILLS.outflow) {
-    datasets.push({ label: 'Outflow', data: d.outflow, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: 2 });
+    datasets.push({ label: 'Outflow', data: d.outflow, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.08)', borderWidth: 2, tension: .25, fill: true, pointRadius: PR });
   }
   if (FLOW_PILLS.pdi) {
-    datasets.push({ label: 'PDI Releases (new bikes)', data: d.pdi, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: 2, borderDash: [2,3] });
+    datasets.push({ label: 'PDI Releases (new bikes)', data: d.pdi, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.08)', borderWidth: 2, tension: .25, fill: false, pointRadius: PR, borderDash: [2,3] });
   }
   if (FLOW_PILLS.net) {
-    datasets.push({ label: 'Net Reduction', data: d.net, borderColor: '#be185d', backgroundColor: '#be185d', borderWidth: 2.5, tension: .25, fill: false, pointRadius: 3, isNet: true });
+    datasets.push({ label: 'Net Reduction', data: d.net, borderColor: '#be185d', backgroundColor: '#be185d', borderWidth: 2.5, tension: .25, fill: false, pointRadius: PRN, isNet: true });
   }
 
   if (FLOW_TREND_CHART) { FLOW_TREND_CHART.destroy(); }
@@ -2034,6 +2065,7 @@ function rebuildFlowChart(){
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      elements: { point: { hoverRadius: 4 } },
       // Chart.js's default legend is clickable out of the box -- clicking
       // any series name toggles just that line on/off, on top of whatever
       // the 3 pill buttons above already show/hide.
@@ -2045,7 +2077,7 @@ function rebuildFlowChart(){
         } } }
       },
       scales: {
-        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        x: { ticks: Object.assign({ font: { size: 10 } }, FLOW_DAYS > 30 ? { autoSkip: true, maxRotation: 0, maxTicksLimit: 15 } : {}), grid: { display: false } },
         y: { beginAtZero: true, ticks: { font: { size: 10 } },
              grid: { color: function(c){ return c.tick && c.tick.value === 0 ? '#9ca3af' : 'rgba(0,0,0,0.1)'; },
                      lineWidth: function(c){ return c.tick && c.tick.value === 0 ? 1.5 : 1; } } }
@@ -3679,7 +3711,9 @@ async function refresh() {
   try {
     RAW = await fetchData();
     try { DAILY_FLOW = await fetchDailyFlow(); } catch(e) { DAILY_FLOW = []; }
-    try { INFLOW_BY_TYPE = await fetchInflowByType(); } catch(e) { INFLOW_BY_TYPE = []; }
+    try { var flN = Math.max(30, FLOW_DAYS); INFLOW_BY_TYPE = await fetchInflowByType(flN); INFLOW_DAYS_LOADED = INFLOW_BY_TYPE.length ? flN : 0;
+      if (INFLOW_DAYS_LOADED && FLOW_DAYS > INFLOW_DAYS_LOADED) { var flW = FLOW_DAYS, flR = await fetchInflowByType(flW); if (flR.length) { INFLOW_BY_TYPE = flR; INFLOW_DAYS_LOADED = flW; } }   // a wider window was picked while this was loading
+    } catch(e) { INFLOW_BY_TYPE = []; INFLOW_DAYS_LOADED = 0; }
     populateFilters(RAW);
     render(applyFilters(RAW));
     saveOOSCache(RAW);
