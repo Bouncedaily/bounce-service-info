@@ -34,7 +34,7 @@
 #svc .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0 14px}
 #svc .kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;border-left:4px solid var(--L)}
 #svc .kpi .l{font-size:11px;color:var(--mut)} #svc .kpi .v{font-size:20px;font-weight:700;margin-top:2px}
-#svc .kpi .d{font-size:11.5px;margin-top:2px} #svc .up{color:#c2410c} #svc .dn{color:#15803d}
+#svc .kpi .d{font-size:11.5px;margin-top:2px} #svc .up{color:#c2410c} #svc .dn{color:#166534}
 #svc .tw{overflow-x:auto}
 #svc table{border-collapse:collapse;width:100%;font-size:12.5px}
 #svc th{background:var(--navy);color:#fff;padding:7px 7px;text-align:center;font-weight:600;white-space:nowrap}
@@ -49,6 +49,49 @@
 #svc .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#fef2f2;color:#b91c1c}
 #svc .status{font-size:11.5px;opacity:.9}
 #svc .x{cursor:pointer;color:#b91c1c}
+/* ---- 16 Nov 2026 UX pass: sticky bars, sticky label column, scroll cues, drill-down panel, phone layout, focus, selected colour ---- */
+#svc .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+#svc .tab.on{color:var(--navy);border-bottom-color:var(--navy)}
+#svc :focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;border-radius:4px}
+#svc td[data-a="dd"]:focus-visible{outline-offset:-2px}
+#svc .stick{position:sticky;top:0;z-index:40;background:#fff;box-shadow:0 1px 0 var(--line),0 4px 10px rgba(15,23,42,.05)}
+#svc .stick .bar{padding:7px 22px;gap:14px}
+#svc .fsum{display:none}
+#svc .tw td:first-child,#svc .tw th:first-child{position:sticky;left:0}
+#svc .tw td:first-child{z-index:2;background:#fff;box-shadow:1px 0 0 #e2e8f0}
+#svc .tw th:first-child{z-index:3}
+#svc .tw tr.tot td:first-child{background:#f2f2f2}
+#svc .tw.ux-v{max-height:calc(100vh - var(--stickh,130px) - 20px);overflow:auto}
+#svc .tw-shell{position:relative;min-width:0;max-width:100%}
+#svc .grid2{grid-template-columns:minmax(0,1fr)}
+#svc .grid2>*{min-width:0}
+#svc .tw-fade{position:absolute;top:0;bottom:0;width:34px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:6}
+#svc .tw-fade.r{right:0;background:linear-gradient(to left,rgba(15,23,42,.22),rgba(15,23,42,0))}
+#svc .tw-fade.l{left:var(--fcw,0px);background:linear-gradient(to right,rgba(15,23,42,.22),rgba(15,23,42,0))}
+#svc .tw-shell.can-r .tw-fade.r,#svc .tw-shell.can-l .tw-fade.l{opacity:1}
+#svc .jump{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 8px;font-size:12px;color:#475569}
+#svc .hint{font-size:11.5px;color:#475569;margin:0 0 6px}
+#svc .tabs.more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+#svc #rmc-drill{position:fixed;z-index:60;left:50%;top:4vh;transform:translateX(-50%);width:min(1560px,96vw);max-height:92vh;overflow:auto;margin:0;box-shadow:0 20px 60px rgba(15,23,42,.35)}
+#svc #rmc-drill>div:first-child{position:sticky;top:-16px;margin:-16px -16px 8px;padding:12px 16px;background:#fff;z-index:8;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+#svc .dd-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:59}
+body.dd-open{overflow:hidden}
+#svc td.dd-origin{outline:2px solid #1d4ed8;outline-offset:-2px}
+#svc .spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:var(--navy);border-radius:50%;animation:svcsp .8s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes svcsp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#svc .spin{animation:none}#svc .tw-fade{transition:none}}
+@media (max-width:700px){
+  #svc .hd{padding:10px 12px}#svc .hd p{display:none}#svc .main{padding:10px 8px}#svc .card{padding:12px;margin-bottom:12px}
+  #svc .bar{padding:8px 12px;gap:10px}#svc .tabs{padding:0 8px}#svc .tab{padding:10px 11px}
+  #svc .fsum{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12.5px;cursor:pointer;background:#fff}
+  #svc .fsum .fs-b{font-weight:650;color:var(--navy);white-space:nowrap}
+  #svc .stick.fclosed .bar{display:none}
+  #svc .tw td:first-child,#svc .tw th:first-child{min-width:104px;max-width:148px;white-space:normal;line-height:1.25;font-size:12px}
+  #svc .tw td,#svc .tw th{padding:6px 5px}
+  #svc #rmc-drill{top:0;left:0;transform:none;width:100vw;max-height:100vh;height:100vh;border-radius:0}
+  #svc .btn,#svc .chip,#svc select{min-height:34px}
+}
+
 .hubdd{position:relative}.hubdd>summary{list-style:none;cursor:pointer;border:1px solid #cbd5e1;border-radius:6px;padding:5px 26px 5px 10px;font-size:13px;background:#fff;min-width:140px;position:relative;white-space:nowrap}
 .hubdd>summary::-webkit-details-marker{display:none}.hubdd>summary:after{content:'\25BE';position:absolute;right:9px;top:5px;color:#64748b}
 .hubpanel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:8px 10px;min-width:220px;max-height:320px;overflow:auto}
@@ -510,7 +553,7 @@ function dispCell(v, share, style){ var st=style?' style="'+style+'"':'';
   if(v==null) return '<td'+st+'>\u2013</td>';
   var p=(share==null||!isFinite(share))?'':Math.round(share*100)+'%';
   if(state.disp==='pct') return '<td'+st+'>'+(p||'\u2013')+'</td>';
-  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+p+'</span>':'')+'</td>';
+  if(state.disp==='both') return '<td'+st+'>'+fmt(v)+(p?'<span style="color:#475569;font-weight:600;font-size:11.5px"> '+p+'</span>':'')+'</td>';
   return '<td'+st+'>'+fmt(v)+'</td>'; }
 function rowCellsS(vals, shares, heatOn){ var base=state.disp==='pct'?shares:vals, nums=base.filter(function(v){return v!=null&&isFinite(v);}), mn=Math.min.apply(null,nums), mx=Math.max.apply(null,nums);
   return vals.map(function(v,i){ return dispCell(v, shares[i], heatOn?heat(base[i],mn,mx):''); }).join(''); }
@@ -608,7 +651,7 @@ function ddRows(){ var D=state.drill, cs=D.city==='ALL'?state.F.cities:[D.city],
   state.store.rows.forEach(function(r){ if(cs.indexOf(r.city)<0||r.cat==='Labour'||!r.hub) return; if(r.month!==D.m&&r.month!==pm) return; if(state.F.model&&r.model!==state.F.model) return;
     var b=(r.issue==='P'||r.issue==='A')?ctxo.rule(r.pn,r.month,r.issue):(r.issue==='C'?'C':null); if(!b) return; if(D.b!=='ALL'&&b!==D.b) return;
     out.push({city:r.city,hub:r.hub,pn:r.pn,cur:r.month===D.m,amt:r.amt,qty:r.qty}); }); return out; }
-function ddChg(a,b){ if(!b) return a?'<span class="sub">new</span>':''; var d=(a-b)/b*100; return '<span style="color:'+(d>0?'#b91c1c':'#15803d')+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(0)+'%</span>'; }
+function ddChg(a,b){ if(!b) return a?'<span class="sub">new</span>':''; var d=(a-b)/b*100; return '<span style="color:'+(d>0?'#b91c1c':'#166534')+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(0)+'%</span>'; }
 function ddInr(v){ return v==null?'\u2013':'\u20b9'+Math.round(v).toLocaleString('en-IN'); }
 /* ---------- 12 Nov 2026: drill-down level above the hubs: by submission type (job cards, parts cost, TAT) ---------- */
 function ddTyped(D){ return !!D && D.from!=='league' && D.st!=='*'; }
@@ -652,8 +695,8 @@ function ddLoadParts(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'), bas
   ddFetch('P','rmc_drill_type_parts',Object.assign({p_month:a.cur},base)); if(a.prev) ddFetch('P2','rmc_drill_type_parts',Object.assign({p_month:a.prev},base)); if(a.prev2) ddFetch('P3','rmc_drill_type_parts',Object.assign({p_month:a.prev2},base)); }
 function ddLoadJC(){ var D=state.drill, a=ddPair(D), kp=D.hub.split('|'); ddFetch('J','rmc_drill_type_jobcards',{p_city:CITY_FULL[kp[0]]||kp[0],p_hub:kp.slice(1).join('|'),p_type:D.st,p_month:a.cur,p_item:D.part,p_days:a.days,p_model:state.F.model||null,p_cat:D.b==='ALL'?null:D.b}); }
 function ddTat(h){ return (h==null||!isFinite(h))?'\u2013':h.toFixed(1)+' h'+(h>=48?' <span class="sub">('+(h/24).toFixed(1)+' d)</span>':''); }
-function ddLoading(h,msg){ return h+'<div class="empty">'+msg+'</div></div>'; }
-function ddErr(h,e){ return h+'<div class="empty">Could not load ('+esc(e)+').</div></div>'; }
+function ddLoading(h,msg){ return h+'<div class="empty" role="status"><span class="spin"></span>'+msg+'</div></div>'; }
+function ddErr(h,e){ return h+uxErrHtml(e)+'</div>'; }
 function ddTypedHtml(D,h){
   if(!D.st) return ddLvlTypes(D,h);
   if(!D.hub) return ddLvlHubs(D,h);
@@ -665,14 +708,14 @@ function ddDir(a,b,dir){
   if(a==null||b==null||!isFinite(a)||!isFinite(b)) return '';
   if(!b) return a?'<span class="sub">new</span>':'';
   var d=(a-b)/Math.abs(b)*100; if(Math.abs(d)<0.5) return '<span style="color:#64748b">0%</span>';
-  var col=!dir?'#64748b':(((d>0)===(dir>0))?'#b91c1c':'#15803d');
+  var col=!dir?'#64748b':(((d>0)===(dir>0))?'#b91c1c':'#166534');
   return '<span style="color:'+col+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(0)+'%</span>'; }
 function ddPts(a,b,dir){
   if(a==null||b==null||!isFinite(a)||!isFinite(b)) return '';
   var d=(a-b)*100; if(Math.abs(d)<0.05) return '<span style="color:#64748b">0 pts</span>';
-  var col=!dir?'#64748b':(((d>0)===(dir>0))?'#b91c1c':'#15803d');
+  var col=!dir?'#64748b':(((d>0)===(dir>0))?'#b91c1c':'#166534');
   return '<span style="color:'+col+';font-weight:600">'+(d>0?'\u25b2':'\u25bc')+Math.abs(d).toFixed(1)+' pts</span>'; }
-function ddTwo(cur,prev,delta,pl,noPrev,p2,pl2){ return '<td>'+cur+(noPrev?'':'<div style="font-size:10.5px;color:#64748b;font-weight:500;line-height:1.35">'+pl+': '+prev+' '+delta+'</div>'+((p2!=null&&pl2)?'<div style="font-size:10.5px;color:#94a3b8;font-weight:500;line-height:1.35">'+pl2+': '+p2+'</div>':''))+'</td>'; }
+function ddTwo(cur,prev,delta,pl,noPrev,p2,pl2){ return '<td>'+cur+(noPrev?'':'<div style="font-size:11.5px;color:#64748b;font-weight:500;line-height:1.35">'+pl+': '+prev+' '+delta+'</div>'+((p2!=null&&pl2)?'<div style="font-size:11.5px;color:#64748b;font-weight:500;line-height:1.35">'+pl2+': '+p2+'</div>':''))+'</td>'; }
 function ddH(v){ return (v==null||!isFinite(v))?'\u2013':v.toFixed(1)+' h'; }
 function ddExpKey(t){ var D=state.drill; return [D.city,D.m,t].join('|'); }
 function ddLvlTypes(D,h){   // level 0: submission types, each number with last month beneath
@@ -716,10 +759,10 @@ function ddLvlTypes(D,h){   // level 0: submission types, each number with last 
   return h+'<p class="sub" style="margin:0 0 6px"><a data-a="ddall" style="cursor:pointer;color:#2563eb">See all hubs, all types \u203a</a> &nbsp;\u00b7&nbsp; click \u25b8 on a type for more detail and the comparison with '+(pl||'last month')+'</p><div class="tw"><table><tr><th>Submission type (click for hubs)</th><th>Job cards</th><th>% of job cards</th><th>'+C.monthLabel(a.cur)+' \u20b9</th><th>\u20b9 / job card</th><th>\u20b9 / bike</th><th>\u20b9 / km</th><th>Avg TAT</th><th>Open 30+ days</th>'+(infOn?'<th style="white-space:normal;min-width:120px">Vehicles in (hub inflow)</th><th style="white-space:normal;min-width:150px">Job cards billed as % of vehicles, same month</th>':'')+'</tr>'+body+tot+'</table></div><p class="sub" style="margin-top:6px">Each cell: '+C.monthLabel(a.cur)+' on top, '+(pl||'last month')+' and the change beneath'+(hasQ?', then '+pl2:'')+'. TAT = job card opened to billed. '+(infOn?'Vehicles = hub inflow rows of that type (recovered, rider submitted, RR & BE); the same-month share = job cards of that type billed in the month for vehicles that came in that month \u00f7 those vehicles. Manual JC has no hub inflow. ':'')+(RI&&RI.error?'Vehicles from hub inflow could not be loaded ('+esc(RI.error)+'). ':'')+note+'</p></div>';
 }
 function ddDetailHtml(D,a,t){
-  if(!document.getElementById('ddc-css')){ var stl=document.createElement('style'); stl.id='ddc-css'; stl.textContent='#svc table.ddc{font-size:11.5px;width:auto;margin:0}#svc table.ddc th,#svc table.ddc td{padding:5px 5px}#svc table.ddc th{white-space:normal;line-height:1.25}#svc table.ddc td.dl{white-space:normal;text-align:left;min-width:70px;max-width:150px}'; document.head.appendChild(stl); }   // the details panel of one submission type: this month, last month, change; only the clicked category when it is A, P or C
+  if(!document.getElementById('ddc-css')){ var stl=document.createElement('style'); stl.id='ddc-css'; stl.textContent='#svc table.ddc{font-size:12px;width:auto;margin:0}#svc table.ddc th,#svc table.ddc td{padding:5px 5px}#svc table.ddc th{white-space:normal;line-height:1.25}#svc table.ddc td.dl{white-space:normal;text-align:left;min-width:70px;max-width:150px}'; document.head.appendChild(stl); }   // the details panel of one submission type: this month, last month, change; only the clicked category when it is A, P or C
   var cat=D.b||'ALL', one=(cat!=='ALL'), ck=t+'|'+cat;
-  var S=ddGet('D',ck); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null,p_cat:cat},ck); return '<span class="sub">Loading details\u2026</span>'; }
-  if(S.error) return '<span class="sub">Could not load details ('+esc(S.error)+')</span>';
+  var S=ddGet('D',ck); if(!S){ ddFetch('D','rmc_drill_type_details',{p_cities:ddCities(D),p_type:t,p_months:ddMonths(a),p_days:a.days,p_model:state.F.model||null,p_cat:cat},ck); return '<span class="sub" role="status"><span class="spin"></span>Loading details\u2026</span>'; }
+  if(S.error) return uxErrHtml(S.error);
   var isRecT=!!INFL[t], RR=isRecT?ddGet('R'):null; if(isRecT&&!RR) ddLoadRec();
   var recTot=function(tok){ return ddInfl(RR,tok,t).n; }, recSame=function(tok){ return ddInfl(RR,tok,t).s; };
   var cur=null, prv=null, prv2=null; (S.data||[]).forEach(function(o){ if(o.m===a.cur) cur=o; else if(o.m===a.prev) prv=o; else if(o.m===a.prev2) prv2=o; });
@@ -753,14 +796,14 @@ function ddDetailHtml(D,a,t){
   var cellTxt=function(g,fm,sb,o,f){ if(!o) return '\u2013'; var v=g(o,f), b=sb?sb(o):null; return fm(v)+((sb&&b&&v!=null)?' <span class="sub">('+Math.round(v/b*100)+'%)</span>':''); };
   var body=''; L.forEach(function(d){ var g=d[1], fm=d[2], sb=d[4], pts=d[5], vc=g(cur,sc.cur), vp=prv?g(prv,sc.prev):null, shC=(sb&&sb(cur))?vc/sb(cur):null, shP=(prv&&sb&&sb(prv))?vp/sb(prv):null;
     var delta=pts?ddPts(shC,shP,d[3]):ddDir(vc,vp,d[3]);
-    body+='<tr><td class="dl">'+esc(d[0])+'</td>'+(q3?'<td style="text-align:right;color:#94a3b8">'+cellTxt(g,fm,sb,prv2,sc.prev2)+'</td>':'')+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
+    body+='<tr><td class="dl">'+esc(d[0])+'</td>'+(q3?'<td style="text-align:right;color:#64748b">'+cellTxt(g,fm,sb,prv2,sc.prev2)+'</td>':'')+(np?'':'<td style="text-align:right;color:#475569">'+cellTxt(g,fm,sb,prv,sc.prev)+'</td>')+'<td style="text-align:right">'+cellTxt(g,fm,sb,cur,sc.cur)+'</td>'+(np?'':'<td style="text-align:right">'+delta+'</td>')+'</tr>'; });
   // breakup of the job cards by what each job card cost in parts (A+P+C): job cards, cost and share of cost, this month and last month
   var ft=function(o,f){ if(one) return f[cat]; var raw=(+o.a||0)+(+o.p||0)+(+o.c||0); return raw>0?((+o.a||0)*f.A+(+o.p||0)*f.P+(+o.c||0)*f.C)/raw:1; };
   var BK=(one?[['No '+cat+' parts','k0','s0']]:[]).concat([['\u20b90\u20132.5k','k1','s1'],['\u20b92.5k\u20135k','k2','s2'],['\u20b95k\u20137.5k','k3','s3'],['\u20b97.5k\u201310k','k4','s4'],['Above \u20b910k','k5','s5']]);
   var tot=function(o,f){ var fx=ft(o,f), n=0, c=0; BK.forEach(function(d){ n+=(+o[d[1]]||0); c+=(+o[d[2]]||0)*fx; }); return {n:n,c:c,fx:fx}; };
   var tc=tot(cur,sc.cur), tp=prv?tot(prv,sc.prev):null, tq=q3?tot(prv2,sc.prev2):null;
   var pctJ=function(n,tn){ return tn?' <span class="sub">('+Math.round(n/tn*100)+'%)</span>':''; };
-  var pctJ2=function(n,tn){ return tn?'<br><span class="sub" style="font-size:10.5px">('+Math.round(n/tn*100)+'%)</span>':''; };
+  var pctJ2=function(n,tn){ return tn?'<br><span class="sub" style="font-size:11.5px">('+Math.round(n/tn*100)+'%)</span>':''; };
   var G='style="text-align:right;color:#475569"', Rt='style="text-align:right"';
   var pair=function(curH,prevH){ return (np?'':'<td '+G+'>'+prevH+'</td>')+'<td '+Rt+'>'+curH+'</td>'; };
   // two breakups in the same format: by parts cost per job card, and by service TAT (job card opened to billed)
@@ -922,14 +965,14 @@ function cityCompareHtml(model){
     var lo=Math.min.apply(null,xs), hi=Math.max.apply(null,xs); if(hi===lo) return vals.map(function(v){ return ok(v)?'background:#ffeb84;':''; });
     return vals.map(function(v){ if(!ok(v)) return ''; var t=(v-lo)/(hi-lo); if(dir<0) t=1-t; return 'background:'+scale(t)+';'; }); };
   var badge=function(vals,dir){ var a=vals[cmpIdx[0]], b=vals[cmpIdx[1]]; if(!ok(a)||!ok(b)||!a||!dir) return '';
-    var p=(b-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ' <span style="font-size:10px;color:#64748b">0%</span>';
-    var worse=(p>0)===(dir>0); return ' <span style="font-size:10px;font-weight:700;color:'+(!worse?'#15803d':(Math.abs(p)<=5?'#b45309':'#b91c1c'))+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
+    var p=(b-a)/Math.abs(a)*100; if(Math.abs(p)<0.5) return ' <span style="font-size:11px;color:#64748b">0%</span>';
+    var worse=(p>0)===(dir>0); return ' <span style="font-size:11px;font-weight:700;color:'+(!worse?'#166534':(Math.abs(p)<=5?'#b45309':'#b91c1c'))+'">'+(p>0?'\u25b2':'\u25bc')+Math.round(Math.abs(p))+'%</span>'; };
   var bd=function(i){ return i===0?'border-left:2px solid #94a3b8;':''; };
   var nCols=1+cities.length*cols.length;
   var HDtop=ccHidden(), hlabels={labour:'Labour',P:'P: Rider-payable',A:'A: Wear & Tear',other:'Other maintenance',C:'C: Cost to company',dmg:'Revenue damage fee',rec:'Revenue recovery'};
   var hk=Object.keys(hlabels).filter(function(k){ return HDtop[k]; });
   var hiddenBar=hk.length?'<div style="margin:2px 0 8px;font-size:12px;color:#64748b">Hidden from the table and totals: '+hk.map(function(k){ return '<span data-a="cchide" data-v="'+k+'" title="Show again" style="display:inline-block;margin:2px 4px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:999px;cursor:pointer;color:#334155;background:#f8fafc">+ '+hlabels[k]+'</span>'; }).join('')+'</div>':'';
-  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Overall and each city\u2019s last three full months (and the partial-month pair). The last column is compared with the month before it: <span style="background:#dcf3e3;padding:0 6px;border-radius:3px">better</span> <span style="background:#fef3c7;padding:0 6px;border-radius:3px">worse by up to 5%</span> <span style="background:#fde2e2;padding:0 6px;border-radius:3px">worse by more than 5%</span>.</p><div class="tw"><table>';
+  var h='<div class="card"><h3>City comparison \u00b7 '+unitName()+'</h3><p class="sub">Overall and each city\u2019s last three full months (and the partial-month pair). The last column is compared with the month before it: <span style="background:#dcf3e3;color:#14532d;padding:0 6px;border-radius:3px">better</span> <span style="background:#fef3c7;color:#78350f;padding:0 6px;border-radius:3px">worse by up to 5%</span> <span style="background:#fde2e2;color:#7f1d1d;padding:0 6px;border-radius:3px">worse by more than 5%</span>.</p><div class="tw"><table>';
   h+='<tr><th></th>'+cities.map(function(c){ return '<th colspan="'+cols.length+'" style="text-align:center;'+bd(0)+'">'+(c==='ALL'?'Overall':cityName(c))+'</th>'; }).join('')+'</tr>';
   h+='<tr><th>'+unitName()+'</th>'+cities.map(function(){ return cols.map(function(m,i){ return '<th style="'+bd(i)+'">'+C.monthLabel(m)+'</th>'; }).join(''); }).join('')+'</tr>';
   var sec=function(t){ return '<tr><td colspan="'+nCols+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">'+t+'</td></tr>'; };
@@ -953,7 +996,7 @@ function cityCompareHtml(model){
     if(!on(k)) return '';
     if(on(k)) return line('<span data-a="cchide" data-v="'+k+'" title="Hide this line and leave it out of the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">\u2212</span>'+label, getter, FM, dir, kind);
     var out='<tr style="opacity:.45"><td style="'+(kind==='less'?'padding-left:18px;':'')+'color:#6b7280"><span data-a="cchide" data-v="'+k+'" title="Show this line and add it back to the totals" style="display:inline-block;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;margin-right:6px;cursor:pointer;color:#475569;font-weight:700">+</span><s>'+label+'</s> <i style="font-size:11px">(hidden, not in totals)</i></td>';
-    cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#9ca3af"><s>'+FM(v)+'</s></td>'; }); });
+    cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#64748b"><s>'+FM(v)+'</s></td>'; }); });
     return out+'</tr>'; };
   var names={labour:'Labour',A:'A',P:'P',C:'C',other:'Other'}, shown=['labour','A','P','C','other'].filter(on).map(function(k){ return names[k]; });
   h+=tog('labour','Labour (as per payroll)',u(comp.labour),1);
@@ -1019,7 +1062,7 @@ function cityCompareHtml(model){
       cols.forEach(function(m,i){ var x=cells[i], txt;
         if(!x||(!pctMode&&!ok(x.v))) txt='\u2013';
         else if(pctMode) txt=typeShare(x.s);
-        else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
+        else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:11.5px"> '+typeShare(x.s)+'</span>':'');
         h+='<td'+tipOf(x,t)+' style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
     h+='</tr>'; });
   // 13 Nov 2026: the same mix by bike model: share of job cards, parts per job card, parts cost in the Show unit (not shown while a Model, Hub or Deployed-year filter is on)
@@ -1042,7 +1085,7 @@ function cityCompareHtml(model){
           cols.forEach(function(m,i){ var x=cells[i], txt;
             if(!x||(!pctMode&&!ok(x.v))) txt='\u2013';
             else if(pctMode) txt=typeShare(x.s);
-            else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:10.5px"> '+typeShare(x.s)+'</span>':'');
+            else txt=FM(x.v)+(state.disp==='both'?'<span style="color:#475569;font-weight:600;font-size:11.5px"> '+typeShare(x.s)+'</span>':'');
             h+='<td'+tipOf(x,md)+' style="'+bd(i)+bg[i]+'">'+txt+(i===cmpIdx[1]?bdg:'')+'</td>'; }); });
         h+='</tr>'; });
     }
@@ -1099,7 +1142,7 @@ function whatChangedHtml(model){
   if(!out.length) return '<div class="note" style="margin:0 0 12px">What changed ('+C.monthLabel(B)+' vs '+C.monthLabel(A)+'): no cost line, part, driver or hub moved 20% or more.</div>';
   var fv=function(it,v){ if(v==null||!isFinite(v)) return '\u2013'; if(it.pctFmt) return (v*100).toFixed(1)+'%'; if(it.unit==='\u20b9tot') return '\u20b9'+(v>=1e5?(v/1e5).toFixed(1)+' L':Math.round(v/1000)+'k'); if(it.unit==='\u20b9') return '\u20b9'+v.toFixed(1); return v.toFixed(it.dec==null?1:it.dec); };
   var chip=function(it){ var up=it.b>it.a, bad=up; if(it.t==='Refurb penetration'||it.t==='Km per bike per day'||it.t==='Service rate') bad=false;
-    var col=it.kind==='Driver'&&!/cost|Parts per|Job cards|back within/i.test(it.t)?'#475569':(bad?'#b91c1c':'#15803d'), bg=col==='#b91c1c'?'#fde2e2':(col==='#15803d'?'#dcf3e3':'#eef2f7');
+    var col=it.kind==='Driver'&&!/cost|Parts per|Job cards|back within/i.test(it.t)?'#475569':(bad?'#b91c1c':'#166534'), bg=col==='#b91c1c'?'#fde2e2':(col==='#166534'?'#dcf3e3':'#eef2f7');
     var pc=it.p==null?'new':((it.p>0?'+':'\u2212')+Math.abs(Math.round(it.p*100))+'%');
     return '<span title="'+it.kind+(it.q?' \u00b7 qty '+Math.round(it.q[0])+' \u2192 '+Math.round(it.q[1]):'')+'" style="display:inline-block;margin:3px 6px 3px 0;padding:3px 10px;border-radius:999px;background:'+bg+';color:'+col+';font-size:12px"><b>'+(up?'\u25b2':'\u25bc')+' '+it.t+'</b> '+fv(it,it.a)+' \u2192 '+fv(it,it.b)+' <b>('+pc+')</b></span>'; };
   var h='<div class="card" style="margin:0 0 14px;padding:12px 16px"><div style="font-weight:700;font-size:14px;margin-bottom:4px">What changed \u00b7 '+C.monthLabel(B)+' vs '+C.monthLabel(A)+'</div>'
@@ -1241,7 +1284,7 @@ function driversHtml(city, ms, model){
   var mark=function(r,v){ if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
   rows.forEach(function(r){ if(!ccOn('drv:'+r[0])) return; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='jcs', less=String(r[0]).indexOf('Less:')===0;
     var memo=r[3]==='ic'||r[3]==='sc';
-    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#94a3b8;font-style:italic"':'')+'><td'+(grey||less||memo?' style="color:'+(memo?'#94a3b8':'#6b7280')+((less||memo)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
+    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#64748b;font-style:italic"':'')+'><td'+(grey||less||memo?' style="color:'+(memo?'#94a3b8':'#6b7280')+((less||memo)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total \u2212 revenue damage fee \u2212 revenue recovery (recovery data from May 2026). Insurance claims and scrap sales are shown for reference only: Other maintenance already has them deducted (Other = porter + insurance & IOT + warranty provision \u2212 scrap \u2212 insurance claims, as in the report), so they are not deducted again. Inputs are under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
   if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates. Job-card mix and the 7-day comeback are exact for the year.</p>';
@@ -1315,7 +1358,7 @@ function viewParts(model){
     +'<div class="row" style="margin-top:6px"><span style="font-size:12px;color:#64748b;margin-right:4px">Measure</span>'+[['val','\u20b9 value'],['qty','Count'],['pct','% of category'],['p100','Qty per 100 bikes'],['p100s','Qty per 100 serviced bikes']].map(function(o){ return '<span class="chip'+((P.measure||'val')===o[0]?' on':'')+'" data-a="pmeas" data-v="'+o[0]+'">'+o[1]+'</span>'; }).join('')+'</div>'
     +'<p class="sub">Sorted by '+(sk==='name'?'part name':sk==='diff'?'the change '+diffLbl.replace('\u0394 ',''):C.monthLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort. '+({qty:'Count = units replaced in the month (quantity on the job cards). ',pct:'% = share of total '+P.bucket+' cost for that month. ',p100:'Units replaced per 100 deployed bikes (Total = over the months shown). ',p100s:'Units replaced per 100 bikes that came for service (Total = over the months shown). '}[P.measure||'val']||(state.disp!=='val'?'% = share of total '+P.bucket+' for that month. ':''))+'Refurbished variants are '+(state.foldOn?'folded into their base part':'shown separately')+' (change in Settings). '+(((P.measure||'val')==='val')?unitName()+'.':'')+'</p><div class="tw"><table><tr>'+thS('name','Part',true)+ms.map(function(m){return thS(m,C.monthLabel(m));}).join('')+thS('diff',diffLbl)+'</tr>';
   var diffCell=function(vals, f, unit){ var a=vals[iA], b=vals[iB]; if(iA<0||a==null||b==null||!isFinite(a)||!isFinite(b)) return '<td style="font-weight:600">\u2013</td>';
-    var d=b-a, pc=a?d/Math.abs(a)*100:null, col=Math.abs(d)<1e-9?'#64748b':(d>0?'#b91c1c':'#15803d');
+    var d=b-a, pc=a?d/Math.abs(a)*100:null, col=Math.abs(d)<1e-9?'#64748b':(d>0?'#b91c1c':'#166534');
     return '<td style="font-weight:600;color:'+col+'">'+(d>0?'+':(d<0?'\u2212':''))+f(Math.abs(d))+(unit||'')+(pc!=null&&isFinite(pc)?' <span style="font-size:11px;font-weight:400">('+(pc>0?'+':'')+Math.round(pc)+'%)</span>':'')+'</td>'; };
   var sumV=function(get){ var t=0, any=false; ms.forEach(function(m){ var x=get(m); if(x!=null){ t+=x; any=true; } }); return any?t:null; };
   // Display switch: % = the part's share of this category's total for the month (Total column: share of the months shown)
@@ -1439,7 +1482,7 @@ function viewHubs(model){   // 6 Nov 2026: hub league table: hubs ranked by cost
   var TH=function(k,lab,tip){ var on=H.sk===k; return '<th data-a="hsort" data-v="'+k+'" style="cursor:pointer;white-space:nowrap" title="'+(tip||'Sort by this column')+'">'+lab+(on?(H.sd>0?' \u25b2':' \u25bc'):' <span style="opacity:.35">\u21c5</span>')+'</th>'; };
   h+='<div class="tw"><table><tr>'+TH('rank','#','Rank (1 = costliest)')+TH('move','Move')+TH('hub','Hub')+TH('bikes','Bikes')+TH('km','Km')+TH('cur',C.monthLabel(H.m)+' \u20b9')+TH('pb','\u20b9 / bike')+TH('pbc','vs prev')+TH('pk','\u20b9 / km')+TH('pkc','vs prev')+TH('split','A / P / C split','Sort by the P (rider-payable) share')+'</tr>';
   var rowH=function(r,rank){ var pr=prevRank[r.k], mv=rank&&pr?pr-rank:null;
-    var mvs=mv==null?'<span class="sub">\u2013</span>':mv===0?'<span class="sub">=</span>':'<span style="color:'+(mv>0?'#b91c1c':'#15803d')+';font-weight:600" title="'+(mv>0?'moved up (costlier)':'moved down (cheaper)')+'">'+(mv>0?'\u25b2':'\u25bc')+Math.abs(mv)+'</span>';
+    var mvs=mv==null?'<span class="sub">\u2013</span>':mv===0?'<span class="sub">=</span>':'<span style="color:'+(mv>0?'#b91c1c':'#166534')+';font-weight:600" title="'+(mv>0?'moved up (costlier)':'moved down (cheaper)')+'">'+(mv>0?'\u25b2':'\u25bc')+Math.abs(mv)+'</span>';
     var sp=r.tot?[r.A,r.P,r.C].map(function(x){ return Math.round(x/r.tot*100); }).join(' / ')+'%':'';
     return '<tr data-a="hubdd" data-v="'+esc(r.k)+'" style="cursor:pointer"><td><b>'+(rank||'')+'</b></td><td>'+mvs+'</td><td><b>'+esc(r.hub)+'</b>'+(H.city==='ALL'?' <span class="sub">'+r.c+'</span>':'')+' \u203a</td><td>'+(r.f?Math.round(r.f).toLocaleString('en-IN'):'\u2013')+'</td><td>'+(r.km?Math.round(r.km).toLocaleString('en-IN'):'\u2013')+'</td><td>'+ddInr(r.cur)+'</td><td style="'+(H.by==='bike'?heat(r.pb):'')+'">'+ddInr(r.pb)+'</td><td>'+(r.pb!=null&&r.pbp?ddChg(r.pb,r.pbp):'')+'</td><td style="'+(H.by==='km'?heat(r.pk):'')+'">'+(r.pk!=null?'\u20b9'+r.pk.toFixed(3):'\u2013')+'</td><td>'+(r.pk!=null&&r.pkp?ddChg(r.pk,r.pkp):'')+'</td><td class="sub">'+sp+'</td></tr>'; };
   ranked.forEach(function(r,i){ r.rank=i+1; var pr=prevRank[r.k]; r.mv=pr?pr-r.rank:null; });
@@ -1500,15 +1543,76 @@ function viewSettings(){
   return h;
 }
 function viewEmpty(){ return '<div class="empty">'+(state.loading?'Loading RMC data…':esc(state.msg||'No data'))+'</div>'; }
+
+// ---------- 16 Nov 2026 UX layer: runs after every render (the whole page is redrawn each time) ----------
+function uxNarrow(){ try{ return window.innerWidth<=700; }catch(e){ return false; } }
+function uxFriendly(e){ e=String(e==null?'':e); if(/timeout|canceling statement|too long/i.test(e)) return 'This is taking longer than usual.'; if(/not allowed|permission|42501|jwt|401|403|expired/i.test(e)) return 'You do not have access to this, or your session has expired. Refresh the page.'; return 'Something went wrong while loading this.'; }
+function uxErrHtml(e,withRetry){ return '<div class="empty" role="alert">'+uxFriendly(e)+(withRetry===false?'':' <button class="btn" data-a="ddretry" style="margin-left:6px">Retry</button>')+'<details style="margin-top:8px;font-size:11.5px;color:#475569"><summary style="cursor:pointer">Technical details</summary>'+esc(e)+'</details></div>'; }
+function uxCapture(){ var o={y:0,tw:[],f:null,drill:false}; try{ o.y=window.pageYOffset||0; o.drill=!!(state&&state.drill); [].forEach.call(root.querySelectorAll('.tw'),function(t){ o.tw.push([t.scrollLeft,t.scrollTop]); });
+    var a=document.activeElement; if(a&&root.contains(a)){ var el=a.closest('[data-a]'); if(el){ var v=el.getAttribute('data-v'), sel='[data-a="'+el.getAttribute('data-a')+'"]'+(v!=null?'[data-v="'+String(v).replace(/"/g,'\\"')+'"]':''); o.f={sel:sel, idx:[].indexOf.call(root.querySelectorAll(sel),el)}; } } }catch(e){} return o; }
+function uxSummary(stick){ var parts=[]; [].forEach.call(stick.querySelectorAll('.bar .grp'),function(g){ var l=g.querySelector('label'); var lt=l?l.textContent.trim():''; if(!lt) return; var on=[].filter.call(g.querySelectorAll('.chip.on'),function(){return true;}).map(function(c){return c.textContent.trim();}); var sel=g.querySelector('select'); var val=sel?(sel.options[sel.selectedIndex]||{}).text:(on.length>3?on.length+' selected':on.join(', ')); if(val&&!/^all\b/i.test(val)||lt.toLowerCase()==='city'||lt.toLowerCase()==='show') parts.push((lt.charAt(0)+lt.slice(1).toLowerCase())+': '+val); }); return parts.slice(0,4).join(' \u00b7 '); }
+function uxPass(ux){
+  var stick=root.querySelector('.stick'), main=root.querySelector('.main');
+  // --- roles, keyboard access, labels
+  var tabsEl=root.querySelector('.tabs'); if(tabsEl) tabsEl.setAttribute('role','tablist'); if(main) main.setAttribute('role','main');
+  [].forEach.call(root.querySelectorAll('.bar'),function(b){ b.setAttribute('role','group'); b.setAttribute('aria-label','Filters'); });
+  [].forEach.call(root.querySelectorAll('[data-a]'),function(el){ var t=el.tagName; if(t==='BUTTON'||t==='A'||t==='INPUT'||t==='SELECT'||t==='TEXTAREA') return; var a=el.getAttribute('data-a');
+    if(!el.hasAttribute('role')) el.setAttribute('role',a==='tab'?'tab':'button'); if(!el.hasAttribute('tabindex')) el.setAttribute('tabindex',a==='dd'?'-1':'0');
+    if(el.classList.contains('chip')) el.setAttribute('aria-pressed',el.classList.contains('on')?'true':'false'); if(a==='tab') el.setAttribute('aria-selected',el.classList.contains('on')?'true':'false'); });
+  [].forEach.call(root.querySelectorAll('select,input'),function(el){ if(el.type==='hidden'||el.hasAttribute('aria-label')) return; if(el.type==='file'){ el.setAttribute('aria-hidden','true'); el.setAttribute('tabindex','-1'); return; } if(el.closest('label')) return; var g=el.closest('.grp'), l=g&&g.querySelector('label'); var t=l?l.textContent.trim():(el.getAttribute('placeholder')||el.title||''); if(t) el.setAttribute('aria-label',t); });
+  [].forEach.call(root.querySelectorAll('h3'),function(h){ h.setAttribute('aria-level','2'); });
+  // grid cells that open the drill-down: one tab stop per table, arrows move between cells
+  [].forEach.call(root.querySelectorAll('table'),function(tb){ var cells=tb.querySelectorAll('td[data-a="dd"]'); if(!cells.length) return; cells[0].setAttribute('tabindex','0');
+    [].forEach.call(cells,function(c){ var r=c.parentNode, lab=r.cells&&r.cells[0]?r.cells[0].textContent.trim():''; c.setAttribute('aria-label',(lab?lab+', ':'')+c.textContent.replace(/\s+/g,' ').trim()+'. Press Enter to open the details'); }); });
+  // --- sticky block height (for the tall tables' max height) and phone filters
+  if(stick){ var narrow=uxNarrow(), bars=stick.querySelectorAll('.bar');
+    if(narrow&&bars.length){ var open=!!state.uxFOpen; stick.classList.toggle('fclosed',!open); var fs=document.createElement('div'); fs.className='fsum'; fs.setAttribute('data-a','ftoggle'); fs.setAttribute('role','button'); fs.setAttribute('tabindex','0'); fs.setAttribute('aria-expanded',open?'true':'false'); fs.innerHTML='<span class="fs-t">'+esc(uxSummary(stick))+'</span><span class="fs-b">'+(open?'Hide filters \u25b4':'Filters \u25be')+'</span>'; stick.insertBefore(fs,bars[0]); }
+    try{ root.style.setProperty('--stickh',stick.offsetHeight+'px'); }catch(e){} }
+  // --- tables: sticky header rows, scroll cues, jump chips
+  var tws=[].slice.call(root.querySelectorAll('.tw')), firstJump=false;
+  tws.forEach(function(tw){ var tb=tw.querySelector('table'); if(!tb) return; var inDrill=!!tw.closest('#rmc-drill');
+    if(!inDrill&&tb.rows.length>25) tw.classList.add('ux-v');
+    var cum=0; for(var i=0;i<tb.rows.length;i++){ var r=tb.rows[i], allTh=r.cells.length>0&&[].every.call(r.cells,function(c){return c.tagName==='TH';}); if(!allTh) break; var h=r.getBoundingClientRect().height||r.offsetHeight||0; [].forEach.call(r.cells,function(c){ c.style.position='sticky'; c.style.top=cum+'px'; c.style.zIndex=c.cellIndex===0?'7':'5'; }); cum+=h; }
+    var fcw=tb.rows[0]&&tb.rows[0].cells[0]?tb.rows[0].cells[0].getBoundingClientRect().width:0;
+    if(inDrill){ if(tw.scrollWidth>tw.clientWidth+2&&!(tw.previousElementSibling&&tw.previousElementSibling.classList.contains('hint'))){ var hn=document.createElement('div'); hn.className='hint'; hn.textContent='Scroll sideways for more columns \u2192'; tw.parentNode.insertBefore(hn,tw); } return; }
+    var shell=document.createElement('div'); shell.className='tw-shell'; tw.parentNode.insertBefore(shell,tw); shell.appendChild(tw); var fl=document.createElement('div'); fl.className='tw-fade l'; var fr=document.createElement('div'); fr.className='tw-fade r'; shell.appendChild(fl); shell.appendChild(fr);
+    var upd=function(){ var f=0; try{ f=tb.rows[0].cells[0].getBoundingClientRect().width; }catch(e){} shell.style.setProperty('--fcw',f+'px'); shell.classList.toggle('can-l',tw.scrollLeft>2); shell.classList.toggle('can-r',tw.scrollLeft+tw.clientWidth<tw.scrollWidth-2); };
+    tw.addEventListener('scroll',upd,{passive:true}); upd();
+    // jump chips over the first wide table that has grouped columns (Overall / BLR / NCR ...)
+    if(!firstJump&&tb.rows[0]){ var gh=[].filter.call(tb.rows[0].cells,function(c){return c.tagName==='TH'&&c.colSpan>1;}); if(gh.length>=2&&tw.scrollWidth>tw.clientWidth+2){ firstJump=true; var jb=document.createElement('div'); jb.className='jump'; jb.innerHTML='<span>Jump to</span>'; gh.forEach(function(c){ var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=c.textContent.trim()||'Group'; b.addEventListener('click',function(){ var left=c.getBoundingClientRect().left-tw.getBoundingClientRect().left+tw.scrollLeft-fcw; if(typeof tw.scrollTo==='function') tw.scrollTo({left:Math.max(0,left),behavior:'smooth'}); else tw.scrollLeft=Math.max(0,left); }); jb.appendChild(b); }); shell.parentNode.insertBefore(jb,shell); } } });
+  if(tabsEl){ var onT=tabsEl.querySelector('.tab.on'); if(onT){ var tl=onT.offsetLeft, tr=tl+onT.offsetWidth; if(tl<tabsEl.scrollLeft||tr>tabsEl.scrollLeft+tabsEl.clientWidth) tabsEl.scrollLeft=Math.max(0,tl-24); }
+    var tu=function(){ tabsEl.classList.toggle('more',tabsEl.scrollLeft+tabsEl.clientWidth<tabsEl.scrollWidth-2); }; tabsEl.addEventListener('scroll',tu,{passive:true}); tu(); }
+  // --- the drill-down is a panel over the page: it opens where you are, closes where you were
+  var dd=document.getElementById('rmc-drill'), bodyCl=document.body.classList, was=!!state.uxWasOpen; state.uxWasOpen=!!dd;   // was = the panel was already open before this redraw
+  if(dd){ var bg=document.createElement('div'); bg.className='dd-bg'; bg.setAttribute('data-a','ddclose'); root.appendChild(bg); dd.setAttribute('role','dialog'); dd.setAttribute('aria-modal','true'); var h3=dd.querySelector('h3'); if(h3){ h3.id='rmc-drill-title'; dd.setAttribute('aria-labelledby','rmc-drill-title'); } bodyCl.add('dd-open');
+    var o=state.uxOrigin; if(o&&o.a==='dd'){ var oc=root.querySelector('td[data-a="dd"][data-v="'+o.v+'"]'); if(oc) oc.classList.add('dd-origin'); }
+    if(!was){ var cb=dd.querySelector('[data-a="ddclose"]'); if(cb) cb.focus({preventScroll:true}); } }
+  else { bodyCl.remove('dd-open'); if(was){ var o2=state.uxOrigin; var oc2=o2&&root.querySelector((o2.a==='dd'?'td':'')+'[data-a="'+o2.a+'"][data-v="'+o2.v+'"]'); if(oc2){ oc2.focus({preventScroll:true}); ux.f=null; } } }
+  // --- put back what the redraw reset: sideways scroll positions, the page position, the focused control
+  tws=[].slice.call(root.querySelectorAll('.tw')); (ux.tw||[]).forEach(function(p,i){ var t=tws[i]; if(t&&(p[0]||p[1])){ t.scrollLeft=p[0]; t.scrollTop=p[1]; } });
+  if(Math.abs((window.pageYOffset||0)-(ux.y||0))>2){ try{ window.scrollTo(0,ux.y); }catch(e){} }
+  if(ux.f&&!(dd&&!was)){ var list=root.querySelectorAll(ux.f.sel), t2=list[Math.min(Math.max(ux.f.idx,0),list.length-1)]; if(t2&&t2!==document.activeElement) t2.focus({preventScroll:true}); }
+}
+if(!window.__uxKeys){ window.__uxKeys=true; document.addEventListener('keydown',function(e){
+  var t=e.target; if(!t||!t.closest||!root.contains(t)) return;
+  if(e.key==='Escape'&&state.drill){ var c=root.querySelector('#rmc-drill [data-a="ddclose"]'); if(c){ e.preventDefault(); c.click(); } return; }
+  if(e.key==='Tab'&&state.drill){ var dd=document.getElementById('rmc-drill'); if(dd){ var f=[].filter.call(dd.querySelectorAll('button,a[href],input,select,textarea,[tabindex]'),function(x){ return x.tabIndex>=0&&x.offsetParent!==null; }); if(f.length){ if(e.shiftKey&&t===f[0]){ e.preventDefault(); f[f.length-1].focus(); } else if(!e.shiftKey&&t===f[f.length-1]){ e.preventDefault(); f[0].focus(); } } } return; }
+  var el=t.closest('[data-a]'); if(!el) return; var tag=el.tagName;
+  if((e.key==='Enter'||e.key===' ')&&tag!=='BUTTON'&&tag!=='A'&&tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA'){ e.preventDefault(); el.click(); return; }
+  if(el.getAttribute('data-a')==='dd'&&/^Arrow(Left|Right|Up|Down)$/.test(e.key)){ var row=el.parentNode, tb=row.closest('table'), rows=[].slice.call(tb.rows), ri=rows.indexOf(row), ci=el.cellIndex, dst=null, dr=e.key==='ArrowDown'?1:(e.key==='ArrowUp'?-1:0), dc=e.key==='ArrowRight'?1:(e.key==='ArrowLeft'?-1:0);
+    if(dc){ var cs=[].filter.call(row.cells,function(c){return c.getAttribute('data-a')==='dd';}); var k=cs.indexOf(el)+dc; dst=cs[k]||null; } else { for(var r=ri+dr;r>=0&&r<rows.length;r+=dr){ var cc=rows[r].cells[ci]; if(cc&&cc.getAttribute('data-a')==='dd'){ dst=cc; break; } } }
+    if(dst){ e.preventDefault(); [].forEach.call(tb.querySelectorAll('td[data-a="dd"]'),function(c){ c.setAttribute('tabindex','-1'); }); dst.setAttribute('tabindex','0'); dst.focus(); } } }); }
 function render(){
   if(state.tab==='dist') state.tab='overview';   // Replacement km tab removed (30 Oct 2026); hubs is back as Hub league (6 Nov 2026)
   state._mc=null; state.F.shareFn=shareFnNow(); var has=state.store.rows.length>0, model=has?addAll(C.compute(state.store,ctx(),state.F)):{}, tabs=[['overview','Overview','chart'],['parts','Part breakup','table'],['movers','Movers','sort'],['hubs','Hub league','sort']].concat(embedTabs()).concat([['settings','Rules & settings','adjust']]);
   var emb=EMBEDS[state.tab]; if(emb && !canSeeEmbed(state.tab)){ state.tab='overview'; emb=null; }
   var body=emb ? '' : !has && state.tab!=='settings' ? viewEmpty() : state.tab==='overview'?viewOverview(model):state.tab==='parts'?viewParts(model):state.tab==='movers'?viewMovers(model):state.tab==='hubs'?viewHubs(model):state.tab==='dist'?viewDist():viewSettings();
+  var _ux=uxCapture();
   root.innerHTML='<div class="hd"><div><h1>RMC Dashboard</h1><p>Wear &amp; Tear (A), Rider-payable (P), Cost to company (C) from the DMS billing export · Net service cost with monthly inputs</p></div><div class="grp"><span class="status" id="svc-status">'+esc(state.msg)+'</span>'
     +'<button class="btn ghost" data-a="reload">'+ic('sort')+' Refresh</button></div></div>'
-    +(has&&!emb?filterBar():'')+'<div class="tabs">'+tabs.map(function(t){return '<div class="tab'+(state.tab===t[0]?' on':'')+'" data-a="tab" data-v="'+t[0]+'">'+ic(t[2])+t[1]+'</div>';}).join('')+'</div><div class="main"'+(emb?' style="display:none"':'')+'>'+body+'</div>'
+    +'<div class="stick">'+(has&&!emb?filterBar():'')+'<div class="tabs">'+tabs.map(function(t){return '<div class="tab'+(state.tab===t[0]?' on':'')+'" data-a="tab" data-v="'+t[0]+'">'+ic(t[2])+t[1]+'</div>';}).join('')+'</div></div><div class="main"'+(emb?' style="display:none"':'')+'>'+body+'</div>'
     +'<input type="file" id="f_jc" accept=".xlsx,.xls,.csv" style="display:none"><input type="file" id="f_st" accept=".xlsx,.xls,.csv" style="display:none">';
+  try{ uxPass(_ux); }catch(e){}
   try{ syncEmbeds(); preloadEmbeds(); }catch(e){}
 }
 // Wear & Tear and Fleet KM Analysis shown as tabs inside RMC (30 Oct 2026). Each loads once in its own frame,
@@ -1555,15 +1659,17 @@ function csv(){
 }
 root.addEventListener('click',function(e){
   var el=e.target.closest('[data-a]'); if(!el) return; var a=el.getAttribute('data-a'), v=el.getAttribute('data-v');
-  if(a==='dd'){ var q=v.split('|'); state.drill={b:q[0],city:q[1],m:q[2],st:null,hub:null,part:null}; render(); var pn=document.getElementById('rmc-drill'); if(pn) pn.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+  if(a==='dd'){ var q=v.split('|'); state.uxOrigin={a:'dd',v:v}; state.drill={b:q[0],city:q[1],m:q[2],st:null,hub:null,part:null}; render(); return; }
   if(a==='ddhub'){ state.drill.hub=v; state.drill.part=null; render(); return; }
   if(a==='hsort'){ var H2=state.hubs; if(H2.sk===v) H2.sd=-H2.sd; else { H2.sk=v; H2.sd=(v==='rank'||v==='hub')?1:-1; } render(); return; }
-  if(a==='hubdd'){ state.drill={b:state.hubs.b,city:v.split('|')[0],m:state.hubs.m,hub:v,part:null,from:'league'}; render(); var dp=document.getElementById('rmc-drill'); if(dp) dp.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+  if(a==='hubdd'){ state.drill={b:state.hubs.b,city:v.split('|')[0],m:state.hubs.m,hub:v,part:null,from:'league'}; render(); return; }
   if(a==='ddexp'){ state.drillExp=state.drillExp||{}; var ek=ddExpKey(v); state.drillExp[ek]=!state.drillExp[ek]; render(); return; }
   if(a==='ddtype'){ state.drill.st=v; state.drill.hub=null; state.drill.part=null; render(); return; }
   if(a==='ddall'){ state.drill.st='*'; state.drill.hub=null; state.drill.part=null; render(); return; }
   if(a==='ddpart'){ state.drill.part=v; render(); if(ddTyped(state.drill)) ddLoadJC(); else drillLoadJC(); return; }
   if(a==='ddup'){ if(v==='0'){ state.drill.st=null; state.drill.hub=null; state.drill.part=null; } else if(v==='1'){ state.drill.hub=null; state.drill.part=null; } else state.drill.part=null; render(); return; }
+  if(a==='ftoggle'){ state.uxFOpen=!state.uxFOpen; render(); return; }
+  if(a==='ddretry'){ Object.keys(state.drillT||{}).forEach(function(k){ if(state.drillT[k]&&state.drillT[k].error) delete state.drillT[k]; }); render(); return; }
   if(a==='ddclose'){ state.drill=null; render(); return; }
   if(a==='ddcsv'){ drillCSV(); return; }
   if(a==='tab'){ state.tab=v; ls('tab',v); }
