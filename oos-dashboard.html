@@ -878,8 +878,8 @@ body { overflow:auto!important; }
           <th class="sortable" onclick="sortOutflowBy('total_item_cost')">Part Cost<span class="sort-ind" id="so-total_item_cost"></span></th>
           <th class="sortable" onclick="sortOutflowBy('jc_has_part')" title="Does the job card have a part line, or only labour?">With part / Labour only<span class="sort-ind" id="so-jc_has_part"></span></th>
           <th class="sortable" onclick="sortOutflowBy('tat_bucket')">Bucket (TAT)<span class="sort-ind" id="so-tat_bucket"></span></th>
-          <th class="sortable" onclick="sortOutflowBy('ho_total_tat_min')" title="Total time HO took to respond, added up over every approval request on this job card (not the time the job card waited between requests)">HO approval time taken<span class="sort-ind" id="so-ho_total_tat_min"></span></th>
           <th class="sortable" onclick="sortOutflowBy('ho_last_tat_min')" title="HO approval TAT of the final request on this job card: minutes from the request to HO's response. Green up to 30 min, amber up to 90, red above, as on the HO Approval dashboard">HO approval TAT<span class="sort-ind" id="so-ho_last_tat_min"></span></th>
+          <th class="sortable" onclick="sortOutflowBy('ho_bucket')" title="HO approval TAT put into a band. Green up to 30 min, amber up to 90 min, red above, as on the HO Approval dashboard">HO approval TAT Bucket<span class="sort-ind" id="so-ho_bucket"></span></th>
         </tr></thead>
         <tbody><tr><td colspan="5" class="empty"><span class="spin"></span></td></tr></tbody>
       </table></div>
@@ -1608,12 +1608,12 @@ function exportOutflowXLSX() {
   try {
   if (!RAW) { alert('Data not loaded yet — wait for the page to finish loading.'); return; }
   var outflow = getFilteredOutflow();
-  var header = ['Reg No','Hub','Model','Type','Date & Time','Technician','Labour Hrs','Part Cost','With part / Labour only','Bucket (TAT)','HO approval requests','HO approval time taken (min)','HO approval TAT, final request (min)'];
+  var header = ['Reg No','Hub','Model','Type','Date & Time','Technician','Labour Hrs','Part Cost','With part / Labour only','Bucket (TAT)','HO approval requests','HO approval TAT, final request (min)','HO approval TAT bucket'];
   var rows = outflow.map(function(r){
     var timeStr = r.repaired_datetime ? fmtDateTime(r.repaired_datetime) : '';
     var labourStr = (r.labour_hours != null) ? parseFloat(r.labour_hours).toFixed(2) : '';
     var costStr   = (r.total_item_cost != null) ? Math.round(r.total_item_cost) : '';
-    return [r.reg_number, r.hub_name, r.model_name, r.submission_type, timeStr, r.technician_name||'', labourStr, costStr, (r.jc_has_part===true?'With parts':(r.jc_has_part===false?'Labour only':'')), r.tat_bucket||'', (r.ho_cycles != null ? r.ho_cycles : ''), (r.ho_total_tat_min != null ? r.ho_total_tat_min : ''), (r.ho_pending ? 'Pending' : (r.ho_last_tat_min != null ? r.ho_last_tat_min : ''))];
+    return [r.reg_number, r.hub_name, r.model_name, r.submission_type, timeStr, r.technician_name||'', labourStr, costStr, (r.jc_has_part===true?'With parts':(r.jc_has_part===false?'Labour only':'')), r.tat_bucket||'', (r.ho_cycles != null ? r.ho_cycles : ''), (r.ho_pending ? 'Pending' : (r.ho_last_tat_min != null ? r.ho_last_tat_min : '')), (r.ho_cycles ? (r.ho_pending ? 'Pending' : (hoBucketOf(r.ho_last_tat_min) || '')) : '')];
   });
   downloadCSV('oos_repaired_' + new Date().toISOString().slice(0,10) + '.csv', header, rows);
   } catch(e) { alert('Export error: ' + e.message); }
@@ -3582,7 +3582,7 @@ var _outflowAll = [];
 var _outflowPage = 1;
 var _outflowSortKey = 'repaired_datetime';
 var _outflowSortDir = 'desc';
-var OUTFLOW_NUMERIC_KEYS = ['labour_hours', 'total_item_cost', 'ho_total_tat_min', 'ho_last_tat_min'];
+var OUTFLOW_NUMERIC_KEYS = ['labour_hours', 'total_item_cost', 'ho_last_tat_min', 'ho_bucket'];
 var OUTFLOW_DATE_KEYS = ['repaired_datetime'];
 
 function renderOutflowTable(outflow) {
@@ -3599,6 +3599,7 @@ function _sortOutflowAll() {
   _outflowAll.sort(function(a, b) {
     var av = a[key], bv = b[key];
     if (key === 'jc_has_part') { av = a.jc_has_part === false ? 0 : (a.jc_has_part === true ? 1 : 2); bv = b.jc_has_part === false ? 0 : (b.jc_has_part === true ? 1 : 2); }
+    else if (key === 'ho_bucket') { av = a.ho_pending ? Infinity : (a.ho_last_tat_min == null ? -Infinity : parseFloat(a.ho_last_tat_min)); bv = b.ho_pending ? Infinity : (b.ho_last_tat_min == null ? -Infinity : parseFloat(b.ho_last_tat_min)); }
     else if (isDate) { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
     else if (isNum) { av = parseFloat(av); if (isNaN(av)) av = -Infinity; bv = parseFloat(bv); if (isNaN(bv)) bv = -Infinity; }
     else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
@@ -3620,6 +3621,18 @@ function _updateSortIndicators(prefix, activeKey, dir) {
     var key = el.id.slice(prefix.length);
     el.textContent = key === activeKey ? (dir === 'asc' ? '▲' : '▼') : '';
   });
+}
+function hoBucketOf(m) {   // HO approval TAT (minutes) -> band; edges at 30 and 90 min match the HO Approval dashboard
+  if (m == null || isNaN(m)) return null; m = parseFloat(m);
+  if (m <= 5) return '0-5 min'; if (m <= 15) return '5-15 min'; if (m <= 30) return '15-30 min'; if (m <= 60) return '30-60 min'; if (m <= 90) return '1-1.5 hr';
+  if (m <= 240) return '1.5-4 hr'; if (m <= 720) return '4-12 hr'; if (m <= 1440) return '12-24 hr'; return 'Above 1 day';
+}
+function hoBucketBadge(r) {
+  if (!r.ho_cycles) return '\u2014';
+  if (r.ho_pending) return '<span class="badge b-part">Pending</span>';
+  var b = hoBucketOf(r.ho_last_tat_min); if (!b) return '\u2014';
+  var cls = ['0-5 min', '5-15 min', '15-30 min'].indexOf(b) >= 0 ? 'b-green' : (['30-60 min', '1-1.5 hr'].indexOf(b) >= 0 ? 'b-amber' : 'b-red');
+  return '<span class="badge ' + cls + '">' + b + '</span>';
 }
 function fmtHoMin(m) {   // minutes as "12 min", "2 h 15 m" or "1 d 3 h"
   if (m == null || isNaN(m)) return '\u2014';
@@ -3656,8 +3669,8 @@ function _renderOutflowPage() {
       <td class="num" style="font-family:var(--mono);font-weight:600;color:${r.total_item_cost==null?'var(--muted)':r.total_item_cost<500?'#16a34a':r.total_item_cost<=1000?'#d97706':'#dc2626'}">${r.total_item_cost!=null?'₹'+Math.round(r.total_item_cost).toLocaleString('en-IN'):'—'}</td>
       <td>${r.jc_has_part===true?'<span class="badge b-part">With parts</span>':(r.jc_has_part===false?'<span class="badge b-grey">Labour only</span>':'—')}</td>
       <td><span class="badge ${bClass}">${bucket||'—'}</span></td>
-      <td class="num" style="font-family:var(--mono)" title="${r.ho_cycles ? r.ho_cycles + ' approval request' + (r.ho_cycles === 1 ? '' : 's') : 'No HO approval request found'}">${r.ho_cycles ? fmtHoMin(r.ho_total_tat_min) : '—'}</td>
       <td class="num" style="font-family:var(--mono);font-weight:600;color:${r.ho_pending ? '#7c3aed' : r.ho_last_tat_min == null ? 'var(--muted)' : r.ho_last_tat_min <= 30 ? '#16a34a' : r.ho_last_tat_min <= 90 ? '#d97706' : '#dc2626'}">${r.ho_cycles ? (r.ho_pending ? 'Pending' : fmtHoMin(r.ho_last_tat_min)) : '—'}</td>
+      <td>${hoBucketBadge(r)}</td>
     </tr>`;
   }).join('');
   _renderOutflowPager(total);
