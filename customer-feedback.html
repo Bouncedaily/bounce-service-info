@@ -257,6 +257,19 @@ function renderSummary(cities){
   });
   el.innerHTML=html;
 }
+function fmtHoMin(m){   // minutes as "12 min", "2 h 15 m" or "1 d 3 h"
+  if(m==null||isNaN(m)) return '\u2014'; m=parseFloat(m);
+  if(m<1) return '<1 min'; if(m<60) return Math.round(m)+' min';
+  if(m<1440) return Math.floor(m/60)+' h '+Math.round(m%60)+' m';
+  return Math.floor(m/1440)+' d '+Math.round((m%1440)/60)+' h';
+}
+function hoCell(r){   // HO approval TAT of the matched job card: total minutes HO took, added up over every approval request
+  if(!r.ho_cycles) return '<td class="num">\u2014</td>';
+  var t=r.ho_total_tat_min, pend=r.ho_pending;
+  var col=pend?'#7c3aed':(t==null?'var(--muted)':(t<=30?'var(--green)':(t<=90?'var(--amber)':'var(--red)')));
+  var tip='Sent to HO '+r.ho_cycles+(r.ho_cycles===1?' time':' times')+(r.ho_cycles>1&&r.ho_last_tat_min!=null?' \u00b7 the last one took '+fmtHoMin(r.ho_last_tat_min):'')+(pend?' \u00b7 the last one is still waiting for HO':'');
+  return '<td class="num" style="font-weight:600;color:'+col+'" title="'+esc(tip)+'">'+(pend?'Pending':fmtHoMin(t))+'</td>';
+}
 function renderRaw(raw,total){
   var el=document.getElementById('raw');
   document.getElementById('raw-count').textContent=(total||0)+' feedback'+(total>3000?' (showing latest 3000)':'');
@@ -266,9 +279,9 @@ function renderRaw(raw,total){
       '<td class="num"><span class="rpill" style="background:'+rBg(r.rating)+';color:'+rColor(r.rating)+'">'+r.rating+'</span></td>'+
       '<td class="wrap-c">'+esc(r.comment||'')+'</td><td>'+esc(r.submitted_at)+'</td>'+
       '<td>'+esc(r.reg_number||'—')+'</td><td>'+esc(r.rider_name||'—')+'</td><td>'+esc(r.rider_number||'—')+'</td>'+
-      '<td>'+esc(r.job_card_number||'—')+'</td><td class="num">'+(r.tat_minutes!=null?r.tat_minutes:'—')+'</td></tr>';
+      '<td>'+esc(r.job_card_number||'—')+'</td><td class="num">'+(r.tat_minutes!=null?r.tat_minutes:'—')+'</td>'+hoCell(r)+'</tr>';
   }).join('');
-  el.innerHTML='<table><thead><tr><th>City</th><th>Hub</th><th>Submission Type</th><th class="num">Rating</th><th>Comment</th><th>Submitted</th><th>Reg Number</th><th>Rider Name</th><th>Rider Number</th><th>Job Card No.</th><th class="num">TAT (mins)</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  el.innerHTML='<table><thead><tr><th>City</th><th>Hub</th><th>Submission Type</th><th class="num">Rating</th><th>Comment</th><th>Submitted</th><th>Reg Number</th><th>Rider Name</th><th>Rider Number</th><th>Job Card No.</th><th class="num">TAT (mins)</th><th class="num" title="Total time HO took to respond, added up over every approval request on this job card (hover a value to see how many times it was sent). Green up to 30 min, amber up to 90, red above, as on the HO Approval dashboard">HO approval TAT</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 function deltaCell(d){
   if(d==null) return '<span class="delta-flat">—</span>';
