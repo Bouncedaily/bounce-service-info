@@ -66,7 +66,7 @@ th.sortable:hover{color:var(--text)}
 <body>
 <div class="wrap">
 <div class="pagehd"><div class="icon"><i class="ti ti-star"></i></div><h1>Customer Feedback</h1></div>
-<div class="psub">Rider ratings by city and hub, with the underlying raw feedback. Choose a date range and filter by city, hub or submission type. <span id="ver-tag" style="display:inline-block;margin-left:6px;padding:1px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600;white-space:nowrap" title="If you can see this label, you have the latest copy of the page">HO approval TAT column added 18 Nov</span></div>
+<div class="psub">Rider ratings by city and hub, with the underlying raw feedback. Choose a date range and filter by city, hub or submission type. <span id="ver-tag" style="display:inline-block;margin-left:6px;padding:1px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600;white-space:nowrap" title="If you can see this label, you have the latest copy of the page">Repaired time + HO approval TAT added 18 Nov</span></div>
 
 <div id="overall-kpis"></div>
 
@@ -279,9 +279,9 @@ function renderRaw(raw,total){
       '<td class="num"><span class="rpill" style="background:'+rBg(r.rating)+';color:'+rColor(r.rating)+'">'+r.rating+'</span></td>'+
       '<td class="wrap-c">'+esc(r.comment||'')+'</td><td>'+esc(r.submitted_at)+'</td>'+
       '<td>'+esc(r.reg_number||'—')+'</td><td>'+esc(r.rider_name||'—')+'</td><td>'+esc(r.rider_number||'—')+'</td>'+
-      '<td>'+esc(r.job_card_number||'—')+'</td><td class="num">'+(r.tat_minutes!=null?r.tat_minutes:'—')+'</td>'+hoCell(r)+'</tr>';
+      '<td>'+esc(r.job_card_number||'—')+'</td><td>'+esc(r.repaired_at||'—')+'</td><td class="num">'+(r.tat_minutes!=null?r.tat_minutes:'—')+'</td>'+hoCell(r)+'</tr>';
   }).join('');
-  el.innerHTML='<table><thead><tr><th>City</th><th>Hub</th><th>Submission Type</th><th class="num">Rating</th><th>Comment</th><th>Submitted</th><th>Reg Number</th><th>Rider Name</th><th>Rider Number</th><th>Job Card No.</th><th class="num">TAT (mins)</th><th class="num" title="Total time HO took to respond, added up over every approval request on this job card (hover a value to see how many times it was sent). Green up to 30 min, amber up to 90, red above, as on the HO Approval dashboard">HO approval TAT</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  el.innerHTML='<table><thead><tr><th>City</th><th>Hub</th><th>Submission Type</th><th class="num">Rating</th><th>Comment</th><th>Submitted</th><th>Reg Number</th><th>Rider Name</th><th>Rider Number</th><th>Job Card No.</th><th title="When the bike was repaired (ready): the end time of the matched job card. It is the same moment as the Date &amp; Time in the Outflow bike list on the OOS dashboard">Repaired time</th><th class="num">TAT (mins)</th><th class="num" title="Total time HO took to respond, added up over every approval request on this job card (hover a value to see how many times it was sent). Green up to 30 min, amber up to 90, red above, as on the HO Approval dashboard">HO approval TAT</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 function deltaCell(d){
   if(d==null) return '<span class="delta-flat">—</span>';
