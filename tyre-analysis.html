@@ -680,6 +680,7 @@ if(/[?&]embed=1/.test(location.search)){document.write('<style>nav.sidebar,#side
             <div class="fg"><label>Front tyre median (km)</label><input type="number" id="tm-front" min="1000" step="100" style="width:120px" onchange="tmLoad()"></div>
             <div class="fg"><label>Rear tyre median (km)</label><input type="number" id="tm-rear" min="1000" step="100" style="width:120px" onchange="tmLoad()"></div>
             <div class="fg"><label>± km around the median</label><input type="number" id="tm-half" value="1000" min="100" step="100" style="width:120px" onchange="tmLoad()"></div>
+            <div class="fg"><label title="A replaced tyre with no earlier change on record has unknown km. Type the km to assume for it (default 30,000), or clear the box to leave it as unknown.">Km to assume if no earlier change</label><input type="number" id="tm-assume" min="0" step="1000" style="width:120px" placeholder="off" onchange="tmLoad()"></div>
             <div class="fg"><label>City</label><select id="tm-city" onchange="tmRender()"><option value="">All cities</option><option>Bangalore</option><option>NCR</option><option>Hyderabad</option></select></div>
             <div class="fg"><label>&nbsp;</label><button class="btn-export" onclick="tmReset()" title="Use the latest month's median and ± 1,000 km">Reset</button></div>
           </div>
@@ -1284,52 +1285,52 @@ function hcRender() {
 // Km on the tyre at the start and end of each month come from the forecast's own snapshots (wtp_pred); replacements from wtp_events.
 const TM = { data: null, seq: 0 };
 function tmInit() { if (!TM.data && !TM.seq) tmLoad(true); }
-function tmReset() { document.getElementById('tm-front').value = ''; document.getElementById('tm-rear').value = ''; document.getElementById('tm-half').value = 1000; tmLoad(true); }
+function tmReset() { document.getElementById('tm-front').value = ''; document.getElementById('tm-rear').value = ''; document.getElementById('tm-half').value = 1000; document.getElementById('tm-assume').value = ''; tmLoad(true); }
 async function tmLoad(first) {
   const f = document.getElementById('tm-front'), r = document.getElementById('tm-rear'), h = document.getElementById('tm-half'), my = ++TM.seq;
   document.getElementById('tm-body').innerHTML = '<div class="loading-state" style="padding:20px"><div class="spin" style="width:14px;height:14px;margin:0 auto"></div></div>';
   let d;
-  try { d = await rpcU('wt_tyre_median_window', { p_med_front: first ? null : (+f.value || null), p_med_rear: first ? null : (+r.value || null), p_half: Math.max(100, +h.value || 1000) }); }
+  try { d = await rpcU('wt_tyre_median_window', { p_med_front: first ? null : (+f.value || null), p_med_rear: first ? null : (+r.value || null), p_half: Math.max(100, +h.value || 1000), p_assume: first ? null : (document.getElementById('tm-assume').value === '' ? 0 : Math.max(0, +document.getElementById('tm-assume').value || 0)) }); }
   catch (e) { if (my === TM.seq) document.getElementById('tm-body').innerHTML = `<div class="error-msg">Could not load (${e.message}). <a href="#" onclick="tmLoad(${first ? 'true' : 'false'});return false">Retry</a></div>`; return; }
   if (my !== TM.seq) return;   // a newer request took over
   TM.data = d;
-  f.value = d.medians['Front tyre']; r.value = d.medians['Rear tyre']; h.value = d.half;
+  f.value = d.medians['Front tyre']; r.value = d.medians['Rear tyre']; h.value = d.half; document.getElementById('tm-assume').value = +d.assume > 0 ? d.assume : '';
   tmRender();
 }
 function tmMonthLabel(m) { const p = String(m).split('-'); return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+p[1] - 1] + ' ' + p[0]; }
 function tmAgg() {   // rows for the chosen city, added up by part and month
   const city = document.getElementById('tm-city').value, out = {};
   ((TM.data && TM.data.rows) || []).filter(x => !city || x[2] === city).forEach(x => {
-    const k = x[1] + '|' + x[0], o = out[k] || (out[k] = { mon: x[0], part: x[1], known: 0, inw: 0, inwR: 0, ent: 0, entR: 0, tot: 0, bef: 0, ins: 0, aft: 0, unk: 0 });
-    o.known += x[3]; o.inw += x[4]; o.inwR += x[5]; o.ent += x[6]; o.entR += x[7]; o.tot += x[8]; o.bef += x[9]; o.ins += x[10]; o.aft += x[11]; o.unk += x[12];
+    const k = x[1] + '|' + x[0], o = out[k] || (out[k] = { mon: x[0], part: x[1], known: 0, inw: 0, inwR: 0, ent: 0, entR: 0, tot: 0, bef: 0, ins: 0, aft: 0, unk: 0, asm: 0 });
+    o.known += x[3]; o.inw += x[4]; o.inwR += x[5]; o.ent += x[6]; o.entR += x[7]; o.tot += x[8]; o.bef += x[9]; o.ins += x[10]; o.aft += x[11]; o.unk += x[12]; o.asm += (x[13] || 0);
   });
   return Object.values(out).sort((a, b) => a.part === b.part ? a.mon.localeCompare(b.mon) : a.part.localeCompare(b.part));
 }
 function tmRender() {
   if (!TM.data) return;
   const n = v => (+v || 0).toLocaleString('en-IN'), pct = (a, b) => b ? `<span style="color:#94a3b8;font-size:10.5px"> ${Math.round(a / b * 100)}%</span>` : '';
-  const med = TM.data.medians, half = +TM.data.half, rows = tmAgg();
-  document.getElementById('tm-sub').textContent = `Front ${n(med['Front tyre'])} km · Rear ${n(med['Rear tyre'])} km · ± ${n(half)} km` + (TM.data.basis_month ? ` · default = median km at replacement in ${tmMonthLabel(TM.data.basis_month)}` : '');
-  document.getElementById('tm-note').innerHTML = `<b>In the window during the month</b> = tyres whose km on the tyre was inside the median ± band at some point in the month (km at the start and end of the month, from the forecast's snapshots; tyres whose km is unknown are left out). <b>Replaced in the month</b> = that tyre came off in the same month, at any km. <b>Entered</b> = the tyre crossed the lower edge of the band during the month. <b>By km on the tyre</b> counts every replacement in the month (not only the tyres above) by how many km the tyre had done; <b>Km unknown</b> = no earlier change on record and not a bike deployed in 2026. Median defaults to the median km at replacement in the latest month; type another figure to try it. Mumbai is left out, as in the forecast.`;
+  const med = TM.data.medians, half = +TM.data.half, rows = tmAgg(), asmOn = +TM.data.assume > 0;
+  document.getElementById('tm-sub').textContent = `Front ${n(med['Front tyre'])} km · Rear ${n(med['Rear tyre'])} km · ± ${n(half)} km` + (asmOn ? ` · no history → ${n(TM.data.assume)} km assumed` : ' · no history → km left unknown') + (TM.data.basis_month ? ` · default median = km at replacement in ${tmMonthLabel(TM.data.basis_month)}` : '');
+  document.getElementById('tm-note').innerHTML = `<b>In the window during the month</b> = tyres whose km on the tyre was inside the median ± band at some point in the month (km at the start and end of the month, from the forecast's snapshots; tyres whose km is unknown are left out). <b>Replaced in the month</b> = that tyre came off in the same month, at any km. <b>Entered</b> = the tyre crossed the lower edge of the band during the month. <b>By km on the tyre</b> counts every replacement in the month (not only the tyres above) by how many km the tyre had done; <b>${asmOn ? 'Assumed km' : 'Km unknown'}</b> = ${asmOn ? `replaced tyres with no earlier change on record and not a bike deployed in 2026: their km is not known, so ${n(TM.data.assume)} km is assumed for them and they are counted in the before / in / after columns above (this column shows how many of those are assumed; clear the box to see them as unknown instead)` : 'no earlier change on record and not a bike deployed in 2026'}. Median defaults to the median km at replacement in the latest month; type another figure to try it. Mumbai is left out, as in the forecast.`;
   const th = 'text-align:right', hd = (t, c, b) => `<th colspan="${c}" style="text-align:center;border-bottom:1px solid #e5e7eb;${b ? 'border-left:2px solid #cbd5e1' : ''}">${t}</th>`;
   let h = `<table class="data-table" style="width:100%;font-size:12px"><thead><tr><th rowspan="2" style="text-align:left">Month</th>${hd('In the window during the month', 2)}${hd('Entered the window this month', 2, 1)}${hd('All tyres replaced in the month, by km on the tyre', 5, 1)}</tr><tr>`
     + `<th style="${th}" title="Tyres inside the band at some point in the month">Tyres</th><th style="${th}" title="Of those, replaced in the month">Replaced in the month</th>`
     + `<th style="${th};border-left:2px solid #cbd5e1" title="Tyres that crossed the lower edge of the band in the month">Tyres</th><th style="${th}" title="Of those, replaced in the month">Replaced in the month</th>`
-    + `<th style="${th};border-left:2px solid #cbd5e1" title="Replaced with fewer km than the band">Before the band</th><th style="${th}" title="Replaced with km inside the band">In the band</th><th style="${th}" title="Replaced with more km than the band">After the band</th><th style="${th}" title="No earlier change on record, so the km on the tyre is not known">Km unknown</th><th style="${th}">Total</th></tr></thead><tbody>`;
+    + `<th style="${th};border-left:2px solid #cbd5e1" title="Replaced with fewer km than the band">Before the band</th><th style="${th}" title="Replaced with km inside the band">In the band</th><th style="${th}" title="Replaced with more km than the band">After the band</th>${asmOn ? `<th style="${th}" title="Replaced tyres with no earlier change on record, counted above using the assumed ${n(TM.data.assume)} km">Assumed km</th>` : `<th style="${th}" title="No earlier change on record, so the km on the tyre is not known">Km unknown</th>`}<th style="${th}">Total</th></tr></thead><tbody>`;
   ['Front tyre', 'Rear tyre'].forEach(p => {
     const pr = rows.filter(x => x.part === p); if (!pr.length) return;
     h += `<tr style="background:#f8fafc"><td colspan="10" style="text-align:left;font-weight:700;border-top:2px solid #e5e7eb">${p} · median ${n(med[p])} km · band ${n(med[p] - half)} – ${n(med[p] + half)} km</td></tr>`;
     pr.forEach(x => { h += `<tr><td style="text-align:left;font-weight:600">${tmMonthLabel(x.mon)}</td><td style="text-align:right">${n(x.inw)}</td><td style="text-align:right;color:#15803d;font-weight:600">${n(x.inwR)}${pct(x.inwR, x.inw)}</td>`
       + `<td style="text-align:right;border-left:2px solid #cbd5e1">${n(x.ent)}</td><td style="text-align:right;color:#15803d">${n(x.entR)}${pct(x.entR, x.ent)}</td>`
-      + `<td style="text-align:right;border-left:2px solid #cbd5e1">${n(x.bef)}${pct(x.bef, x.tot)}</td><td style="text-align:right">${n(x.ins)}${pct(x.ins, x.tot)}</td><td style="text-align:right">${n(x.aft)}${pct(x.aft, x.tot)}</td><td style="text-align:right;color:#64748b">${n(x.unk)}${pct(x.unk, x.tot)}</td><td style="text-align:right;font-weight:600">${n(x.tot)}</td></tr>`; });
+      + `<td style="text-align:right;border-left:2px solid #cbd5e1">${n(x.bef)}${pct(x.bef, x.tot)}</td><td style="text-align:right">${n(x.ins)}${pct(x.ins, x.tot)}</td><td style="text-align:right">${n(x.aft)}${pct(x.aft, x.tot)}</td><td style="text-align:right;color:#64748b">${n(asmOn ? x.asm : x.unk)}${pct(asmOn ? x.asm : x.unk, x.tot)}</td><td style="text-align:right;font-weight:600">${n(x.tot)}</td></tr>`; });
   });
   h += '</tbody></table>';
   document.getElementById('tm-body').innerHTML = rows.length ? h : '<div class="empty" style="padding:20px">No data for these filters.</div>';
 }
 function tmCSV() {
   if (!TM.data) return; const med = TM.data.medians, half = +TM.data.half, city = document.getElementById('tm-city').value || 'All cities';
-  kmbDownload(`tyres-at-median-life-${city.replace(/\s+/g, '-')}.csv`, [['Month', 'Part', 'City', 'Median km', 'Band from', 'Band to', 'Tyres in the band during the month', 'of which replaced in the month', 'Entered the band this month', 'of which replaced in the month', 'Replaced before the band', 'Replaced in the band', 'Replaced after the band', 'Replaced, km unknown', 'Replaced in the month (total)'],
-    ...tmAgg().map(x => [x.mon, x.part, city, med[x.part], med[x.part] - half, med[x.part] + half, x.inw, x.inwR, x.ent, x.entR, x.bef, x.ins, x.aft, x.unk, x.tot])]);
+  kmbDownload(`tyres-at-median-life-${city.replace(/\s+/g, '-')}.csv`, [['Month', 'Part', 'City', 'Median km', 'Band from', 'Band to', 'Tyres in the band during the month', 'of which replaced in the month', 'Entered the band this month', 'of which replaced in the month', 'Replaced before the band', 'Replaced in the band', 'Replaced after the band', 'Replaced, km assumed (included in the three above)', 'Replaced, km unknown', 'Replaced in the month (total)', 'Km assumed when no history'],
+    ...tmAgg().map(x => [x.mon, x.part, city, med[x.part], med[x.part] - half, med[x.part] + half, x.inw, x.inwR, x.ent, x.entR, x.bef, x.ins, x.aft, x.asm, x.unk, x.tot, +TM.data.assume > 0 ? TM.data.assume : ''])]);
 }
 function fcCSV() {
   const rows = (FC.data && FC.data.rows) || [];
