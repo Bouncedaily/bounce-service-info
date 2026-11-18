@@ -42,6 +42,9 @@ tbody tr{transition:background .1s}
 tbody tr:hover{background:#f8fafc}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 td.wrap-c{white-space:normal;max-width:340px;color:var(--text2)}
+/* 18 Nov 2026: the raw feedback table is wider than its card, so it gets its own scroll area (sideways and up/down, header row kept in view) instead of being cut off */
+#raw{overflow:auto;max-height:calc(100vh - 140px)}
+#raw thead th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border)}
 .row-attn{background:#fef2f2!important}
 .row-attn:hover{background:#fee2e2!important}
 .cityhd{padding:10px 16px;background:#f8fafc;border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
