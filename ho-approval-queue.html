@@ -1998,10 +1998,10 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative','Set Parts','Repeat Within 7 Days','Previous JC (Same Part)'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Rider Paid','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative','Set Parts','Repeat Within 7 Days','Previous JC (Same Part)'];
   var csvRows=rows.map(function(r){
     var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':(r.flag_type==='fork_parts_set'?'Suspension Set (3 parts on one JC)':(r.flag_type==='repeat_7d'?'Repeat Within 7 Days':'Early Replacement'));
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',qualityCategoryText(r.category),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||'',r.set_parts||'',r.repeat_7d?'Yes':'No',r.repeat_7d?(r.prev_job_card||''):''];
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',qualityCategoryText(r.category),r.item,r.amount,riderPaidText(r.rider_payment),r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||'',r.set_parts||'',r.repeat_7d?'Yes':'No',r.repeat_7d?(r.prev_job_card||''):''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -2085,11 +2085,11 @@ function qualityRender(){
     return (av-bv)*mult;
   });
   var arrow=function(c){ return c===col?(dir==='asc'?' ▲':' ▼'):''; };
-  var th=function(label,key){ return '<th class="sortable" onclick="qualitySortBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
+  var th=function(label,key,tip){ return '<th class="sortable" onclick="qualitySortBy(\''+key+'\')"'+(tip?' title="'+esc(tip)+'"':'')+' style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
 
   var html='<table><thead><tr>'+
     th('Job Card','job_card')+th('Vehicle','reg_number')+th('City','city')+th('Hub','hub')+th('Technician','technician')+
-    th('Submission Type','submission_type')+th('Category','category')+th('Item','item')+th('Amount','amount')+th('Billed Date','billed_date')+
+    th('Submission Type','submission_type')+th('Category','category')+th('Item','item')+th('Amount','amount')+th('Rider Paid','rider_payment',RIDER_PAY_TIP)+th('Billed Date','billed_date')+
     th('HO User','ho_user')+th('HO Approval Remarks','ho_approval_remarks')+th('Last Replaced','days_since')+th('Life Check','pct_of_life')+'<th>Review</th>'+
     '</tr></thead><tbody>';
   rows.forEach(function(r,idx){
@@ -2100,7 +2100,7 @@ function qualityRender(){
       '<td>'+(r.reg_number?'<a href="#" onclick="jumpToServiceHistory(\''+esc(r.reg_number)+'\');return false;" style="color:var(--red);text-decoration:underline">'+esc(r.reg_number)+'</a>':'—')+'</td>'+
       '<td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
       '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.submission_type||'—')+'</td><td>'+qualityCategory(r)+'</td><td>'+esc(r.item)+'</td>'+
-      '<td>₹'+nf(r.amount)+'</td><td>'+fmtDate(r.billed_date)+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+esc(r.ho_approval_remarks||'—')+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
+      '<td>₹'+nf(r.amount)+'</td>'+riderPaidCell(r)+'<td>'+fmtDate(r.billed_date)+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+esc(r.ho_approval_remarks||'—')+'</td><td>'+qualityLastReplaced(r)+'</td><td>'+qualityLifeCheck(r)+'</td>'+
       '<td style="min-width:220px">'+
         '<select id="'+rid+'-status" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;margin-bottom:3px">'+
           ['open','reviewed','escalated','false_positive'].map(function(s){ return '<option value="'+s+'"'+(s===status?' selected':'')+'>'+s.replace('_',' ')+'</option>'; }).join('')+
@@ -2526,7 +2526,7 @@ function renderSvcTable(){
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
     th('Replacement no.','replacement_no',true,'Which time this part was fitted on this vehicle: 1 = first on record, 2 = second, and so on, with the total after "of". Counted over the whole history of the vehicle, not only the rows shown, and same-day duplicate job cards count once.')+
     th('Repeats (this vehicle)','repeat_count',true)+
-    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+th('HO Approval Remarks','ho_approval_remarks',false)+
+    th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Rider Paid','rider_payment',false,RIDER_PAY_TIP)+th('Technician','technician',false)+th('HO User','ho_user',false)+th('HO Approval Remarks','ho_approval_remarks',false)+
     '</tr></thead><tbody>';
   rows.forEach(function(r){
     var d = r.date ? new Date(r.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -2546,12 +2546,24 @@ function renderSvcTable(){
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
       '<td class="num">'+(r.amount!=null?'₹'+Number(r.amount).toLocaleString('en-IN'):'—')+'</td>'+
+      riderPaidCell(r)+
       '<td>'+esc(r.technician||'—')+'</td><td>'+esc(r.ho_user||'—')+'</td><td>'+esc(r.ho_approval_remarks||'—')+'</td></tr>';
   });
   html += '</tbody></table></div>';
   box.innerHTML = html;
 }
 
+var RIDER_PAY={paid:['Paid','#15803d','#dcfce7'],partly_paid:['Partly paid','#b45309','#fef3c7'],not_paid:['Not paid','#b91c1c','#fee2e2'],no_fee_raised:['Fee not raised','#b45309','#fef3c7']};
+var RIDER_PAY_CSV={paid:'Paid',partly_paid:'Partly paid',not_paid:'Not paid',no_fee_raised:'Fee not raised',na:'Not charged to rider'};
+var RIDER_PAY_TIP='Whether the rider has paid for this part. Paid = the rider paid. Partly paid = some lines paid, some not. Not paid = charged to the rider, not paid yet. Fee not raised = marked as charged to the rider but no damage fee was raised on the job card. A dash = not charged to riders (wear and tear, company cost or warranty). Hover a value to see the damage fee on the job card.';
+function riderPaidText(s){ return s==null?'':(RIDER_PAY_CSV[s]||''); }
+function riderPaidCell(r){
+  var s=r.rider_payment;
+  if(s==null||s==='na') return '<td style="color:var(--muted,#94a3b8)">—</td>';
+  var x=RIDER_PAY[s]; if(!x) return '<td>—</td>';
+  var tip=(r.fee_total!=null)?'Damage fee on this job card: ₹'+Number(r.fee_total).toLocaleString('en-IN')+', paid ₹'+Number(r.fee_paid||0).toLocaleString('en-IN'):(s==='no_fee_raised'?'Marked as charged to the rider, but no damage fee was raised on this job card':'');
+  return '<td'+(tip?' title="'+esc(tip)+'"':'')+' style="white-space:nowrap"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:'+x[2]+';color:'+x[1]+'">'+x[0]+'</span></td>';
+}
 function svcReplacementCell(r){
   var no=r.replacement_no, tot=r.replacement_total;
   if(no==null) return '<td class="num"><span style="color:var(--muted,#64748b)">—</span></td>';
@@ -2562,11 +2574,11 @@ function svcReplacementCell(r){
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number','Chassis Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Replacement No.','Replacement Total','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
+  var cols = ['Reg Number','Chassis Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Replacement No.','Replacement Total','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Rider Paid','Technician','HO User','HO Approval Remarks']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     var earlyFlag = r.is_early_replacement ? ('Yes ('+r.km_on_part+' km vs '+r.expected_life_km+' km expected)') : '';
-    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.replacement_no!=null?r.replacement_no:'', r.replacement_total!=null?r.replacement_total:'', r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
+    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.replacement_no!=null?r.replacement_no:'', r.replacement_total!=null?r.replacement_total:'', r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', riderPaidText(r.rider_payment), r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
     return [r.reg_number||'', r.chassis_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
