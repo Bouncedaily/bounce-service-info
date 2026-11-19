@@ -390,8 +390,8 @@ tr.row-flag:hover{background:#fee2e2}
 </div>
 
 <div id="hqtab-quality" style="display:none">
-<div class="psub">Wear &amp; Tear parts that were already billed (i.e. already passed HO approval) but were replaced either well before their standard life is up, or within 30 days of the same part's last replacement on that bike. This is a retrospective check on approval quality — every row here is something HO approved that a stricter check would have flagged.</div>
-<div class="note">Same-day replacement pairs (days since last replacement = 0) are excluded — those are near-certainly the known duplicate-JC-record issue between the old DMS and Ops App, not genuine early replacements.</div>
+<div class="psub">Wear &amp; Tear parts that were already billed (i.e. already passed HO approval) but were replaced either well before their standard life is up, or within 30 days of the same part's last replacement on that bike. A fourth check covers <b>every other part</b> (Wear &amp; Tear parts are already covered by the early-replacement check): the same part billed again on the same bike within 7 days of the last time. This is a retrospective check on approval quality — every row here is something HO approved that a stricter check would have flagged.</div>
+<div class="note">Same-day replacement pairs (days since last replacement = 0) are excluded — those are near-certainly the known duplicate-JC-record issue between the old DMS and Ops App, not genuine early replacements. The same applies to the 7-day repeat check.</div>
 <div class="bar">
   <span class="count" id="qCount">Loading…</span>
   <input type="date" id="qFrom" onchange="qualityLoad()" style="max-width:150px">
@@ -406,7 +406,7 @@ tr.row-flag:hover{background:#fee2e2}
   </select>
   <select id="qHub" onchange="qualityLoad();loadQualityTrend()" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
   <select id="qLife" onchange="qualityRender()" title="Life check" style="padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">
-    <option value="">All life checks</option><option value="early_replacement">Early replacement</option><option value="brand_new_not_refurb">Refurb available</option><option value="fork_parts_set">Suspension set</option>
+    <option value="">All life checks</option><option value="early_replacement">Early replacement</option><option value="brand_new_not_refurb">Refurb available</option><option value="fork_parts_set">Suspension set</option><option value="repeat_7d">Repeat within 7 days</option>
   </select>
   <input type="text" id="qSearch" placeholder="Filter by vehicle, hub, technician, JC or part…" oninput="qualityRender()">
   <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="qHideReviewed" onchange="qualityRender()">Hide reviewed</label>
@@ -1998,10 +1998,10 @@ function renderQualityBreakdown(rows){
 function exportQualityCSV(){
   var rows=QUALITY_DATA&&QUALITY_DATA.rows||[];
   if(!rows.length) return;
-  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative','Set Parts'];
+  var cols=['Job Card','Vehicle','City','Hub','Technician','Submission Type','Category','Item','Amount','Billed Date','HO User','HO Approval Remarks','Flag Type','Days Since Last Replaced','KM Since Last Replaced','% of Std Life','Refurb Alternative','Set Parts','Repeat Within 7 Days','Previous JC (Same Part)'];
   var csvRows=rows.map(function(r){
-    var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':(r.flag_type==='fork_parts_set'?'Suspension Set (3 parts on one JC)':'Early Replacement');
-    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',qualityCategoryText(r.category),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||'',r.set_parts||''];
+    var flagLabel=r.flag_type==='brand_new_not_refurb'?'Brand New Instead of Refurbished':(r.flag_type==='fork_parts_set'?'Suspension Set (3 parts on one JC)':(r.flag_type==='repeat_7d'?'Repeat Within 7 Days':'Early Replacement'));
+    return [r.job_card,r.reg_number||'',r.city||'',r.hub||'',r.technician||'',r.submission_type||'',qualityCategoryText(r.category),r.item,r.amount,r.billed_date,r.ho_user||'',r.ho_approval_remarks||'',flagLabel,r.days_since??'',r.km_since??'',r.pct_of_life??'',r.refurb_alternative||'',r.set_parts||'',r.repeat_7d?'Yes':'No',r.repeat_7d?(r.prev_job_card||''):''];
   });
   var csv='\ufeff'+[cols].concat(csvRows).map(function(row){
     return row.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
@@ -2031,6 +2031,13 @@ function qualityCategoryText(cats){   // plain-text version for the CSV: "Paid +
   return String(cats||'').split(',').filter(Boolean).map(function(c){ return SVC_CAT_LABEL[c]?SVC_CAT_LABEL[c][0]:c; }).join(' + ');
 }
 function qualityLifeCheck(row){
+  var base=qualityLifeCheckBase(row);
+  // a row flagged for another reason can also be a 7-day repeat: say so under the main check
+  if(row.repeat_7d && row.flag_type!=='repeat_7d') base+='<div class="bad-life" style="margin-top:3px">⚠ Repeat: same part '+esc(String(row.repeat_days))+'d earlier on JC '+esc(row.prev_job_card||'')+'</div>';
+  return base;
+}
+function qualityLifeCheckBase(row){
+  if(row.flag_type==='repeat_7d') return '<span class="bad-life">⚠ Repeat: same part '+esc(String(row.days_since))+'d earlier on JC '+esc(row.prev_job_card||'')+'</span>';
   if(row.flag_type==='brand_new_not_refurb') return '<span class="bad-life">⚠ Refurb available: '+esc(row.refurb_alternative||'')+'</span>';
   if(row.flag_type==='fork_parts_set') return '<span class="bad-life">⚠ All 3 on one JC: '+esc(row.set_parts||'')+'</span>';
   if(row.life_km==null) return '<span class="na-life">—</span>';
@@ -2053,12 +2060,17 @@ function qualityRender(){
     });
   }
   var life=document.getElementById('qLife').value;
-  if(life) rows=rows.filter(function(r){ return (r.flag_type||'early_replacement')===life; });
+  if(life==='repeat_7d') rows=rows.filter(function(r){ return r.repeat_7d===true; });   // any row where the same part was billed on the same bike within the 7 days before
+  else if(life) rows=rows.filter(function(r){ return (r.flag_type||'early_replacement')===life; });
   if(hideReviewed) rows=rows.filter(function(r){ return (r.review_status||'open')==='open'; });
   var total=QUALITY_DATA.total_wear_tear_jcs||0, flagged=QUALITY_DATA.flagged_count||0;
-  var openCount=(QUALITY_DATA.rows||[]).filter(function(r){ return (r.review_status||'open')==='open'; }).length;
+  var allRows=QUALITY_DATA.rows||[];
+  var openCount=allRows.filter(function(r){ return (r.review_status||'open')==='open'; }).length;                                   // everything still to review (tab badge)
+  var openWT=allRows.filter(function(r){ return r.flag_type!=='repeat_7d' && (r.review_status||'open')==='open'; }).length;     // the Wear & Tear checks only
   var pct=total>0?Math.round(100*flagged/total):0;
-  document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged ('+openCount+' still open) of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)';
+  var repJcs=QUALITY_DATA.repeat_jcs, partJcs=QUALITY_DATA.total_part_jcs;
+  var repTxt=(repJcs!=null && partJcs!=null)?(' · '+nf(repJcs)+' job cards repeated a part (other than Wear & Tear) within 7 days ('+(partJcs>0?Math.round(1000*repJcs/partJcs)/10:0)+'% of '+nf(partJcs)+' job cards with parts)'):'';
+  document.getElementById('qCount').textContent=rows.length+' shown · '+flagged+' flagged ('+openWT+' still open) of '+nf(total)+' Wear & Tear job cards billed in range ('+pct+'% flagged)'+repTxt;
   updateQualityTabBadge(openCount);
   renderQualityBreakdown(rows);
   if(!rows.length){ document.getElementById('qResults').innerHTML='<div class="empty">No flagged replacements match this filter.</div>'; return; }
