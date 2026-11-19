@@ -461,7 +461,7 @@ tr.row-flag:hover{background:#fee2e2}
     <select id="svc-range" onchange="onSvcRangeChange()" title="Quick date range (part-name search)" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="ytd">Year to date</option><option value="custom">Custom dates</option></select>
     <select id="svc-city-filter" onchange="onSvcCityChange();onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All cities</option></select>
     <select id="svc-hub-filter" onchange="onSvcSearchInput()" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All hubs</option></select>
-    <select id="svc-cat-filter" onchange="onSvcSearchInput()" title="Category of the part (A, P, W, C, F)" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All categories</option><option value="A">A &ndash; Wear &amp; tear</option><option value="P">P &ndash; Paid (rider)</option><option value="W">W &ndash; Warranty</option><option value="C">C &ndash; Company</option><option value="F">F &ndash; Free of cost</option><option value="-">Uncategorised</option></select>
+    <select id="svc-cat-filter" onchange="onSvcSearchInput()" title="Category of the part (A, P, W, C, F)" style="padding:9px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;font-family:inherit"><option value="">All categories</option><option value="A">A &ndash; Wear &amp; tear</option><option value="P">P &ndash; Rider payable</option><option value="W">W &ndash; Warranty</option><option value="C">C &ndash; CTC</option><option value="F">F &ndash; Free of cost</option><option value="-">Uncategorised</option></select>
     <button class="btn" id="svc-back-btn" style="display:none" onclick="goBackServiceHistory()">← Back</button>
     <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="loadServiceHistory()">Apply Filters</button>
     <button class="btn" onclick="clearServiceHistoryFilters()">Clear Filters</button>
@@ -2023,7 +2023,7 @@ function qualityCategory(row){
   // (e.g. legs Paid but T-Steam Warranty), so category may be a comma-separated list: one badge each.
   var badges=String(row.category||'').split(',').filter(Boolean).map(function(c){
     var cat=SVC_CAT_LABEL[c];
-    return cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;margin-right:3px">'+cat[0]+'</span>' : '';
+    return cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block;margin:1px 3px 1px 0">'+cat[0]+'</span>' : '';
   }).join('');
   return badges || '<span class="na-life">—</span>';
 }
@@ -2156,7 +2156,7 @@ function setNithishDateFilter(which){
 }
 let SVC_ROWS = [], SVC_REG = '', SVC_SORT = { col: 'date', dir: 'desc' }, SVC_PART_FILTER = '', SVC_MODE = 'reg';
 let SVC_DIMS_INIT = false, SVC_HUBS_BY_CITY = {};
-const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Paid', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'], C: ['Company', '#f5f3ff', '#6d28d9'] };
+const SVC_CAT_LABEL = { A: ['A', '#fef2f2', '#b91c1c'], P: ['Rider payable', '#eff6ff', '#1d4ed8'], W: ['Warranty', '#f0fdf4', '#15803d'], F: ['Free', '#fefce8', '#a16207'], C: ['CTC', '#f5f3ff', '#6d28d9'] };
 
 let SVC_DEFAULT_FROM = '', SVC_DEFAULT_TO = '';
 async function loadSvcDims(){
@@ -2534,7 +2534,7 @@ function renderSvcTable(){
     var repeatCount = r.repeat_count || 1;
     var isRepeat = repeatCount > 1;
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat];
-    var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
+    var catBadge = cat ? '<span style="background:'+cat[1]+';color:'+cat[2]+';padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap">'+cat[0]+'</span>' : '<span style="color:var(--muted,#64748b)">—</span>';
     html += '<tr'+(isRepeat?' style="background:#fffbeb"':'')+'>'+
       '<td><a href="#" onclick="drillIntoVehicle('+"'"+esc(r.reg_number||'').replace(/'/g,"\\'")+"'"+');return false;" style="font-weight:600;color:var(--red,#dc2626);text-decoration:none" title="See only this vehicle\'s full history">'+esc(r.reg_number||'—')+'</a></td>' +
       '<td>'+esc(r.job_card_number||'—')+'</td><td>'+dOpened+'</td><td>'+d+'</td><td>'+esc(r.city||'—')+'</td><td>'+esc(r.hub||'—')+'</td>'+
@@ -2555,7 +2555,7 @@ function renderSvcTable(){
 
 var RIDER_PAY={paid:['Paid','#15803d','#dcfce7'],partly_paid:['Partly paid','#b45309','#fef3c7'],not_paid:['Not paid','#b91c1c','#fee2e2'],no_fee_raised:['Fee not raised','#b45309','#fef3c7']};
 var RIDER_PAY_CSV={paid:'Paid',partly_paid:'Partly paid',not_paid:'Not paid',no_fee_raised:'Fee not raised',na:'Not charged to rider'};
-var RIDER_PAY_TIP='Whether the rider has paid for this part. Paid = the rider paid. Partly paid = some lines paid, some not. Not paid = charged to the rider, not paid yet. Fee not raised = marked as charged to the rider but no damage fee was raised on the job card. A dash = not charged to riders (wear and tear, company cost or warranty). Hover a value to see the damage fee on the job card.';
+var RIDER_PAY_TIP='Whether the rider has paid for this part. Paid = the rider paid. Partly paid = some lines paid, some not. Not paid = charged to the rider, not paid yet. Fee not raised = marked as charged to the rider but no damage fee was raised on the job card. A dash = not charged to riders (wear and tear, CTC or warranty). Hover a value to see the damage fee on the job card.';
 function riderPaidText(s){ return s==null?'':(RIDER_PAY_CSV[s]||''); }
 function riderPaidCell(r){
   var s=r.rider_payment;
