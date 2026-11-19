@@ -2512,7 +2512,7 @@ function renderSvcTable(){
     return (av-bv)*mult;
   });
   var arrow = function(c){ return c===col ? (dir==='asc'?' ▲':' ▼') : ''; };
-  var th = function(label, key, numeric){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')" style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
+  var th = function(label, key, numeric, tip){ return '<th class="'+(numeric?'num ':'')+'svc-sortable" onclick="sortSvcBy(\''+key+'\')"'+(tip?' title="'+esc(tip)+'"':'')+' style="cursor:pointer;user-select:none">'+esc(label)+arrow(key)+'</th>'; };
 
   var svcPartVal = document.getElementById('svc-part-filter').value.trim();
   var contextLabel = SVC_MODE==='part'
@@ -2524,6 +2524,7 @@ function renderSvcTable(){
     th('Reg Number','reg_number',false) +
     th('Job Card Number','job_card_number',false)+th('Job Opened','job_opened_date',false)+th('Date','date',false)+th('City','city',false)+th('Hub','hub',false)+
     th('ODO','odo',true)+th('Submission Type','submission_type',false)+th('Item Name','item_name',false)+
+    th('Replacement no.','replacement_no',true,'Which time this part was fitted on this vehicle: 1 = first on record, 2 = second, and so on, with the total after "of". Counted over the whole history of the vehicle, not only the rows shown, and same-day duplicate job cards count once.')+
     th('Repeats (this vehicle)','repeat_count',true)+
     th('Category','dms_cat',false)+th('Qty','qty',true)+th('Amount (₹)','amount',true)+th('Technician','technician',false)+th('HO User','ho_user',false)+th('HO Approval Remarks','ho_approval_remarks',false)+
     '</tr></thead><tbody>';
@@ -2540,6 +2541,7 @@ function renderSvcTable(){
       '<td class="num">'+(r.odo!=null?Number(r.odo).toLocaleString('en-IN'):'—')+'</td>'+
       '<td>'+esc(r.submission_type||'—')+'</td>'+
       '<td>'+esc(r.item_name||'—')+(r.is_early_replacement?' <span title="Replaced at '+Number(r.km_on_part).toLocaleString('en-IN')+' km \u2014 expected life is '+Number(r.expected_life_km).toLocaleString('en-IN')+' km" style="background:#fef2f2;color:#b91c1c;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap">⚠ EARLY</span>':'')+'</td>'+
+      svcReplacementCell(r)+
       '<td class="num">'+(isRepeat?'<span title="Replaced '+repeatCount+' times on this vehicle" style="color:#b45309;font-weight:700">'+repeatCount+'</span>':'1')+'</td>'+
       '<td>'+catBadge+'</td>'+
       '<td class="num">'+(r.qty!=null?r.qty:'—')+'</td>'+
@@ -2550,14 +2552,21 @@ function renderSvcTable(){
   box.innerHTML = html;
 }
 
+function svcReplacementCell(r){
+  var no=r.replacement_no, tot=r.replacement_total;
+  if(no==null) return '<td class="num"><span style="color:var(--muted,#64748b)">—</span></td>';
+  var tip='Replacement '+no+' of '+tot+': this part has been fitted '+tot+' time'+(tot===1?'':'s')+' on this vehicle (same-day duplicate job cards count once)';
+  if(!(tot>1)) return '<td class="num" title="'+esc(tip)+'">1</td>';
+  return '<td class="num" title="'+esc(tip)+'" style="white-space:nowrap"><span style="color:'+(no>1?'#b45309':'inherit')+';font-weight:'+(no>1?'700':'400')+'">'+no+'</span> <span style="color:var(--muted,#64748b);font-size:11px">of '+tot+'</span></td>';
+}
 function exportServiceHistoryCSV(){
   var rows = getFilteredSvcRows();
   if(!rows.length) return;
-  var cols = ['Reg Number','Chassis Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
+  var cols = ['Reg Number','Chassis Number'].concat(['Job Card Number','Job Opened','Date','City','Hub','ODO','Submission Type','Item Name','Early Replacement?','Replacement No.','Replacement Total','Repeats (this vehicle)','Category','Qty','Amount (Rs)','Technician','HO User','HO Approval Remarks']);
   rows = rows.map(function(r){
     var cat = r.dms_cat && SVC_CAT_LABEL[r.dms_cat] ? SVC_CAT_LABEL[r.dms_cat][0] : (r.dms_cat||'');
     var earlyFlag = r.is_early_replacement ? ('Yes ('+r.km_on_part+' km vs '+r.expected_life_km+' km expected)') : '';
-    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
+    var base = [r.job_card_number||'', r.job_opened_date ? new Date(r.job_opened_date).toLocaleDateString('en-IN') : '', r.date ? new Date(r.date).toLocaleDateString('en-IN') : '', r.city||'', r.hub||'', r.odo!=null?r.odo:'', r.submission_type||'', r.item_name||'', earlyFlag, r.replacement_no!=null?r.replacement_no:'', r.replacement_total!=null?r.replacement_total:'', r.repeat_count||1, cat, r.qty!=null?r.qty:'', r.amount!=null?r.amount:'', r.technician||'', r.ho_user||'', r.ho_approval_remarks||''];
     return [r.reg_number||'', r.chassis_number||''].concat(base);
   });
   var csv = '\ufeff' + [cols].concat(rows).map(function(row){
