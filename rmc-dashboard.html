@@ -231,6 +231,7 @@ var SVCCore = (function(){
     });
     return map;
   }
+  var CONSF={key:'~CONSUMABLES',label:'Consumables'};   // 20 Nov 2026: all consumables are one row in the part tables
   function compute(store, ctx, F){
     var out={};
     for(var i=0;i<store.rows.length;i++){
@@ -245,7 +246,7 @@ var SVCCore = (function(){
       var o=out[r.city]||(out[r.city]={}), m=o[r.month]||(o[r.month]={A:0,P:0,C:0,L:0,W:0,F:0,parts:{A:{},P:{},C:{}}});
       m[b]+=r.amt*w;
       if(b!=='L' && b!=='W' && b!=='F'){
-        var f=ctx.fold[r.pn]||{key:r.pn,label:r.pn}, pm=m.parts[b], e=pm[f.key]||(pm[f.key]={label:f.label,amt:0,qty:0});
+        var f=(ctx.cons&&ctx.cons[r.pn])?CONSF:(ctx.fold[r.pn]||{key:r.pn,label:r.pn}), pm=m.parts[b], e=pm[f.key]||(pm[f.key]={label:f.label,amt:0,qty:0});
         e.amt+=r.amt*w; e.qty+=r.qty*w;
       }
     }
@@ -300,7 +301,7 @@ function mergeDen(def,saved){ if(!saved) return def; Object.keys(def).forEach(fu
 function migrateFleet(f){ if(!f) return f; var old={BLR:10503,NCR:2097,HYD:1140}; Object.keys(old).forEach(function(c){ if(f[c]&&f[c]['2026-09']===old[c]) delete f[c]['2026-09']; }); return f; }
 var state = {
   store:C.newStore(), rules:[], fleet:{}, ops:{}, km:{},
-  hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), loading:true,
+  hubFleet:{}, hubKm:{}, foldOn:(function(){ try { return localStorage.getItem('rmc_fold_refurb')!=='0'; } catch(e){ return true; } })(), consOn:(function(){ try { return localStorage.getItem('rmc_merge_cons')!=='0'; } catch(e){ return true; } })(), consumables:[], loading:true,
   F:{cities:[],months:[],hub:'',hubs:[],model:'',dyear:'',st:''}, stSel:[], psub:[], unit:'bike', disp:'val', tab:(ls('tab')||'overview'), gran:(ls('gran')==='week'?'week':'month'), wkN:(+ls('wkn')||12), wkd:null, wkLoading:false, wkErr:null, wkp:null, wkpLoading:false, wkpErr:null, infl:null, inflLoading:false, msg:'',   /* 10 Nov 2026: reopen the last tab */
   parts:{bucket:'A',city:'',top:12,q:'',measure:'val'}, dist:{stat:'med'}, mv:{city:'',bucket:'A',x:'',y:''}, hubs:{city:'ALL',m:'',b:'ALL',by:'bike',sk:'rank',sd:1}
 };
@@ -360,6 +361,7 @@ var TYPE_MERGE={'Running Repair':'RR & BE','Bike Exchange':'RR & BE'};
 function stName(t){ return TYPE_MERGE[t]||t; }
 var OPS_IN=[['labour','Labour (as per payroll)',0],['coco','COCO',1],['porter','Porter',1],['petty','Petty expenses',1],['ins_iot','Insurance & IOT',1],['warr_prov','Warranty provision',1],['ins_claim','Insurance claim',-1],['scrap','Scrap',-1],['warr_claim','Warranty claim',-1],['other','Other maintenance',0],['rev_damage_fee','Revenue damage fee',0],['rev_recovery','Revenue recovery',0]];
 function persist(){}
+async function saveConsumables(){ var r=await rpc('rmc_save_consumables',{p_names:state.consumables.map(function(x){return {name:x.name,kind:x.kind||''};})}); toast(r.ok?'Consumables saved':'Could not save consumables: '+r.msg); }
 async function saveRules(){ var r=await rpc('rmc_save_rules',{p_rules:state.rules.map(function(x){return {name:x.name,to:x.to,from:x.from||'',p:!!x.p};})}); toast(r.ok?'Rules saved':'Could not save rules: '+r.msg); }
 async function loadAll(){
   state.loading=true; toast('Loading RMC data…'); render();
@@ -408,6 +410,7 @@ async function loadAll(){
     else { var k=c+'|'+x[2]+'|'+x[0]; state.hubFleet[k]=+x[4]||null; state.hubKm[k]=+x[5]||null; } });
   state.ops={}; (D.ops||[]).forEach(function(o){ var c=CITY_CODE[o.city]; if(!c) return; (state.ops[c]=state.ops[c]||{})[o.month]=o; });
   state.rules=(D.rules||[]).map(function(x){return {name:x[0],to:x[1],from:x[2]||'',p:!!x[3]};});
+  state.consumables=(D.consumables||[]).map(function(x){ return {name:x[0],kind:x[1]||''}; });
   st.dist=(D.dist||[]).map(function(x){ return {city:CITY_CODE[x[0]],part:x[1],month:x[2],avg:+x[3],med:+x[4],n:+x[5],yr:x[6]||'all'}; }).filter(function(x){return x.city;});
   st.files=[{name:'Portal data',rows:L.length,months:[...new Set(L.map(function(x){return x[0];}))].sort()}];
   var res=[{data:L}];
@@ -538,7 +541,12 @@ function addAll(model){
   }); });
   model.ALL=all; return model;
 }
-function ctx(){ var names=state.store.names; return {rule:C.compileRules(state.rules), fold:C.buildFold(names,state.foldOn)}; }
+var CONS_ROW={key:'~CONSUMABLES',label:'Consumables'};
+function consSet(){ if(!state.consOn||!state.consumables||!state.consumables.length) return null;
+  if(state._consSrc!==state.consumables){ var o={}; state.consumables.forEach(function(x){ o[C.NORM(x.name)]=true; }); state._consSet=o; state._consSrc=state.consumables; }
+  return state._consSet; }
+function consNote(){ return (state.consOn&&state.consumables&&state.consumables.length)?('Consumables = '+state.consumables.length+' small items (screws, bolts, nuts, washers, clips, cable ties, fuses, oils and similar) added up into one row. Change the list or switch it off in Settings.'):''; }
+function ctx(){ var names=state.store.names; return {rule:C.compileRules(state.rules), fold:C.buildFold(names,state.foldOn), cons:consSet()}; }
 function selMonths(){ var a=allMonths(); return state.F.months.length ? a.filter(function(m){return state.F.months.indexOf(m)>=0;}) : a; }
 function den(city, month, unit){
   if(isWkTok(month)){ var wo=state.wkd?wkPick(state.wkd,city,month):null; if(!wo) return null; return unit==='bike'?(wo.fleet||null):(unit==='km'?(wo.km||null):null); }   // weekly view: average fleet and spread km of the week
@@ -1508,9 +1516,9 @@ function wkpLoad(){ if(state.wkp||state.wkpLoading) return; state.wkpLoading=tru
     if(r&&r.ok&&r.data&&Array.isArray(r.data.rows)){ state.wkp=wkpIndex(r.data); state.wkpErr=null; } else state.wkpErr=(r&&r.msg)||'no reply';
     render(); }).catch(function(e){ state.wkpLoading=false; state.wkpErr=String(e&&e.message||e); render(); }); }
 function wkpIndex(D){ var ix={}; (D.rows||[]).forEach(function(x){ var c=CITY_CODE[x[0]]||x[0], k=c+'|'+x[1]+'|'+x[2], o=ix[k]||(ix[k]={}); var v=o[x[3]]; if(v){ v.amt+=(+x[4]||0); v.qty+=(+x[5]||0); } else o[x[3]]={amt:+x[4]||0, qty:+x[5]||0}; }); return {ix:ix}; }
-function wkpRows(city,bucket,weeks){ var cs=city==='ALL'?state.F.cities:[city], fo=ctx().fold, names=state.store.names, map={};
+function wkpRows(city,bucket,weeks){ var cs=city==='ALL'?state.F.cities:[city], cx=ctx(), fo=cx.fold, cons=cx.cons, names=state.store.names, map={};
   weeks.forEach(function(wk){ cs.forEach(function(c){ var o=state.wkp.ix[c+'|'+wk+'|'+bucket]; if(!o) return;
-    Object.keys(o).forEach(function(pn){ var f=fo[pn]||{key:pn,label:pn==='_NOITEM'?'Not itemised (no job-card lines)':(names[pn]||pn)}, e=map[f.key]||(map[f.key]={key:f.key,label:f.label||pn,by:{}}), b=e.by[wk]||(e.by[wk]={amt:0,qty:0}); b.amt+=o[pn].amt; b.qty+=o[pn].qty; }); }); });
+    Object.keys(o).forEach(function(pn){ var f=(cons&&cons[pn])?CONS_ROW:(fo[pn]||{key:pn,label:pn==='_NOITEM'?'Not itemised (no job-card lines)':(names[pn]||pn)}), e=map[f.key]||(map[f.key]={key:f.key,label:f.label||pn,by:{}}), b=e.by[wk]||(e.by[wk]={amt:0,qty:0}); b.amt+=o[pn].amt; b.qty+=o[pn].qty; }); }); });
   return Object.keys(map).map(function(k){ return map[k]; }); }
 function wkpCSV(){ var P=state.parts, W=state.wkd; if(!W||!state.wkp) return; var city=P.city, bucket=P.bucket||'P', weeks=W.weeks, rows=wkpRows(city,bucket,weeks);
   var q=function(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
@@ -1563,7 +1571,7 @@ function viewPartsWeekly(){
     +'<p class="sub">Monday to Sunday, last '+weeks.length+' weeks. '+({qty:'Count = units on the job cards. ',pct:'% = share of total '+bucket+' cost that week. ',p100:'Units per 100 deployed bikes (average fleet of the week). ',p100s:'Units per 100 bikes serviced that week. '}[meas]||('\u20b9 in '+unitName()+'. '))
     +'Sorted by '+(sk==='name'?'part name':sk==='diff'?'the change':wkLabel(sk))+(sd==='asc'?' (low to high)':' (high to low)')+'; click any column header to sort.</p>'
     +'<div class="tw"><table>'+head+body+'</table></div>'
-    +'<p class="sub" style="margin-top:6px">Part amounts are the job-card lines of each part, adjusted for each city, month and category (A, P, C) to the monthly cost file, so the parts add up to the weekly Overview. A week with fewer than 7 days is partial. Where a month\u2019s job-card data and its cost file differ a lot for a city (for example Mumbai in August), that month is spread evenly over its days instead of by job-card share. The weekly view works by city.</p></div>'; }
+    +'<p class="sub" style="margin-top:6px">Part amounts are the job-card lines of each part, adjusted for each city, month and category (A, P, C) to the monthly cost file, so the parts add up to the weekly Overview. A week with fewer than 7 days is partial. Where a month\u2019s job-card data and its cost file differ a lot for a city (for example Mumbai in August), that month is spread evenly over its days instead of by job-card share. The weekly view works by city. '+consNote()+'</p></div>'; }
 function viewPartsMonthly(model){
   var P=state.parts, months=selMonths(); if(!validCity(P.city)) P.city=defCity();
   var city=P.city, ms=months.filter(function(m){return model[city]&&model[city][m];}), last=ms[ms.length-1], rows=partRows(model,city,P.bucket,ms);
@@ -1628,6 +1636,7 @@ function viewPartsMonthly(model){
   h+='<tr class="tot"><td>Total '+P.bucket+'</td>'+totRow()+'</tr></table></div>';
   if(meas==='p100s' && (state.F.hub||state.F.model)) h+='<p class="sub">Serviced bikes are counted per city, so this measure shows a dash with the hub or model filter on.</p>';
   if(meas==='p100s' && state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': serviced bikes = bikes deployed in '+esc(state.F.dyear)+' that had a job card that month. Not available for the same-days column (e.g. Sep 1\u201320).</p>';
+  if(consNote()) h+='<p class="sub">'+consNote()+'</p>';
   if((meas==='p100'||meas==='p100s') && ms.some(isPartialMonth)) h+='<p class="sub">* Partial months (e.g. Sep 1\u201320, the current month) cover fewer days, so their rates are lower than a full month.</p>';
   h+='</div>';
   // 13 Nov 2026: job cards by cost bucket of this category, same buckets as the drill-down; follows the Measure chips, the months and the change column above
@@ -1760,6 +1769,10 @@ function viewSettings(){
    +'<div class="row"><label><input type="checkbox" data-a="fold"'+(state.foldOn?' checked':'')+'> Fold refurbished variants into their base part in part tables</label></div><div class="tw"><table><tr><th>Part name (as in DMS)</th><th>Move to</th><th>Moves</th><th>From month</th><th></th></tr>';
   state.rules.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td><b style="color:'+COLORS[r.to]+'">'+r.to+'</b></td><td>'+(r.p?'<b>A + P</b>':'A only')+'</td><td>'+(r.from?C.monthLabel(r.from):'all months')+'</td><td><span class="x" data-a="rdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
   h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="rn" placeholder="Part name, e.g. DIU UNIT or MASTER CYLINDER HANDLE*" style="min-width:320px"><select id="rt"><option>C</option><option>P</option></select><input type="month" id="rf"><label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="rp"> also P-tagged</label><button class="btn sm pri" data-a="radd">Add rule</button><button class="btn sm" data-a="rreset">Reset to defaults</button></div></div>';
+  h+='<div class="card"><h3>Consumables (one row in the Part breakup)</h3><p class="sub">Screws, bolts, nuts, washers, clips, cable ties and similar small items are added up into a single <b>Consumables</b> row in the Part breakup, monthly and weekly. A part is matched by its name, ignoring capitals, spaces and punctuation, so add a new name here when a new size or item appears. Saved for everyone using this dashboard.</p>'
+    +'<div class="row"><label><input type="checkbox" data-a="cons"'+(state.consOn?' checked':'')+'> Merge consumables into one row in part tables</label></div><div class="tw" style="max-height:320px;overflow:auto"><table><tr><th>Part name (as in DMS)</th><th>Kind</th><th></th></tr>';
+  state.consumables.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.kind||'')+'</td><td><span class="x" data-a="cdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
+  h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="cn" placeholder="Part name, e.g. M6x20 Hexagonal Flanged Bolt" style="min-width:320px"><select id="ck"><option>Fasteners and clips</option><option>Electrical</option><option>Fluids and workshop</option><option>Other</option></select><button class="btn sm pri" data-a="cadd">Add consumable</button></div></div>';
   h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub"><b>Labour (as per payroll)</b> and <b>Other maintenance</b> feed the Total. COCO, Porter, Petty expenses, Insurance &amp; IOT, Warranty provision, Insurance claim, Scrap, Warranty claim and AD recovery are kept for reference. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
   var oc=state.opsCity||'BLR', oms=ms.filter(function(m){ return !/p$/.test(m); });   // the same-days column (e.g. Sep 1-20) is calculated, not entered var nm=new Date(); var cur=nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0'); if(oms.indexOf(cur)<0) oms.push(cur);
   h+='<div class="tw"><table><tr><th>Input</th>'+oms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
@@ -1928,6 +1941,9 @@ root.addEventListener('click',function(e){
   else if(a==='csv'){ csv(); return; }
   else if(a==='rdel'){ state.rules.splice(+v,1); saveRules(); }
   else if(a==='radd'){ var n=document.getElementById('rn').value.trim(); if(!n) return; state.rules.push({name:n,to:document.getElementById('rt').value,from:document.getElementById('rf').value||'',p:document.getElementById('rp').checked}); saveRules(); }
+  else if(a==='cdel'){ state.consumables=state.consumables.filter(function(x,i){ return i!==+v; }); saveConsumables(); }
+  else if(a==='cadd'){ var cn=document.getElementById('cn').value.trim(); if(!cn) return; var ck=C.NORM(cn); if(state.consumables.some(function(x){ return C.NORM(x.name)===ck; })){ toast('Already in the list'); return; }
+    state.consumables=state.consumables.concat([{name:cn,kind:document.getElementById('ck').value}]); saveConsumables(); }
   else if(a==='rreset'){ if(!confirm('Reset the rules to the original 26?')) return; state.rules=C.defaultRules(); saveRules(); }
   
   else return;
@@ -1951,6 +1967,7 @@ root.addEventListener('change',function(e){
   else if(a==='hmonth'){ state.hubs.m=el.value; state.drill=null; }
   else if(a==='hbucket'){ state.hubs.b=el.value; state.drill=null; }
   else if(a==='hby') state.hubs.by=el.value;
+  else if(a==='cons'){ state.consOn=el.checked; try { localStorage.setItem('rmc_merge_cons', el.checked?'1':'0'); } catch(e){} }
   else if(a==='fold'){ state.foldOn=el.checked; try { localStorage.setItem('rmc_fold_refurb', el.checked?'1':'0'); } catch(e){} }   // 3 Nov 2026: remember the choice
   
   render();
