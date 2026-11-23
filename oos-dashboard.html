@@ -2261,6 +2261,7 @@ function renderModelTable(summary, oosDetail) { cityModelRows(summary, oosDetail
 
 let DD_CURRENT_ROWS = [];
 let DD_MODE = 'oos';
+let DD_STATUS = 'OOS';   // 23 Nov 2026: status of the vehicles in the open drill-down. OOS = the OOS table (repair, days OOS, remarks). Anything else = the fleet table.
 let DD_CURRENT_TITLE = '';
 
 const REMARK_OPTIONS = [
@@ -2674,7 +2675,7 @@ let CM_DD_SEQ = 0, CM_DD_LAST = null;
 function retryCityModelDrilldown() { if (CM_DD_LAST) openCityModelDrilldown(CM_DD_LAST[0], CM_DD_LAST[1], CM_DD_LAST[2]); return false; }
 async function openCityModelDrilldown(dimKey, dimValue, status) {
   DD_MODE = 'oos';
-  CM_DD_LAST = [dimKey, dimValue, status];
+  CM_DD_LAST = [dimKey, dimValue, status]; DD_STATUS = status;
   const seq = ++CM_DD_SEQ;
   DD_CURRENT_ROWS = [];
   const valueLabel = dimValue === null ? 'All' : dimValue;
@@ -2708,7 +2709,7 @@ async function openCityModelDrilldown(dimKey, dimValue, status) {
   DD_CURRENT_ROWS = rows;
   document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
 
-  const remarksOk = await loadRemarksFor(rows);
+  const remarksOk = (status === 'OOS' || status === null) ? await loadRemarksFor(status === null ? rows.filter(r => r.status === 'OOS') : rows) : true;
   if (seq !== CM_DD_SEQ) return;
   if (!remarksOk) {
     document.getElementById('dd-sub').innerHTML = `${rows.length} vehicle${rows.length === 1 ? '' : 's'} &nbsp;<span style="color:var(--red)">⚠ Remarks failed to load — what you see below may be blank even where a remark exists. <a href="#" onclick="loadRemarksFor(DD_CURRENT_ROWS).then(()=>renderDDTable(DD_CURRENT_ROWS));return false;" style="color:var(--red);text-decoration:underline;">Retry</a></span>`;
@@ -2717,6 +2718,7 @@ async function openCityModelDrilldown(dimKey, dimValue, status) {
 }
 
 async function openOOSDrilldown(dimKey, dimValue, hub) {
+  DD_STATUS = 'OOS';
   DD_MODE = 'oos';
   const rows = LAST_OOS_DETAIL.filter(r =>
     (dimValue === null || r[dimKey] === dimValue) &&
@@ -2743,7 +2745,64 @@ async function openOOSDrilldown(dimKey, dimValue, hub) {
   renderDDTable(rows);
 }
 
+// 23 Nov 2026: vehicles that are NOT in OOS (PDI, RFD, active rental, all bikes) get their own columns instead of the OOS ones
+// (repair category, days OOS, labour hours, department, PO number, remarks)
+function ddEsc(x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function ddStatusName(s) { return ({ Active_rental: 'Active rental', pdi: 'PDI' })[s] || s || '\u2014'; }
+function ddDaysSince(iso) { if (!iso) return null; var t = new Date(iso).getTime(); return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000)); }
+function ddFleetCols(status) {
+  var all = (status === null || status === undefined), rfd = (status === 'RFD'), cols = [];
+  var add = function (h, num, html, csv) { cols.push({ h: h, num: num, html: html, csv: csv }); };
+  var plain = function (f) { return function (r) { var v = f(r); return '<td>' + (v == null || v === '' ? '\u2014' : ddEsc(v)) + '</td>'; }; };
+  var numc = function (f, cls) { return function (r) { var v = f(r), c = cls ? cls(v) : ''; return '<td class="num' + (c ? ' ' + c : '') + '">' + (v == null ? '\u2014' : Number(v).toLocaleString('en-IN')) + '</td>'; }; };
+  var dt = function (iso) { return iso ? fmtDateTime(iso) : null; };
+  var sinceOf = function (r) { return r.status === 'OOS' ? r.latest_oos_date : (r.status === 'RFD' ? r.rfd_since : null); };
+  var daysOf = function (r) { return r.status === 'OOS' ? (r.oos_age != null ? r.oos_age : null) : (r.status === 'RFD' ? ddDaysSince(r.rfd_since) : null); };
+  var aged = function (v) { return v != null && v > 7 ? 'dd-age-high' : ''; };
+  var odo = function (r) { return r.current_odometer != null ? Math.round(Number(r.current_odometer)) : null; };
+  var svc = function (r) { return r.serviced_since_days != null ? Math.round(Number(r.serviced_since_days)) : null; };
+  var cached = function (r) { return r.status === 'OOS' ? REMARKS_CACHE[remarkKey(r.reg_number, r.latest_oos_date)] : null; };
+  add('Reg No', false, function (r) { return '<td style="font-weight:600">' + ddEsc(r.reg_number || '\u2014') + '</td>'; }, function (r) { return r.reg_number; });
+  add('Hub', false, plain(function (r) { return r.hub_name; }), function (r) { return r.hub_name; });
+  add('City', false, plain(function (r) { return r.city; }), function (r) { return r.city; });
+  add('Model', false, plain(function (r) { return r.model_name; }), function (r) { return r.model_name; });
+  add('Status', false, function (r) { return '<td>' + ddEsc(ddStatusName(r.status)) + '</td>'; }, function (r) { return ddStatusName(r.status); });
+  if (rfd) {
+    add('RFD Since', false, plain(function (r) { return dt(r.rfd_since); }), function (r) { return dt(r.rfd_since); });
+    add('Days RFD', true, numc(function (r) { return ddDaysSince(r.rfd_since); }, aged), function (r) { return ddDaysSince(r.rfd_since); });
+  }
+  if (all) {
+    add('Since', false, plain(function (r) { return dt(sinceOf(r)); }), function (r) { return dt(sinceOf(r)); });
+    add('Days in Status', true, numc(daysOf, aged), daysOf);
+    add('Repair Category', false, plain(function (r) { return r.repair_category; }), function (r) { return r.repair_category; });
+  }
+  add('Odometer (km)', true, numc(odo), odo);
+  add('Serviced Since (days)', true, numc(svc), svc);
+  add('PM Status', false, function (r) { var v = r.pm_status; return '<td' + (v && /due/i.test(v) ? ' style="color:var(--red,#dc2626);font-weight:600"' : '') + '>' + (v ? ddEsc(v) : '\u2014') + '</td>'; }, function (r) { return r.pm_status; });
+  if (all) {   // only OOS bikes carry a department, PO number and remark, so these cells are empty for the others
+    add('Department', false, function (r) { return r.status === 'OOS' ? renderDeptCell(r.reg_number, r.latest_oos_date) : '<td></td>'; }, function (r) { var c = cached(r); return c ? (c.department || '') : ''; });
+    add('PO Number / Category', false, function (r) { return r.status === 'OOS' ? renderPoCategoryCell(r.reg_number, r.latest_oos_date) : '<td></td>'; }, function (r) { var c = cached(r); return c ? (c.po_number_category || '') : ''; });
+    add('Remarks', false, function (r) { return r.status === 'OOS' ? renderRemarkCell(r.reg_number, r.latest_oos_date) : '<td></td>'; }, function (r) { var c = cached(r); return c ? (c.remark_type === 'Other' ? c.remark_text : c.remark_type) : ''; });
+    add('Action', false, function (r) { return r.status === 'OOS' ? `<td><button type="button" class="row-save-btn" onclick='saveRow(this, ${JSON.stringify(r.reg_number)}, ${JSON.stringify(r.latest_oos_date || '')})' style="padding:4px 12px;background:var(--red,#dc2626);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Save</button></td>` : '<td></td>'; }, null);
+  }
+  return cols;
+}
+function renderFleetDDTable(rows) {
+  var cols = ddFleetCols(DD_STATUS);
+  var html = '<thead><tr>' + cols.map(function (c) { return '<th' + (c.num ? ' class="num"' : '') + '>' + c.h + '</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.forEach(function (r) {
+    var attrs = r.status === 'OOS' ? ' data-reg="' + (r.reg_number || '').replace(/"/g, '&quot;') + '" data-since="' + (r.latest_oos_date || '').replace(/"/g, '&quot;') + '"' : '';
+    html += '<tr' + attrs + '>' + cols.map(function (c) { return c.html(r); }).join('') + '</tr>';
+  });
+  document.getElementById('dd-table').innerHTML = html + '</tbody>';
+}
+function exportFleetDrilldownCSV() {
+  var cols = ddFleetCols(DD_STATUS).filter(function (c) { return c.csv; });
+  downloadCSV('fleet_drilldown_' + DD_CURRENT_TITLE.replace(/[^\w]+/g, '_') + '.csv', cols.map(function (c) { return c.h; }),
+    DD_CURRENT_ROWS.map(function (r) { return cols.map(function (c) { var v = c.csv(r); return v == null ? '' : v; }); }));
+}
 function renderDDTable(rows) {
+  if (DD_STATUS !== 'OOS') { renderFleetDDTable(rows); return; }
   let html = '<thead><tr><th>Reg No</th><th>Hub</th><th>Status</th><th>Repair Category</th><th class="num">Days OOS</th><th class="num">Est. Labour Hrs</th><th>Since</th><th>Department</th><th>PO Number / Category</th><th>Remarks</th><th>Action</th></tr></thead><tbody>';
   rows.forEach(r => {
     const ageCls = (r.oos_age || 0) > 7 ? 'num dd-age-high' : 'num';
@@ -2783,6 +2842,7 @@ function exportDrilldownCSV() {
 }
 
 function exportOOSDrilldownCSV() {
+  if (DD_STATUS !== 'OOS' && DD_CURRENT_ROWS.length) { exportFleetDrilldownCSV(); return; }
   if (!DD_CURRENT_ROWS.length) return;
   const header = ['Reg No', 'Hub', 'City', 'Status', 'Repair Category', 'Days OOS', 'Est. Labour Hrs', 'Latest OOS Date', 'Department', 'PO Number / Category', 'Remark'];
   const rows = DD_CURRENT_ROWS.map(r => {
