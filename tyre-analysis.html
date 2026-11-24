@@ -1153,7 +1153,10 @@ function renderCpk() {
   const mLbl = m => { const d = new Date(m + '-01T00:00:00'); return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); };
   const cur = (() => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); })();
   const SEP = 'border-left:2px solid var(--border,#e2e8f0);';
-  const STK = 'position:sticky;bottom:0;z-index:1;background:var(--bg-soft,#f8fafc);box-shadow:0 -2px 0 var(--border,#cbd5e1);';   // the total row stays at the bottom of the scrolling table
+  // 24 Nov 2026: the Total row and the two rows under it (numerator = cost, denominator = km) stay pinned at the bottom of the scrolling table, one above the other
+  const H_TOT = 46, H_SUB = 28;
+  const pin = (bottom, h, line) => 'position:sticky;bottom:' + bottom + 'px;z-index:1;background:var(--bg-soft,#f8fafc);box-sizing:border-box;height:' + h + 'px;' + (line ? 'box-shadow:0 -2px 0 var(--border,#cbd5e1);' : '');
+  const STK = pin(2 * H_SUB, H_TOT, true), STK_N = pin(H_SUB, H_SUB, false) + 'padding-top:4px;padding-bottom:4px;', STK_D = pin(0, H_SUB, false) + 'padding-top:4px;padding-bottom:4px;';
   const fmtCell = (r, d, bold, extra) => {
     const v = +r.cost_per_km, thin = (+r.n_known || 0) < 30;
     const tip = `₹${v.toFixed(4)} per km · ₹${(+r.cost_known || 0).toLocaleString('en-IN')} over ${(+r.km_known || 0).toLocaleString('en-IN')} km · based on ${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_all || +r.n_total || 0).toLocaleString('en-IN')} replaced · avg cost ₹${r.avg_cost != null ? (+r.avg_cost).toLocaleString('en-IN') : '–'}`;
@@ -1167,10 +1170,16 @@ function renderCpk() {
     return fmtCell(r, d, bold, extra || '');
   };
   const totCell = (p, bold, extra) => colTotal[p] ? fmtCell(colTotal[p], '', bold, SEP + (extra || '')) : `<td class="num" style="${SEP}color:#cbd5e1;${extra || ''}">–</td>`;
-  box.innerHTML = `<table><thead><tr><th style="text-align:left">Part</th>${months.map(m => `<th class="num">${mLbl(m)}${m === cur ? ' (so far)' : ''}</th>`).join('')}<th class="num" style="${SEP}" title="All the months shown together: cost of the replacements ÷ km the parts lasted">Total</th></tr></thead><tbody>${
+  const subRow = (label, tip, field, f, style) => {
+    const c = (rec, extra) => rec ? `<td class="num" style="font-size:11.5px;color:#475569;${extra || ''}${style}">${f(rec[field])}</td>` : `<td class="num" style="color:#cbd5e1;${extra || ''}${style}">–</td>`;
+    return `<tr><td style="text-align:left;font-size:11.5px;color:#475569;${style}" title="${tip}">${label}</td>${months.map(m => c(by[TOTAL][m])).join('')}${c(colTotal[TOTAL], SEP)}</tr>`; };
+  box.innerHTML = `<table style="border-collapse:separate;border-spacing:0"><thead><tr><th style="text-align:left">Part</th>${months.map(m => `<th class="num">${mLbl(m)}${m === cur ? ' (so far)' : ''}</th>`).join('')}<th class="num" style="${SEP}" title="All the months shown together: cost of the replacements ÷ km the parts lasted">Total</th></tr></thead><tbody>${
     parts.map(p => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[p] || p}</td>${months.map((m, i) => cell(p, i, false)).join('')}${totCell(p, true)}</tr>`).join('')}`
-    + `<tr><td style="text-align:left;font-weight:700;${STK}" title="All parts together: cost of all these replacements ÷ km the parts lasted (not a sum of the rows above)">Total (all parts)</td>${months.map((m, i) => cell(TOTAL, i, true, STK)).join('')}${totCell(TOTAL, true, STK)}</tr></tbody></table>`
-    + `<div style="font-size:11px;color:var(--muted,#64748b);padding:8px 16px">Total = cost of all the replacements ÷ km those parts lasted (a weighted figure, not a sum of the rows). The Total column covers all months shown; the Total row covers all parts.</div>`;
+    + `<tr><td style="text-align:left;font-weight:700;${STK}" title="All parts together: cost of all these replacements ÷ km the parts lasted (not a sum of the rows above)">Total (all parts)</td>${months.map((m, i) => cell(TOTAL, i, true, STK)).join('')}${totCell(TOTAL, true, STK)}</tr>`
+    + subRow('Cost of the replacements (numerator)', 'Billed cost (₹) of all the replacements behind the Total in that month, with a known previous change', 'cost_known', v => '₹' + Math.round(v).toLocaleString('en-IN'), STK_N)
+    + subRow('Km the previous parts lasted (denominator)', 'Total km that the previous parts lasted, for the same replacements', 'km_known', v => Math.round(v).toLocaleString('en-IN') + ' km', STK_D)
+    + `</tbody></table>`
+    + `<div style="font-size:11px;color:var(--muted,#64748b);padding:8px 16px">Total = cost of all the replacements ÷ km those parts lasted (a weighted figure, not a sum of the rows). The Total column covers all months shown; the Total row covers all parts. The two rows under it show what the Total is made of: the cost (numerator) and the km the parts lasted (denominator).</div>`;
 }
 function exportCpkCSV() {
   const M = cpkModel(); if (!M) return; const { months, by, parts, TOTAL, colTotal } = M;
@@ -1178,6 +1187,8 @@ function exportCpkCSV() {
   const line = (name, p) => [name, ...months.flatMap(m => { const r = (by[p] || {})[m]; return [r && r.cost_per_km != null ? (p === TOTAL ? Math.round(r.cost_per_km * 10000) / 10000 : r.cost_per_km) : '', r ? r.n_known : '']; }),
     colTotal[p] ? Math.round(colTotal[p].cost_per_km * 10000) / 10000 : '', colTotal[p] ? colTotal[p].n_known : ''];
   parts.forEach(p => rows.push(line(KMB_NAME[p] || p, p))); rows.push(line('Total (all parts)', TOTAL));
+  const sub = (name, field) => [name, ...months.flatMap(m => { const r = by[TOTAL][m]; return [r ? Math.round(r[field]) : '', '']; }), colTotal[TOTAL] ? Math.round(colTotal[TOTAL][field]) : '', ''];
+  rows.push(sub('Total cost, numerator (Rs)', 'cost_known')); rows.push(sub('Total km the previous parts lasted, denominator (km)', 'km_known'));
   kmbDownload('cost-per-km-by-month-' + CPK.repl + '.csv', rows);
 }
 async function loadKmb() {
