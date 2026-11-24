@@ -1077,9 +1077,17 @@ function cityCompareHtml(model){
   var dv=function(k){ return function(c,m){ var v=DV[c+'|'+m]; return v?v[k]:null; }; };
   h+=sec('Cost drivers');
   var dline=function(label){ var k='drv:'+label; if(!ccOn(k)) return ''; var args=Array.prototype.slice.call(arguments); args[0]=ccBtn(k)+label; return line.apply(null,args); };
+  // 24 Nov 2026: inflow split by submission type under "Inflow, all types" (count and its share of that city's inflow)
+  var inflSplit=function(){ if(!ccOn('drv:Inflow, all types')) return ''; var out='';
+    inflowTypes().forEach(function(t){ var k='drv:Inflow \u00b7 '+t; if(!ccOn(k)) return;
+      out+='<tr><td style="padding-left:18px;color:#475569">'+ccBtn(k)+'Inflow \u00b7 '+esc(t)+'</td>';
+      cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?inflowOfType(c,m,t):null, tot=model[c][m]?inflowOf(c,m):null, sh=(ok(v)&&tot)?Math.round(100*v/tot):null;
+        out+='<td'+(sh!=null?' title="'+esc(t)+': '+F0(v)+' of '+F0(tot)+' inflow ('+sh+'%)"':'')+' style="'+bd(i)+'color:#475569">'+F0(v)+(sh!=null?' <span style="font-size:11px;color:#94a3b8">'+sh+'%</span>':'')+'</td>'; }); });
+      out+='</tr>'; }); return out; };
   h+=dline('Bikes deployed (avg fleet)',dv('fleet'),F0,0);   // 3 Nov 2026
   h+=dline('Bikes serviced',dv('bikes'),F0,0);
   h+=dline('Inflow, all types',dv('infl'),F0,0);   // 18 Nov 2026
+  h+=inflSplit();
   h+=dline('Job cards',dv('jcs'),F0,0);   // 17 Nov 2026: number of job cards in the Cost drivers
   h+=dline('Job cards with parts',dv('jpc'),F0,0);   // 18 Nov 2026
   h+=dline('Labour-only job cards',dv('lbo'),F0,0);
@@ -1156,6 +1164,7 @@ function cityCompareHtml(model){
   }
   h+=dline('Bikes serviced',dv('bikes'),F0,0,'grey');
   h+=dline('Inflow, all types',dv('infl'),F0,0,'grey');
+  h+=inflSplit();
   h+=dline('Job cards',dv('jcs'),F0,0,'grey');
   h+=dline('Job cards with parts',dv('jpc'),F0,0,'grey');
   h+=dline('Labour-only job cards',dv('lbo'),F0,0,'grey');
@@ -1432,6 +1441,12 @@ function inflowOf(city,m){ var I=state.infl; if(!I||I.key!==(state.F.model||'')|
   var cs=city==='ALL'?state.F.cities:[city], sel=state.stSel||[], tot=0, any=false;
   cs.forEach(function(c){ var o=I.ix[c+'|'+m]; if(!o) return; Object.keys(o).forEach(function(g){ if(!sel.length||sel.indexOf(g)>=0){ tot+=o[g]; any=true; } }); });
   return any?tot:null; }
+// 24 Nov 2026: the inflow split by submission type (same data and filters as "Inflow, all types": model, the submission-type picker; not available by deployed year)
+function inflowOfType(city,m,t){ var I=state.infl; if(!I||I.key!==(state.F.model||'')||!I.ok||state.F.dyear) return null;
+  var cs=city==='ALL'?state.F.cities:[city], tot=0, any=false; cs.forEach(function(c){ var o=I.ix[c+'|'+m]; if(!o||o[t]==null) return; tot+=o[t]; any=true; }); return any?tot:null; }
+function inflowTypes(){ var I=state.infl; if(!I||I.key!==(state.F.model||'')||!I.ok||state.F.dyear) return []; var seen={}; Object.keys(I.ix).forEach(function(k){ Object.keys(I.ix[k]).forEach(function(g){ seen[g]=1; }); });
+  var out=['Recovery','Rider Submission','RR & BE'].filter(function(g){ return seen[g]; }); Object.keys(seen).forEach(function(g){ if(out.indexOf(g)<0) out.push(g); });
+  var sel=state.stSel||[]; return sel.length?out.filter(function(g){ return sel.indexOf(g)>=0; }):out; }
 function driverVals(city, m, d){
   var fleet=den(city,m,'bike'), jcs=sumC(city,state.store.jcAll,m), bikes=sumC(city,state.store.bikes,m), units=partUnits(city,m), parts=d?d.A+d.P+d.C:null,
       lab=opsVal('labour',city,m,d), oth=opsVal('other',city,m,d), ref=refurbAmt(city,m);
@@ -1465,17 +1480,19 @@ function driverVals(city, m, d){
 function driversHtml(city, ms, model){
   if(state.F.hub) return '<div class="note">Cost drivers are city-level: clear the hub filter to see them.</div>';
   var V=ms.map(function(m){ return driverVals(city,m,model[city][m]); });
+  var _it=inflowTypes(); V.forEach(function(v,i){ _it.forEach(function(g){ v['infl:'+g]=inflowOfType(city,ms[i],g); }); });   // 24 Nov 2026: inflow by submission type
   if(!V.some(function(v){return v.jcs;}) && !state.F.dyear) return '';
   var full=ms.map(function(m,i){return (isPartialMonth(m)||!V[i].ok)?null:i;}).filter(function(i){return i!=null;});   // average over complete months with good job card counts
   var avg=function(k){ var xs=full.map(function(i){return V[i][k];}).filter(function(x){return x!=null&&isFinite(x);}); return xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null; };
   var lbl=function(m){ return C.monthLabel(m)+(isPartialMonth(m)?'*':''); };
   var f2=function(v){return v==null?'\u2013':v.toFixed(2);}, f0=function(v){return v==null?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null?'\u2013':Math.round(v*100)+'%';}, f1=function(v){return v==null?'\u2013':v.toFixed(1);};
   var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: revenue damage fee','rrb',f0,'rr'],['Net service cost \u00b7 less damage fee + recovery (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Avg cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Refurb penetration (refurbished \u00f7 refurbished + new)','rpen',fp],['Km per bike per day','kmpd',f1],['Parts cost per 100 km (\u20b9)','p100',f1],['Top 10 parts share of parts cost','top10',fp],['Running repair + bike exchange: back within 7 days','rr7',fp],['Avg service TAT (hours, job card opened \u2192 billed)','tat',f1],['Job cards open 30+ days (billed this month)','lc30',f0],['Job cards billed this month that were opened this month','smo',fp],['Bikes deployed (avg fleet)','fleet',f0],['Active rental days (bookings)','rdays',f0],['Utilisation','util',fp],['Job cards with A+P parts over \u20b93,000','ap3k',fp],['Bikes serviced','bikes',f0],['Inflow, all types','infl',f0],['Job cards','jcs',f0],['Job cards with parts','jpc',f0],['Labour-only job cards','lbo',f0]];
+  var _ix=-1; rows.forEach(function(r,i){ if(r[1]==='infl') _ix=i; }); if(_ix>=0) _it.slice().reverse().forEach(function(g){ rows.splice(_ix+1,0,['Inflow \u00b7 '+g,'infl:'+g,f0,'isub']); });   // split rows right under "Inflow, all types"
   var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 cost drivers</h3><div class="tw"><table><tr><th>Driver</th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+(full.length>1?'<th>Avg '+C.monthLabel(ms[full[0]])+'\u2013'+C.monthLabel(ms[full[full.length-1]])+'</th>':'')+'</tr>';
-  var mark=function(r,v){ if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
-  rows.forEach(function(r){ if(!ccOn('drv:'+r[0])) return; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='infl'||r[1]==='jcs'||r[1]==='jpc'||r[1]==='lbo', less=String(r[0]).indexOf('Less:')===0;
+  var mark=function(r,v){ if(r[3]==='isub'){ var tt=v.infl, xx=v[r[1]]; return (tt&&xx!=null)?' <span style="font-size:11px;color:#94a3b8">'+Math.round(100*xx/tt)+'%</span>':''; } if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
+  rows.forEach(function(r){ if(!ccOn('drv:'+r[0])) return; if(r[3]==='isub'&&!ccOn('drv:Inflow, all types')) return; var isub=r[3]==='isub'; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='infl'||r[1]==='jcs'||r[1]==='jpc'||r[1]==='lbo', less=String(r[0]).indexOf('Less:')===0;
     var memo=r[3]==='ic'||r[3]==='sc';
-    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#64748b;font-style:italic"':'')+'><td'+(grey||less||memo?' style="color:'+(memo?'#94a3b8':'#6b7280')+((less||memo)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
+    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#64748b;font-style:italic"':'')+'><td'+(grey||less||memo||isub?' style="color:'+(memo?'#94a3b8':(isub?'#475569':'#6b7280'))+((less||memo||isub)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total \u2212 revenue damage fee \u2212 revenue recovery (recovery data from May 2026). Insurance claims and scrap sales are shown for reference only: Other maintenance already has them deducted (Other = porter + insurance & IOT + warranty provision \u2212 scrap \u2212 insurance claims, as in the report), so they are not deducted again. Inputs are under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
   if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates. Job-card mix and the 7-day comeback are exact for the year.</p>';
