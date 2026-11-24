@@ -517,6 +517,19 @@ function otherIsCalc(city, m){ if(city==='ALL'){ for(var i=0;i<state.F.cities.le
   var o=(state.ops[city]||{})[baseMonth(m)]||{}; return o.other==null && otherCalc(o)!=null; }
 function otherMark(cities, months){ var f=false; cities.forEach(function(c){ months.forEach(function(m){ if(otherIsCalc(c,m)) f=true; }); });
   return f?'<sup title="\u2021 Not entered: calculated as Porter + Insurance &amp; IOT + Warranty provision \u2212 Scrap \u2212 Insurance claim from the lines entered. Type Other maintenance under Rules &amp; settings to replace it." style="color:#b45309;cursor:help"> \u2021</sup>':''; }
+// 24 Nov 2026: Labour (as per payroll) not entered for a city and month = the latest earlier month with labour entered, scaled to the same number of days
+// (November so far, 22 days = October x 22/31). A typed figure always wins; no earlier month with labour = still blank. Value is for the whole column; a same-days column ('p') scales it afterwards.
+function daysInMonthTok(tok){ var p=tok.split('-'); return new Date(Date.UTC(+p[0], +p[1], 0)).getUTCDate(); }
+function labourEst(city, m){ if(city==='ALL') return null; var bm=baseMonth(m);
+  var cur=!/p$/.test(m)&&isPartialMonth(m), days=cur?(window.RMC_PARTIAL_DAYS||null):daysInMonthTok(bm); if(!days) return null;
+  var ops=state.ops[city]||{}, p=bm.split('-'), y=+p[0], mo=+p[1];
+  for(var k=1;k<=12;k++){ mo--; if(mo<1){ mo=12; y--; } var sm=y+'-'+('0'+mo).slice(-2), so=ops[sm];
+    if(so&&so.labour!=null){ var dim=daysInMonthTok(sm); return {v:+so.labour*days/dim, src:sm, days:days, dim:dim}; } }
+  return null; }
+function labourMark(cities, months){ var notes={}, f=false;
+  cities.forEach(function(c){ months.forEach(function(m){ (c==='ALL'?state.F.cities:[c]).forEach(function(cc){ if(c==='ALL'&&!(lastModel[cc]&&lastModel[cc][m])) return; var o=(state.ops[cc]||{})[baseMonth(m)]||{};
+    if(o.labour==null){ var e=labourEst(cc,m); if(e){ f=true; notes[C.monthLabel(m)+' = '+C.monthLabel(e.src)+' \u00d7 '+e.days+'/'+e.dim+' days']=1; } } }); }); });
+  return f?'<sup title="\u00a7 Not entered: estimated from the latest month with labour entered, scaled to the same number of days ('+Object.keys(notes).join('; ')+'). Type Labour under Rules &amp; settings to replace it." style="color:#7c3aed;cursor:help"> \u00a7</sup>':''; }
 function opsVal(kind, city, m, d){
   // Combined view: add up the cities that have a value (a city with no input, e.g. Mumbai, no longer blanks the whole column)
   if(city==='ALL'){ var t=0, any=false; for(var i=0;i<state.F.cities.length;i++){ var c=state.F.cities[i]; var dc=lastModel[c]&&lastModel[c][m]; if(!dc) continue; var v=opsVal(kind,c,m,dc); if(v==null) continue; t+=v; any=true; } return any?t:null; }
@@ -524,7 +537,8 @@ function opsVal(kind, city, m, d){
   if(kind==='lab'){ if(filt||o.lab_cost==null) return d?d.L:null; var lv=+o.lab_cost*pf; return useFS()?(fs==null?null:lv*fs):lv; }
   if(kind==='warr_claim'){ if(filt||o.warr_claim==null) return d?d.W:null; var wv=+o.warr_claim*pf; return useFS()?(fs==null?null:wv*fs):wv; }
   if(filt) return null;
-  var rawv=o[kind]; if(kind==='other' && rawv==null) rawv=otherCalc(o);   // blank Other maintenance: calculated from the other cost lines
+  var rawv=o[kind]; if(kind==='other' && rawv==null) rawv=otherCalc(o);
+  if(kind==='labour' && rawv==null){ var le=labourEst(city,m); if(le) rawv=le.v; }   // blank Labour: the latest month with labour, scaled to the days   // blank Other maintenance: calculated from the other cost lines
   var v=rawv!=null ? +rawv*pf : null;
   if(v!=null && useFS()) v=fs==null?null:v*fs;   // model / submission type: split by their share of job cards (includes the deployed year)
   else if(v!=null && state.F.dyear){ var sh=jcShare(city,baseMonth(m)); v=sh==null?null:v*sh; }   // deployed-year filter: split by share of job cards
@@ -1059,7 +1073,7 @@ function cityCompareHtml(model){
     cities.forEach(function(c){ cols.forEach(function(m,i){ var v=model[c][m]?getter(c,m):null; out+='<td style="'+bd(i)+'color:#64748b"><s>'+FM(v)+'</s></td>'; }); });
     return out+'</tr>'; };
   var names={labour:'Labour',A:'A',P:'P',C:'C',other:'Other'}, shown=['labour','A','P','C','other'].filter(on).map(function(k){ return names[k]; });
-  h+=tog('labour','Labour (as per payroll)',u(comp.labour),1);
+  h+=tog('labour','Labour (as per payroll)'+labourMark(cities,cols),u(comp.labour),1);
   h+=tog('P','P: Rider-payable',u(comp.P),1);
   h+=tog('A','A: Wear & Tear',u(comp.A),1);
   h+=tog('C','C: Cost to company',u(comp.C),1);
@@ -1362,7 +1376,7 @@ function viewOverviewMonthly(model){
     var pRow=function(k){ var amts=ms.map(function(m){ return model[city][m][k]; }); return '<tr><td>'+NAMES[k]+'</td>'+rowCellsS(amts.map(function(a,i){ return val(a,city,ms[i]); }), shr(amts), true)+'</tr>'; };
     inRow=(function(f){ return function(k,label){ return ccOn(k)?f(k,ccBtn(k)+label):''; }; })(inRow);
     pRow=(function(f){ return function(k){ if(!ccOn(k)) return ''; var r=f(k); return r.replace('<td>'+NAMES[k]+'</td>','<td>'+ccBtn(k)+NAMES[k]+'</td>'); }; })(pRow);
-    h+=inRow('labour','Labour (as per payroll)')+pRow('P')+pRow('A')+pRow('C')+pRow('W')+pRow('F')+inRow('other','Other maintenance'+otherMark([city],ms));
+    h+=inRow('labour','Labour (as per payroll)'+labourMark([city],ms))+pRow('P')+pRow('A')+pRow('C')+pRow('W')+pRow('F')+inRow('other','Other maintenance'+otherMark([city],ms));
     h+='<tr class="tot"><td>'+ccGrossLabel()+'</td>'+ms.map(function(m){ var n=netInfo(model[city][m],city,m); return '<td'+(n.missing.length?' title="Not entered: '+esc(n.missing.join(', '))+'" style="color:#b45309"':'')+'>'+(n.v==null?'\u2013':(state.disp==='pct'?'100%':fmt(val(n.v,city,m)))+(n.missing.length?'*':''))+'</td>'; }).join('')+'</tr>';
     // Net service cost = gross - revenue damage fee - revenue recovery (scrap and insurance are already inside Other maintenance)
     if(!state.F.hub){
@@ -1818,10 +1832,10 @@ function viewSettings(){
     +'<div class="row"><label><input type="checkbox" data-a="cons"'+(state.consOn?' checked':'')+'> Group these parts into rows in part tables</label></div><div class="tw" style="max-height:320px;overflow:auto"><table><tr><th>Part name (as in DMS)</th><th>Group</th><th></th></tr>';
   state.consumables.forEach(function(r,i){ h+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.kind||'')+'</td><td><span class="x" data-a="cdel" data-v="'+i+'" title="Remove">'+ic('trash')+'</span></td></tr>'; });
   h+='</table></div><div class="row" style="margin-top:10px"><input type="text" id="cn" placeholder="Part name, e.g. M6x20 Hexagonal Flanged Bolt" style="min-width:320px"><select id="ck" title="Which group this part is added into">'+consKinds().map(function(k){ return '<option>'+esc(k)+'</option>'; }).join('')+'</select><input type="text" id="cg" placeholder="or a new group name" style="min-width:170px"><button class="btn sm pri" data-a="cadd">Add part</button></div></div>';
-  h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub"><b>Labour (as per payroll)</b> and <b>Other maintenance</b> feed the Total. If <b>Other maintenance</b> is left blank it is calculated as Porter + Insurance &amp; IOT + Warranty provision \u2212 Scrap \u2212 Insurance claim from the lines entered for that month (shown in grey in its box, marked \u2021 on the tables). COCO, Petty expenses, Warranty claim and AD recovery are kept for reference. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
+  h+='<div class="card"><h3>Monthly inputs (₹ lakh, per city)</h3><p class="sub"><b>Labour (as per payroll)</b> and <b>Other maintenance</b> feed the Total. If <b>Labour (as per payroll)</b> is left blank it is estimated from the latest month with labour entered, scaled to the same number of days (November so far = October \u00d7 days \u00f7 31; shown in grey in its box, marked \u00a7 on the tables). If <b>Other maintenance</b> is left blank it is calculated as Porter + Insurance &amp; IOT + Warranty provision \u2212 Scrap \u2212 Insurance claim from the lines entered for that month (shown in grey in its box, marked \u2021 on the tables). COCO, Petty expenses, Warranty claim and AD recovery are kept for reference. Changes save as you leave each box.</p><div class="row"><select data-a="opscity">'+CITIES.filter(function(c){return state.store.rows.some(function(r){return r.city===c;});}).map(function(c){return '<option value="'+c+'"'+(state.opsCity===c?' selected':'')+'>'+CITY_FULL[c]+'</option>';}).join('')+'</select></div>';
   var oc=state.opsCity||'BLR', oms=ms.filter(function(m){ return !/p$/.test(m); });   // the same-days column (e.g. Sep 1-20) is calculated, not entered var nm=new Date(); var cur=nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0'); if(oms.indexOf(cur)<0) oms.push(cur);
   h+='<div class="tw"><table><tr><th>Input</th>'+oms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
-  OPS_IN.forEach(function(f){ h+='<tr><td'+(f[0]==='labour'||f[0]==='other'?' style="font-weight:700"':'')+'>'+f[1]+'</td>'+oms.map(function(m){ var o=(state.ops[oc]||{})[m]||{}, v=o[f[0]]; return '<td><input type="number" step="0.01" style="width:78px" data-a="opsin" data-k="'+f[0]+'" data-c="'+oc+'" data-m="'+m+'" value="'+(v==null?'':Math.round(v/1000)/100)+'"'+((f[0]==='other'&&v==null&&otherCalc(o)!=null)?' placeholder="'+(Math.round(otherCalc(o)/1000)/100)+'" title="Calculated: Porter + Insurance &amp; IOT + Warranty provision \u2212 Scrap \u2212 Insurance claim. Type a figure to replace it."':'')+'></td>'; }).join('')+'</tr>'; });
+  OPS_IN.forEach(function(f){ h+='<tr><td'+(f[0]==='labour'||f[0]==='other'?' style="font-weight:700"':'')+'>'+f[1]+'</td>'+oms.map(function(m){ var o=(state.ops[oc]||{})[m]||{}, v=o[f[0]]; return '<td><input type="number" step="0.01" style="width:78px" data-a="opsin" data-k="'+f[0]+'" data-c="'+oc+'" data-m="'+m+'" value="'+(v==null?'':Math.round(v/1000)/100)+'"'+((f[0]==='other'&&v==null&&otherCalc(o)!=null)?' placeholder="'+(Math.round(otherCalc(o)/1000)/100)+'" title="Calculated: Porter + Insurance &amp; IOT + Warranty provision \u2212 Scrap \u2212 Insurance claim. Type a figure to replace it."':'')+((f[0]==='labour'&&v==null&&labourEst(oc,m))?' placeholder="'+(Math.round(labourEst(oc,m).v/1000)/100)+'" title="Estimated: the latest month with labour entered, scaled to the same number of days. Type a figure to replace it."':'')+'></td>'; }).join('')+'</tr>'; });
   h+='</table></div></div>';
   h+='<div class="card"><h3>Fleet and km (denominators for per-bike and per-km)</h3><p class="sub">Fleet = monthly average of daily active bikes; km = sum of each bike\'s monthly km (Metabase exports).</p><div class="tw"><table><tr><th>City / metric</th>'+ms.map(function(m){return '<th>'+C.monthLabel(m)+'</th>';}).join('')+'</tr>';
   cs.forEach(function(c){ [['fleet','Fleet (avg active bikes)'],['km','Km run']].forEach(function(t2){ h+='<tr><td>'+c+' \u00b7 '+t2[1]+'</td>'+ms.map(function(m){ var v=(state[t2[0]][c]||{})[m]; return '<td>'+(v==null?'\u2013':Math.round(v).toLocaleString('en-IN'))+'</td>'; }).join('')+'</tr>'; }); });
