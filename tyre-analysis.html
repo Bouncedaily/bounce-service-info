@@ -1133,28 +1133,51 @@ async function loadCpk() {
   catch (e) { box.innerHTML = '<div style="padding:16px;color:#b91c1c">Could not load: ' + (e.message || e) + '</div>'; CPK.key = ''; return; }
   renderCpk();
 }
-function renderCpk() {
-  const box = document.getElementById('cpk-body'), D = CPK.data; if (!box || !D) return;
+// 24 Nov 2026: totals. The total of a rate is cost / km of the replacements behind it (not a sum of the rates, which would count the two rear tyre rows twice
+// and be thrown off by a part with a single replacement): a "Total (all parts)" row per month and a "Total" column (all months) per part.
+function cpkModel() {
+  const D = CPK.data; if (!D) return null;
   const months = D.months || [], by = {}; (D.rows || []).forEach(r => { (by[r.part] = by[r.part] || {})[r.mon] = r; });
   const order = ['Front Brake Pad','Rear Brake Pad','Fr Brake Shoe Set - Drum','Rr Brake Shoe Set - Drum','Front Tyre (12 Inch / Zoom)','Rear Tyre (Energy Ride / 12Inch)','Rear Tyre 12 Inch (Zoom)','Cone Set Assy','Front Wheel Bearing'];
   const parts = order.filter(p => by[p]).concat(Object.keys(by).filter(p => !order.includes(p)));
+  const add = (acc, r) => { acc.cost += +r.cost_known || 0; acc.km += +r.km_known || 0; acc.nk += +r.n_known || 0; acc.na += (+r.n_all || +r.n_total || 0); };
+  const mk = acc => acc.km > 0 ? { cost_per_km: acc.cost / acc.km, cost_known: acc.cost, km_known: acc.km, n_known: acc.nk, n_all: acc.na, avg_cost: acc.nk ? Math.round(acc.cost / acc.nk) : null } : null;
+  const TOTAL = '\u0000total'; by[TOTAL] = {};
+  months.forEach(m => { const acc = { cost: 0, km: 0, nk: 0, na: 0 }; parts.forEach(p => { const r = by[p][m]; if (r) add(acc, r); }); const rec = mk(acc); if (rec) by[TOTAL][m] = rec; });
+  const colTotal = {}; parts.concat([TOTAL]).forEach(p => { const acc = { cost: 0, km: 0, nk: 0, na: 0 }; months.forEach(m => { const r = (by[p] || {})[m]; if (r) add(acc, r); }); colTotal[p] = mk(acc); });
+  return { months, by, parts, TOTAL, colTotal };
+}
+function renderCpk() {
+  const box = document.getElementById('cpk-body'), M = cpkModel(); if (!box || !M) return;
+  const { months, by, parts, TOTAL, colTotal } = M;
   const mLbl = m => { const d = new Date(m + '-01T00:00:00'); return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); };
   const cur = (() => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); })();
-  const cell = (part, i) => {
-    const r = (by[part] || {})[months[i]]; if (!r || r.cost_per_km == null) return '<td class="num" style="color:#cbd5e1">–</td>';
+  const SEP = 'border-left:2px solid var(--border,#e2e8f0);';
+  const STK = 'position:sticky;bottom:0;z-index:1;background:var(--bg-soft,#f8fafc);box-shadow:0 -2px 0 var(--border,#cbd5e1);';   // the total row stays at the bottom of the scrolling table
+  const fmtCell = (r, d, bold, extra) => {
     const v = +r.cost_per_km, thin = (+r.n_known || 0) < 30;
+    const tip = `₹${v.toFixed(4)} per km · ₹${(+r.cost_known || 0).toLocaleString('en-IN')} over ${(+r.km_known || 0).toLocaleString('en-IN')} km · based on ${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_all || +r.n_total || 0).toLocaleString('en-IN')} replaced · avg cost ₹${r.avg_cost != null ? (+r.avg_cost).toLocaleString('en-IN') : '–'}`;
+    return `<td class="num" title="${tip}" style="${thin ? 'color:#94a3b8;' : ''}${bold ? 'font-weight:700;' : ''}${extra || ''}">₹${v.toFixed(4)}${d}<div class="sub" style="font-size:10px;color:#94a3b8;font-weight:400">${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_all || +r.n_total || 0).toLocaleString('en-IN')}</div></td>`;
+  };
+  const cell = (part, i, bold, extra) => {
+    const r = (by[part] || {})[months[i]]; if (!r || r.cost_per_km == null) return '<td class="num" style="color:#cbd5e1;' + (extra || '') + '">–</td>';
+    const v = +r.cost_per_km;
     let d = ''; for (let j = i - 1; j >= 0; j--) { const p = (by[part] || {})[months[j]]; if (p && p.cost_per_km != null) { const pv = +p.cost_per_km; if (pv > 0) { const pc = (v - pv) / pv * 100;
       d = Math.abs(pc) < 0.5 ? '<span style="color:#94a3b8;font-size:10.5px"> 0%</span>' : `<span style="color:${pc > 0 ? '#b91c1c' : '#15803d'};font-size:10.5px"> ${pc > 0 ? '▲' : '▼'}${Math.abs(pc).toFixed(0)}%</span>`; } break; } }
-    const tip = `₹${v.toFixed(4)} per km · ₹${(+r.cost_known || 0).toLocaleString('en-IN')} over ${(+r.km_known || 0).toLocaleString('en-IN')} km · based on ${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_all || r.n_total || 0).toLocaleString('en-IN')} replaced that month · avg cost ₹${r.avg_cost != null ? (+r.avg_cost).toLocaleString('en-IN') : '–'}`;
-    return `<td class="num" title="${tip}" style="${thin ? 'color:#94a3b8' : ''}">₹${v.toFixed(4)}${d}<div class="sub" style="font-size:10px;color:#94a3b8">${(+r.n_known || 0).toLocaleString('en-IN')} of ${(+r.n_all || r.n_total || 0).toLocaleString('en-IN')}</div></td>`;
+    return fmtCell(r, d, bold, extra || '');
   };
-  box.innerHTML = `<table><thead><tr><th style="text-align:left">Part</th>${months.map(m => `<th class="num">${mLbl(m)}${m === cur ? ' (so far)' : ''}</th>`).join('')}</tr></thead><tbody>${
-    parts.map(p => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[p] || p}</td>${months.map((m, i) => cell(p, i)).join('')}</tr>`).join('')}</tbody></table>`;
+  const totCell = (p, bold, extra) => colTotal[p] ? fmtCell(colTotal[p], '', bold, SEP + (extra || '')) : `<td class="num" style="${SEP}color:#cbd5e1;${extra || ''}">–</td>`;
+  box.innerHTML = `<table><thead><tr><th style="text-align:left">Part</th>${months.map(m => `<th class="num">${mLbl(m)}${m === cur ? ' (so far)' : ''}</th>`).join('')}<th class="num" style="${SEP}" title="All the months shown together: cost of the replacements ÷ km the parts lasted">Total</th></tr></thead><tbody>${
+    parts.map(p => `<tr><td style="text-align:left;font-weight:600">${KMB_NAME[p] || p}</td>${months.map((m, i) => cell(p, i, false)).join('')}${totCell(p, true)}</tr>`).join('')}`
+    + `<tr><td style="text-align:left;font-weight:700;${STK}" title="All parts together: cost of all these replacements ÷ km the parts lasted (not a sum of the rows above)">Total (all parts)</td>${months.map((m, i) => cell(TOTAL, i, true, STK)).join('')}${totCell(TOTAL, true, STK)}</tr></tbody></table>`
+    + `<div style="font-size:11px;color:var(--muted,#64748b);padding:8px 16px">Total = cost of all the replacements ÷ km those parts lasted (a weighted figure, not a sum of the rows). The Total column covers all months shown; the Total row covers all parts.</div>`;
 }
 function exportCpkCSV() {
-  const D = CPK.data; if (!D) return; const months = D.months || [], by = {}; (D.rows || []).forEach(r => { (by[r.part] = by[r.part] || {})[r.mon] = r; });
-  const rows = [['Part', ...months.flatMap(m => [m + ' Rs per km', m + ' based on'])]];
-  Object.keys(by).forEach(p => rows.push([KMB_NAME[p] || p, ...months.flatMap(m => { const r = by[p][m]; return [r && r.cost_per_km != null ? r.cost_per_km : '', r ? r.n_known : '']; })]));
+  const M = cpkModel(); if (!M) return; const { months, by, parts, TOTAL, colTotal } = M;
+  const rows = [['Part', ...months.flatMap(m => [m + ' Rs per km', m + ' based on']), 'Total Rs per km', 'Total based on']];
+  const line = (name, p) => [name, ...months.flatMap(m => { const r = (by[p] || {})[m]; return [r && r.cost_per_km != null ? (p === TOTAL ? Math.round(r.cost_per_km * 10000) / 10000 : r.cost_per_km) : '', r ? r.n_known : '']; }),
+    colTotal[p] ? Math.round(colTotal[p].cost_per_km * 10000) / 10000 : '', colTotal[p] ? colTotal[p].n_known : ''];
+  parts.forEach(p => rows.push(line(KMB_NAME[p] || p, p))); rows.push(line('Total (all parts)', TOTAL));
   kmbDownload('cost-per-km-by-month-' + CPK.repl + '.csv', rows);
 }
 async function loadKmb() {
