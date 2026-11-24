@@ -2680,7 +2680,8 @@ async function openCityModelDrilldown(dimKey, dimValue, status) {
   DD_CURRENT_ROWS = [];
   const valueLabel = dimValue === null ? 'All' : dimValue;
   const statusLabel = status === null ? 'All Bikes' : status === 'OOS' ? 'OOS' : status === 'pdi' ? 'PDI' : status === 'RFD' ? 'RFD' : 'Active Rental';
-  DD_CURRENT_TITLE = `${valueLabel} — ${statusLabel}`;
+  const _fnote = [document.getElementById('f-city').value, document.getElementById('f-hub').value, document.getElementById('f-model').value].filter(Boolean).join(' · ');
+  DD_CURRENT_TITLE = `${valueLabel} — ${statusLabel}` + (_fnote ? ` — ${_fnote}` : '');
 
   document.getElementById('dd-title').textContent = DD_CURRENT_TITLE;
   document.getElementById('dd-sub').textContent = 'Loading…';
@@ -2705,6 +2706,10 @@ async function openCityModelDrilldown(dimKey, dimValue, status) {
   }
   if (seq !== CM_DD_SEQ) return;
   applyHubMerge(rows);   // partner sub-hubs report under their parent hub, as everywhere on this dashboard
+  {   // only the vehicles the table above counted: keep the City / Hub / Model filters of the page
+    const _fc = document.getElementById('f-city').value, _fh = document.getElementById('f-hub').value, _fm = document.getElementById('f-model').value;
+    if (_fc || _fh || _fm) rows = rows.filter(r => (!_fc || r.city === _fc) && (!_fh || r.hub_name === _fh) && (!_fm || r.model_name === _fm));
+  }
   rows.sort((a, b) => (b.oos_age || 0) - (a.oos_age || 0));
   DD_CURRENT_ROWS = rows;
   document.getElementById('dd-sub').textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
