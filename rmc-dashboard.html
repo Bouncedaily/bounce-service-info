@@ -1089,6 +1089,9 @@ function cityCompareHtml(model){
   // cost drivers (ratios / per bike already: no unit conversion)
   var DV={}; cities.forEach(function(c){ cols.forEach(function(m){ DV[c+'|'+m]=model[c][m]?driverVals(c,m,model[c][m]):null; }); });
   var dv=function(k){ return function(c,m){ var v=DV[c+'|'+m]; return v?v[k]:null; }; };
+  // 25 Nov 2026: Parts per job card and Avg cost per part split into A, P and C right under their rows
+  var catSplit=function(parent,tag,key,fmt){ if(!ccOn('drv:'+parent)) return ''; var out='';
+    [['A','A: Wear & Tear'],['P','P: Rider-payable'],['C','C: Cost to company']].forEach(function(x){ var k='drv:'+tag+' \u00b7 '+x[0]; if(!ccOn(k)) return; out+=line(ccBtn(k)+x[1],dv(key+x[0]),fmt,1,'sub'); }); return out; };
   h+=sec('Cost drivers');
   var dline=function(label){ var k='drv:'+label; if(!ccOn(k)) return ''; var args=Array.prototype.slice.call(arguments); args[0]=ccBtn(k)+label; return line.apply(null,args); };
   // 24 Nov 2026: inflow split by submission type under "Inflow, all types" (count and its share of that city's inflow)
@@ -1110,7 +1113,9 @@ function cityCompareHtml(model){
   h+=dline('Service rate (bikes serviced \u00f7 bikes deployed)',dv('sr'),FP,0);
   h+=dline('Job cards per serviced bike',dv('jpb'),F2,1);
   h+=dline('Parts per job card (excl. items under \u20b910)',dv('ppj'),F2,1);
+  h+=catSplit('Parts per job card (excl. items under \u20b910)','Parts per job card','ppj',F2);
   h+=dline('Avg cost per part (\u20b9, A+P+C)',dv('cpp'),F1,1);
+  h+=catSplit('Avg cost per part (\u20b9, A+P+C)','Avg cost per part','cpp',F1);
   h+=dline('Parts cost per job card (\u20b9)',dv('pcj'),F0,1);
   h+=dline('Job cards with A+P parts over \u20b93,000',dv('ap3k'),function(v){ return v==null||!isFinite(v)?'\u2013':(v*100).toFixed(1)+'%'; },1);
   h+=dline('Refurbishment saving (\u20b9 per bike)',dv('ref'),F0,-1);
@@ -1403,6 +1408,11 @@ function viewOverviewMonthly(model){
 /* ---------- cost drivers and "what moved the cost" (wiki: metrics/cost-drivers.md) ---------- */
 function sumC(city, map, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var v=(map||{})[c+'|'+m]; if(v!=null){ t+=v; any=true; } }); return any?t:null; }
 function refurbAmt(city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var v=(state.refurb[c]||{})[m]; if(v!=null){ t+=v; any=true; } }); return any?t:null; }
+// 25 Nov 2026: the same part units split by cost category (A, P, C after the reclassification rules); the three add up to partUnits
+function partUnitsAPC(city, m){ var cs=city==='ALL'?state.F.cities:[city], u={A:0,P:0,C:0}, any=false, rule=C.compileRules(state.rules);
+  state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || !(r.qty>0) || r.amt/r.qty<10) return;
+    var b=r.issue==='C'?'C':((r.issue==='A'||r.issue==='P')?rule(r.pn,r.month,r.issue):null); if(b==null||u[b]==null) return; u[b]+=r.qty; any=true; });
+  return any?u:null; }
 // part units on A, P and C lines, leaving out items under Rs 10 a unit (screws, clips, cable ties: ~55% of units, ~1.4% of cost)
 // 25 Nov 2026: C lines are counted too. The cost (A + P + C) includes parts that arrive tagged C at source (more of them since 23 Oct); leaving their units out made
 // "Avg cost per part" jump (Bangalore Nov 1-22: 179 instead of about 165) and "Parts per job card" dip.
@@ -1474,6 +1484,9 @@ function driverVals(city, m, d){
     var bmY=baseMonth(m), jsY=jcShare(city,bmY), psY=partsShare(city,bmY);
     jcs=(jcs!=null&&jsY!=null)?jcs*jsY:null; bikes=(bikes!=null&&jsY!=null)?bikes*jsY:null;
     units=(units!=null&&psY!=null)?units*psY:null; ref=(ref!=null&&psY!=null)?ref*psY:null; }
+  var ub=partUnitsAPC(city,m), uA=null, uP=null, uC=null;   // by category, scaled exactly like the total units
+  if(ub){ var sc2=1, scOk=true; if(useFS()){ var fsU=filtShare(city,m); if(fsU==null) scOk=false; else sc2=fsU; } else if(state.F.dyear){ var psU=partsShare(city,baseMonth(m)); if(psU==null) scOk=false; else sc2=psU; }
+    if(scOk){ uA=ub.A*sc2; uP=ub.P*sc2; uC=ub.C*sc2; } }
   var jp=sumC(city,state.store.jc,m), ok=(state.F.dyear||useFS())?true:(jcs!=null&&bikes!=null&&jcs>=bikes&&(jp==null||jcs>=jp));
   var jpS=jp; if(useFS()){ var fsJ=filtShare(city,m); jpS=(jp!=null&&fsJ!=null)?jp*fsJ:null; } else if(state.F.dyear){ var jsJ=jcShare(city,baseMonth(m)); jpS=(jp!=null&&jsJ!=null)?jp*jsJ:null; }   // 18 Nov 2026
   if(!ok){ jcs=null; bikes=null; jpS=null; }   // impossible counts (fewer job cards than bikes or than job cards with parts): incomplete data
@@ -1490,7 +1503,7 @@ function driverVals(city, m, d){
     rdays:(function(){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var r=(state.rental||{})[c+'|'+m]; if(r){ t+=r.rd; any=true; } }); return any?t:null; })(),
     util:(function(){ var cs=city==='ALL'?state.F.cities:[city], rd=0, cap=0, dd=periodDays(m); cs.forEach(function(c){ var r=(state.rental||{})[c+'|'+m]; if(r&&r.fleet){ rd+=r.rd; cap+=r.fleet*dd; } }); return cap?rd/cap:null; })(),   // 3 Nov 2026: job cards billed this month that were open 30+ days
     smo:(function(){ var e=extrasFor(city,m); return (e&&e.smd)?e.sm/e.smd:null; })(),   // 3 Nov 2026: % of job cards billed this month that were also opened this month   // 3 Nov 2026: avg service TAT, hours (job card opened -> billed)
-    sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
+    sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), ppjA:q(uA,jcs), ppjP:q(uP,jcs), ppjC:q(uC,jcs), cppA:q(d?d.A:null,uA), cppP:q(d?d.P:null,uP), cppC:q(d?d.C:null,uC), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
     visits:q(jcs,fleet), pb:q(parts,fleet), lb:q(lab,fleet), ob:q(oth,fleet) };
 }
 function driversHtml(city, ms, model){
@@ -1504,11 +1517,13 @@ function driversHtml(city, ms, model){
   var f2=function(v){return v==null?'\u2013':v.toFixed(2);}, f0=function(v){return v==null?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null?'\u2013':Math.round(v*100)+'%';}, f1=function(v){return v==null?'\u2013':v.toFixed(1);};
   var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: revenue damage fee','rrb',f0,'rr'],['Net service cost \u00b7 less damage fee + recovery (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Avg cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Refurb penetration (refurbished \u00f7 refurbished + new)','rpen',fp],['Km per bike per day','kmpd',f1],['Parts cost per 100 km (\u20b9)','p100',f1],['Top 10 parts share of parts cost','top10',fp],['Running repair + bike exchange: back within 7 days','rr7',fp],['Avg service TAT (hours, job card opened \u2192 billed)','tat',f1],['Job cards open 30+ days (billed this month)','lc30',f0],['Job cards billed this month that were opened this month','smo',fp],['Bikes deployed (avg fleet)','fleet',f0],['Active rental days (bookings)','rdays',f0],['Utilisation','util',fp],['Job cards with A+P parts over \u20b93,000','ap3k',fp],['Bikes serviced','bikes',f0],['Inflow, all types','infl',f0],['Job cards','jcs',f0],['Job cards with parts','jpc',f0],['Labour-only job cards','lbo',f0]];
   var _ix=-1; rows.forEach(function(r,i){ if(r[1]==='infl') _ix=i; }); if(_ix>=0) _it.slice().reverse().forEach(function(g){ rows.splice(_ix+1,0,['Inflow \u00b7 '+g,'infl:'+g,f0,'isub']); });   // split rows right under "Inflow, all types"
+  [['ppj','Parts per job card (excl. items under \u20b910)','Parts per job card',f2],['cpp','Avg cost per part (\u20b9, A+P+C)','Avg cost per part',f1]].forEach(function(g){ var ix=-1; rows.forEach(function(r,i){ if(r[1]===g[0]) ix=i; });   // 25 Nov 2026: A, P, C right under these two rows
+    if(ix>=0) [['C','C: Cost to company'],['P','P: Rider-payable'],['A','A: Wear & Tear']].forEach(function(x){ rows.splice(ix+1,0,[x[1],g[0]+x[0],g[3],'psub',g[1],g[2]+' \u00b7 '+x[0]]); }); });
   var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 cost drivers</h3><div class="tw"><table><tr><th>Driver</th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+(full.length>1?'<th>Avg '+C.monthLabel(ms[full[0]])+'\u2013'+C.monthLabel(ms[full[full.length-1]])+'</th>':'')+'</tr>';
   var mark=function(r,v){ if(r[3]==='isub'){ var tt=v.infl, xx=v[r[1]]; return (tt&&xx!=null)?' <span style="font-size:11px;color:#94a3b8">'+Math.round(100*xx/tt)+'%</span>':''; } if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
-  rows.forEach(function(r){ if(!ccOn('drv:'+r[0])) return; if(r[3]==='isub'&&!ccOn('drv:Inflow, all types')) return; var isub=r[3]==='isub'; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='infl'||r[1]==='jcs'||r[1]==='jpc'||r[1]==='lbo', less=String(r[0]).indexOf('Less:')===0;
+  rows.forEach(function(r){ if(!ccOn('drv:'+(r[5]||r[0]))) return; if(r[3]==='isub'&&!ccOn('drv:Inflow, all types')) return; if(r[3]==='psub'&&!ccOn('drv:'+r[4])) return; var isub=r[3]==='isub'||r[3]==='psub'; var sep=r[1]==='bikes'||r[1]==='sr', net=r[1]==='netb'||r[1]==='net1b', grey=r[1]==='bikes'||r[1]==='infl'||r[1]==='jcs'||r[1]==='jpc'||r[1]==='lbo', less=String(r[0]).indexOf('Less:')===0;
     var memo=r[3]==='ic'||r[3]==='sc';
-    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#64748b;font-style:italic"':'')+'><td'+(grey||less||memo||isub?' style="color:'+(memo?'#94a3b8':(isub?'#475569':'#6b7280'))+((less||memo||isub)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+r[0])+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
+    h+='<tr'+(sep?' style="border-top:2px solid #e5e7eb"':'')+(net?' class="tot"':'')+(memo?' style="color:#64748b;font-style:italic"':'')+'><td'+(grey||less||memo||isub?' style="color:'+(memo?'#94a3b8':(isub?'#475569':'#6b7280'))+((less||memo||isub)?';padding-left:18px':'')+'"':'')+'>'+ccBtn('drv:'+(r[5]||r[0]))+r[0]+'</td>'+V.map(function(v){return '<td>'+r[2](v[r[1]])+mark(r,v)+'</td>';}).join('')+(full.length>1?'<td style="font-weight:600;background:#fef2f2">'+r[2](avg(r[1]))+'</td>':'')+'</tr>'; });
   h+='</table></div><p class="sub">Net service cost = Total \u2212 revenue damage fee \u2212 revenue recovery (recovery data from May 2026). Insurance claims and scrap sales are shown for reference only: Other maintenance already has them deducted (Other = porter + insurance & IOT + warranty provision \u2212 scrap \u2212 insurance claims, as in the report), so they are not deducted again. Inputs are under Rules & settings (up to Sep, the old AD recovery figure is in revenue damage fee). \u2020 = input blank, so the portal figure is used (damage fee: damage fees collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city). * = not entered for some city, counted as 0.</p>';
   var bad=ms.filter(function(m,i){ return !V[i].ok; });
   if(state.F.dyear) h+='<p class="sub">Deployed year '+esc(state.F.dyear)+': labour, other, revenue and insurance are split by share of job cards, scrap by share of parts cost. Job cards and bikes serviced are estimated with the year\u2019s share of job cards, part counts and refurb saving with its share of parts cost, so read the job-card drivers as estimates. Job-card mix and the 7-day comeback are exact for the year.</p>';
