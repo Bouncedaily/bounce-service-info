@@ -1708,7 +1708,7 @@ function _renderTechRows() {
     return;
   }
 
-  tbody.innerHTML = techs.map(function(t) {
+  var rowsHtml = techs.map(function(t) {
     var totalLab = t.labN ? t.labSum.toFixed(2) : '—';
     var avgLab   = t.avgLab != null ? t.avgLab.toFixed(2) : '—';
     var totalCost = t.costN ? '₹' + Math.round(t.costSum).toLocaleString('en-IN') : '—';
@@ -1726,6 +1726,33 @@ function _renderTechRows() {
       '<td class="num">' + avgCost + '</td>' +
     '</tr>';
   }).join('');
+
+  // Total row (same .tfoot style as the other tables). Sums run over every
+  // technician row; the two averages are weighted (total / total n), not an
+  // average of the per-technician averages. Not affected by the sort order.
+  var T = { days: 0, count: 0, rr: 0, oos: 0, labSum: 0, labN: 0, costSum: 0, costN: 0 };
+  _techRowsAll.forEach(function(t) {
+    T.days += t.daysCount; T.count += t.count; T.rr += t.rrCount; T.oos += t.oosCount;
+    T.labSum += t.labSum; T.labN += t.labN; T.costSum += t.costSum; T.costN += t.costN;
+  });
+  var tLab     = T.labN  ? T.labSum.toFixed(2) : '—';
+  var tAvgLab  = T.labN  ? (T.labSum / T.labN).toFixed(2) : '—';
+  var tCost    = T.costN ? '₹' + Math.round(T.costSum).toLocaleString('en-IN') : '—';
+  var tAvgCost = T.costN ? '₹' + Math.round(T.costSum / T.costN).toLocaleString('en-IN') : '—';
+  var totalHtml = '<tr class="tfoot">' +
+      '<td>Total</td>' +
+      '<td></td>' +
+      '<td class="num">' + T.days + '</td>' +
+      '<td class="num">' + T.count + '</td>' +
+      '<td class="num">' + T.rr + '</td>' +
+      '<td class="num">' + T.oos + '</td>' +
+      '<td class="num">' + tLab + '</td>' +
+      '<td class="num">' + tAvgLab + '</td>' +
+      '<td class="num">' + tCost + '</td>' +
+      '<td class="num">' + tAvgCost + '</td>' +
+    '</tr>';
+
+  tbody.innerHTML = rowsHtml + totalHtml;
 }
 
 function populateBikeListTypeFilters() {
