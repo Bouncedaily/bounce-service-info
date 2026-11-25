@@ -72,9 +72,10 @@ textarea{min-height:52px;resize:vertical}
     <div class="muted" style="font-size:12px;margin:-2px 0 8px">Hubs past their audit frequency, most overdue first. Follows the city / hub filter.</div>
     <div id="due-list" class="muted"><span class="spin"></span>Loading…</div></div>
   <div class="card">
-    <div class="htabs" role="tablist"><button class="htab on" id="htab-score" role="tab" aria-selected="true" onclick="switchHubTab('score')">Hub audit score</button><button class="htab" id="htab-trend" role="tab" aria-selected="false" onclick="switchHubTab('trend')">Hub audit trend</button></div>
+    <div class="htabs" role="tablist"><button class="htab on" id="htab-score" role="tab" aria-selected="true" onclick="switchHubTab('score')">Hub audit score</button><button class="htab" id="htab-trend" role="tab" aria-selected="false" onclick="switchHubTab('trend')">Hub audit trend</button><button class="htab" id="htab-section" role="tab" aria-selected="false" onclick="switchHubTab('section')">Section-wise score</button></div>
     <div id="hpane-score"><div id="scorecards" class="muted"><span class="spin"></span>Loading…</div></div>
     <div id="hpane-trend" style="display:none"><div id="trend" class="muted"><span class="spin"></span>Loading…</div></div>
+    <div id="hpane-section" style="display:none"><div style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><label style="margin:0;white-space:nowrap">Audit shown</label><select id="sec-pick" style="width:auto;min-width:150px" onchange="pickSecAudit(this.value)"><option value="0">Latest audit</option><option value="1">Previous audit</option><option value="2">3rd latest</option><option value="3">4th latest</option><option value="4">5th latest</option><option value="5">6th latest</option></select><span class="sub" style="margin:0">for each hub</span></div><div id="sections" class="muted"><span class="spin"></span>Loading…</div></div>
   </div>
   <div class="card"><h3>CAPA management</h3><div id="capa-sum" class="bars" style="margin-bottom:10px"></div><div id="capa" class="muted"><span class="spin"></span>Loading…</div></div>
   <div class="card"><h3>Flagged submissions (geo / out-of-hours)</h3><div id="flagged" class="muted"><span class="spin"></span>Loading…</div></div>
@@ -150,18 +151,18 @@ async function load(){
   document.getElementById('f-hub').onchange=e=>{FILTER.hub=e.target.value;renderAll();};
   document.getElementById('f-clear').onclick=()=>{FILTER={city:'',hub:''};document.getElementById('f-city').value='';fillHubFilter();renderAll();};
   renderAll();
+  loadSectionScores();
 }
 function fillHubFilter(){const hs=HUBS.filter(h=>!FILTER.city||h.city===FILTER.city);document.getElementById('f-hub').innerHTML='<option value="">All hubs</option>'+hs.map(h=>`<option value="${h.id}"${FILTER.hub===h.id?' selected':''}>${esc(h.name)}</option>`).join('');}
 
-function renderAll(){renderKpis();renderDue();renderScorecards();renderTrend();renderCapa();renderFlagged();renderRecent();}
+function renderAll(){renderKpis();renderDue();renderScorecards();renderTrend();renderSections();renderCapa();renderFlagged();renderRecent();}
 
 // ── HUB AUDIT TREND ──
 var TREND_N=6;   // how many of the latest audits each hub shows
 function switchHubTab(t){
-  var trend=t==='trend';
-  document.getElementById('hpane-score').style.display=trend?'none':'';
-  document.getElementById('hpane-trend').style.display=trend?'':'none';
-  [['score','htab-score'],['trend','htab-trend']].forEach(function(p){var on=(p[0]==='trend')===trend,b=document.getElementById(p[1]);b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');});
+  [['score','htab-score','hpane-score'],['trend','htab-trend','hpane-trend'],['section','htab-section','hpane-section']].forEach(function(p){
+    var on=p[0]===t;document.getElementById(p[2]).style.display=on?'':'none';
+    var b=document.getElementById(p[1]);b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');});
 }
 var RTINT={'Excellent':['#f0fdf4','#15803d'],'Good':['#fffbeb','#b45309'],'Needs Improvement':['#fff7ed','#c2410c'],'Critical':['#fef2f2','#b91c1c']};
 function ordLast(k){return k===0?'Latest':k===1?'Previous':(k+1)+(k===2?'rd':'th')+' last';}
@@ -209,6 +210,64 @@ function renderTrend(){
   el.innerHTML=note+(rows.length?'<div style="overflow-x:auto"><table class="ttbl"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="muted">No hubs for the selected filter.</div>');
 }
 
+// ── SECTION-WISE SCORE (24 Nov 2026) ──
+// A section is scored exactly like the whole audit: OK ÷ (OK + Issue); N/A and unchecked points are left out. So the overall score is the pooled result of its sections.
+// The tab can show any of a hub's last 6 audits ("Audit shown"); the change arrows compare with the audit before the one shown.
+var SECS={},SEC_SEEN={},SEC_READY=false,SEC_ERR='',SEC_N=0,RT_LOADED=false,RT_CFG={excellent:90,good:75,needs_improvement:60};
+function secBand(p){return p>=RT_CFG.excellent?'Excellent':p>=RT_CFG.good?'Good':p>=RT_CFG.needs_improvement?'Needs Improvement':'Critical';}
+function secPct(c){var d=(c.ok||0)+(c.ng||0);return d?Math.round(c.ok/d*1000)/10:null;}
+function secTip(name,c){var p=secPct(c);return name+': '+(c.ok||0)+' OK · '+(c.ng||0)+' Issue'+(c.na?' · '+c.na+' N/A':'')+(c.nc?' · '+c.nc+' not checked':'')+(p==null?'':' ('+Math.round(p)+'%, '+secBand(p)+')');}
+function hubList(hubId){return AUDITS.filter(function(a){return a.hub_id===hubId;});}   // newest first
+async function ensureSecFor(ids){
+  var need=ids.filter(function(id){return !SEC_SEEN[id];});if(!need.length)return;
+  var rows=await api('rpc/get_section_scores',{method:'POST',body:JSON.stringify({p_audit_ids:need})});
+  need.forEach(function(id){SEC_SEEN[id]=true;SECS[id]=SECS[id]||{};});
+  rows.forEach(function(r){(SECS[r.audit_id]=SECS[r.audit_id]||{})[r.section]={ok:r.ok,ng:r.ng,na:r.na,nc:r.nc,order:r.sort_order};});
+}
+function idsForPick(n){var ids=[];HUBS.forEach(function(h){var l=hubList(h.id);if(l[n])ids.push(l[n].id);if(l[n+1])ids.push(l[n+1].id);});return ids;}
+async function loadSectionScores(){
+  try{
+    if(!RT_LOADED){try{var cfg=await api('app_config?select=value&key=eq.rating_thresholds');if(cfg&&cfg[0]&&cfg[0].value){var v=typeof cfg[0].value==='string'?JSON.parse(cfg[0].value):cfg[0].value;if(v&&v.excellent!=null)RT_CFG=v;}}catch(e){}RT_LOADED=true;}
+    await ensureSecFor(idsForPick(SEC_N));
+    SEC_READY=true;SEC_ERR='';
+  }catch(e){SEC_ERR=(e&&e.message)||'failed';}
+  renderSections();
+}
+window.pickSecAudit=function(v){SEC_N=+v||0;SEC_READY=false;var el=document.getElementById('sections');if(el){el.className='muted';el.innerHTML='<span class="spin"></span>Loading…';}loadSectionScores();};
+function renderSections(){
+  var el=document.getElementById('sections');if(!el)return;
+  if(SEC_ERR){el.className='';el.innerHTML='<div class="err">Section scores could not be loaded: '+esc(SEC_ERR)+' <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;margin-left:6px" onclick="SEC_ERR=\'\';loadSectionScores()">Retry</button></div>';return;}
+  if(!SEC_READY)return;   // still loading: keep the spinner
+  var pick=document.getElementById('sec-pick'),pickLbl=pick&&pick.selectedOptions&&pick.selectedOptions[0]?pick.selectedOptions[0].text.toLowerCase():'latest audit';
+  var hubs=HUBS.filter(function(h){return h.is_active!==false&&inFilter(h.id);});
+  var order={};hubs.forEach(function(h){var a=hubList(h.id)[SEC_N];if(!a||!SECS[a.id])return;Object.keys(SECS[a.id]).forEach(function(n){var c=SECS[a.id][n];if((c.ok||0)+(c.ng||0)>0)order[n]=Math.min(order[n]==null?999:order[n],c.order);});});
+  var cols=Object.keys(order).sort(function(x,y){return order[x]-order[y]||x.localeCompare(y);});
+  var head='<th>Hub</th><th>City</th><th>Audit date</th><th class="r" style="white-space:normal">Overall</th>'+cols.map(function(n){return '<th class="r" style="white-space:normal;line-height:1.25;vertical-align:bottom;min-width:74px">'+esc(n)+'</th>';}).join('');
+  var pool={},ovSum=0,ovN=0;   // Network row = average of the hubs shown, each hub once (like the Network score tile)
+  var body=hubs.map(function(h){
+    var l=hubList(h.id),a=l[SEC_N],name=esc(h.name);
+    if(!l.length)return '<tr><td>'+name+'</td><td>'+esc(h.city)+'</td><td colspan="'+(cols.length+2)+'" class="muted">No audits yet</td></tr>';
+    if(!a)return '<tr><td>'+name+'</td><td>'+esc(h.city)+'</td><td colspan="'+(cols.length+2)+'" class="muted">No '+esc(pickLbl)+' (only '+l.length+' audit'+(l.length===1?'':'s')+')</td></tr>';
+    var cur=SECS[a.id]||{},pa=l[SEC_N+1],prev=pa?(SECS[pa.id]||{}):null;
+    var ot=RTINT[a.rating]||['#f8fafc','#475569'];ovSum+=+a.overall_score||0;ovN++;
+    var cells='<td>'+fmtDate(a.audit_date)+'</td><td class="sc" style="background:'+ot[0]+';color:'+ot[1]+'" title="'+esc('Overall '+Math.round(+a.overall_score||0)+'% ('+(a.rating||'—')+')')+'" onclick="openAudit(\''+a.id+'\')">'+Math.round(+a.overall_score||0)+'%</td>';
+    cols.forEach(function(n){
+      var c=cur[n],p=c?secPct(c):null;
+      if(p==null){cells+='<td class="sc none">—</td>';return;}
+      var t=RTINT[secBand(p)]||['#f8fafc','#475569'],dl='';
+      if(prev&&prev[n]){var pp=secPct(prev[n]);if(pp!=null){var d=Math.round(p)-Math.round(pp);if(d!==0)dl=' <span class="dl" style="color:'+(d>0?'#16a34a':'#dc2626')+'" title="'+(d>0?'Up':'Down')+' '+Math.abs(d)+' points since '+esc(fmtDate(pa.audit_date))+'">'+(d>0?'▲':'▼')+Math.abs(d)+'</span>';}}
+      (pool[n]=pool[n]||{sum:0,n:0});pool[n].sum+=p;pool[n].n++;
+      cells+='<td class="sc" style="background:'+t[0]+';color:'+t[1]+'" title="'+esc(secTip(n,c))+'" onclick="openAudit(\''+a.id+'\',\''+esc(n.replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+'\')">'+Math.round(p)+'%'+dl+'</td>';
+    });
+    return '<tr><td>'+name+'</td><td>'+esc(h.city)+'</td>'+cells+'</tr>';
+  }).join('');
+  var net='<tr style="border-top:2px solid var(--border)"><td><b>Network</b></td><td class="muted">'+hubs.length+' hubs</td><td></td>'+(function(){var p=ovN?ovSum/ovN:null,t=p==null?null:RTINT[secBand(p)];return '<td class="sc none" style="font-weight:700;cursor:default;'+(t?'background:'+t[0]+';color:'+t[1]:'')+'" title="'+esc(p==null?'':'Average overall score of '+ovN+' hub'+(ovN===1?'':'s'))+'">'+(p==null?'—':Math.round(p)+'%')+'</td>';})()+
+    cols.map(function(n){var p=pool[n]?pool[n].sum/pool[n].n:null,t=p==null?null:RTINT[secBand(p)];return '<td class="sc none" style="font-weight:700;cursor:default;'+(t?'background:'+t[0]+';color:'+t[1]:'')+'" title="'+esc(p==null?'':n+' — average of '+pool[n].n+' hub'+(pool[n].n===1?'':'s'))+'">'+(p==null?'—':Math.round(p)+'%')+'</td>';}).join('')+'</tr>';
+  var legend=['Excellent','Good','Needs Improvement','Critical'].map(function(r){return '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:9px;height:9px;border-radius:50%;background:'+ratingColor(r)+';display:inline-block"></span>'+r+'</span>';}).join('');
+  var note='<div class="sub" style="margin:0 0 10px">Each hub\'s '+esc(pickLbl)+'. A section\'s score is the percentage OK ÷ (OK + Issue), the same way the overall score is worked out; N/A and unchecked points are left out. Colour is the rating band. The small ▲▼ is the change in percentage points since the hub\'s audit before this one. The Network row is the average of the hubs shown (each hub counts once, like the Network score above). Hover for the OK / Issue counts, click a score to open that audit at that section.&nbsp;&nbsp;'+legend+'</div>';
+  el.className='';
+  el.innerHTML=note+(hubs.length?'<div style="overflow-x:auto"><table class="ttbl"><thead><tr>'+head+'</tr></thead><tbody>'+body+net+'</tbody></table></div>':'<div class="muted">No hubs for the selected filter.</div>');
+}
 function latestByHub(){const l={};AUDITS.forEach(a=>{if(!l[a.hub_id])l[a.hub_id]=a;});return l;}
 
 function renderKpis(){
@@ -331,6 +390,7 @@ function respBadgePdf(r){
   const color=r==='OK'?'#16a34a':(r==='NG'?'#dc2626':'#94a3b8');
   return '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:'+color+';white-space:nowrap">'+label+'</span>';
 }
+function secCountsOf(cps){var c={ok:0,ng:0,na:0,nc:0};(cps||[]).forEach(function(x){var v=x.response;if(v==='OK')c.ok++;else if(v==='NG')c.ng++;else if(v==='NA')c.na++;else c.nc++;});return c;}
 function buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap){
   const img=p=>{const d=photoMap[p];return d?'<img src="'+d+'" style="max-width:85px;max-height:85px;border-radius:6px;border:1px solid #e5e9f0;margin:2px;object-fit:cover">':'';};
   const card=(label,val,color)=>'<div style="flex:1;border:1px solid #e5e9f0;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700'+(color?';color:'+color:'')+'">'+val+'</div><div style="font-size:10px;color:#64748b">'+label+'</div></div>';
@@ -344,11 +404,16 @@ function buildReportHtml(audit,sections,technicians,vehicles,capas,photoMap){
   h+=card('Risk Band',esc(audit.risk_band||'—'), (audit.risk_band==='Critical'||audit.risk_band==='High')?'#dc2626':null);
   h+=card('CAPAs',capas.length);
   h+='</div>';
+  var secRows=sections.filter(s=>s.checkpoints&&s.checkpoints.length).map(s=>{var c=secCountsOf(s.checkpoints);return {n:s.name,c:c,p:secPct(c)};}).filter(r=>r.p!=null);
+  if(secRows.length){
+    h+='<div style="margin-bottom:14px"><b style="font-size:11px">Section scores</b><span style="font-size:10px;color:#64748b"> (OK ÷ OK + Issue)</span><table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px"><tr><th style="text-align:left;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Section</th><th style="text-align:right;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Score</th><th style="text-align:right;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">OK</th><th style="text-align:right;padding:6px;background:#f8f9fa;border-bottom:1px solid #e5e9f0">Issue</th></tr>'+
+      secRows.map(r=>'<tr><td style="padding:6px;border-bottom:1px solid #f1f3f5">'+esc(r.n)+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5;text-align:right;font-weight:700;color:'+ratingColor(secBand(r.p))+'">'+Math.round(r.p)+'%</td><td style="padding:6px;border-bottom:1px solid #f1f3f5;text-align:right">'+r.c.ok+'</td><td style="padding:6px;border-bottom:1px solid #f1f3f5;text-align:right">'+r.c.ng+'</td></tr>').join('')+'</table></div>';
+  }
   if(audit.overall_comments)h+='<div style="margin-bottom:14px;padding:10px;background:#fafbfe;border:1px solid #e5e9f0;border-radius:8px"><b style="font-size:11px">Overall Comments</b><div style="margin-top:4px">'+esc(audit.overall_comments)+'</div></div>';
 
   sections.forEach(s=>{
     if(!s.checkpoints||!s.checkpoints.length)return;
-    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">'+esc(s.name)+'</div>';
+    h+='<div style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;border-bottom:2px solid #f53b3b;display:inline-block;padding-bottom:3px">'+esc(s.name)+(function(){var c=secCountsOf(s.checkpoints),p=secPct(c);return p==null?'':' <span style="font-weight:400;font-size:11px;color:#64748b">· '+Math.round(p)+'% ('+c.ok+' OK · '+c.ng+' Issue)</span>';})()+'</div>';
     s.checkpoints.forEach(c=>{
       h+='<div style="border:1px solid #e5e9f0;border-radius:8px;padding:10px;margin-top:6px">';
       h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1;font-weight:600">'+esc(c.label)+'</div>'+respBadgePdf(c.response)+'</div>';
@@ -441,7 +506,7 @@ async function downloadReport(auditId){
 }
 
 // ---- Audit drill-down (all points incl OK) ----
-window.openAudit=async function(auditId){
+window.openAudit=async function(auditId,sectionName){
   var card=document.getElementById('audit-modal-card');
   document.getElementById('audit-modal').classList.add('show');
   var closeBtn='<button class="btn btn-ghost" onclick="document.getElementById(\'audit-modal\').classList.remove(\'show\')">Close</button>';
@@ -472,8 +537,12 @@ window.openAudit=async function(auditId){
     var html='<div class="between"><b>'+esc(hubName(a.hub_id))+' · '+fmtDate(a.audit_date)+'</b>'+closeBtn+'</div>';
     html+='<div class="sub" style="margin-bottom:10px">Auditor: '+esc(audName(a.auditor_id))+' · Score '+Math.round(a.overall_score)+' · '+esc(a.rating)+' · Risk '+esc(a.risk_band)+'</div>';
     if(!resp.length){html+='<div class="muted">No checkpoint responses recorded for this audit.</div>';}
+    var secStat={},secOrder=[];
+    resp.forEach(function(r){var n=r._sec.name;if(!secStat[n]){secStat[n]={ok:0,ng:0,na:0,nc:0};secOrder.push(n);}var v=r.response;if(v==='OK')secStat[n].ok++;else if(v==='NG')secStat[n].ng++;else if(v==='NA')secStat[n].na++;else secStat[n].nc++;});
+    var strip=secOrder.map(function(n,k){var p=secPct(secStat[n]);if(p==null)return '';var t=RTINT[secBand(p)]||['#f8fafc','#475569'];return '<span class="pill" title="'+esc(secTip(n,secStat[n]))+'" style="background:'+t[0]+';color:'+t[1]+';margin:0 6px 6px 0;cursor:pointer" onclick="var e=document.getElementById(\'sec-'+k+'\');if(e)e.scrollIntoView({block:\'start\'})">'+esc(n)+' · '+Math.round(p)+'%</span>';}).join('');
+    if(strip)html+='<div style="margin-bottom:6px"><div class="sub" style="margin-bottom:4px">Section scores (OK ÷ OK + Issue)</div>'+strip+'</div>';
     var curSec='';
-    resp.forEach(function(r,i){var sec=r._sec.name;if(sec!==curSec){curSec=sec;html+='<div style="font-weight:700;margin:10px 0 4px">'+esc(sec)+'</div>';}
+    resp.forEach(function(r,i){var sec=r._sec.name;if(sec!==curSec){curSec=sec;var sp=secPct(secStat[sec]);html+='<div id="sec-'+secOrder.indexOf(sec)+'" style="font-weight:700;margin:10px 0 4px">'+esc(sec)+(sp==null?'':' · '+Math.round(sp)+'% <span class="sub" style="font-weight:400">('+secStat[sec].ok+' OK · '+secStat[sec].ng+' Issue)</span>')+'</div>';}
       var rv=r.response;var col=rv==='OK'?'#16a34a':(rv==='NG'?'#dc2626':'#94a3b8');var lbl=rv==='NG'?'Issue':(rv||'—');
       var tg=tagBy[r.id]||[];var ph=photoBy[r.id]||[];
       var isVehQ=/any issue is observed/i.test(r._label||'');
@@ -495,6 +564,7 @@ window.openAudit=async function(auditId){
       html+='</div>';
     });
     card.innerHTML=html;
+    if(sectionName){var sk=secOrder.indexOf(sectionName);if(sk>=0){var he=document.getElementById('sec-'+sk);if(he)he.scrollIntoView({block:'start'});}}
     resp.forEach(function(r,i){var ph=photoBy[r.id]||[];if(ph.length)loadImgs('rp-'+i,ph);});
     vehicles.forEach(function(v,i){var vph=vphotoBy[v.id]||[];if(vph.length)loadImgs('vp-'+i,vph);});
   }catch(e){card.innerHTML='<div class="between"><b>Audit detail</b>'+closeBtn+'</div><div class="err">'+esc(e.message)+'</div>';}
