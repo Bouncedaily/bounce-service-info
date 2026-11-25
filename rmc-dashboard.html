@@ -1352,7 +1352,7 @@ function viewWeekly(){
       +'<div class="tw"><table>'+head+rows+'</table></div></div>'; });
   h+='<div class="note">Weeks run Monday to Sunday; a week with fewer than 7 days is partial (job-card data starts on 1 Jul 2026, and the month in progress is covered up to the last day of its cost file). Parts (A, P, C) are each month\u2019s cost-file total split by each day\u2019s share of that month\u2019s job-card amounts, so the weeks add up to the month. Where a month\u2019s job-card data and its cost file differ a lot for a city (for example Mumbai in August), that month is spread evenly over its days instead of by job-card share. '
     +'Labour, other maintenance, damage fee, recovery and km are the monthly figure spread evenly over the days (est.); a dash means that month\u2019s input is not entered, and * means a damage fee or recovery input is missing. \u2020 = damage fee taken from the portal. Warranty (W) and free-of-cost (F) parts are not split by week. '
-    +'Bikes serviced counts different bikes within the week. Parts per job card counts part units of \u20b910 and above on A and P lines. Weekly view is by city; Hub, Model, Deployed-year and Submission-type filters do not apply. Colours compare each week with the week before and are left off the rows marked est. (their changes only show where a month starts), the neutral rows, and partial weeks.</div>';
+    +'Bikes serviced counts different bikes within the week. Parts per job card counts part units of \u20b910 and above on A, P and C lines. Weekly view is by city; Hub, Model, Deployed-year and Submission-type filters do not apply. Colours compare each week with the week before and are left off the rows marked est. (their changes only show where a month starts), the neutral rows, and partial weeks.</div>';
   return h; }
 
 function viewOverviewMonthly(model){
@@ -1403,9 +1403,11 @@ function viewOverviewMonthly(model){
 /* ---------- cost drivers and "what moved the cost" (wiki: metrics/cost-drivers.md) ---------- */
 function sumC(city, map, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var v=(map||{})[c+'|'+m]; if(v!=null){ t+=v; any=true; } }); return any?t:null; }
 function refurbAmt(city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var v=(state.refurb[c]||{})[m]; if(v!=null){ t+=v; any=true; } }); return any?t:null; }
-// part units on A and P lines, leaving out items under Rs 10 a unit (screws, clips, cable ties: ~55% of units, ~1.4% of cost)
+// part units on A, P and C lines, leaving out items under Rs 10 a unit (screws, clips, cable ties: ~55% of units, ~1.4% of cost)
+// 25 Nov 2026: C lines are counted too. The cost (A + P + C) includes parts that arrive tagged C at source (more of them since 23 Oct); leaving their units out made
+// "Avg cost per part" jump (Bangalore Nov 1-22: 179 instead of about 165) and "Parts per job card" dip.
 function partUnits(city, m){ var cs=city==='ALL'?state.F.cities:[city], u=0;
-  state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || (r.issue!=='A'&&r.issue!=='P') || !(r.qty>0)) return; if(r.amt/r.qty>=10) u+=r.qty; }); return u||null; }
+  state.store.rows.forEach(function(r){ if(r.month!==m || cs.indexOf(r.city)<0 || r.cat!=='Part' || (r.issue!=='A'&&r.issue!=='P'&&r.issue!=='C') || !(r.qty>0)) return; if(r.amt/r.qty>=10) u+=r.qty; }); return u||null; }
 // Money that comes back: monthly input first (Rules & settings), else the portal figure (rider: damage fee collected; scrap: Cost Savings dashboard scrap sale revenue, shared by city).
 // Revenue recovery and insurance claim have no portal source. Returns {v, fb (any city used the portal figure), miss (any city has nothing)}.
 function recovAmt(kind, city, m){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false, fb=false, miss=false, fbAmt=0;
