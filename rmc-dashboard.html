@@ -1117,6 +1117,7 @@ function cityCompareHtml(model){
   h+=dline('Avg cost per part (\u20b9, A+P+C)',dv('cpp'),F1,1);
   h+=catSplit('Avg cost per part (\u20b9, A+P+C)','Avg cost per part','cpp',F1);
   h+=dline('Parts cost per job card (\u20b9)',dv('pcj'),F0,1);
+  h+=catSplit('Parts cost per job card (\u20b9)','Parts cost per job card','pcj',F0);   // 25 Nov 2026: A, P, C under this row too
   h+=dline('Job cards with A+P parts over \u20b93,000',dv('ap3k'),function(v){ return v==null||!isFinite(v)?'\u2013':(v*100).toFixed(1)+'%'; },1);
   h+=dline('Refurbishment saving (\u20b9 per bike)',dv('ref'),F0,-1);
   h+=dline('Refurb penetration (refurbished \u00f7 refurbished + new)',dv('rpen'),FP,-1);
@@ -1334,6 +1335,8 @@ function viewWeekly(){
       var dm=ccOn('dmg')?(o.dmg||0):0, rc=ccOn('rec')?(o.rec||0):0, net=g.v-dm-rc, star=((ccOn('dmg')&&o.dmg==null)||(ccOn('rec')&&o.rec==null))?'*':'';
       return dispCell(mv(o,net), g.v?net/g.v:null, 'font-weight:700;'+(nb[i]||'')).replace('</td>',(o.fb?'\u2020':'')+star+(i===lf?badge(nv,1):'')+'</td>'); }).join('')+'</tr>';
     rows+='<tr><td style="color:#6b7280">Parts total (A+P+C)</td>'+os.map(function(o,i){ if(!o) return '<td>\u2013</td>'; var t=o.a+o.p+o.c; return ddTd(dispCell(mv(o,t), G[i].v?t/G[i].v:null, 'color:#6b7280'),'ALL',city,weeks[i]); }).join('')+'</tr>';
+    var drvSub=function(label,num,fm,dir){ var vals=os.map(function(o,i){ return (o&&full(i))?num(o):null; }), bg=shade(vals,dir||0);   // 25 Nov 2026: indented row under its parent
+      return '<tr><td style="padding-left:18px;color:#475569">'+label+'</td>'+os.map(function(o,i){ if(!o) return '<td>\u2013</td>'; return '<td'+(bg[i]?' style="'+bg[i]+'"':'')+'>'+fm(num(o))+(i===lf?badge(vals,dir||0):'')+'</td>'; }).join('')+'</tr>'; };
     var drv=function(label,num,fm,dir){ var vals=os.map(function(o,i){ return (o&&full(i))?num(o):null; }), bg=shade(vals,dir||0);
       return '<tr><td>'+label+'</td>'+os.map(function(o,i){ if(!o) return '<td>\u2013</td>'; return '<td'+(bg[i]?' style="'+bg[i]+'"':'')+'>'+fm(num(o))+(i===lf?badge(vals,dir||0):'')+'</td>'; }).join('')+'</tr>'; };
     rows+='<tr><td colspan="'+(weeks.length+1)+'" style="padding:10px 8px 4px;font-weight:700;color:#0f172a;border-top:2px solid #cbd5e1">Cost drivers</td></tr>';
@@ -1349,6 +1352,7 @@ function viewWeekly(){
     rows+=drv('Parts per job card (excl. items under \u20b910)',function(o){ return ratio(o.units,o.jcs); },F2,1);
     rows+=drv('Avg cost per part (\u20b9, A+P+C)',function(o){ return ratio(o.a+o.p+o.c,o.units); },F1,1);
     rows+=drv('Parts cost per job card (\u20b9)',function(o){ return ratio(o.a+o.p+o.c,o.jcs); },F0,1);
+    [['a','A: Wear & Tear'],['p','P: Rider-payable'],['c','C: Cost to company']].forEach(function(x){ rows+=drvSub(x[1],function(o){ return ratio(o[x[0]],o.jcs); },F0,1); });
     rows+=drv('Job cards with A+P parts over \u20b93,000',function(o){ return ratio(o.ap3,o.jcs); },FP1,1);
     rows+=drv('Running repair + bike exchange back within 7 days',function(o){ return ratio(o.rr7,o.rr); },FP1,1);
     rows+=drv('Avg service TAT (hours)',function(o){ return ratio(o.tatS,o.tatN); },F1,1);
@@ -1503,7 +1507,7 @@ function driverVals(city, m, d){
     rdays:(function(){ var cs=city==='ALL'?state.F.cities:[city], t=0, any=false; cs.forEach(function(c){ var r=(state.rental||{})[c+'|'+m]; if(r){ t+=r.rd; any=true; } }); return any?t:null; })(),
     util:(function(){ var cs=city==='ALL'?state.F.cities:[city], rd=0, cap=0, dd=periodDays(m); cs.forEach(function(c){ var r=(state.rental||{})[c+'|'+m]; if(r&&r.fleet){ rd+=r.rd; cap+=r.fleet*dd; } }); return cap?rd/cap:null; })(),   // 3 Nov 2026: job cards billed this month that were open 30+ days
     smo:(function(){ var e=extrasFor(city,m); return (e&&e.smd)?e.sm/e.smd:null; })(),   // 3 Nov 2026: % of job cards billed this month that were also opened this month   // 3 Nov 2026: avg service TAT, hours (job card opened -> billed)
-    sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), ppjA:q(uA,jcs), ppjP:q(uP,jcs), ppjC:q(uC,jcs), cppA:q(d?d.A:null,uA), cppP:q(d?d.P:null,uP), cppC:q(d?d.C:null,uC), pcj:q(parts,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
+    sr:q(bikes,fleet), jpb:q(jcs,bikes), ppj:q(units,jcs), cpp:q(parts,units), ppjA:q(uA,jcs), ppjP:q(uP,jcs), ppjC:q(uC,jcs), cppA:q(d?d.A:null,uA), cppP:q(d?d.P:null,uP), cppC:q(d?d.C:null,uC), pcj:q(parts,jcs), pcjA:q(d?d.A:null,jcs), pcjP:q(d?d.P:null,jcs), pcjC:q(d?d.C:null,jcs), lcj:q(lab,jcs), ref:q(ref,fleet),
     visits:q(jcs,fleet), pb:q(parts,fleet), lb:q(lab,fleet), ob:q(oth,fleet) };
 }
 function driversHtml(city, ms, model){
@@ -1517,7 +1521,7 @@ function driversHtml(city, ms, model){
   var f2=function(v){return v==null?'\u2013':v.toFixed(2);}, f0=function(v){return v==null?'\u2013':Math.round(v).toLocaleString('en-IN');}, fp=function(v){return v==null?'\u2013':Math.round(v*100)+'%';}, f1=function(v){return v==null?'\u2013':v.toFixed(1);};
   var rows=[['Total service cost (\u20b9 per bike)','totb',f0],['Less: revenue damage fee','rrb',f0,'rr'],['Net service cost \u00b7 less damage fee + recovery (\u20b9 per bike)','netb',f0,'net'],['Service rate (bikes serviced \u00f7 bikes deployed)','sr',fp],['Job cards per serviced bike','jpb',f2],['Parts per job card (excl. items under \u20b910)','ppj',f2],['Avg cost per part (\u20b9, A+P+C)','cpp',f1],['Parts cost per job card (\u20b9)','pcj',f0],['Refurbishment saving (\u20b9 per bike)','ref',f0],['Refurb penetration (refurbished \u00f7 refurbished + new)','rpen',fp],['Km per bike per day','kmpd',f1],['Parts cost per 100 km (\u20b9)','p100',f1],['Top 10 parts share of parts cost','top10',fp],['Running repair + bike exchange: back within 7 days','rr7',fp],['Avg service TAT (hours, job card opened \u2192 billed)','tat',f1],['Job cards open 30+ days (billed this month)','lc30',f0],['Job cards billed this month that were opened this month','smo',fp],['Bikes deployed (avg fleet)','fleet',f0],['Active rental days (bookings)','rdays',f0],['Utilisation','util',fp],['Job cards with A+P parts over \u20b93,000','ap3k',fp],['Bikes serviced','bikes',f0],['Inflow, all types','infl',f0],['Job cards','jcs',f0],['Job cards with parts','jpc',f0],['Labour-only job cards','lbo',f0]];
   var _ix=-1; rows.forEach(function(r,i){ if(r[1]==='infl') _ix=i; }); if(_ix>=0) _it.slice().reverse().forEach(function(g){ rows.splice(_ix+1,0,['Inflow \u00b7 '+g,'infl:'+g,f0,'isub']); });   // split rows right under "Inflow, all types"
-  [['ppj','Parts per job card (excl. items under \u20b910)','Parts per job card',f2],['cpp','Avg cost per part (\u20b9, A+P+C)','Avg cost per part',f1]].forEach(function(g){ var ix=-1; rows.forEach(function(r,i){ if(r[1]===g[0]) ix=i; });   // 25 Nov 2026: A, P, C right under these two rows
+  [['ppj','Parts per job card (excl. items under \u20b910)','Parts per job card',f2],['cpp','Avg cost per part (\u20b9, A+P+C)','Avg cost per part',f1],['pcj','Parts cost per job card (\u20b9)','Parts cost per job card',f0]].forEach(function(g){ var ix=-1; rows.forEach(function(r,i){ if(r[1]===g[0]) ix=i; });   // 25 Nov 2026: A, P, C right under these two rows
     if(ix>=0) [['C','C: Cost to company'],['P','P: Rider-payable'],['A','A: Wear & Tear']].forEach(function(x){ rows.splice(ix+1,0,[x[1],g[0]+x[0],g[3],'psub',g[1],g[2]+' \u00b7 '+x[0]]); }); });
   var h='<div class="card" style="margin-top:12px"><h3>'+cityName(city)+(city==='ALL'?' combined':'')+' \u00b7 cost drivers</h3><div class="tw"><table><tr><th>Driver</th>'+ms.map(function(m){return '<th>'+lbl(m)+'</th>';}).join('')+(full.length>1?'<th>Avg '+C.monthLabel(ms[full[0]])+'\u2013'+C.monthLabel(ms[full[full.length-1]])+'</th>':'')+'</tr>';
   var mark=function(r,v){ if(r[3]==='isub'){ var tt=v.infl, xx=v[r[1]]; return (tt&&xx!=null)?' <span style="font-size:11px;color:#94a3b8">'+Math.round(100*xx/tt)+'%</span>':''; } if(r[3]==='rr') return v.rrFb?'\u2020':(v.rrMiss?'*':''); if(r[3]==='sc') return v.scFb?'\u2020':(v.scMiss?'*':''); if(r[3]==='ic') return v.icMiss?'*':''; if(r[3]==='rv') return v.rvMiss?'*':''; if(r[3]==='net') return v.rrFb?'\u2020':((v.rvMiss||v.rrMiss)?'*':''); if(r[3]==='net1') return v.rrFb?'\u2020':(v.rrMiss?'*':''); return ''; };
