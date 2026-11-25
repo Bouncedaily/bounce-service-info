@@ -676,6 +676,26 @@ body { overflow:auto!important; }
     </div>
   </div>
 
+  <!-- OOS by Department (added 24 Nov 2026) -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd"><h2>OOS by Department × Hub</h2><span class="sub">who the bike is waiting on</span></div>
+      <div class="tbl" id="dept-tbl-wrap">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OOS by Sub-category (added 24 Nov 2026) -->
+  <div class="grid-1">
+    <div class="card">
+      <div class="card-hd"><h2>OOS by Sub-category × Hub</h2><span class="sub">department › category / scenario / PO</span></div>
+      <div class="tbl" id="subcat-tbl-wrap">
+        <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Not billed, OOS -->
   <div class="grid-1">
     <div class="card">
@@ -2180,6 +2200,7 @@ function render({ summary, oosDetail, inflow, outflow }) {
   renderRepairAging(outflow);
   renderAgingPivot(oosDetail);
   renderRepairPivot(oosDetail);
+renderDeptSummary(oosDetail);
   loadNotBilledOOSEntry();
   loadNotBilledNotOOSEntry();
   loadJBOEntry();
@@ -2275,6 +2296,10 @@ const REMARK_OPTIONS = [
 ];
 
 const REMARKS_CACHE = {}; // key: `${reg_number}|${oos_since}` -> {remark_type, remark_text}
+// 24 Nov 2026: the Department / Sub-category summaries count only SAVED remarks (REMARKS_CACHE also holds rows that are still being edited)
+const REMARKS_SAVED = {};          // same key -> the saved record
+const REMARKS_FETCHED = new Set(); // reg numbers whose remarks the summaries have already loaded
+let DEPT_SEQ = 0;
 
 async function authHDR() {
   const token = window.authGetValidToken ? await window.authGetValidToken() : (window.authGetToken ? window.authGetToken() : ANON);
@@ -2315,6 +2340,7 @@ async function loadRemarksFor(rows, _attempt) {
       const data = await res.json();
       data.forEach(rec => {
         REMARKS_CACHE[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text, department: rec.department, po_number_category: rec.po_number_category };
+        REMARKS_SAVED[remarkKey(rec.reg_number, rec.oos_since)] = { remark_type: rec.remark_type, remark_text: rec.remark_text, department: rec.department, po_number_category: rec.po_number_category };
       });
       return true;
     } catch (e) {
@@ -2625,6 +2651,8 @@ async function saveRow(btnEl, regNumber, oosSince) {
       return;
     }
     btnEl.textContent = 'Saved ✓';
+    REMARKS_SAVED[remarkKey(regNumber, oosSince)] = { remark_type: 'Other', remark_text: remarkText, department: department, po_number_category: payload.po_number_category };
+    if (LAST_OOS_DETAIL && LAST_OOS_DETAIL.length) renderDeptSummary(LAST_OOS_DETAIL);   // keep the Department / Sub-category summaries in step
     btnEl.style.background = 'var(--green,#16a34a)';
     setTimeout(() => { btnEl.disabled = false; btnEl.textContent = originalLabel; btnEl.style.background = 'var(--red,#dc2626)'; }, 1500);
   } catch (e) {
@@ -2908,6 +2936,76 @@ function renderAgingPivot(oos) {
   html += `<td class="num cell-click" onclick='openOOSDrilldown(${JSON.stringify("oos_aging_bucket")},null,null)'>${grandTotal}</td></tr>`;
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+// 24 Nov 2026: OOS bikes by Department and by Sub-category (what each bike is waiting on), same Hub columns as the other pivots.
+// Sub-category = the PO Number / Category box: a category for Service, a scenario for Side stand, a PO number for Spares; Ops has only remarks.
+const DEPT_ORDER = ['Ops', 'Service', 'Spares', 'Side stand'];
+const DEPT_NONE = 'Not updated';
+const SUB_SPARES = ['PO number entered', 'PO number is a placeholder (e.g. PO0000000000)', 'PO number not valid', 'No PO number'];
+function deptSubOf(rec) {   // -> [department, sub-category]
+  const d = rec && rec.department ? rec.department : '';
+  const c = rec && rec.po_number_category ? rec.po_number_category : '';
+  if (!d) return [DEPT_NONE, 'No department or remark yet'];
+  if (d === 'Service') return [d, SERVICE_CATEGORY_OPTIONS.includes(c) ? c : 'Category not selected'];
+  if (d === 'Side stand') return [d, SIDE_STAND_OPTIONS.includes(c) ? c : 'Scenario not selected'];
+  if (d === 'Spares') return [d, !c ? 'No PO number' : (/^PO(\d)\1{9}$/.test(c) ? SUB_SPARES[1] : (PO_NUMBER_PATTERN.test(c) ? SUB_SPARES[0] : SUB_SPARES[2]))];
+  if (d === 'Ops') return [d, (rec.remark_text || '').trim() ? 'Remark given' : 'No remark text'];
+  return [d, c || 'No sub-category'];
+}
+function subOrderFor(d) {
+  if (d === 'Ops') return ['Remark given', 'No remark text'];
+  if (d === 'Service') return SERVICE_CATEGORY_OPTIONS.concat(['Category not selected']);
+  if (d === 'Spares') return SUB_SPARES;
+  if (d === 'Side stand') return SIDE_STAND_OPTIONS.concat(['Scenario not selected']);
+  if (d === DEPT_NONE) return ['No department or remark yet'];
+  return [];
+}
+function deptEsc(v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function deptQ(v) { return JSON.stringify(v).replace(/'/g, '&#39;'); }
+function deptPivot(oos, field, rowDefs, firstHead) {
+  const hubs = [...new Set(oos.map(r => r.hub_name).filter(Boolean))].sort();
+  const grand = oos.length;
+  const stats = list => { const ages = list.map(r => Number(r.oos_age)).filter(a => !isNaN(a)); return { avg: ages.length ? (ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1) : '—', old: list.filter(r => Number(r.oos_age) >= 8).length }; };
+  const clickCell = (key, hub, n, bold) => n ? `<td class="num cell-click"${bold ? ' style="font-weight:600"' : ''} onclick='openOOSDrilldown(${deptQ(field)},${deptQ(key)},${deptQ(hub)})'>${n}</td>` : '<td class="num"></td>';
+  let html = `<table><thead><tr><th>${firstHead}</th>`;
+  hubs.forEach(h => html += `<th class="num">${deptEsc(h)}</th>`);
+  html += '<th class="num">Total</th><th class="num">% of OOS</th><th class="num">Avg days OOS</th><th class="num">8+ days</th></tr></thead><tbody>';
+  rowDefs.forEach(def => {
+    const list = oos.filter(r => r[field] === def.key); if (!list.length) return;
+    const st = stats(list);
+    html += `<tr><td>${def.label}</td>`;
+    hubs.forEach(h => html += clickCell(def.key, h, list.filter(r => r.hub_name === h).length, false));
+    html += clickCell(def.key, null, list.length, true) + `<td class="num">${Math.round(100 * list.length / grand)}%</td><td class="num">${st.avg}</td><td class="num">${st.old}</td></tr>`;
+  });
+  const all = stats(oos);
+  html += '<tr class="tfoot"><td>Total</td>';
+  hubs.forEach(h => html += clickCell(null, h, oos.filter(r => r.hub_name === h).length, false));
+  html += clickCell(null, null, grand, false) + `<td class="num">100%</td><td class="num">${all.avg}</td><td class="num">${all.old}</td></tr></tbody></table>`;
+  return html;
+}
+async function renderDeptSummary(oos) {
+  const w1 = document.getElementById('dept-tbl-wrap'), w2 = document.getElementById('subcat-tbl-wrap');
+  if (!w1 || !w2) return;
+  const seq = ++DEPT_SEQ;
+  if (!oos || !oos.length) { w1.innerHTML = w2.innerHTML = '<div class="empty">No OOS bikes for selected filters</div>'; return; }
+  const need = oos.filter(r => r.reg_number && !REMARKS_FETCHED.has(r.reg_number));
+  if (need.length) {
+    w1.innerHTML = w2.innerHTML = '<div class="empty"><span class="spin"></span></div>';
+    const ok = await loadRemarksFor(need);
+    if (seq !== DEPT_SEQ) return;   // a newer render took over while the remarks were loading
+    if (!ok) { w1.innerHTML = w2.innerHTML = '<div class="empty">Remarks could not be loaded. <a href="#" onclick="renderDeptSummary(LAST_OOS_DETAIL);return false;">Retry</a></div>'; return; }
+    need.forEach(r => REMARKS_FETCHED.add(r.reg_number));
+  }
+  oos.forEach(r => { const ds = deptSubOf(REMARKS_SAVED[remarkKey(r.reg_number, r.latest_oos_date)]); r.dept_grp = ds[0]; r.dept_sub = ds[0] + ' › ' + ds[1]; });
+  const depts = DEPT_ORDER.concat([DEPT_NONE]); [...new Set(oos.map(r => r.dept_grp))].forEach(d => { if (!depts.includes(d)) depts.push(d); });
+  w1.innerHTML = deptPivot(oos, 'dept_grp', depts.map(d => ({ key: d, label: deptEsc(d) })), 'Department');
+  const subs = [];
+  depts.forEach(d => {
+    const order = subOrderFor(d); [...new Set(oos.filter(r => r.dept_grp === d).map(r => r.dept_sub.slice(d.length + 3)))].forEach(x => { if (!order.includes(x)) order.push(x); });
+    order.forEach(sname => subs.push({ key: d + ' › ' + sname, label: `<span style="color:var(--muted,#64748b)">${deptEsc(d)} ›</span> ${deptEsc(sname)}` }));
+  });
+  w2.innerHTML = deptPivot(oos, 'dept_sub', subs, 'Department › Sub-category');
 }
 
 const CAT_ORDER = ['Minor', 'Medium', 'Major', 'Detailed Inspection Required'];
