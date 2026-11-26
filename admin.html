@@ -179,6 +179,20 @@
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Page errors · last 7 days</div>
         <div class="adm-help" style="margin:0 0 8px">Errors people hit on any portal page (page crashes and failed data loads), with who saw them and when. Use it to spot a broken dashboard before someone reports it.</div>
         <div class="tbl" style="margin-bottom:16px"><table><thead><tr><th>Last seen</th><th>Page</th><th>Type</th><th>Error</th><th>Times</th><th>People</th><th>Last user</th></tr></thead><tbody id="err-tbody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody></table></div>
+        <!-- Data checks (26 Nov 2026) -->
+        <div id="dc-block" style="margin:0 0 18px">
+          <style>@media (max-width:760px){ #dc-block table, #dc-block tbody, #dc-block tr, #dc-block td{display:block;width:auto!important} #dc-block thead{display:none} #dc-block tr{border-bottom:1px solid var(--border);padding:8px 0} #dc-block td{border:0!important;padding:3px 12px!important} #dc-summary > div{flex:1 1 38%!important} }</style>
+          <div style="display:flex;align-items:center;gap:8px;margin:4px 0 6px;flex-wrap:wrap">
+            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Data checks</div>
+            <span id="dc-when" style="font-size:11.5px;color:var(--muted)"></span>
+            <button class="btn" id="dc-run" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="runDataChecks()">&#9654; Run now</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;margin:0 0 10px">Can the numbers on the dashboards be trusted? These checks look at whether the data is current, whether totals from different sources agree, whether it is clean, and whether the figures you type have been entered. They run every morning at 8:40 AM IST; <b>Run now</b> checks again straight away. "Data freshness" below only shows when each table last synced.</div>
+          <div id="dc-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px"></div>
+          <div class="tbl" style="margin-bottom:8px"><table><thead><tr><th style="width:28%">Check</th><th style="width:34%">Result</th><th style="width:120px">Status</th><th>What it means</th></tr></thead><tbody id="dc-tbody"><tr><td colspan="4" class="empty"><span class="spin"></span>Loading…</td></tr></tbody></table></div>
+          <label style="font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="dc-show-ok" onchange="renderDataChecks()"> Show passing checks</label>
+          <div id="dc-history" style="margin-top:10px"></div>
+        </div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">Data freshness</div>
         <div class="tbl" style="margin-bottom:16px">
           <table>
@@ -750,6 +764,38 @@ async function abdSet(email, key, val) {
   showToast(`${val ? 'Gave' : 'Removed'} ${dashLabel(key)} ${val ? 'to' : 'from'} ${u.name || email}`);
   await loadUsers(); loadAuditLog();
 }
+// ─── Data checks (System Health) ─────
+let DC = null;
+const dcPill = st => { const m = { OK: ['#052e16', '#4ade80', 'Passing'], WARN: ['#422006', '#fbbf24', 'Warning'], FAIL: ['#450a0a', '#fca5a5', 'Needs attention'] }[st] || ['#1e293b', '#cbd5e1', st]; return `<span class="pill" style="background:${m[0]};color:${m[1]}">${m[2]}</span>`; };
+const dcTime = d => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+const dcUnit = (v, u) => { u = u || ''; return +v !== 1 ? u : u.replace(/^lines$/, 'line').replace(/^cities$/, 'city').replace(/^parts$/, 'part').replace(/^cities missing$/, 'city missing').replace(/^audits that differ$/, 'audit that differs').replace(/^rows apart$/, 'row apart').replace(/^days /, 'day '); };
+const dcNum = v => v == null ? '\u2014' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 1 });
+async function loadDataChecks() {
+  const tb = document.getElementById('dc-tbody'); if (!tb) return;
+  try { DC = await arpc('get_data_checks', {}); renderDataChecks(); }
+  catch (e) { tb.innerHTML = `<tr><td colspan="4" class="empty">Could not load: ${ae(e.message)}</td></tr>`; }
+}
+async function runDataChecks() {
+  const b = document.getElementById('dc-run'); if (b) { b.disabled = true; b.textContent = 'Running\u2026'; }
+  try { DC = await arpc('run_data_checks', {}); renderDataChecks(); showToast('Data checks done'); }
+  catch (e) { showToast('\u274c ' + e.message, 'err'); }
+  if (b) { b.disabled = false; b.innerHTML = '&#9654; Run now'; }
+}
+function renderDataChecks() {
+  const tb = document.getElementById('dc-tbody'); if (!tb) return;
+  if (!DC || !DC.last_run) { tb.innerHTML = '<tr><td colspan="4" class="empty">No run yet. Press Run now.</td></tr>'; document.getElementById('dc-summary').innerHTML = ''; return; }
+  const lr = DC.last_run, res = DC.results || [], showOk = !!(document.getElementById('dc-show-ok') || {}).checked;
+  document.getElementById('dc-when').textContent = `Last run ${dcTime(lr.run_at)} IST \u00b7 ${({ daily: 'daily run', manual: 'run by hand' })[lr.trigger] || 'first run'}`;
+  const box = (label, val, col) => `<div style="flex:1 1 140px;border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600">${label}</div><div style="font-size:22px;font-weight:700;color:${col}">${val}</div></div>`;
+  document.getElementById('dc-summary').innerHTML = box('Need attention', lr.n_fail, lr.n_fail ? '#fca5a5' : 'var(--text)') + box('Warnings', lr.n_warn, lr.n_warn ? '#fbbf24' : 'var(--text)') + box('Passing', lr.n_ok, '#4ade80') + box('Checks run', lr.n_ok + lr.n_warn + lr.n_fail, 'var(--text)');
+  const shown = res.filter(r => showOk || r.status !== 'OK');
+  const thr = r => (+r.fail_at <= +r.warn_at ? `Needs attention at ${dcNum(r.fail_at)}` : (+r.fail_at < 99 ? `Warning at ${dcNum(r.warn_at)}, needs attention at ${dcNum(r.fail_at)}` : `Warning at ${dcNum(r.warn_at)}`));
+  tb.innerHTML = shown.length ? shown.map(r => { const isNew = r.status !== 'OK' && r.prev_status === 'OK';
+    return `<tr${r.status === 'FAIL' ? ' style="background:rgba(220,38,38,.06)"' : ''}><td style="font-weight:600">${ae(r.title)}<div style="font-size:11px;color:var(--muted);font-weight:400">${ae(r.area)}</div></td><td>${r.value == null ? '\u2014' : ae(dcNum(r.value))} <span style="font-size:11.5px;color:var(--muted)">${ae(dcUnit(r.value, r.unit))}</span>${r.note ? `<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${ae(r.note)}</div>` : ''}</td><td>${dcPill(r.status)}${isNew ? '<div style="font-size:10.5px;color:#fbbf24;margin-top:3px">new since last run</div>' : ''}</td><td style="font-size:12px;color:var(--muted);line-height:1.5">${ae(r.help || '')}<div style="font-size:11px;margin-top:3px">${ae(thr(r))}</div></td></tr>`; }).join('')
+    : '<tr><td colspan="4" class="empty">Every check is passing.</td></tr>';
+  const h = (DC.history || []).slice(-14);
+  document.getElementById('dc-history').innerHTML = h.length > 1 ? `<div style="font-size:11.5px;color:var(--muted);margin-bottom:4px">Last ${h.length} runs, oldest to newest (red = something needs attention, amber = warnings only, green = all passing)</div><div style="display:flex;gap:4px;flex-wrap:wrap">` + h.map(x => `<span title="${ae(dcTime(x.run_at))}: ${x.n_fail} need attention, ${x.n_warn} warnings, ${x.n_ok} passing" style="width:18px;height:18px;border-radius:4px;background:${x.n_fail ? '#ef4444' : x.n_warn ? '#f59e0b' : '#22c55e'}"></span>`).join('') + '</div>' : '';
+}
 // ─── Data freshness (System Health) ─────
 async function loadFreshness() {
   const tb = document.getElementById('fresh-tbody'); if (!tb) return;
@@ -1000,6 +1046,7 @@ async function loadClientErrors() {
 async function loadCronHealth() {
   loadClientErrors();
   loadFlowGaps();
+  loadDataChecks();
   loadFreshness();
   loadFreshnessChecks();
   const tbody = document.getElementById('health-tbody');
