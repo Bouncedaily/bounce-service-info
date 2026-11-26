@@ -294,7 +294,7 @@ tr:hover td { background: var(--bg); }
     <div class="card">
       <div class="card-hd">
         <h2>Part category summary</h2>
-        <span class="sub">Verdict = replacements per 1 lakh km run, test vs OEM (running parts included)</span>
+        <span class="sub">Verdict = replacements per 1 lakh km run, test vs OEM (running parts included) · Replacement KM = average km at replacement, replaced parts only</span>
       </div>
       <div id="summary-body">
         <div class="loading"><div class="spin"></div> Loading summary…</div>
@@ -761,7 +761,7 @@ function renderSummary() {
         <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">Test</th>
         <th colspan="3" style="text-align:center;border-left:1px solid var(--border)">OEM</th>
         <th rowspan="2" style="width:16%">Running KM</th>
-        <th rowspan="2" style="width:16%" title="Replacements per 1 lakh km run, counting every km including parts still running. Lower is better.">Replacements per 1 lakh km</th>
+        <th rowspan="2" style="width:16%" title="Average km the part had run when it was replaced. Replaced parts only: parts still running are not counted. Higher is better.">Replacement KM</th>
         <th rowspan="2" style="width:13%">Verdict</th>
       </tr>
       <tr>
@@ -787,8 +787,9 @@ function renderSummary() {
     const tAvg = avg(tRows.filter(r => r.status !== 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
     const oAvg = avg(oRows.filter(r => r.status !== 'Replaced' && r.km_on_part > 0).map(r => r.km_on_part));
     // Verdict — replaced only on both sides (true failure KM)
-    const tReplAvg = tRepl.length ? avg(tRepl.map(r=>r.km_on_part)) : 0;
-    const oReplAvg = oRepl.length ? avg(oRepl.map(r=>r.km_on_part)) : 0;
+    const tReplKm = tRepl.filter(r => r.km_on_part > 0).map(r => r.km_on_part), oReplKm = oRepl.filter(r => r.km_on_part > 0).map(r => r.km_on_part);   // 26 Nov 2026: replaced parts that ran some km, like the bar scale
+    const tReplAvg = tReplKm.length ? avg(tReplKm) : 0;
+    const oReplAvg = oReplKm.length ? avg(oReplKm) : 0;
 
     const tBarW    = maxKm ? Math.round(tAvg/maxKm*100) : 0;
     const oBarW    = maxKm ? Math.round(oAvg/maxKm*100) : 0;
@@ -828,21 +829,21 @@ function renderSummary() {
           </div>
         </div>
       </td>
-      <td class="km-cell" title="Avg km at replacement: Test ${tReplAvg ? fmt(tReplAvg) : '—'}, OEM ${oReplAvg ? fmt(oReplAvg) : '—'}">
+      <td class="km-cell" title="Replaced parts only. Test: ${tReplKm.length} of ${tRepl.length} replaced parts with km run. OEM: ${oReplKm.length} of ${oRepl.length}.">
         <div class="km-bars">
           <div class="km-bar-row">
             <span class="lbl"><span style="display:inline-block;width:6px;height:6px;background:var(--red);border-radius:1px;margin-right:2px;vertical-align:middle"></span>Test</span>
-            <div class="bar"><div style="width:${Math.round((pv.tRate || 0) / maxRate * 100)}%;background:var(--red)"></div></div>
-            <span class="val">${rateFmt(pv.tRate)}</span>
+            <div class="bar"><div style="width:${tReplBarW}%;background:var(--red)"></div></div>
+            <span class="val">${tReplAvg ? fmt(tReplAvg)+' km' : '—'}</span>
           </div>
           <div class="km-bar-row">
             <span class="lbl"><span style="display:inline-block;width:6px;height:6px;background:#94a3b8;border-radius:1px;margin-right:2px;vertical-align:middle"></span>OEM</span>
-            <div class="bar"><div style="width:${Math.round((pv.oRate || 0) / maxRate * 100)}%;background:var(--muted)"></div></div>
-            <span class="val">${rateFmt(pv.oRate)}</span>
+            <div class="bar"><div style="width:${oReplBarW}%;background:var(--muted)"></div></div>
+            <span class="val">${oReplAvg ? fmt(oReplAvg)+' km' : '—'}</span>
           </div>
         </div>
       </td>
-      <td>${verdict}</td>
+      <td title="Replacements per 1 lakh km run (running parts included): Test ${rateFmt(pv.tRate)}, OEM ${rateFmt(pv.oRate)}">${verdict}</td>
     </tr>`;
   });
 
